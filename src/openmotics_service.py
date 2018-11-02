@@ -42,9 +42,12 @@ from gateway.metrics_collector import MetricsCollector
 from gateway.metrics_caching import MetricsCacheController
 from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
+from gateway.pulses import PulseCounterController
 
 from bus.led_service import LedService
 
+from master.eeprom_controller import EepromController, EepromFile
+from master.eeprom_extension import EepromExtension
 from master.maintenance import MaintenanceService
 from master.master_communicator import MasterCommunicator, BackgroundConsumer
 from master.passthrough import PassthroughService
@@ -108,6 +111,10 @@ def main():
     power_serial = RS485(Serial(power_serial_port, 115200, timeout=None))
 
     master_communicator = MasterCommunicator(controller_serial)
+    eeprom_controller = EepromController(
+        EepromFile(master_communicator),
+        EepromExtension(constants.get_eeprom_extension_database_file())
+    )
 
     if passthrough_serial_port:
         passthrough_serial = Serial(passthrough_serial_port, 115200)
@@ -119,7 +126,13 @@ def main():
     power_controller = PowerController(constants.get_power_database_file())
     power_communicator = PowerCommunicator(power_serial, power_controller)
 
-    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller)
+    pulse_controller = PulseCounterController(
+        constants.get_pulse_counter_database_file(),
+        master_communicator,
+        eeprom_controller
+    )
+
+    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller)
 
     scheduling_controller = SchedulingController(constants.get_scheduling_database_file(), config_lock, gateway_api)
 
@@ -138,7 +151,7 @@ def main():
 
     # Metrics
     metrics_cache_controller = MetricsCacheController(constants.get_metrics_database_file(), threading.Lock())
-    metrics_collector = MetricsCollector(gateway_api)
+    metrics_collector = MetricsCollector(gateway_api, pulse_controller)
     metrics_controller = MetricsController(plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid)
     metrics_collector.set_controllers(metrics_controller, plugin_controller)
     metrics_collector.set_plugin_intervals(plugin_controller.metric_intervals)

@@ -1886,15 +1886,44 @@ class WebInterface(object):
         """
         return self._gateway_api.set_power_voltage(module_id, voltage)
 
+    @openmotics_api(auth=True, check=types(amount=int))
+    def set_pulse_counter_amount(self, amount):
+        """
+        Set the number of pulse counters. The minimum is 24, these are the pulse counters
+        that can be linked to an input. An amount greater than 24 will result in virtual
+        pulse counter that can be set through the API.
+
+        :param amount: The number of pulse counters.
+        :type amount: int
+        :returns: 'amount': number of pulse counters.
+        :rtype: dict
+        """
+        return {'amount': self._gateway_api.set_pulse_counter_amount(amount)}
+
     @openmotics_api(auth=True)
     def get_pulse_counter_status(self):
         """
         Get the pulse counter values.
 
-        :returns: 'counters': array with the 8 pulse counter values.
+        :returns: 'counters': array with the pulse counter values.
         :rtype: dict
         """
         return {'counters': self._gateway_api.get_pulse_counter_status()}
+
+    @openmotics_api(auth=True, check=types(pulse_counter_id=int, value=int))
+    def set_pulse_counter_status(self, pulse_counter_id, value):
+        """
+        Sets a pulse counter to a value. This can only be done for virtual pulse counters,
+        with a pulse_counter_id >= 24.
+
+        :param pulse_counter_id: The id of the pulse counter.
+        :type pulse_counter_id: int
+        :param value: The new value for the pulse counter.
+        :type value: int
+        :returns: 'value': the updated value of the pulse counter.
+        :rtype: dict
+        """
+        return {'value': self._gateway_api.set_pulse_counter_status(pulse_counter_id, value)}
 
     @openmotics_api(auth=True, check=types(module_id=int, input_id=int))
     def get_energy_time(self, module_id, input_id=None):
@@ -1967,7 +1996,7 @@ class WebInterface(object):
         config = ConfigParser.ConfigParser()
         config.read(constants.get_config_file())
         return {'version': str(config.get('OpenMotics', 'version')),
-                'gateway': '2.7.3'}
+                'gateway': '2.8.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
