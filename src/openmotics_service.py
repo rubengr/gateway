@@ -140,17 +140,18 @@ def main():
 
     scheduling_controller.set_webinterface(web_interface)
 
+    # Plugins
     plugin_controller = PluginController(web_interface, config_controller)
-
     web_interface.set_plugin_controller(plugin_controller)
     gateway_api.set_plugin_controller(plugin_controller)
+    plugin_controller.start()
 
     # Metrics
     metrics_cache_controller = MetricsCacheController(constants.get_metrics_database_file(), threading.Lock())
     metrics_collector = MetricsCollector(gateway_api)
     metrics_controller = MetricsController(plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid)
     metrics_collector.set_controllers(metrics_controller, plugin_controller)
-    metrics_collector.set_plugin_intervals(plugin_controller.metric_intervals)
+    metrics_collector.set_plugin_intervals(plugin_controller.get_metric_receivers())
     metrics_controller.add_receiver(metrics_controller.receiver)
     metrics_controller.add_receiver(web_interface.distribute_metric)
 
@@ -176,7 +177,6 @@ def main():
     )
 
     power_communicator.start()
-    plugin_controller.start_plugins()
     metrics_controller.start()
     scheduling_controller.start()
     metrics_collector.start()

@@ -20,8 +20,6 @@ import sys
 import subprocess
 import os
 
-force_pyopenssl = os.environ.get('FORCE_PYOPENSSL', 'False')
-
 
 class Hardware(object):
     """
@@ -142,7 +140,7 @@ class System(object):
 
     @staticmethod
     def _use_pyopenssl():
-        return System._get_operating_system()['ID'] == 'angstrom' or force_pyopenssl == 'True'
+        return System._get_operating_system()['ID'] == 'angstrom'
 
     @staticmethod
     def get_ssl_socket(sock, private_key_filename, certificate_filename):

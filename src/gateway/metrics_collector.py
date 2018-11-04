@@ -122,7 +122,7 @@ class MetricsCollector(object):
                 if metric_type in metric_types:
                     self._plugin_intervals[metric_type].append(interval_info['interval'])
                     self._update_intervals(metric_type)
-        
+
     @staticmethod
     def _log(message, level='exception'):
         getattr(LOGGER, level)(message)
@@ -304,11 +304,11 @@ class MetricsCollector(object):
                                                   'cloud_time_ago_send': self._metrics_controller.cloud_stats['time_ago_send'],
                                                   'cloud_time_ago_try': self._metrics_controller.cloud_stats['time_ago_try']},
                                           timestamp=now)
-                    for plugin in self._plugin_controller.metric_receiver_queues.keys():
+                    for plugin in self._plugin_controller.get_plugins():
                         self._enqueue_metrics(metric_type=metric_type,
                                               tags={'name': 'gateway',
-                                                    'section': plugin},
-                                              values={'queue_length': len(self._plugin_controller.metric_receiver_queues[plugin])},
+                                                    'section': plugin.name},
+                                              values={'queue_length': plugin.get_queue_length()},
                                               timestamp=now)
                     for key in set(self._metrics_controller.inbound_rates.keys()) | set(self._metrics_controller.outbound_rates.keys()):
                         self._enqueue_metrics(metric_type=metric_type,

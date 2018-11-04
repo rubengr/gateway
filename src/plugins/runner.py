@@ -3,6 +3,7 @@ import subprocess
 import time
 import sys
 import cherrypy
+import logging
 
 from threading import Thread, Lock
 from Queue import Queue, Empty, Full
@@ -12,6 +13,7 @@ try:
 except ImportError:
     import simplejson as json
 
+LOGGER = logging.getLogger("openmotics")
 
 class PluginRunner:
 
@@ -23,7 +25,7 @@ class PluginRunner:
 
         self._cid = 0
         self._proc = None
-        self._stopped = False
+        self._stopped = True
         self._out_thread = None
         self._command_lock = Lock()
         self._response_queue = None
@@ -37,6 +39,9 @@ class PluginRunner:
         self.__collector_runs = {}
 
     def start(self):
+        if not self._stopped:
+            raise Exception("PluginRunner is already running")
+
         python_executable = sys.executable
         if python_executable is None or len(python_executable) == 0:
             python_executable = "/usr/bin/python"
@@ -72,10 +77,12 @@ class PluginRunner:
         self._async_command_thread.daemon = True
         self._async_command_thread.start()
 
-    def get_webservice(self):
+    def get_webservice(self, webinterface):
         class Service:
             def __init__(self, runner):
                 self.runner = runner
+                # Set the user controller, required to check the auth token
+                self._user_controller = webinterface._user_controller
 
             def _cp_dispatch(self, vpath):
                 method = vpath.pop()
@@ -88,7 +95,7 @@ class PluginRunner:
                                                           cherrypy.tools.authenticated.callable)
                         return self
 
-                raise cherrypy.HTTPError(404)
+                return None
 
             @cherrypy.expose
             def index(self, method, *args, **kwargs):
@@ -263,6 +270,9 @@ class PluginRunner:
         else:
             (self._commands_failed, self._commands_executed, score) = (0, 0, float(self._commands_failed) / self._commands_executed)
             return score
+
+    def get_queue_length(self):
+        return self._async_command_queue.qsize()
 
 
 class RunnerWatchdog:

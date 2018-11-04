@@ -45,29 +45,31 @@ class PluginController(object):
         self.__config_controller = config_controller
         self.__runtime_path = runtime_path
 
-        self.__stopped = False
+        self.__stopped = True
         self.__logs = {}
-        self.__runnners = self.__init_runners()
+        self.__runners = self.__init_runners()
 
         self.__metrics_controller = None
+
+    def start(self):
+        """ Start the plugins and expose them via the webinterface. """
+        if self.__stopped:
+            for runner in self.__runners:
+                self.__expose(runner)
+        else:
+            LOGGER.error("The PluginController is already running")
 
     def stop(self):
         for runner in self.__runners:
             runner.stop()
         self.__stopped = True
 
-    def start_plugins(self):
-        """ Start the background tasks for the plugins and expose them via the webinterface. """
-        for runner in self.__runners:
-            runner.start()
-            self.__expose(runner)
-
     def __expose(self, runner):
         """ Expose the runner using cherrypy. """
         root_config = {'tools.sessions.on': False,
                        'tools.cors.on': self.__config_controller.get_setting('cors_enabled', False)}
 
-        cherrypy.tree.mount(runner.get_webservice(),
+        cherrypy.tree.mount(runner.get_webservice(self.__webinterface),
                             '/plugins/{0}'.format(runner.name),
                             {"/": root_config})
 
@@ -286,11 +288,17 @@ class PluginController(object):
                     sources = self.__metrics_controller.get_filter('source', receiver['source'])
                     metric_types = self.__metrics_controller.get_filter('metric_type', receiver['metric_type'])
                     if metric['source'] in sources and metric['type'] in metric_types:
-                        runner.distribute_metric(receiver['name'], metric):
+                        runner.distribute_metric(receiver['name'], metric)
                         delivery_count += 1
                 except Exception as exception:
                     self.log(mr[0], "Exception while distributing metrics", exception, traceback.format_exc())
         return delivery_count
+
+    def get_metric_receivers(self):
+        receivers = []
+        for runner in self.__runners:
+            receivers.extend(runner.get_metric_receivers())
+        return receivers
 
     def get_metric_definitions(self):
         """ Loads all metric definitions of all plugins """
@@ -322,6 +330,7 @@ class PluginController(object):
 
         def log(msg):
             """ Log function for the given plugin."""
+            LOGGER.info("PLUGIN %s : %s" % (plugin_name, msg))
             self.__logs[plugin_name].append("%s - %s" % (datetime.now(), msg))
             if len(self.__logs[plugin_name]) > 100:
                 self.__logs[plugin_name].pop(0)

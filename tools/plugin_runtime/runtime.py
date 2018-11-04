@@ -3,6 +3,7 @@ import os
 import pkgutil
 import traceback
 import inspect
+import time
 
 from threading import Thread
 from Queue import Queue
@@ -34,7 +35,7 @@ class PluginRuntime:
         self._interfaces = []
         self._receivers = []
         self._exposes = []
-        self._metric_definitions = None
+        self._metric_definitions = []
         self._metric_collectors = []
         self._metric_receivers = []
 
@@ -108,10 +109,23 @@ class PluginRuntime:
         """ Start all background tasks. """
         tasks = get_special_methods(self._plugin, 'background_task')
         for task in tasks:
-            thread = Thread(target=with_catch, args=('background task', task, []))
+            thread = Thread(target=self._run_background_task, args=(task,))
             thread.name = "Background thread (%s)" % task.__name__
             thread.daemon = True
             thread.start()
+
+    def _run_background_task(self, task):
+        running = True
+        while running:
+            try:
+                task()
+            except Exception as exception:
+                log_exception("background task ", exception)
+                running = True
+                time.sleep(30)
+            else:
+                # Background task completed without Exception
+                running = False
 
     def run(self):
         while not self._stopped:
@@ -244,14 +258,32 @@ def print_usage(exit_code):
     sys.stderr.write("Usage: python %s start <path>\n" % sys.argv[0])
 
 
+def watch_parent():
+    parent = os.getppid()
+    # If the parent process gets kills, this process will be attached to init.
+    # In that case the plugin should stop running.
+    while True:
+        if os.getppid() != parent:
+            os._exit(1)
+
+        time.sleep(1)
+
 if __name__ == '__main__':
     if len(sys.argv) < 3 or sys.argv[1] != 'start':
         print_usage()
         sys.exit(1)
 
+    # Keep an eye on our parent process
+    watcher = Thread(target=watch_parent)
+    watcher.daemon = True
+    watcher.start()
+
+    # Start the runtime
     try:
         pr = PluginRuntime(path=sys.argv[2])
         pr.run()
-    except Exception as exc:
+    except BaseException as exc:
         log_exception('__main__', exc)
-        sys.exit(1)
+
+    # Should not get here, but make sure the process is stopped if it gets here.
+    os._exit(1)
