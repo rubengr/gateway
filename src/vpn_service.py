@@ -18,9 +18,10 @@ if required. On each check the vpn_service sends some status information about t
 thermostats to the cloud, to keep the status information in the cloud in sync.
 """
 
-from platform_utils import System, Hardware
+from platform_utils import System
 System.import_eggs()
 
+import gobject
 import sys
 import requests
 import time
@@ -32,7 +33,7 @@ import threading
 
 from ConfigParser import ConfigParser
 from datetime import datetime
-from bus.led_service import LedService
+from bus.dbus_service import DBusService
 from gateway.config import ConfigurationController
 
 try:
@@ -100,9 +101,9 @@ class Cloud(object):
 
     DEFAULT_SLEEP_TIME = 30
 
-    def __init__(self, url, led_service, config, sleep_time=DEFAULT_SLEEP_TIME):
+    def __init__(self, url, dbus_service, config, sleep_time=DEFAULT_SLEEP_TIME):
         self.__url = url
-        self.__led_service = led_service
+        self.__dbus_service = dbus_service
         self.__last_connect = time.time()
         self.__sleep_time = sleep_time
         self.__config = config
@@ -125,12 +126,12 @@ class Cloud(object):
                     self.__config.set_setting(setting, value)
 
             self.__last_connect = time.time()
-            self.__led_service.set_led(Hardware.Led.CLOUD, True)
+            self.__dbus_service.send_event(DBusService.Events.CLOUD_REACHABLE, True)
 
             return data['open_vpn']
         except Exception as ex:
             LOGGER.log('Exception occured during check: {0}'.format(ex))
-            self.__led_service.set_led(Hardware.Led.CLOUD, False)
+            self.__dbus_service.send_event(DBusService.Events.CLOUD_REACHABLE, False)
 
             return True
 
@@ -328,8 +329,21 @@ def main():
     The main function contains the loop that check if the vpn should be opened every 2 seconds.
     Status data is sent when the vpn is checked.
     """
+    cloud_enabled = True
+    sleep_time = 0
+    vpn_open = False
+    last_cycle = 0
+    cloud = None
 
-    led_service = LedService()
+    def _check_state():
+        return {'cloud_disabled': not cloud_enabled,
+                'sleep_time': sleep_time,
+                'cloud_last_connect': None if cloud is None else cloud.get_last_connect(),
+                'vpn_open': vpn_open,
+                'last_cycle': last_cycle}
+
+    dbus_service = DBusService('vpn_service', get_state=_check_state)
+
     config_lock = threading.Lock()
     config_controller = ConfigurationController(constants.get_config_database_file(), config_lock)
 
@@ -342,7 +356,9 @@ def main():
             LOGGER.log(str(datetime.now()) + ": closing vpn")
             VpnController.stop_vpn()
         is_running = VpnController.check_vpn()
-        led_service.set_led(Hardware.Led.VPN, is_running and VpnController.vpn_connected())
+        _vpn_open = is_running and VpnController.vpn_connected()
+        dbus_service.send_event(DBusService.Events.VPN_OPEN, _vpn_open)
+        return _vpn_open
 
     # Get the configuration
     config = ConfigParser()
@@ -350,7 +366,7 @@ def main():
     check_url = config.get('OpenMotics', 'vpn_check_url') % config.get('OpenMotics', 'uuid')
 
     gateway = Gateway()
-    cloud = Cloud(check_url, led_service, config_controller)
+    cloud = Cloud(check_url, dbus_service, config_controller)
 
     collectors = {'thermostats': DataCollector(gateway.get_thermostats, 60),
                   'pulses': DataCollector(gateway.get_pulse_counter_diff, 60),
@@ -364,13 +380,15 @@ def main():
 
     previous_sleep_time = 0
     while True:
+        last_cycle = time.time()
         try:
             # Check whether connection to the Cloud is enabled/disabled
             cloud_enabled = config_controller.get_setting('cloud_enabled')
             if cloud_enabled is False:
+                sleep_time = None
                 set_vpn(False)
-                led_service.set_led(Hardware.Led.CLOUD, False)
-                led_service.set_led(Hardware.Led.VPN, False)
+                dbus_service.send_event(DBusService.Events.VPN_OPEN, False)
+                dbus_service.send_event(DBusService.Events.CLOUD_REACHABLE, False)
                 time.sleep(30)
                 continue
 
@@ -395,7 +413,7 @@ def main():
             iterations += 1
 
             # Open or close the VPN
-            set_vpn(should_open)
+            vpn_open = set_vpn(should_open)
 
             # Getting some cleep
             sleep_time = cloud.get_sleep_time()
@@ -405,6 +423,7 @@ def main():
             time.sleep(sleep_time)
         except Exception as ex:
             LOGGER.log("Error during vpn check loop: {0}".format(ex))
+            time.sleep(1)
 
 
 if __name__ == '__main__':

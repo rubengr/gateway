@@ -33,6 +33,7 @@ from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
+from vpn_service import LOGGER
 
 try:
     import json
@@ -262,7 +263,7 @@ class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 authorized_check, config_controller, scheduling_controller):
+                 dbus_service, config_controller, scheduling_controller):
         """
         Constructor for the WebInterface.
 
@@ -272,8 +273,8 @@ class WebInterface(object):
         :type gateway_api: gateway.gateway_api.GatewayApi
         :param maintenance_service: used when opening maintenance mode.
         :type maintenance_service: master.maintenance.MaintenanceService
-        :param authorized_check: check if the gateway is in authorized mode.
-        :type authorized_check: () -> boolean
+        :param dbus_service: check if the gateway is in authorized mode.
+        :type dbus_service: bus.dbus_service.DBusService
         :param config_controller: Configuration controller
         :type config_controller: gateway.config.ConfigController
         :param scheduling_controller: Scheduling Controller
@@ -287,11 +288,14 @@ class WebInterface(object):
 
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
-        self._authorized_check = authorized_check
+        self._dbus_service = dbus_service
 
         self.metrics_collector = None
         self._ws_metrics_registered = False
         self._power_dirty = False
+
+    def in_authorized_mode(self):
+        return self._dbus_service.get_state('led_service', {}).get('authorized_mode', False)
 
     def distribute_metric(self, metric):
         try:
@@ -379,7 +383,7 @@ class WebInterface(object):
         :param password: Password of the user.
         :type password: str
         """
-        if not self._authorized_check():
+        if not self.in_authorized_mode():
             raise cherrypy.HTTPError(401, "unauthorized")
         self._user_controller.create_user(username, password, 'admin', True)
         return {}
@@ -392,7 +396,7 @@ class WebInterface(object):
         :returns: 'usernames': list of usernames (String).
         :rtype: dict
         """
-        if not self._authorized_check():
+        if not self.in_authorized_mode():
             raise cherrypy.HTTPError(401, "unauthorized")
         return {'usernames': self._user_controller.get_usernames()}
 
@@ -404,7 +408,7 @@ class WebInterface(object):
         :param username: Name of the user to remove.
         :type username: str
         """
-        if not self._authorized_check():
+        if not self.in_authorized_mode():
             raise cherrypy.HTTPError(401, "unauthorized")
         self._user_controller.remove_user(username)
         return {}
@@ -2208,7 +2212,7 @@ class WebInterface(object):
         """
         Perform a Gateway self-test.
         """
-        if not self._authorized_check():
+        if not self.in_authorized_mode():
             raise cherrypy.HTTPError(401, "unauthorized")
         subprocess.Popen(constants.get_self_test_cmd(), close_fds=True)
         return {}
@@ -2235,6 +2239,27 @@ class WebInterface(object):
     def factory_reset(self):
         self._gateway_api.factory_reset()
         return {}
+
+    @openmotics_api(auth=False)
+    def health_check(self):
+        health = {'openmotics': {'state': True}}
+        try:
+            state = self._dbus_service.get_state('vpn_service', {})
+            health['vpn_service'] = {'state': state.get('last_cycle', 0) > time.time() - 300}
+        except Exception as ex:
+            LOGGER.error('Error loading vpn_service health: {0}'.format(ex))
+            health['vpn_service'] = {'state': False}
+        try:
+            state = self._dbus_service.get_state('led_service', {})
+            state_ok = True
+            for run in ['run_gpio', 'run_i2c', 'run_buttons', 'run_state_check']:
+                state_ok = state_ok and (state.get(run, 0) > time.time() - 5)
+            health['led_service'] = {'state': state_ok}
+        except Exception as ex:
+            LOGGER.error('Error loading led_service health: {0}'.format(ex))
+            health['led_service'] = {'state': False}
+        return {'health': health,
+                'health_version': 1.0}
 
     @cherrypy.expose
     @cherrypy.tools.authenticated(pass_token=True)

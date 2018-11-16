@@ -29,6 +29,10 @@ System.import_eggs()
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 import constants
 
@@ -44,7 +48,7 @@ from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 
-from bus.led_service import LedService
+from bus.dbus_service import DBusService
 
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
@@ -70,19 +74,23 @@ def setup_logger():
     logger.addHandler(handler)
 
 
-def led_driver(led_service, master_communicator, power_communicator):
-    """ Blink the serial leds if necessary. """
+def led_driver(dbus_service, master_communicator, power_communicator):
+    """
+    Blink the serial leds if necessary.
+    :param dbus_service: DBus service
+    :type dbus_service: bus.dbus_service.DBusService
+    """
     master = (0, 0)
     power = (0, 0)
 
     while True:
         if master[0] != master_communicator.get_bytes_read() \
                 or master[1] != master_communicator.get_bytes_written():
-            led_service.serial_activity(5)
+            dbus_service.send_event(DBusService.Events.SERIAL_ACTIVITY, 5)
 
         if power[0] != power_communicator.get_bytes_read() \
                 or power[1] != power_communicator.get_bytes_written():
-            led_service.serial_activity(4)
+            dbus_service.send_event(DBusService.Events.SERIAL_ACTIVITY, 4)
 
         master = (master_communicator.get_bytes_read(), master_communicator.get_bytes_written())
         power = (power_communicator.get_bytes_read(), power_communicator.get_bytes_written())
@@ -105,7 +113,7 @@ def main():
     user_controller = UserController(constants.get_config_database_file(), config_lock, defaults, 3600)
     config_controller = ConfigurationController(constants.get_config_database_file(), config_lock)
 
-    led_service = LedService()
+    dbus_service = DBusService('openmotics_service')
 
     controller_serial = Serial(controller_serial_port, 115200)
     power_serial = RS485(Serial(power_serial_port, 115200, timeout=None))
@@ -139,7 +147,7 @@ def main():
     maintenance_service = MaintenanceService(gateway_api, constants.get_ssl_private_key_file(),
                                              constants.get_ssl_certificate_file())
 
-    web_interface = WebInterface(user_controller, gateway_api, maintenance_service, led_service.in_authorized_mode,
+    web_interface = WebInterface(user_controller, gateway_api, maintenance_service, dbus_service,
                                  config_controller, scheduling_controller)
 
     scheduling_controller.set_webinterface(web_interface)
@@ -186,7 +194,7 @@ def main():
     metrics_collector.start()
     web_service.start()
 
-    led_thread = threading.Thread(target=led_driver, args=(led_service, master_communicator, power_communicator))
+    led_thread = threading.Thread(target=led_driver, args=(dbus_service, master_communicator, power_communicator))
     led_thread.setName("Serial led driver thread")
     led_thread.daemon = True
     led_thread.start()
