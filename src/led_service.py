@@ -225,8 +225,6 @@ class LedController(object):
         gobject.timeout_add(250, self.check_button)
 
     def event_receiver(self, event, payload):
-        sys.stderr.write('Receiver: {0} {1}\n'.format(event, payload))
-        sys.stderr.flush()
         if event == DBusService.Events.CLOUD_REACHABLE:
             self.set_led(Hardware.Led.CLOUD, payload)
         elif event == DBusService.Events.VPN_OPEN:
