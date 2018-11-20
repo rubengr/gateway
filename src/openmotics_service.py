@@ -49,6 +49,7 @@ from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 
 from bus.dbus_service import DBusService
+from bus.dbus_events import Events
 
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
@@ -86,11 +87,11 @@ def led_driver(dbus_service, master_communicator, power_communicator):
     while True:
         if master[0] != master_communicator.get_bytes_read() \
                 or master[1] != master_communicator.get_bytes_written():
-            dbus_service.send_event(DBusService.Events.SERIAL_ACTIVITY, 5)
+            dbus_service.send_event(Events.SERIAL_ACTIVITY, 5)
 
         if power[0] != power_communicator.get_bytes_read() \
                 or power[1] != power_communicator.get_bytes_written():
-            dbus_service.send_event(DBusService.Events.SERIAL_ACTIVITY, 4)
+            dbus_service.send_event(Events.SERIAL_ACTIVITY, 4)
 
         master = (master_communicator.get_bytes_read(), master_communicator.get_bytes_written())
         power = (power_communicator.get_bytes_read(), power_communicator.get_bytes_written())

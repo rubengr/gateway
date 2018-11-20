@@ -30,6 +30,7 @@ from threading import Thread
 from ConfigParser import ConfigParser
 
 from bus.dbus_service import DBusService
+from bus.dbus_events import Events
 from platform_utils import Hardware
 import constants
 
@@ -233,13 +234,13 @@ class LedController(object):
         gobject.timeout_add(250, self.check_button)
 
     def event_receiver(self, event, payload):
-        if event == DBusService.Events.CLOUD_REACHABLE:
+        if event == Events.CLOUD_REACHABLE:
             self.set_led(Hardware.Led.CLOUD, payload)
-        elif event == DBusService.Events.VPN_OPEN:
+        elif event == Events.VPN_OPEN:
             self.set_led(Hardware.Led.VPN, payload)
-        elif event == DBusService.Events.SERIAL_ACTIVITY:
+        elif event == Events.SERIAL_ACTIVITY:
             self.serial_activity(payload)
-        elif event == DBusService.Events.INDICATE_GATEWAY:
+        elif event == Events.INDICATE_GATEWAY:
             self._indicate_started = time.time()
 
     def get_state(self):

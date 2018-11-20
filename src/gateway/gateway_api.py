@@ -32,7 +32,7 @@ import subprocess
 import tempfile
 from threading import Timer
 from serial_utils import CommunicationTimedOutException
-from bus.dbus_service import DBusService
+from bus.dbus_events import Events
 import master.master_api as master_api
 from master.outputs import OutputStatus
 from master.inputs import InputStatus
@@ -251,7 +251,7 @@ class GatewayApi(object):
             Timer(120, self.__run_master_timer).start()
 
     def __send_output_events(self, output_id):
-        self.__dbus_service.send_event(DBusService.Events.OUTPUT_CHANGE, {'id': output_id})
+        self.__dbus_service.send_event(Events.OUTPUT_CHANGE, {'id': output_id})
 
     def sync_master_time(self, reset_thermostats):
         """ Set the time on the master. """
@@ -373,7 +373,7 @@ class GatewayApi(object):
         self.__output_status.full_update(self.__read_outputs())
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__eeprom_controller.dirty = True
-        self.__dbus_service.send_event(DBusService.Events.DIRTY_EEPROM, None)
+        self.__dbus_service.send_event(Events.DIRTY_EEPROM, None)
         self.__init_shutter_status()
 
     def get_status(self):
@@ -460,7 +460,7 @@ class GatewayApi(object):
         self.__module_log = []
         self.__eeprom_controller.invalidate_cache()
         self.__eeprom_controller.dirty = True
-        self.__dbus_service.send_event(DBusService.Events.DIRTY_EEPROM, None)
+        self.__dbus_service.send_event(Events.DIRTY_EEPROM, None)
         self.__output_status.full_update(self.__read_outputs())
         if self.__thermostat_status is not None:
             self.__thermostat_status.force_refresh()

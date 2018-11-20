@@ -35,6 +35,7 @@ from collections import deque
 from ConfigParser import ConfigParser
 from datetime import datetime
 from bus.dbus_service import DBusService
+from bus.dbus_events import Events
 from gateway.config import ConfigurationController
 
 try:
@@ -127,12 +128,12 @@ class Cloud(object):
                     self.__config.set_setting(setting, value)
 
             self.__last_connect = time.time()
-            self.__dbus_service.send_event(DBusService.Events.CLOUD_REACHABLE, True)
+            self.__dbus_service.send_event(Events.CLOUD_REACHABLE, True)
 
             return data['open_vpn']
         except Exception as ex:
             LOGGER.log('Exception occured during check: {0}'.format(ex))
-            self.__dbus_service.send_event(DBusService.Events.CLOUD_REACHABLE, False)
+            self.__dbus_service.send_event(Events.CLOUD_REACHABLE, False)
 
             return True
 
@@ -351,9 +352,9 @@ class VPNService(object):
                 'last_cycle': self._last_cycle}
 
     def _event_receiver(self, event, payload):
-        if event == DBusService.Events.OUTPUT_CHANGE:
+        if event == Events.OUTPUT_CHANGE:
             self._output_events.appendleft(payload)
-        elif event == DBusService.Events.DIRTY_EEPROM:
+        elif event == Events.DIRTY_EEPROM:
             self._eeprom_events.appendleft(True)
 
     @staticmethod
@@ -376,7 +377,7 @@ class VPNService(object):
             VpnController.stop_vpn()
         is_running = VpnController.check_vpn()
         self._vpn_open = is_running and VpnController.vpn_connected()
-        self._dbus_service.send_event(DBusService.Events.VPN_OPEN, self._vpn_open)
+        self._dbus_service.send_event(Events.VPN_OPEN, self._vpn_open)
 
     def start(self):
         mainloop = gobject.MainLoop()
@@ -391,8 +392,8 @@ class VPNService(object):
             if cloud_enabled is False:
                 self._sleep_time = None
                 self._set_vpn(False)
-                self._dbus_service.send_event(DBusService.Events.VPN_OPEN, False)
-                self._dbus_service.send_event(DBusService.Events.CLOUD_REACHABLE, False)
+                self._dbus_service.send_event(Events.VPN_OPEN, False)
+                self._dbus_service.send_event(Events.CLOUD_REACHABLE, False)
 
                 gobject.timeout_add(30000, self._check_vpn)
                 return

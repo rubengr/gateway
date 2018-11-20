@@ -31,7 +31,7 @@ from decorator import decorator
 from cherrypy.lib.static import serve_file
 from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
-from bus.dbus_service import DBusService
+from bus.dbus_events import Events
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
 
@@ -2265,7 +2265,7 @@ class WebInterface(object):
     @openmotics_api(auth=True)
     def indicate(self):
         """ Blinks the Status led on the Gateway to indicate the module """
-        self._dbus_service.send_event(DBusService.Events.INDICATE_GATEWAY, None)
+        self._dbus_service.send_event(Events.INDICATE_GATEWAY, None)
         return {}
 
     @cherrypy.expose
