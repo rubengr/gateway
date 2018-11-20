@@ -140,7 +140,7 @@ def main():
         eeprom_controller
     )
 
-    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller)
+    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service)
 
     scheduling_controller = SchedulingController(constants.get_scheduling_database_file(), config_lock, gateway_api)
 

@@ -31,6 +31,7 @@ from decorator import decorator
 from cherrypy.lib.static import serve_file
 from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
+from bus.dbus_service import DBusService
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
 from vpn_service import LOGGER
@@ -2242,6 +2243,7 @@ class WebInterface(object):
 
     @openmotics_api(auth=False)
     def health_check(self):
+        """ Requests the state of the various services and checks the returned value for the global state """
         health = {'openmotics': {'state': True}}
         try:
             state = self._dbus_service.get_state('vpn_service', {})
@@ -2261,6 +2263,12 @@ class WebInterface(object):
         return {'health': health,
                 'health_version': 1.0}
 
+    @openmotics_api(auth=True)
+    def indicate(self):
+        """ Blinks the Status led on the Gateway to indicate the module """
+        self._dbus_service.send_event(DBusService.Events.INDICATE_GATEWAY, None)
+        return {}
+
     @cherrypy.expose
     @cherrypy.tools.authenticated(pass_token=True)
     def ws_metrics(self, token, client_id, source=None, metric_type=None, interval=None):
@@ -2277,11 +2285,13 @@ class WebService(object):
 
     name = 'web'
 
-    def __init__(self, webinterface, config_controller):
+    def __init__(self, webinterface, config_controller, verbose=False):
         self._webinterface = webinterface
         self._config_controller = config_controller
         self._https_server = None
         self._http_server = None
+        if not verbose:
+            logging.getLogger("cherrypy").propagate = False
 
     def run(self):
         """ Run the web service: start cherrypy. """

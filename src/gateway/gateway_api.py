@@ -32,6 +32,7 @@ import subprocess
 import tempfile
 from threading import Timer
 from serial_utils import CommunicationTimedOutException
+from bus.dbus_service import DBusService
 import master.master_api as master_api
 from master.outputs import OutputStatus
 from master.inputs import InputStatus
@@ -66,7 +67,7 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
-    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller):
+    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -78,6 +79,8 @@ class GatewayApi(object):
         :type eeprom_controller: master.eeprom_controller.EepromController
         :param pulse_controller: Pulse controller
         :type pulse_controller: gateway.pulses.PulseCounterController
+        :param dbus_service: DBus Service
+        :type dbus_service: bus.dbus_service.DBusService
         """
         self.__master_communicator = master_communicator
         self.__eeprom_controller = eeprom_controller
@@ -85,17 +88,20 @@ class GatewayApi(object):
         self.__power_controller = power_controller
         self.__pulse_controller = pulse_controller
         self.__plugin_controller = None
+        self.__dbus_service = dbus_service
 
         self.__last_maintenance_send_time = 0
         self.__maintenance_timeout_timer = None
 
         self.__discover_mode_timer = None
 
-        self.__output_status = None
+        self.__output_status = OutputStatus(on_output_change=self.__send_output_events)
         self.__input_status = InputStatus()
         self.__module_log = []
         self.__thermostat_status = None
         self.__shutter_status = ShutterStatus()
+
+        self.__previous_on_outputs = set()
 
         self.__master_communicator.register_consumer(
                 BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
@@ -209,8 +215,10 @@ class GatewayApi(object):
                 self.set_per_thermostat_mode(config.id, config.automatic, config.setpoint)
 
     def __run_master_timer(self):
-        """ Run the master timer, this sets the masters clock if it differs more than 3 minutes
-        from the gateway clock. """
+        """
+        Run the master timer, this sets the masters clock if it differs more than 3 minutes
+        from the gateway clock.
+        """
 
         try:
             status = self.__master_communicator.do_command(master_api.status())
@@ -241,6 +249,9 @@ class GatewayApi(object):
             traceback.print_exc()
         finally:
             Timer(120, self.__run_master_timer).start()
+
+    def __send_output_events(self, output_id):
+        self.__dbus_service.send_event(DBusService.Events.OUTPUT_CHANGE, {'id': output_id})
 
     def sync_master_time(self, reset_thermostats):
         """ Set the time on the master. """
@@ -315,12 +326,6 @@ class GatewayApi(object):
     def start_maintenance_mode(self, timeout=600):
         """ Start maintenance mode, if the time between send_maintenance_data calls exceeds the
         timeout, the maintenance mode will be closed automatically. """
-        try:
-            self.set_master_status_leds(True)
-        except Exception as exception:
-            msg = 'Exception while setting status leds before maintenance mode:' + str(exception)
-            LOGGER.warning(msg)
-
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__master_communicator.start_maintenance_mode()
 
@@ -359,24 +364,17 @@ class GatewayApi(object):
     def stop_maintenance_mode(self):
         """ Stop maintenance mode. """
         self.__master_communicator.stop_maintenance_mode()
-        if self.__output_status is not None:
-            self.__output_status.force_refresh()
 
         if self.__thermostat_status is not None:
             self.__thermostat_status.force_refresh()
-
         if self.__maintenance_timeout_timer is not None:
             self.__maintenance_timeout_timer.cancel()
             self.__maintenance_timeout_timer = None
-
+        self.__output_status.full_update(self.__read_outputs())
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
+        self.__eeprom_controller.dirty = True
+        self.__dbus_service.send_event(DBusService.Events.DIRTY_EEPROM, None)
         self.__init_shutter_status()
-
-        try:
-            self.set_master_status_leds(False)
-        except Exception as exception:
-            msg = 'Exception while setting status leds after maintenance mode:' + str(exception)
-            LOGGER.warning(msg)
 
     def get_status(self):
         """ Get the status of the Master.
@@ -462,6 +460,10 @@ class GatewayApi(object):
         self.__module_log = []
         self.__eeprom_controller.invalidate_cache()
         self.__eeprom_controller.dirty = True
+        self.__dbus_service.send_event(DBusService.Events.DIRTY_EEPROM, None)
+        self.__output_status.full_update(self.__read_outputs())
+        if self.__thermostat_status is not None:
+            self.__thermostat_status.force_refresh()
 
         return {'status': ret['resp']}
 
@@ -559,27 +561,25 @@ class GatewayApi(object):
         """ Update the OutputStatus when an OL is received. """
         on_outputs = ol_output['outputs']
 
-        if self.__output_status is not None:
-            self.__output_status.partial_update(on_outputs)
+        self.__output_status.partial_update(on_outputs)
 
         if self.__plugin_controller is not None:
             self.__plugin_controller.process_output_status(on_outputs)
 
     def get_output_status(self):
-        """ Get a list containing the status of the Outputs.
-
-        :returns: A list is a dicts containing the following keys: id, status, ctimer
-        and dimmer.
         """
-        if self.__output_status is None:
-            self.__output_status = OutputStatus(self.__read_outputs())
+        Get a list containing the status of the Outputs.
 
+        :returns: A list is a dicts containing the following keys: id, status, ctimer and dimmer.
+        """
         if self.__output_status.should_refresh():
             self.__output_status.full_update(self.__read_outputs())
 
         outputs = self.__output_status.get_outputs()
-        return [{'id': output['id'], 'status': output['status'],
-                 'ctimer': output['ctimer'], 'dimmer': output['dimmer']}
+        return [{'id': output['id'],
+                 'status': output['status'],
+                 'ctimer': output['ctimer'],
+                 'dimmer': output['dimmer']}
                 for output in outputs]
 
     def set_output(self, output_id, is_on, dimmer=None, timer=None):

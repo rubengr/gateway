@@ -38,6 +38,9 @@ class DBusService(dbus.service.Object):
         CLOUD_REACHABLE = 'CLOUD_REACHABLE'
         VPN_OPEN = 'VPN_OPEN'
         SERIAL_ACTIVITY = 'SERIAL_ACTIVITY'
+        INDICATE_GATEWAY = 'INDICATE_GATEWAY'
+        OUTPUT_CHANGE = 'OUTPUT_CHANGE'
+        DIRTY_EEPROM = 'DIRTY_EEPROM'
 
     def __init__(self, service, event_receiver=None, get_state=None):
         self._system_bus = dbus.SystemBus()

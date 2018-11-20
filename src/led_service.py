@@ -64,6 +64,10 @@ class LedController(object):
         self._previous_leds = {}
         self._last_i2c_led_code = 0
 
+        self._indicate_started = 0
+        self._indicate_pointer = 0
+        self._indicate_sequence = [True, False, False, False]
+
         self._authorized_mode = False
         self._authorized_timeout = 0
 
@@ -178,8 +182,12 @@ class LedController(object):
     def drive_leds(self):
         """ This drives different leds (status, alive and serial) """
         try:
-            # Calculate network led/gpio states
-            self.set_led(Hardware.Led.STATUS, not self._network_enabled)
+            now = time.time()
+            if now - 30 < self._indicate_started < now:
+                self.set_led(Hardware.Led.STATUS, self._indicate_sequence[self._indicate_pointer])
+                self._indicate_pointer = self._indicate_pointer + 1 if self._indicate_pointer < len(self._indicate_sequence) - 1 else 0
+            else:
+                self.set_led(Hardware.Led.STATUS, not self._network_enabled)
             if self._network_activity:
                 self.toggle_led(Hardware.Led.ALIVE)
             else:
@@ -231,6 +239,8 @@ class LedController(object):
             self.set_led(Hardware.Led.VPN, payload)
         elif event == DBusService.Events.SERIAL_ACTIVITY:
             self.serial_activity(payload)
+        elif event == DBusService.Events.INDICATE_GATEWAY:
+            self._indicate_started = time.time()
 
     def get_state(self):
         return {'run_gpio': self._last_run_gpio,
