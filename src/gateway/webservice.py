@@ -34,7 +34,6 @@ from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from bus.dbus_service import DBusService
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
-from vpn_service import LOGGER
 
 try:
     import json

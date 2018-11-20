@@ -84,4 +84,5 @@ class OutputStatus(object):
             self._report_change(output['id'])
 
     def _report_change(self, output_id):
-        self._on_output_change(output_id)
+        if self._on_output_change is not None:
+            self._on_output_change(output_id)
