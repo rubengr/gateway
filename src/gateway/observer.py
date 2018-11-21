@@ -145,7 +145,7 @@ class Observer(object):
 
     def get_thermostats(self):
         """ Returns thermostat information """
-        # No need for refreshing, as the monitor needs to refresh it all the time
+        self._refresh_thermostats()  # Always return the latest information
         return self._thermostat_status.get_thermostats()
 
     def _thermostat_changed(self, thermostat_id):
