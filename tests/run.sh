@@ -19,9 +19,6 @@ python2 -m master_tests.inputs_tests
 echo "Running passthrough tests"
 python2 -m master_tests.passthrough_tests
 
-echo "Running thermostats tests"
-python2 -m master_tests.thermostats_tests
-
 echo "Running eeprom controller tests"
 python2 -m master_tests.eeprom_controller_tests
 

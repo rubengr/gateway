@@ -33,6 +33,10 @@ class OutputStatus(object):
         self._last_refresh = 0
         self._on_output_change = on_output_change
 
+    def force_refresh(self):
+        """ Marks internal state as stale"""
+        self._last_refresh = 0
+
     def should_refresh(self):
         """ Check whether the status should be refreshed. """
         return time.time() >= self._last_refresh + self._refresh_period
@@ -47,7 +51,8 @@ class OutputStatus(object):
             on_dict[on_output[0]] = on_output[1]
 
         for output_id, output in self._outputs.iteritems():
-            self._update_maybe_report_change(output, output_id in on_dict, on_dict.get(output_id))
+            self._update_maybe_report_change(output, {'status': output_id in on_dict,
+                                                      'dimmer': on_dict.get(output_id)})
 
     def full_update(self, outputs):
         """ Update the status of the outputs using a list of Outputs. """
@@ -57,7 +62,7 @@ class OutputStatus(object):
             if output_id in obsolete_ids:
                 obsolete_ids.remove(output_id)
             if output_id in self._outputs:
-                self._update_maybe_report_change(self._outputs[output_id], output['status'], output['dimmer'])
+                self._update_maybe_report_change(self._outputs[output_id], output)
             else:
                 self._report_change(output_id)
             self._outputs[output_id] = output
@@ -69,8 +74,10 @@ class OutputStatus(object):
         """ Return the list of Outputs. """
         return self._outputs.values()
 
-    def _update_maybe_report_change(self, output, status, dimmer):
+    def _update_maybe_report_change(self, output, new_output):
         report = False
+        status = new_output['status']
+        dimmer = new_output['dimmer']
         if status:
             if output.get('status') != 1 or output.get('dimmer') != dimmer:
                 output['status'] = 1
@@ -80,7 +87,7 @@ class OutputStatus(object):
             if output.get('status') != 0:
                 output['status'] = 0
                 report = True
-        if report and self._on_output_change is not None:
+        if report:
             self._report_change(output['id'])
 
     def _report_change(self, output_id):

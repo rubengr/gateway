@@ -14,14 +14,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """"
 Tests for InputStatus.
-
-@author: fryckbos
 """
 
 import unittest
 import time
 
 from master.inputs import InputStatus
+
 
 class InputStatusTest(unittest.TestCase):
     """ Tests for InputStatus. """
@@ -67,5 +66,4 @@ class InputStatusTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

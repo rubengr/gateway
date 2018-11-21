@@ -32,11 +32,8 @@ import subprocess
 import tempfile
 from threading import Timer
 from serial_utils import CommunicationTimedOutException
-from bus.dbus_events import Events
+from bus.dbus_events import DBusEvents
 import master.master_api as master_api
-from master.outputs import OutputStatus
-from master.inputs import InputStatus
-from master.thermostats import ThermostatStatus
 from master.shutters import ShutterStatus
 from master.master_communicator import BackgroundConsumer
 from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
@@ -89,16 +86,14 @@ class GatewayApi(object):
         self.__pulse_controller = pulse_controller
         self.__plugin_controller = None
         self.__dbus_service = dbus_service
+        self.__observer = None
 
         self.__last_maintenance_send_time = 0
         self.__maintenance_timeout_timer = None
 
         self.__discover_mode_timer = None
 
-        self.__output_status = OutputStatus(on_output_change=self.__send_output_events)
-        self.__input_status = InputStatus()
         self.__module_log = []
-        self.__thermostat_status = None
         self.__shutter_status = ShutterStatus()
 
         self.__previous_on_outputs = set()
@@ -138,8 +133,20 @@ class GatewayApi(object):
         setattr(self, method_name, override)
 
     def set_plugin_controller(self, plugin_controller):
-        """ Set the plugin controller. """
+        """
+        Set the plugin controller.
+        :param plugin_controller: Plugin controller
+        :type plugin_controller: plugins.base.PluginController
+        """
         self.__plugin_controller = plugin_controller
+
+    def set_observer(self, observer):
+        """
+        Set the observer.
+        :param observer: Observer
+        :type observer: gateway.observer.Observer
+        """
+        self.__observer = observer
 
     def __init_master(self):
         """ Initialize the master: disable the async RO messages, enable async OL, IL and SO
@@ -249,9 +256,6 @@ class GatewayApi(object):
             traceback.print_exc()
         finally:
             Timer(120, self.__run_master_timer).start()
-
-    def __send_output_events(self, output_id):
-        self.__dbus_service.send_event(Events.OUTPUT_CHANGE, {'id': output_id})
 
     def sync_master_time(self, reset_thermostats):
         """ Set the time on the master. """
@@ -365,15 +369,13 @@ class GatewayApi(object):
         """ Stop maintenance mode. """
         self.__master_communicator.stop_maintenance_mode()
 
-        if self.__thermostat_status is not None:
-            self.__thermostat_status.force_refresh()
         if self.__maintenance_timeout_timer is not None:
             self.__maintenance_timeout_timer.cancel()
             self.__maintenance_timeout_timer = None
-        self.__output_status.full_update(self.__read_outputs())
+        self.__observer.invalidate_cache()
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__eeprom_controller.dirty = True
-        self.__dbus_service.send_event(Events.DIRTY_EEPROM, None)
+        self.__dbus_service.send_event(DBusEvents.DIRTY_EEPROM, None)
         self.__init_shutter_status()
 
     def get_status(self):
@@ -460,10 +462,8 @@ class GatewayApi(object):
         self.__module_log = []
         self.__eeprom_controller.invalidate_cache()
         self.__eeprom_controller.dirty = True
-        self.__dbus_service.send_event(Events.DIRTY_EEPROM, None)
-        self.__output_status.full_update(self.__read_outputs())
-        if self.__thermostat_status is not None:
-            self.__thermostat_status.force_refresh()
+        self.__dbus_service.send_event(DBusEvents.DIRTY_EEPROM, None)
+        self.__observer.invalidate_cache()
 
         return {'status': ret['resp']}
 
@@ -543,39 +543,13 @@ class GatewayApi(object):
 
     # Output functions
 
-    def __read_outputs(self):
-        """ Read all output information from the MasterApi.
-
-        :returns: a list of dicts with all fields from master_api.read_output.
-        """
-        ret = self.__master_communicator.do_command(master_api.number_of_io_modules())
-        num_outputs = ret['out'] * 8
-
-        outputs = []
-        for i in range(0, num_outputs):
-            outputs.append(self.__master_communicator.do_command(master_api.read_output(),
-                                                                 {'id': i}))
-        return outputs
-
-    def on_outputs(self, ol_output):
-        """ Update the OutputStatus when an OL is received. """
-        on_outputs = ol_output['outputs']
-
-        self.__output_status.partial_update(on_outputs)
-
-        if self.__plugin_controller is not None:
-            self.__plugin_controller.process_output_status(on_outputs)
-
     def get_output_status(self):
         """
         Get a list containing the status of the Outputs.
 
         :returns: A list is a dicts containing the following keys: id, status, ctimer and dimmer.
         """
-        if self.__output_status.should_refresh():
-            self.__output_status.full_update(self.__read_outputs())
-
-        outputs = self.__output_status.get_outputs()
+        outputs = self.__observer.get_outputs()
         return [{'id': output['id'],
                  'status': output['status'],
                  'ctimer': output['ctimer'],
@@ -844,45 +818,13 @@ class GatewayApi(object):
 
     # Input functions
 
-    def on_inputs(self, api_data):
-        """ Update the InputStatus with data from an IL message. """
-        data_set = (api_data['input'], api_data['output'])
-        self.__input_status.add_data(data_set)
-        if self.__plugin_controller is not None:
-            self.__plugin_controller.process_input_status(data_set)
-
     def get_last_inputs(self):
-        """ Get the 5 last pressed inputs during the last 5 minutes.
-
+        """ Get the X last pressed inputs during the last Y seconds.
         :returns: a list of tuples (input, output).
         """
-        return self.__input_status.get_status()
+        return self.__observer.get_input_status()
 
     # Thermostat functions
-
-    def __get_all_thermostats(self):
-        """ Get basic information about all thermostats.
-
-        :returns: array containing 32 dicts (one for each thermostats) with the following keys: \
-        'active', 'sensor_nr', 'output0_nr', 'output1_nr', 'name'.
-        """
-        thermostats = {'heating': [], 'cooling': []}
-
-        fields = ['sensor', 'output0', 'output1', 'name']
-        heating_config = self.get_thermostat_configurations(fields=fields)
-        cooling_config = self.get_cooling_configurations(fields=fields)
-
-        for (key, config) in [('heating', heating_config), ('cooling', cooling_config)]:
-            for thermostat in config:
-                info = {'active': (thermostat['sensor'] <= 31 or thermostat['sensor'] == 240) and thermostat['output0'] <= 240,
-                        'sensor_nr': thermostat['sensor'],
-                        'output0_nr': thermostat['output0'],
-                        'output1_nr': thermostat['output1'],
-                        'name': thermostat['name']}
-
-                thermostats[key].append(info)
-
-        return thermostats
 
     def get_thermostat_status(self):
         """ Get the status of the thermostats. Note that the automatic and setpoint field returned
@@ -894,64 +836,7 @@ class GatewayApi(object):
         'id', 'act', 'csetp', 'output0', 'output1', 'outside', 'mode', 'name', 'sensor_nr',
         'automatic', 'setpoint'.
         """
-        if self.__thermostat_status is None:
-            self.__thermostat_status = ThermostatStatus(self.__get_all_thermostats(), 1800)
-        elif self.__thermostat_status.should_refresh():
-            self.__thermostat_status.update(self.__get_all_thermostats())
-
-        thermostat_info = self.__master_communicator.do_command(master_api.thermostat_list())
-        thermostat_mode = self.__master_communicator.do_command(master_api.thermostat_mode_list())
-
-        mode = thermostat_info['mode']
-        thermostats_on = bool(mode & 1 << 7)
-        cooling = bool(mode & 1 << 4)
-
-        def get_automatic_setpoint(_mode):
-            _automatic = bool(_mode & 1 << 3)
-            return _automatic, 0 if _automatic else (_mode & 0b00000111)
-
-        (automatic, setpoint) = get_automatic_setpoint(thermostat_mode['mode0'])
-
-        thermostats = []
-        outputs = self.get_output_status()
-
-        cached_thermostats = self.__thermostat_status.get_thermostats()['cooling' if cooling else 'heating']
-
-        aircos = self.__master_communicator.do_command(master_api.read_airco_status_bits())
-
-        for thermostat_id in range(0, 32):
-            if cached_thermostats[thermostat_id]['active'] is True:
-                thermostat = {'id': thermostat_id,
-                              'act': thermostat_info['tmp%d' % thermostat_id].get_temperature(),
-                              'csetp': thermostat_info['setp%d' % thermostat_id].get_temperature(),
-                              'outside': thermostat_info['outside'].get_temperature(),
-                              'mode': thermostat_mode['mode%d' % thermostat_id]}
-                (thermostat['automatic'], thermostat['setpoint']) = get_automatic_setpoint(thermostat['mode'])
-
-                output0_nr = cached_thermostats[thermostat_id]['output0_nr']
-                if output0_nr < len(outputs) and outputs[output0_nr]['status'] == 1:
-                    thermostat['output0'] = outputs[output0_nr]['dimmer']
-                else:
-                    thermostat['output0'] = 0
-
-                output1_nr = cached_thermostats[thermostat_id]['output1_nr']
-                if output1_nr < len(outputs) and outputs[output1_nr]['status'] == 1:
-                    thermostat['output1'] = outputs[output1_nr]['dimmer']
-                else:
-                    thermostat['output1'] = 0
-
-                thermostat['name'] = cached_thermostats[thermostat_id]['name']
-                thermostat['sensor_nr'] = cached_thermostats[thermostat_id]['sensor_nr']
-
-                thermostat['airco'] = aircos['ASB%d' % thermostat_id]
-
-                thermostats.append(thermostat)
-
-        return {'thermostats_on': thermostats_on,
-                'automatic': automatic,
-                'setpoint': setpoint,
-                'cooling': cooling,
-                'status': thermostats}
+        return self.__observer.get_thermostats()
 
     @staticmethod
     def __check_thermostat(thermostat):
@@ -969,7 +854,6 @@ class GatewayApi(object):
         :returns: dict with 'thermostat', 'config' and 'temp'
         """
         GatewayApi.__check_thermostat(thermostat)
-
         self.__master_communicator.do_command(master_api.write_setpoint(),
                                               {'thermostat': thermostat,
                                                'config': 0,

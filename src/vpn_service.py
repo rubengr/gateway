@@ -35,7 +35,7 @@ from collections import deque
 from ConfigParser import ConfigParser
 from datetime import datetime
 from bus.dbus_service import DBusService
-from bus.dbus_events import Events
+from bus.dbus_events import DBusEvents
 from gateway.config import ConfigurationController
 
 try:
@@ -128,12 +128,12 @@ class Cloud(object):
                     self.__config.set_setting(setting, value)
 
             self.__last_connect = time.time()
-            self.__dbus_service.send_event(Events.CLOUD_REACHABLE, True)
+            self.__dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, True)
 
             return data['open_vpn']
         except Exception as ex:
             LOGGER.log('Exception occured during check: {0}'.format(ex))
-            self.__dbus_service.send_event(Events.CLOUD_REACHABLE, False)
+            self.__dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, False)
 
             return True
 
@@ -303,6 +303,7 @@ class VPNService(object):
         self._vpn_open = False
         self._output_events = deque()
         self._eeprom_events = deque()
+        self._thermostat_events = deque()
         self._gateway = Gateway()
         self._config_controller = ConfigurationController(constants.get_config_database_file(), threading.Lock())
         self._dbus_service = DBusService('vpn_service',
@@ -312,8 +313,7 @@ class VPNService(object):
                             self._dbus_service,
                             self._config_controller)
 
-        self._collectors = {'thermostats': DataCollector(self._gateway.get_thermostats, 60),
-                            'pulses': DataCollector(self._gateway.get_pulse_counter_diff, 60),
+        self._collectors = {'pulses': DataCollector(self._gateway.get_pulse_counter_diff, 60),
                             'power': DataCollector(self._gateway.get_real_time_power),
                             'update': DataCollector(self._gateway.get_update_status),
                             'errors': DataCollector(self._gateway.get_errors, 600),
@@ -352,10 +352,12 @@ class VPNService(object):
                 'last_cycle': self._last_cycle}
 
     def _event_receiver(self, event, payload):
-        if event == Events.OUTPUT_CHANGE:
+        if event == DBusEvents.OUTPUT_CHANGE:
             self._output_events.appendleft(payload)
-        elif event == Events.DIRTY_EEPROM:
+        elif event == DBusEvents.DIRTY_EEPROM:
             self._eeprom_events.appendleft(True)
+        elif event == DBusEvents.THERMOSTAT_CHANGE:
+            self._thermostat_events.appendleft(payload)
 
     @staticmethod
     def _unload_queue(queue):
@@ -377,7 +379,7 @@ class VPNService(object):
             VpnController.stop_vpn()
         is_running = VpnController.check_vpn()
         self._vpn_open = is_running and VpnController.vpn_connected()
-        self._dbus_service.send_event(Events.VPN_OPEN, self._vpn_open)
+        self._dbus_service.send_event(DBusEvents.VPN_OPEN, self._vpn_open)
 
     def start(self):
         mainloop = gobject.MainLoop()
@@ -392,8 +394,8 @@ class VPNService(object):
             if cloud_enabled is False:
                 self._sleep_time = None
                 self._set_vpn(False)
-                self._dbus_service.send_event(Events.VPN_OPEN, False)
-                self._dbus_service.send_event(Events.CLOUD_REACHABLE, False)
+                self._dbus_service.send_event(DBusEvents.VPN_OPEN, False)
+                self._dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, False)
 
                 gobject.timeout_add(30000, self._check_vpn)
                 return
@@ -404,6 +406,9 @@ class VPNService(object):
             output_events = VPNService._unload_queue(self._output_events)
             if len(output_events) > 0:
                 vpn_data['events']['OUTPUT_CHANGE'] = output_events
+            thermostat_events = VPNService._unload_queue(self._thermostat_events)
+            if len(thermostat_events) > 0:
+                vpn_data['events']['THERMOSTAT_CHANGE'] = thermostat_events
             dirty_events = VPNService._unload_queue(self._eeprom_events)
             if len(dirty_events) > 0:
                 vpn_data['events']['DIRTY_EEPROM'] = True

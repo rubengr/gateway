@@ -47,16 +47,16 @@ from gateway.metrics_caching import MetricsCacheController
 from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
+from gateway.observer import Observer
 
 from bus.dbus_service import DBusService
-from bus.dbus_events import Events
+from bus.dbus_events import DBusEvents
 
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
 from master.maintenance import MaintenanceService
-from master.master_communicator import MasterCommunicator, BackgroundConsumer
+from master.master_communicator import MasterCommunicator
 from master.passthrough import PassthroughService
-from master import master_api
 
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
@@ -78,23 +78,24 @@ def setup_logger():
 def led_driver(dbus_service, master_communicator, power_communicator):
     """
     Blink the serial leds if necessary.
-    :param dbus_service: DBus service
     :type dbus_service: bus.dbus_service.DBusService
+    :type master_communicator: master.master_communicator.MasterCommunicator
+    :type power_communicator: power.power_communicator.PowerCommunicator
     """
     master = (0, 0)
     power = (0, 0)
 
     while True:
-        if master[0] != master_communicator.get_bytes_read() \
-                or master[1] != master_communicator.get_bytes_written():
-            dbus_service.send_event(Events.SERIAL_ACTIVITY, 5)
+        new_master = (master_communicator.get_bytes_read(), master_communicator.get_bytes_written())
+        new_power = (power_communicator.get_bytes_read(), power_communicator.get_bytes_written())
 
-        if power[0] != power_communicator.get_bytes_read() \
-                or power[1] != power_communicator.get_bytes_written():
-            dbus_service.send_event(Events.SERIAL_ACTIVITY, 4)
+        if master[0] != new_master[0] or master[1] != new_master[1]:
+            dbus_service.send_event(DBusEvents.SERIAL_ACTIVITY, 5)
+        if power[0] != new_power[0] or power[1] != new_power[1]:
+            dbus_service.send_event(DBusEvents.SERIAL_ACTIVITY, 4)
 
-        master = (master_communicator.get_bytes_read(), master_communicator.get_bytes_written())
-        power = (power_communicator.get_bytes_read(), power_communicator.get_bytes_written())
+        master = new_master
+        power = new_power
         time.sleep(0.1)
 
 
@@ -173,21 +174,15 @@ def main():
 
     web_service = WebService(web_interface, config_controller)
 
-    def _on_output(*args, **kwargs):
-        metrics_collector.on_output(*args, **kwargs)
-        gateway_api.on_outputs(*args, **kwargs)
+    observer = Observer(master_communicator, dbus_service, gateway_api)
+    observer.subscribe(Observer.Events.INPUT_TRIGGER, metrics_collector.on_input)
+    observer.subscribe(Observer.Events.INPUT_TRIGGER, plugin_controller.process_input_status)
+    observer.subscribe(Observer.Events.ON_OUTPUTS, metrics_collector.on_output)
+    observer.subscribe(Observer.Events.ON_OUTPUTS, plugin_controller.process_output_status)
 
-    def _on_input(*args, **kwargs):
-        metrics_collector.on_input(*args, **kwargs)
-        gateway_api.on_inputs(*args, **kwargs)
+    gateway_api.set_observer(observer)
 
-    master_communicator.register_consumer(
-        BackgroundConsumer(master_api.output_list(), 0, _on_output, True)
-    )
-    master_communicator.register_consumer(
-        BackgroundConsumer(master_api.input_list(), 0, _on_input)
-    )
-
+    observer.start()
     power_communicator.start()
     plugin_controller.start_plugins()
     metrics_controller.start()

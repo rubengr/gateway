@@ -31,7 +31,7 @@ from decorator import decorator
 from cherrypy.lib.static import serve_file
 from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
-from bus.dbus_events import Events
+from bus.dbus_events import DBusEvents
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
 
@@ -173,7 +173,7 @@ def _openmotics_api(f, *args, **kwargs):
         status = 503
         data = {"success": False, "msg": 'maintenance_mode'}
     except Exception as ex:
-        LOGGER.exception('Unexpected error during API call')
+        LOGGER.exception('Unexpected error during API call {0}'.format(f.__name__))
         status = 200
         data = {"success": False, "msg": str(ex)}
     timings['process'] = ("Processing", time.time() - start)
@@ -495,10 +495,10 @@ class WebInterface(object):
         Returns all available features this Gateway supports. This allows to make flexible clients
         """
         return {'features': [
-            'metrics',       # Advanced metrics (including metrics over websockets)
-            'dirty_flag',    # A dirty flag that can be used to trigger syncs on power & master
-            'scheduling',    # Gateway backed scheduling
-            'factory_reset', # The gateway can be complete reset to factory standard
+            'metrics',        # Advanced metrics (including metrics over websockets)
+            'dirty_flag',     # A dirty flag that can be used to trigger syncs on power & master
+            'scheduling',     # Gateway backed scheduling
+            'factory_reset',  # The gateway can be complete reset to factory standard
         ]}
 
     @openmotics_api(auth=True, check=types(type=int, id=int))
@@ -2265,7 +2265,7 @@ class WebInterface(object):
     @openmotics_api(auth=True)
     def indicate(self):
         """ Blinks the Status led on the Gateway to indicate the module """
-        self._dbus_service.send_event(Events.INDICATE_GATEWAY, None)
+        self._dbus_service.send_event(DBusEvents.INDICATE_GATEWAY, None)
         return {}
 
     @cherrypy.expose

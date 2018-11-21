@@ -13,38 +13,37 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-Input status keeps track of the last 5 pressed inputs,
-pressed in the last 5 minutes.
-
-@author: fryckbos
+Input status keeps track of the last X pressed inputs, pressed in the last X seconds.
 """
 
 import time
 
+
 class InputStatus(object):
-    """ Contains the last x inputs pressed the last y minutes. """
+    """ Contains the last Y inputs pressed the last Y seconds. """
 
     def __init__(self, num_inputs=5, seconds=10):
-        """ Create an InputStatus, specifying the number of inputs to track and
-        the number of seconds to keep the data. """
-        self.__num_inputs = num_inputs
-        self.__seconds = seconds
-        self.__inputs = []
+        """
+        Create an InputStatus, specifying the number of inputs to track and
+        the number of seconds to keep the data.
+        """
+        self._num_inputs = num_inputs
+        self._seconds = seconds
+        self._inputs = []
 
-    def __clean(self):
+    def _clean(self):
         """ Remove the old input data. """
-        threshold = time.time() - self.__seconds
-        self.__inputs = [i for i in self.__inputs if i[0] > threshold]
+        threshold = time.time() - self._seconds
+        self._inputs = [i for i in self._inputs if i[0] > threshold]
 
     def add_data(self, data):
         """ Add input data. """
-        self.__clean()
-        while len(self.__inputs) >= self.__num_inputs:
-            self.__inputs.pop(0)
-
-        self.__inputs.append((time.time(), data))
+        self._clean()
+        while len(self._inputs) >= self._num_inputs:
+            self._inputs.pop(0)
+        self._inputs.append((time.time(), data))
 
     def get_status(self):
         """ Get the last inputs. """
-        self.__clean()
-        return [i[1] for i in self.__inputs]
+        self._clean()
+        return [i[1] for i in self._inputs]
