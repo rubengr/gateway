@@ -36,7 +36,7 @@ class OutputStatusTest(unittest.TestCase):
                    {'id': 3, 'name': 'light1', 'floor_level': 1, 'light': 0,
                     'type': 'O', 'controller_out': 1, 'timer': 200, 'ctimer': 200,
                     'max_power': 1, 'status': 0, 'dimmer': 0}]
-        status = OutputStatus(1)
+        status = OutputStatus()
         status.full_update(outputs)
 
         status.partial_update([])  # Everything is off
@@ -72,17 +72,6 @@ class OutputStatusTest(unittest.TestCase):
         self.assertEquals(80, status.get_outputs()[1]['dimmer'])
         self.assertEquals(1, status.get_outputs()[2]['status'])
         self.assertEquals(0, status.get_outputs()[2]['dimmer'])
-
-    def test_should_refresh(self):
-        """ Test for should_refresh. """
-        status = OutputStatus(100)
-        status.full_update([])
-        self.assertFalse(status.should_refresh())
-
-        status = OutputStatus(0.001)
-        status.full_update([])
-        time.sleep(0.01)
-        self.assertTrue(status.should_refresh())
 
 
 if __name__ == "__main__":

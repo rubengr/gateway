@@ -142,7 +142,10 @@ def main():
         eeprom_controller
     )
 
-    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service)
+    observer = Observer(master_communicator, dbus_service)
+    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer)
+
+    observer.set_gateway_api(gateway_api)
 
     scheduling_controller = SchedulingController(constants.get_scheduling_database_file(), config_lock, gateway_api)
 
@@ -174,13 +177,10 @@ def main():
 
     web_service = WebService(web_interface, config_controller)
 
-    observer = Observer(master_communicator, dbus_service, gateway_api)
     observer.subscribe(Observer.Events.INPUT_TRIGGER, metrics_collector.on_input)
     observer.subscribe(Observer.Events.INPUT_TRIGGER, plugin_controller.process_input_status)
     observer.subscribe(Observer.Events.ON_OUTPUTS, metrics_collector.on_output)
     observer.subscribe(Observer.Events.ON_OUTPUTS, plugin_controller.process_output_status)
-
-    gateway_api.set_observer(observer)
 
     observer.start()
     power_communicator.start()

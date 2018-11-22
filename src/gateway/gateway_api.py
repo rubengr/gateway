@@ -32,6 +32,7 @@ import subprocess
 import tempfile
 from threading import Timer
 from serial_utils import CommunicationTimedOutException
+from gateway.observer import Observer
 from bus.dbus_events import DBusEvents
 import master.master_api as master_api
 from master.shutters import ShutterStatus
@@ -64,7 +65,7 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
-    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service):
+    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -78,6 +79,8 @@ class GatewayApi(object):
         :type pulse_controller: gateway.pulses.PulseCounterController
         :param dbus_service: DBus Service
         :type dbus_service: bus.dbus_service.DBusService
+        :param observer: Observer
+        :type observer: gateway.observer.Observer
         """
         self.__master_communicator = master_communicator
         self.__eeprom_controller = eeprom_controller
@@ -86,7 +89,7 @@ class GatewayApi(object):
         self.__pulse_controller = pulse_controller
         self.__plugin_controller = None
         self.__dbus_service = dbus_service
-        self.__observer = None
+        self.__observer = observer
 
         self.__last_maintenance_send_time = 0
         self.__maintenance_timeout_timer = None
@@ -139,14 +142,6 @@ class GatewayApi(object):
         :type plugin_controller: plugins.base.PluginController
         """
         self.__plugin_controller = plugin_controller
-
-    def set_observer(self, observer):
-        """
-        Set the observer.
-        :param observer: Observer
-        :type observer: gateway.observer.Observer
-        """
-        self.__observer = observer
 
     def __init_master(self):
         """ Initialize the master: disable the async RO messages, enable async OL, IL and SO
@@ -859,6 +854,8 @@ class GatewayApi(object):
                                                'config': 0,
                                                'temp': master_api.Svt.temp(temperature)})
 
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
+        self.__observer.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
         return {'status': 'OK'}
 
     def set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
@@ -927,6 +924,8 @@ class GatewayApi(object):
                 getattr(master_api, 'BA_ALL_SETPOINT_{0}'.format(setpoint)), 0
             ))
 
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
+        self.__observer.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
         return {'status': 'OK'}
 
     def set_per_thermostat_mode(self, thermostat_id, automatic, setpoint):
@@ -965,6 +964,8 @@ class GatewayApi(object):
             )
         )
 
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
+        self.__observer.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
         return {'status': 'OK'}
 
     def get_airco_status(self):
@@ -1656,6 +1657,7 @@ class GatewayApi(object):
         :type config: thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
         """
         self.__eeprom_controller.write(ThermostatConfiguration.deserialize(config))
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def set_thermostat_configurations(self, config):
         """
@@ -1665,6 +1667,7 @@ class GatewayApi(object):
         :type config: list of thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
         """
         self.__eeprom_controller.write_batch([ThermostatConfiguration.deserialize(o) for o in config])
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def get_sensor_configuration(self, sensor_id, fields=None):
         """
@@ -1776,6 +1779,7 @@ class GatewayApi(object):
         :type config: cooling_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
         """
         self.__eeprom_controller.write(CoolingConfiguration.deserialize(config))
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def set_cooling_configurations(self, config):
         """
@@ -1785,6 +1789,7 @@ class GatewayApi(object):
         :type config: list of cooling_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
         """
         self.__eeprom_controller.write_batch([CoolingConfiguration.deserialize(o) for o in config])
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def get_cooling_pump_group_configuration(self, pump_group_id, fields=None):
         """
@@ -2061,6 +2066,7 @@ class GatewayApi(object):
         :type config: global_thermostat_configuration dict: contains 'outside_sensor' (Byte), 'pump_delay' (Byte), 'switch_to_cooling_output_0' (Byte), 'switch_to_cooling_output_1' (Byte), 'switch_to_cooling_output_2' (Byte), 'switch_to_cooling_output_3' (Byte), 'switch_to_cooling_value_0' (Byte), 'switch_to_cooling_value_1' (Byte), 'switch_to_cooling_value_2' (Byte), 'switch_to_cooling_value_3' (Byte), 'switch_to_heating_output_0' (Byte), 'switch_to_heating_output_1' (Byte), 'switch_to_heating_output_2' (Byte), 'switch_to_heating_output_3' (Byte), 'switch_to_heating_value_0' (Byte), 'switch_to_heating_value_1' (Byte), 'switch_to_heating_value_2' (Byte), 'switch_to_heating_value_3' (Byte), 'threshold_temp' (Temp)
         """
         self.__eeprom_controller.write(GlobalThermostatConfiguration.deserialize(config))
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def get_can_led_configuration(self, can_led_id, fields=None):
         """

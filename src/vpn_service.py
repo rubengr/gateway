@@ -67,16 +67,19 @@ class VpnController(object):
     check_cmd = "systemctl is-active " + vpn_service + " > /dev/null"
 
     def __init__(self):
-        pass
+        self.vpn_connected = False
+        gobject.timeout_add(5000, self._vpn_connected)
 
     @staticmethod
     def start_vpn():
         """ Start openvpn """
+        LOGGER.log('Starting VPN')
         return subprocess.call(VpnController.start_cmd, shell=True) == 0
 
     @staticmethod
     def stop_vpn():
         """ Stop openvpn """
+        LOGGER.log('Stopping VPN')
         return subprocess.call(VpnController.stop_cmd, shell=True) == 0
 
     @staticmethod
@@ -84,18 +87,18 @@ class VpnController(object):
         """ Check if openvpn is running """
         return subprocess.call(VpnController.check_cmd, shell=True) == 0
 
-    @staticmethod
-    def vpn_connected():
+    def _vpn_connected(self):
         """ Checks if the VPN tunnel is connected """
         try:
             route = subprocess.check_output('ip r | grep tun | grep via || true', shell=True).strip()
             if not route:
                 return False
             vpn_server = route.split(' ')[0]
-            return VPNService.ping(vpn_server)
+            self.vpn_connected = VPNService.ping(vpn_server, verbose=False)
         except Exception as ex:
             LOGGER.log('Exception occured during vpn connectivity test: {0}'.format(ex))
-            return False
+            self.vpn_connected = False
+        gobject.timeout_add(5000, self._vpn_connected)
 
 
 class Cloud(object):
@@ -296,15 +299,16 @@ class VPNService(object):
         config.read(constants.get_config_file())
 
         self._iterations = 0
-        self._previous_sleep_time = 0
         self._last_cycle = 0
         self._cloud_enabled = True
         self._sleep_time = 0
+        self._previous_sleep_time = 0
         self._vpn_open = False
         self._output_events = deque()
         self._eeprom_events = deque()
         self._thermostat_events = deque()
         self._gateway = Gateway()
+        self._vpn_controller = VpnController()
         self._config_controller = ConfigurationController(constants.get_config_database_file(), threading.Lock())
         self._dbus_service = DBusService('vpn_service',
                                          event_receiver=self._event_receiver,
@@ -378,7 +382,7 @@ class VPNService(object):
             LOGGER.log(str(datetime.now()) + ": closing vpn")
             VpnController.stop_vpn()
         is_running = VpnController.check_vpn()
-        self._vpn_open = is_running and VpnController.vpn_connected()
+        self._vpn_open = is_running and self._vpn_controller.vpn_connected
         self._dbus_service.send_event(DBusEvents.VPN_OPEN, self._vpn_open)
 
     def start(self):
@@ -389,6 +393,8 @@ class VPNService(object):
     def _check_vpn(self):
         self._last_cycle = time.time()
         try:
+            start_time = time.time()
+
             # Check whether connection to the Cloud is enabled/disabled
             cloud_enabled = self._config_controller.get_setting('cloud_enabled')
             if cloud_enabled is False:
@@ -435,9 +441,12 @@ class VPNService(object):
             self._set_vpn(should_open)
 
             # Getting some cleep
+            exec_time = time.time() - start_time
+            if exec_time > 1:
+                LOGGER.log('Heartbeat took more that 1s to complete: {0:.2f}s'.format(exec_time))
             sleep_time = self._cloud.get_sleep_time()
             if self._previous_sleep_time != sleep_time:
-                LOGGER.log('Sleep time set to {0}s'.format(sleep_time))
+                LOGGER.log('Set sleep interval to {0}s'.format(sleep_time))
                 self._previous_sleep_time = sleep_time
             gobject.timeout_add(sleep_time * 1000, self._check_vpn)
         except Exception as ex:

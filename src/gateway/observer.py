@@ -42,18 +42,20 @@ class Observer(object):
         ON_OUTPUTS = 'ON_OUTPUTS'
         INPUT_TRIGGER = 'INPUT_TRIGGER'
 
-    def __init__(self, master_communicator, dbus_service, gateway_api):
+    class Types(object):
+        OUTPUTS = 'OUTPUTS'
+        THERMOSTATS = 'THERMOSTATS'
+
+    def __init__(self, master_communicator, dbus_service):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
         :param dbus_service: DBusService instance
         :type dbus_service: bus.dbus_service.DBusService
-        :param gateway_api: Gateway API (business logic)
-        :type gateway_api: gateway.gateway_api.GatewayApi
         """
         self._master_communicator = master_communicator
         self._dbus_service = dbus_service
-        self._gateway_api = gateway_api
+        self._gateway_api = None
 
         self._subscriptions = {Observer.Events.ON_OUTPUTS: [],
                                Observer.Events.INPUT_TRIGGER: []}
@@ -62,11 +64,26 @@ class Observer(object):
         self._output_status = OutputStatus(on_output_change=self._output_changed)
         self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed)
 
+        self._output_interval = 600
+        self._output_last_updated = 0
+        self._thermostats_original_interval = 30
+        self._thermostats_interval = self._thermostats_original_interval
+        self._thermostats_last_updated = 0
+        self._thermostats_restore = 0
+
         self._thread = Thread(target=self._monitor)
         self._thread.daemon = True
 
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.output_list(), 0, self._on_output, True))
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(), 0, self._on_input))
+
+    def set_gateway_api(self, gateway_api):
+        """
+        Sets the Gateway API instance
+        :param gateway_api: Gateway API (business logic)
+        :type gateway_api: gateway.gateway_api.GatewayApi
+        """
+        self._gateway_api = gateway_api
 
     def subscribe(self, event, callback):
         """
@@ -78,33 +95,51 @@ class Observer(object):
 
     def start(self):
         """ Starts the monitoring thread """
+        self._ensure_gateway_api()
         self._thread.start()
 
-    def invalidate_cache(self):
+    def invalidate_cache(self, object_type=None):
         """
         Triggered when an external service knows certain settings might be changed in the background.
         For example: maintenance mode or module discovery
         """
-        self._output_status.force_refresh()
+        if object_type is None or object_type == Observer.Types.OUTPUTS:
+            self._output_last_updated = 0
+        if object_type is None or object_type == Observer.Types.THERMOSTATS:
+            self._thermostats_last_updated = 0
+
+    def increase_interval(self, object_type, interval, window):
+        """ Increases a certain interval to a new setting for a given amount of time """
+        if object_type == Observer.Types.THERMOSTATS:
+            self._thermostats_interval = interval
+            self._thermostats_restore = time.time() + window
 
     def _monitor(self):
         """ Monitors certain system states to detect changes without events """
         while True:
             try:
-                # Thermostats
-                self._refresh_thermostats()
-                # Outputs
-                if self._output_status.should_refresh():
+                # Refresh if required
+                if self._thermostats_last_updated + self._thermostats_interval < time.time():
+                    self._refresh_thermostats()
+                if self._output_last_updated + self._output_interval < time.time():
                     self._refresh_outputs()
-                time.sleep(2)
+                # Restore interval if required
+                if self._thermostats_restore < time.time():
+                    self._thermostats_interval = self._thermostats_original_interval
+                time.sleep(1)
             except Exception as ex:
                 LOGGER.exception('Unexpected error during monitoring: {0}'.format(ex))
-                time.sleep(5)
+                time.sleep(10)
+
+    def _ensure_gateway_api(self):
+        if self._gateway_api is None:
+            raise RuntimeError('The observer has no access to the Gateway API yet')
 
     # Outputs
 
     def get_outputs(self):
         """ Returns a list of Outputs with their status """
+        self._ensure_gateway_api()
         return self._output_status.get_outputs()
 
     def _output_changed(self, output_id):
@@ -118,6 +153,7 @@ class Observer(object):
         for i in range(0, number_of_outputs):
             outputs.append(self._master_communicator.do_command(master_api.read_output(), {'id': i}))
         self._output_status.full_update(outputs)
+        self._output_last_updated = time.time()
 
     def _on_output(self, data):
         """ Triggers when the master informs us of an Output state change """
@@ -131,12 +167,13 @@ class Observer(object):
     # Inputs
 
     def get_input_status(self):
+        self._ensure_gateway_api()
         return self._input_status.get_status()
 
     def _on_input(self, data):
         """ Triggers when the master informs us of an Input press """
         # Notify subscribers
-        for callback in self._subscriptions[Observer.Events.ON_OUTPUTS]:
+        for callback in self._subscriptions[Observer.Events.INPUT_TRIGGER]:
             callback(data)
         # Update status tracker
         self._input_status.add_data((data['input'], data['output']))
@@ -145,6 +182,7 @@ class Observer(object):
 
     def get_thermostats(self):
         """ Returns thermostat information """
+        self._ensure_gateway_api()
         self._refresh_thermostats()  # Always return the latest information
         return self._thermostat_status.get_thermostats()
 
@@ -181,7 +219,7 @@ class Observer(object):
             config = thermostats_config[thermostat_id]
             if (config['sensor'] <= 31 or config['sensor'] == 240) and config['output0'] <= 240:
                 t_mode = thermostat_mode['mode{0}'.format(thermostat_id)]
-                t_automatic, t_setpoint = get_automatic_setpoint(mode)
+                t_automatic, t_setpoint = get_automatic_setpoint(t_mode)
                 thermostat = {'id': thermostat_id,
                               'act': thermostat_info['tmp{0}'.format(thermostat_id)].get_temperature(),
                               'csetp': thermostat_info['setp{0}'.format(thermostat_id)].get_temperature(),
@@ -205,3 +243,4 @@ class Observer(object):
                                              'setpoint': setpoint,
                                              'cooling': cooling,
                                              'status': thermostats})
+        self._thermostats_last_updated = time.time()

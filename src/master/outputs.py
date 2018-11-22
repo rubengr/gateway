@@ -17,29 +17,20 @@ The outputs module contains classes to track the current state of the outputs on
 the master.
 """
 
-import time
+from threading import Lock
 
 
 class OutputStatus(object):
     """ Contains a cached version of the current output of the controller. """
 
-    def __init__(self, refresh_period=600, on_output_change=None):
+    def __init__(self, on_output_change=None):
         """
         Create a status object using a list of outputs (can be None),
         and a refresh period: the refresh has to be invoked explicitly.
         """
         self._outputs = {}
-        self._refresh_period = refresh_period
-        self._last_refresh = 0
         self._on_output_change = on_output_change
-
-    def force_refresh(self):
-        """ Marks internal state as stale"""
-        self._last_refresh = 0
-
-    def should_refresh(self):
-        """ Check whether the status should be refreshed. """
-        return time.time() >= self._last_refresh + self._refresh_period
+        self._merge_lock = Lock()
 
     def partial_update(self, on_outputs):
         """
@@ -50,25 +41,26 @@ class OutputStatus(object):
         for on_output in on_outputs:
             on_dict[on_output[0]] = on_output[1]
 
-        for output_id, output in self._outputs.iteritems():
-            self._update_maybe_report_change(output, {'status': output_id in on_dict,
-                                                      'dimmer': on_dict.get(output_id)})
+        with self._merge_lock:
+            for output_id, output in self._outputs.iteritems():
+                self._update_maybe_report_change(output, {'status': output_id in on_dict,
+                                                          'dimmer': on_dict.get(output_id)})
 
     def full_update(self, outputs):
         """ Update the status of the outputs using a list of Outputs. """
-        obsolete_ids = self._outputs.keys()
-        for output in outputs:
-            output_id = output['id']
-            if output_id in obsolete_ids:
-                obsolete_ids.remove(output_id)
-            if output_id in self._outputs:
-                self._update_maybe_report_change(self._outputs[output_id], output)
-            else:
-                self._report_change(output_id)
-            self._outputs[output_id] = output
-        for output_id in obsolete_ids:
-            del self._outputs[output_id]
-        self._last_refresh = time.time()
+        with self._merge_lock:
+            obsolete_ids = self._outputs.keys()
+            for output in outputs:
+                output_id = output['id']
+                if output_id in obsolete_ids:
+                    obsolete_ids.remove(output_id)
+                if output_id in self._outputs:
+                    self._update_maybe_report_change(self._outputs[output_id], output)
+                else:
+                    self._report_change(output_id)
+                self._outputs[output_id] = output
+            for output_id in obsolete_ids:
+                del self._outputs[output_id]
 
     def get_outputs(self):
         """ Return the list of Outputs. """

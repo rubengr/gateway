@@ -17,9 +17,7 @@ The thermostats module contains classes to track the current state of the thermo
 the master.
 """
 
-import logging
-
-LOGGER = logging.getLogger('openmotics')
+from threading import Lock
 
 
 class ThermostatStatus(object):
@@ -32,6 +30,7 @@ class ThermostatStatus(object):
         """
         self._thermostats = {}
         self._on_thermostat_change = on_thermostat_change
+        self._merge_lock = Lock()
 
     def full_update(self, thermostats):
         """
@@ -55,33 +54,34 @@ class ThermostatStatus(object):
                      'output0': 32,
                      'output1': 0}]}
         """
-        if len(self._thermostats) == 0:
-            self._report_change(None)
-            for i in xrange(0, 32):
-                self._report_change(i)
-        else:
-            change = False
-            for key in self._thermostats:
-                if key == 'status':
-                    continue
-                if thermostats[key] != self._thermostats[key]:
-                    change = True
-            if change:
+        with self._merge_lock:
+            if len(self._thermostats) == 0:
                 self._report_change(None)
-            old_status = {t['id']: t for t in self._thermostats['status']}
-            new_status = {t['id']: t for t in thermostats['status']}
-            for thermostat_id in xrange(0, 32):
+                for i in xrange(0, 32):
+                    self._report_change(i)
+            else:
                 change = False
-                if (thermostat_id in old_status) != (thermostat_id in new_status):
-                    change = True
-                elif thermostat_id in old_status and thermostat_id in new_status:
-                    for key in old_status[thermostat_id]:
-                        if old_status[thermostat_id][key] != new_status[thermostat_id][key]:
-                            change = True
-                            break
+                for key in self._thermostats:
+                    if key == 'status':
+                        continue
+                    if thermostats[key] != self._thermostats[key]:
+                        change = True
                 if change:
-                    self._report_change(thermostat_id)
-        self._thermostats = thermostats
+                    self._report_change(None)
+                old_status = {t['id']: t for t in self._thermostats['status']}
+                new_status = {t['id']: t for t in thermostats['status']}
+                for thermostat_id in xrange(0, 32):
+                    change = False
+                    if (thermostat_id in old_status) != (thermostat_id in new_status):
+                        change = True
+                    elif thermostat_id in old_status and thermostat_id in new_status:
+                        for key in old_status[thermostat_id]:
+                            if old_status[thermostat_id][key] != new_status[thermostat_id][key]:
+                                change = True
+                                break
+                    if change:
+                        self._report_change(thermostat_id)
+            self._thermostats = thermostats
 
     def get_thermostats(self):
         """ Return the list of Outputs. """
