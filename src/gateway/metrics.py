@@ -228,7 +228,6 @@ class MetricsController(object):
                         policy = 'persist'
 
                     settings[policy][metric['name']] = setting
-        LOGGER.error(settings)
         return settings
 
     def receiver(self, metric):

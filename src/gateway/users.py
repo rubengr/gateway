@@ -34,6 +34,7 @@ class UserController(object):
 
         :param db_filename: filename of the sqlite database used to store the users and tokens.
         :param lock: shared lock for the given DB
+        :type lock: threading.Lock
         :param config: Contains the OpenMotics cloud username and password.
         :type config: A dict with keys 'username' and 'password'.
         :param token_timeout: the number of seconds a token is valid.
@@ -55,30 +56,35 @@ class UserController(object):
         self._check_tables()
 
         # Create the user for the cloud
-        self.create_user(self._config['username'].lower(), self._config['password'], "admin", True)
+        self.create_user(self._config['username'].lower(), self._config['password'], "admin", True, True)
 
     def _execute(self, *args, **kwargs):
-        with self._lock:
-            try:
-                return self._cursor.execute(*args, **kwargs)
-            except sqlite3.OperationalError:
-                time.sleep(randint(1, 20) / 10.0)
-                return self._cursor.execute(*args, **kwargs)
+        lock = kwargs.pop('lock', True)
+        try:
+            if lock:
+                self._lock.acquire()
+            return self._cursor.execute(*args, **kwargs)
+        except sqlite3.OperationalError:
+            time.sleep(randint(1, 20) / 10.0)
+            return self._cursor.execute(*args, **kwargs)
+        finally:
+            if lock:
+                self._lock.release()
 
     def _check_tables(self):
         """
         Creates tables and execute migrations
         """
         with self._lock:
-            self._cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, {0});".format(
+            self._execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, {0});".format(
                 ", ".join(['{0} {1}'.format(key, value) for key, value in self._schema.iteritems()])
-            ))
+            ), lock=False)
             fields = []
-            for row in self._cursor.execute("PRAGMA table_info('users');"):
+            for row in self._execute("PRAGMA table_info('users');", lock=False):
                 fields.append(row[1])
             for field, field_type in self._schema.iteritems():
                 if field not in fields:
-                    self._cursor.execute("ALTER TABLE users ADD COLUMN {0} {1};".format(field, field_type))
+                    self._execute("ALTER TABLE users ADD COLUMN {0} {1};".format(field, field_type), lock=False)
 
     @staticmethod
     def _hash(password):
@@ -88,7 +94,7 @@ class UserController(object):
         sha.update(password)
         return sha.hexdigest()
 
-    def create_user(self, username, password, role, enabled):
+    def create_user(self, username, password, role, enabled, accept_terms=False):
         """ Create a new user using a username, password, role and enabled. The username is case
         insensitive.
 
@@ -96,11 +102,13 @@ class UserController(object):
         :param password: password for the newly created user.
         :param role: role for the newly created user.
         :param enabled: boolean, only enabled users can log into the system.
+        :param accept_terms: indicates whether the user has accepted the terms
         """
         username = username.lower()
+        accepted_terms = UserController.TERMS_VERSION if accept_terms else 0
 
-        self._execute("INSERT OR REPLACE INTO users (username, password, role, enabled) VALUES (?, ?, ?, ?);",
-                      (username, UserController._hash(password), role, int(enabled)))
+        self._execute("INSERT OR REPLACE INTO users (username, password, role, enabled, accepted_terms) VALUES (?, ?, ?, ?, ?);",
+                      (username, UserController._hash(password), role, int(enabled), accepted_terms))
 
     def get_usernames(self):
         """ Get all usernames.

@@ -194,7 +194,7 @@ class MetricsCollector(object):
 
     def on_output(self, data):
         try:
-            on_outputs = {entry[0]: entry[1] for entry in data['outputs']}
+            on_outputs = {entry[0]: entry[1] for entry in data}
             outputs = self._environment['outputs']
             changed_output_ids = []
             for output_id in outputs:

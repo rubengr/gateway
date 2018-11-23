@@ -210,15 +210,16 @@ class SchedulingController(object):
         self._processor = Thread(target=self._process)
         self._processor.daemon = True
         self._processor.start()
-    
+
     def stop(self):
         self._stop = True
-        
+
     def _process(self):
         while self._stop is False:
             for schedule in self._schedules.values():
                 if schedule.status == 'ACTIVE' and schedule.is_due:
                     thread = Thread(target=self._execute_schedule, args=(schedule,))
+                    thread.daemon = True
                     thread.start()
             now = int(time.time())
             time.sleep(now - now % 60 + 60 - time.time())  # Wait for the next minute mark

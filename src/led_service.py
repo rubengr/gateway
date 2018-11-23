@@ -20,14 +20,17 @@ gateway is in authorized mode.
 
 import gobject
 import sys
-import dbus
-import dbus.service
-import dbus.mainloop.glib
 import fcntl
 import time
+try:
+    import json
+except ImportError:
+    import simplejson as json
 from threading import Thread
 from ConfigParser import ConfigParser
 
+from bus.dbus_service import DBusService
+from bus.dbus_events import DBusEvents
 from platform_utils import Hardware
 import constants
 
@@ -41,18 +44,17 @@ class LOGGER(object):
         sys.stdout.flush()
 
 
-class StatusObject(dbus.service.Object):
+class LedController(object):
     """
-    The StatusObject contains the methods exposed over dbus, the serial and network activity
-    checkers and the 'authorized' button checker.
+    The LEDController contains all logic to control the leds, and read out the physical buttons
     """
 
-    def __init__(self, bus, path, i2c_device, i2c_address, input_button):
-        dbus.service.Object.__init__(self, bus, path)
+    def __init__(self, i2c_device, i2c_address, input_button):
         self._i2c_device = i2c_device
         self._i2c_address = i2c_address
         self._input_button = input_button
         self._input_button_pressed_since = None
+        self._input_button_released = True
 
         self._network_enabled = False
         self._network_activity = False
@@ -63,10 +65,19 @@ class StatusObject(dbus.service.Object):
         self._previous_leds = {}
         self._last_i2c_led_code = 0
 
+        self._indicate_started = 0
+        self._indicate_pointer = 0
+        self._indicate_sequence = [True, False, False, False]
+
         self._authorized_mode = False
         self._authorized_timeout = 0
 
         self._check_states_thread = None
+
+        self._last_run_i2c = 0
+        self._last_run_gpio = 0
+        self._last_state_check = 0
+        self._last_button_check = 0
 
         self._gpio_led_config = Hardware.get_gpio_led_config()
         self._i2c_led_config = Hardware.get_i2c_led_config()
@@ -80,28 +91,17 @@ class StatusObject(dbus.service.Object):
         self._check_states_thread.daemon = True
         self._check_states_thread.start()
 
-    @dbus.service.method("com.openmotics.status", in_signature='sb', out_signature='')
     def set_led(self, led_name, enable):
         """ Set the state of a LED, enabled means LED on in this context. """
         self._enabled_leds[led_name] = bool(enable)
 
-    @dbus.service.method("com.openmotics.status", in_signature='s', out_signature='')
     def toggle_led(self, led_name):
         """ Toggle the state of a LED. """
         self._enabled_leds[led_name] = not self._enabled_leds.get(led_name, False)
 
-    @dbus.service.method("com.openmotics.status", in_signature='i', out_signature='')
     def serial_activity(self, port):
         """ Report serial activity on the given serial port. Port is 4 or 5. """
         self._serial_activity[port] = True
-
-    @dbus.service.method("com.openmotics.status", in_signature='', out_signature='b')
-    def in_authorized_mode(self):
-        """
-        Returns whether the gateway is in authorized mode. Authorized mode is enabled when the
-        button on the top panel is pushed and lasts for 60 seconds.
-        """
-        return self._authorized_mode
 
     @staticmethod
     def _is_button_pressed(gpio_pin):
@@ -130,6 +130,9 @@ class StatusObject(dbus.service.Object):
                 with open(self._i2c_device, 'r+', 1) as i2c:
                     fcntl.ioctl(i2c, Hardware.IOCTL_I2C_SLAVE, self._i2c_address)
                     i2c.write(chr(code))
+                    self._last_run_i2c = time.time()
+            else:
+                self._last_run_i2c = time.time()
         except Exception as exception:
             LOGGER.log('Error while writing to i2c: {0}'.format(exception))
 
@@ -141,8 +144,11 @@ class StatusObject(dbus.service.Object):
                     gpio = self._gpio_led_config[led]
                     with open('/sys/class/gpio/gpio{0}/value'.format(gpio), 'w') as fh_s:
                         fh_s.write('1' if on else '0')
+                        self._last_run_gpio = time.time()
                 except IOError:
                     pass  # The GPIO doesn't exist or is read only
+            else:
+                self._last_run_gpio = time.time()
 
     def _check_states(self):
         """ Checks various states of the system (network) """
@@ -171,13 +177,18 @@ class StatusObject(dbus.service.Object):
                                 self._network_activity = False
             except Exception as exception:
                 LOGGER.log('Error while checking states: {0}'.format(exception))
+            self._last_state_check = time.time()
             time.sleep(0.5)
 
     def drive_leds(self):
         """ This drives different leds (status, alive and serial) """
         try:
-            # Calculate network led/gpio states
-            self.set_led(Hardware.Led.STATUS, not self._network_enabled)
+            now = time.time()
+            if now - 30 < self._indicate_started < now:
+                self.set_led(Hardware.Led.STATUS, self._indicate_sequence[self._indicate_pointer])
+                self._indicate_pointer = self._indicate_pointer + 1 if self._indicate_pointer < len(self._indicate_sequence) - 1 else 0
+            else:
+                self.set_led(Hardware.Led.STATUS, not self._network_enabled)
             if self._network_activity:
                 self.toggle_led(Hardware.Led.ALIVE)
             else:
@@ -200,11 +211,15 @@ class StatusObject(dbus.service.Object):
     def check_button(self):
         """ Handles input button presses """
         try:
+            button_pressed = LedController._is_button_pressed(self._input_button)
+            if button_pressed is False:
+                self._input_button_released = True
             if self._authorized_mode:
-                if time.time() > self._authorized_timeout:
+                if time.time() > self._authorized_timeout or (button_pressed and self._input_button_released):
                     self._authorized_mode = False
             else:
-                if StatusObject._is_button_pressed(self._input_button):
+                if button_pressed:
+                    self._input_button_released = False
                     if self._input_button_pressed_since is None:
                         self._input_button_pressed_since = time.time()
                     if time.time() > self._input_button_pressed_since + 5:
@@ -215,7 +230,25 @@ class StatusObject(dbus.service.Object):
                     self._input_button_pressed_since = None
         except Exception as exception:
             LOGGER.log('Error while checking button: {0}'.format(exception))
+        self._last_button_check = time.time()
         gobject.timeout_add(250, self.check_button)
+
+    def event_receiver(self, event, payload):
+        if event == DBusEvents.CLOUD_REACHABLE:
+            self.set_led(Hardware.Led.CLOUD, payload)
+        elif event == DBusEvents.VPN_OPEN:
+            self.set_led(Hardware.Led.VPN, payload)
+        elif event == DBusEvents.SERIAL_ACTIVITY:
+            self.serial_activity(payload)
+        elif event == DBusEvents.INDICATE_GATEWAY:
+            self._indicate_started = time.time()
+
+    def get_state(self):
+        return {'run_gpio': self._last_run_gpio,
+                'run_i2c': self._last_run_i2c,
+                'run_buttons': self._last_button_check,
+                'run_state_check': self._last_state_check,
+                'authorized_mode': self._authorized_mode}
 
 
 def main():
@@ -226,27 +259,20 @@ def main():
     try:
         config = ConfigParser()
         config.read(constants.get_config_file())
-
-        dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
-
-        system_bus = dbus.SystemBus()
-        _ = dbus.service.BusName("com.openmotics.status", system_bus)  # Initializes the bus
-        # The above `_ = dbus...` need to be there, or the bus won't be initialized
-
-        i2c_device = Hardware.get_i2c_device()
         i2c_address = int(config.get('OpenMotics', 'leds_i2c_address'), 16)
 
-        status = StatusObject(system_bus, '/com/openmotics/status', i2c_device, i2c_address, Hardware.get_gpio_input())
-        status.start()
+        led_controller = LedController(Hardware.get_i2c_device(), i2c_address, Hardware.get_gpio_input())
+        led_controller.start()
+        led_controller.set_led(Hardware.Led.POWER, True)
 
-        status.set_led(Hardware.Led.POWER, True)
+        DBusService('led_service',
+                    event_receiver=lambda *args, **kwargs: led_controller.event_receiver(*args, **kwargs),
+                    get_state=led_controller.get_state)
 
         LOGGER.log("Running led service.")
         mainloop = gobject.MainLoop()
-
-        gobject.timeout_add(250, status.drive_leds)
-        gobject.timeout_add(250, status.check_button)
-
+        gobject.timeout_add(250, led_controller.drive_leds)
+        gobject.timeout_add(250, led_controller.check_button)
         mainloop.run()
     except Exception as exception:
         LOGGER.log('Error starting led service: {0}'.format(exception))
