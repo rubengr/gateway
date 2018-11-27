@@ -30,6 +30,7 @@ import glob
 import shutil
 import subprocess
 import tempfile
+import ConfigParser
 from threading import Timer
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
@@ -385,6 +386,13 @@ class GatewayApi(object):
                 'mode': out_dict['mode'],
                 'version': '%d.%d.%d' % (out_dict['f1'], out_dict['f2'], out_dict['f3']),
                 'hw_version': out_dict['h']}
+
+    def get_main_version(self):
+        """ Gets reported main version """
+        _ = self
+        config = ConfigParser.ConfigParser()
+        config.read(constants.get_config_file())
+        str(config.get('OpenMotics', 'version'))
 
     def reset_master(self):
         """ Perform a cold reset on the master. Turns the power off, waits 5 seconds and

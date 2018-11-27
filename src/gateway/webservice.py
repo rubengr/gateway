@@ -17,7 +17,6 @@
 
 import threading
 import random
-import ConfigParser
 import subprocess
 import os
 import sys
@@ -1997,9 +1996,7 @@ class WebInterface(object):
         :returns: 'version': String (a.b.c).
         :rtype: dict
         """
-        config = ConfigParser.ConfigParser()
-        config.read(constants.get_config_file())
-        return {'version': str(config.get('OpenMotics', 'version')),
+        return {'version': self._gateway_api.get_main_version(),
                 'gateway': '2.8.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
@@ -2019,13 +2016,10 @@ class WebInterface(object):
         if not os.path.exists(constants.get_update_dir()):
             os.mkdir(constants.get_update_dir())
 
-        update_file = open(constants.get_update_file(), "wb")
-        update_file.write(update_data)
-        update_file.close()
-
-        output_file = open(constants.get_update_output_file(), "w")
-        output_file.write('\n')
-        output_file.close()
+        with open(constants.get_update_file(), "wb") as update_file:
+            update_file.write(update_data)
+        with open(constants.get_update_output_file(), "w") as output_file:
+            output_file.write('\n')  # Truncate file
 
         subprocess.Popen(constants.get_update_cmd(version, md5), close_fds=True)
 
@@ -2039,11 +2033,12 @@ class WebInterface(object):
         :returns: 'output': String with the output from the update script.
         :rtype: dict
         """
-        output_file = open(constants.get_update_output_file(), "r")
-        output = output_file.read()
-        output_file.close()
+        with open(constants.get_update_output_file(), "r") as output_file:
+            output = output_file.read()
+        version = self._gateway_api.get_main_version()
 
-        return {'output': output}
+        return {'output': output,
+                'version': version}
 
     @openmotics_api(auth=True)
     def set_timezone(self, timezone):
