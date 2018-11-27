@@ -392,7 +392,7 @@ class GatewayApi(object):
         _ = self
         config = ConfigParser.ConfigParser()
         config.read(constants.get_config_file())
-        str(config.get('OpenMotics', 'version'))
+        return str(config.get('OpenMotics', 'version'))
 
     def reset_master(self):
         """ Perform a cold reset on the master. Turns the power off, waits 5 seconds and
