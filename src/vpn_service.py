@@ -166,43 +166,6 @@ class Gateway(object):
             LOGGER.log('Exception during Gateway call: {0}'.format(ex))
             return None
 
-    def get_thermostats(self):
-        """ Fetch the setpoints for the enabled thermostats from the webservice.
-
-        :returns: a dict with 'thermostats_on', 'automatic' and an array of dicts in 'status'
-        with the following fields: 'id', 'act', 'csetp', 'output0', 'output1' and 'mode'.
-        None on error.
-        """
-        data = self.do_call("get_thermostat_status?token=None")
-        if data is None or data['success'] is False:
-            return None
-        else:
-            ret = {'thermostats_on': data['thermostats_on'],
-                   'automatic': data['automatic'],
-                   'cooling': data['cooling']}
-            thermostats = []
-            for thermostat in data['status']:
-                to_add = {}
-                for field in ['id', 'act', 'csetp', 'mode', 'output0', 'output1', 'outside', 'airco']:
-                    to_add[field] = thermostat[field]
-                thermostats.append(to_add)
-            ret['status'] = thermostats
-            return ret
-
-    def get_update_status(self):
-        """ Get the status of an executing update. """
-        _ = self  # Needs to be an instance method
-        filename = '/opt/openmotics/update_status'
-        if os.path.exists(filename):
-            update_status_file = open(filename, 'r')
-            status = update_status_file.read()
-            update_status_file.close()
-            if status.endswith('DONE\n'):
-                os.remove(filename)
-            return status
-        else:
-            return None
-
     def get_real_time_power(self):
         """ Get the real time power measurements. """
         data = self.do_call("get_realtime_power?token=None")
@@ -319,7 +282,6 @@ class VPNService(object):
 
         self._collectors = {'pulses': DataCollector(self._gateway.get_pulse_counter_diff, 60),
                             'power': DataCollector(self._gateway.get_real_time_power),
-                            'update': DataCollector(self._gateway.get_update_status),
                             'errors': DataCollector(self._gateway.get_errors, 600),
                             'local_ip': DataCollector(self._gateway.get_local_ip_address, 1800)}
 
