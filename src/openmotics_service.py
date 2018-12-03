@@ -29,6 +29,10 @@ System.import_eggs()
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 import constants
 
@@ -42,13 +46,17 @@ from gateway.metrics_collector import MetricsCollector
 from gateway.metrics_caching import MetricsCacheController
 from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
+from gateway.pulses import PulseCounterController
+from gateway.observer import Observer
 
-from bus.led_service import LedService
+from bus.dbus_service import DBusService
+from bus.dbus_events import DBusEvents
 
+from master.eeprom_controller import EepromController, EepromFile
+from master.eeprom_extension import EepromExtension
 from master.maintenance import MaintenanceService
-from master.master_communicator import MasterCommunicator, BackgroundConsumer
+from master.master_communicator import MasterCommunicator
 from master.passthrough import PassthroughService
-from master import master_api
 
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
@@ -67,22 +75,27 @@ def setup_logger():
     logger.addHandler(handler)
 
 
-def led_driver(led_service, master_communicator, power_communicator):
-    """ Blink the serial leds if necessary. """
+def led_driver(dbus_service, master_communicator, power_communicator):
+    """
+    Blink the serial leds if necessary.
+    :type dbus_service: bus.dbus_service.DBusService
+    :type master_communicator: master.master_communicator.MasterCommunicator
+    :type power_communicator: power.power_communicator.PowerCommunicator
+    """
     master = (0, 0)
     power = (0, 0)
 
     while True:
-        if master[0] != master_communicator.get_bytes_read() \
-                or master[1] != master_communicator.get_bytes_written():
-            led_service.serial_activity(5)
+        new_master = (master_communicator.get_bytes_read(), master_communicator.get_bytes_written())
+        new_power = (power_communicator.get_bytes_read(), power_communicator.get_bytes_written())
 
-        if power[0] != power_communicator.get_bytes_read() \
-                or power[1] != power_communicator.get_bytes_written():
-            led_service.serial_activity(4)
+        if master[0] != new_master[0] or master[1] != new_master[1]:
+            dbus_service.send_event(DBusEvents.SERIAL_ACTIVITY, 5)
+        if power[0] != new_power[0] or power[1] != new_power[1]:
+            dbus_service.send_event(DBusEvents.SERIAL_ACTIVITY, 4)
 
-        master = (master_communicator.get_bytes_read(), master_communicator.get_bytes_written())
-        power = (power_communicator.get_bytes_read(), power_communicator.get_bytes_written())
+        master = new_master
+        power = new_power
         time.sleep(0.1)
 
 
@@ -102,12 +115,16 @@ def main():
     user_controller = UserController(constants.get_config_database_file(), config_lock, defaults, 3600)
     config_controller = ConfigurationController(constants.get_config_database_file(), config_lock)
 
-    led_service = LedService()
+    dbus_service = DBusService('openmotics_service')
 
     controller_serial = Serial(controller_serial_port, 115200)
     power_serial = RS485(Serial(power_serial_port, 115200, timeout=None))
 
     master_communicator = MasterCommunicator(controller_serial)
+    eeprom_controller = EepromController(
+        EepromFile(master_communicator),
+        EepromExtension(constants.get_eeprom_extension_database_file())
+    )
 
     if passthrough_serial_port:
         passthrough_serial = Serial(passthrough_serial_port, 115200)
@@ -119,14 +136,23 @@ def main():
     power_controller = PowerController(constants.get_power_database_file())
     power_communicator = PowerCommunicator(power_serial, power_controller)
 
-    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller)
+    pulse_controller = PulseCounterController(
+        constants.get_pulse_counter_database_file(),
+        master_communicator,
+        eeprom_controller
+    )
+
+    observer = Observer(master_communicator, dbus_service)
+    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer)
+
+    observer.set_gateway_api(gateway_api)
 
     scheduling_controller = SchedulingController(constants.get_scheduling_database_file(), config_lock, gateway_api)
 
     maintenance_service = MaintenanceService(gateway_api, constants.get_ssl_private_key_file(),
                                              constants.get_ssl_certificate_file())
 
-    web_interface = WebInterface(user_controller, gateway_api, maintenance_service, led_service.in_authorized_mode,
+    web_interface = WebInterface(user_controller, gateway_api, maintenance_service, dbus_service,
                                  config_controller, scheduling_controller)
 
     scheduling_controller.set_webinterface(web_interface)
@@ -138,7 +164,7 @@ def main():
 
     # Metrics
     metrics_cache_controller = MetricsCacheController(constants.get_metrics_database_file(), threading.Lock())
-    metrics_collector = MetricsCollector(gateway_api)
+    metrics_collector = MetricsCollector(gateway_api, pulse_controller)
     metrics_controller = MetricsController(plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid)
     metrics_collector.set_controllers(metrics_controller, plugin_controller)
     metrics_collector.set_plugin_intervals(plugin_controller.metric_intervals)
@@ -151,21 +177,12 @@ def main():
 
     web_service = WebService(web_interface, config_controller)
 
-    def _on_output(*args, **kwargs):
-        metrics_collector.on_output(*args, **kwargs)
-        gateway_api.on_outputs(*args, **kwargs)
+    observer.subscribe(Observer.Events.INPUT_TRIGGER, metrics_collector.on_input)
+    observer.subscribe(Observer.Events.INPUT_TRIGGER, plugin_controller.process_input_status)
+    observer.subscribe(Observer.Events.ON_OUTPUTS, metrics_collector.on_output)
+    observer.subscribe(Observer.Events.ON_OUTPUTS, plugin_controller.process_output_status)
 
-    def _on_input(*args, **kwargs):
-        metrics_collector.on_input(*args, **kwargs)
-        gateway_api.on_inputs(*args, **kwargs)
-
-    master_communicator.register_consumer(
-        BackgroundConsumer(master_api.output_list(), 0, _on_output, True)
-    )
-    master_communicator.register_consumer(
-        BackgroundConsumer(master_api.input_list(), 0, _on_input)
-    )
-
+    observer.start()
     power_communicator.start()
     plugin_controller.start_plugins()
     metrics_controller.start()
@@ -173,7 +190,7 @@ def main():
     metrics_collector.start()
     web_service.start()
 
-    led_thread = threading.Thread(target=led_driver, args=(led_service, master_communicator, power_communicator))
+    led_thread = threading.Thread(target=led_driver, args=(dbus_service, master_communicator, power_communicator))
     led_thread.setName("Serial led driver thread")
     led_thread.daemon = True
     led_thread.start()

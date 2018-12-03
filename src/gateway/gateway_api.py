@@ -30,19 +30,17 @@ import glob
 import shutil
 import subprocess
 import tempfile
+import ConfigParser
 from threading import Timer
 from serial_utils import CommunicationTimedOutException
+from gateway.observer import Observer
+from bus.dbus_events import DBusEvents
 import master.master_api as master_api
-from master.outputs import OutputStatus
-from master.inputs import InputStatus
-from master.thermostats import ThermostatStatus
 from master.shutters import ShutterStatus
 from master.master_communicator import BackgroundConsumer
-from master.eeprom_controller import EepromController, EepromFile
-from master.eeprom_extension import EepromExtension
 from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
     SensorConfiguration, PumpGroupConfiguration, GroupActionConfiguration, \
-    ScheduledActionConfiguration, PulseCounterConfiguration, StartupActionConfiguration, \
+    ScheduledActionConfiguration, StartupActionConfiguration, \
     ShutterConfiguration, ShutterGroupConfiguration, DimmerConfiguration, \
     GlobalThermostatConfiguration, CoolingConfiguration, CoolingPumpGroupConfiguration, \
     GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
@@ -68,7 +66,7 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
-    def __init__(self, master_communicator, power_communicator, power_controller):
+    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -76,26 +74,33 @@ class GatewayApi(object):
         :type power_communicator: power.power_communicator.PowerCommunicator
         :param power_controller: Power controller
         :type power_controller: power.power_controller.PowerController
+        :param eeprom_controller: EEPROM controller
+        :type eeprom_controller: master.eeprom_controller.EepromController
+        :param pulse_controller: Pulse controller
+        :type pulse_controller: gateway.pulses.PulseCounterController
+        :param dbus_service: DBus Service
+        :type dbus_service: bus.dbus_service.DBusService
+        :param observer: Observer
+        :type observer: gateway.observer.Observer
         """
         self.__master_communicator = master_communicator
-        self.__eeprom_controller = EepromController(
-            EepromFile(self.__master_communicator),
-            EepromExtension(constants.get_eeprom_extension_database_file())
-        )
+        self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
         self.__power_controller = power_controller
+        self.__pulse_controller = pulse_controller
         self.__plugin_controller = None
+        self.__dbus_service = dbus_service
+        self.__observer = observer
 
         self.__last_maintenance_send_time = 0
         self.__maintenance_timeout_timer = None
 
         self.__discover_mode_timer = None
 
-        self.__output_status = None
-        self.__input_status = InputStatus()
         self.__module_log = []
-        self.__thermostat_status = None
         self.__shutter_status = ShutterStatus()
+
+        self.__previous_on_outputs = set()
 
         self.__master_communicator.register_consumer(
                 BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
@@ -132,7 +137,11 @@ class GatewayApi(object):
         setattr(self, method_name, override)
 
     def set_plugin_controller(self, plugin_controller):
-        """ Set the plugin controller. """
+        """
+        Set the plugin controller.
+        :param plugin_controller: Plugin controller
+        :type plugin_controller: plugins.base.PluginController
+        """
         self.__plugin_controller = plugin_controller
 
     def __init_master(self):
@@ -209,8 +218,10 @@ class GatewayApi(object):
                 self.set_per_thermostat_mode(config.id, config.automatic, config.setpoint)
 
     def __run_master_timer(self):
-        """ Run the master timer, this sets the masters clock if it differs more than 3 minutes
-        from the gateway clock. """
+        """
+        Run the master timer, this sets the masters clock if it differs more than 3 minutes
+        from the gateway clock.
+        """
 
         try:
             status = self.__master_communicator.do_command(master_api.status())
@@ -315,12 +326,6 @@ class GatewayApi(object):
     def start_maintenance_mode(self, timeout=600):
         """ Start maintenance mode, if the time between send_maintenance_data calls exceeds the
         timeout, the maintenance mode will be closed automatically. """
-        try:
-            self.set_master_status_leds(True)
-        except Exception as exception:
-            msg = 'Exception while setting status leds before maintenance mode:' + str(exception)
-            LOGGER.warning(msg)
-
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__master_communicator.start_maintenance_mode()
 
@@ -359,24 +364,15 @@ class GatewayApi(object):
     def stop_maintenance_mode(self):
         """ Stop maintenance mode. """
         self.__master_communicator.stop_maintenance_mode()
-        if self.__output_status is not None:
-            self.__output_status.force_refresh()
-
-        if self.__thermostat_status is not None:
-            self.__thermostat_status.force_refresh()
 
         if self.__maintenance_timeout_timer is not None:
             self.__maintenance_timeout_timer.cancel()
             self.__maintenance_timeout_timer = None
-
+        self.__observer.invalidate_cache()
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
+        self.__eeprom_controller.dirty = True
+        self.__dbus_service.send_event(DBusEvents.DIRTY_EEPROM, None)
         self.__init_shutter_status()
-
-        try:
-            self.set_master_status_leds(False)
-        except Exception as exception:
-            msg = 'Exception while setting status leds after maintenance mode:' + str(exception)
-            LOGGER.warning(msg)
 
     def get_status(self):
         """ Get the status of the Master.
@@ -390,6 +386,13 @@ class GatewayApi(object):
                 'mode': out_dict['mode'],
                 'version': '%d.%d.%d' % (out_dict['f1'], out_dict['f2'], out_dict['f3']),
                 'hw_version': out_dict['h']}
+
+    def get_main_version(self):
+        """ Gets reported main version """
+        _ = self
+        config = ConfigParser.ConfigParser()
+        config.read(constants.get_config_file())
+        return str(config.get('OpenMotics', 'version'))
 
     def reset_master(self):
         """ Perform a cold reset on the master. Turns the power off, waits 5 seconds and
@@ -462,6 +465,8 @@ class GatewayApi(object):
         self.__module_log = []
         self.__eeprom_controller.invalidate_cache()
         self.__eeprom_controller.dirty = True
+        self.__dbus_service.send_event(DBusEvents.DIRTY_EEPROM, None)
+        self.__observer.invalidate_cache()
 
         return {'status': ret['resp']}
 
@@ -541,45 +546,17 @@ class GatewayApi(object):
 
     # Output functions
 
-    def __read_outputs(self):
-        """ Read all output information from the MasterApi.
-
-        :returns: a list of dicts with all fields from master_api.read_output.
-        """
-        ret = self.__master_communicator.do_command(master_api.number_of_io_modules())
-        num_outputs = ret['out'] * 8
-
-        outputs = []
-        for i in range(0, num_outputs):
-            outputs.append(self.__master_communicator.do_command(master_api.read_output(),
-                                                                 {'id': i}))
-        return outputs
-
-    def on_outputs(self, ol_output):
-        """ Update the OutputStatus when an OL is received. """
-        on_outputs = ol_output['outputs']
-
-        if self.__output_status is not None:
-            self.__output_status.partial_update(on_outputs)
-
-        if self.__plugin_controller is not None:
-            self.__plugin_controller.process_output_status(on_outputs)
-
     def get_output_status(self):
-        """ Get a list containing the status of the Outputs.
-
-        :returns: A list is a dicts containing the following keys: id, status, ctimer
-        and dimmer.
         """
-        if self.__output_status is None:
-            self.__output_status = OutputStatus(self.__read_outputs())
+        Get a list containing the status of the Outputs.
 
-        if self.__output_status.should_refresh():
-            self.__output_status.full_update(self.__read_outputs())
-
-        outputs = self.__output_status.get_outputs()
-        return [{'id': output['id'], 'status': output['status'],
-                 'ctimer': output['ctimer'], 'dimmer': output['dimmer']}
+        :returns: A list is a dicts containing the following keys: id, status, ctimer and dimmer.
+        """
+        outputs = self.__observer.get_outputs()
+        return [{'id': output['id'],
+                 'status': output['status'],
+                 'ctimer': output['ctimer'],
+                 'dimmer': output['dimmer']}
                 for output in outputs]
 
     def set_output(self, output_id, is_on, dimmer=None, timer=None):
@@ -844,45 +821,13 @@ class GatewayApi(object):
 
     # Input functions
 
-    def on_inputs(self, api_data):
-        """ Update the InputStatus with data from an IL message. """
-        data_set = (api_data['input'], api_data['output'])
-        self.__input_status.add_data(data_set)
-        if self.__plugin_controller is not None:
-            self.__plugin_controller.process_input_status(data_set)
-
     def get_last_inputs(self):
-        """ Get the 5 last pressed inputs during the last 5 minutes.
-
+        """ Get the X last pressed inputs during the last Y seconds.
         :returns: a list of tuples (input, output).
         """
-        return self.__input_status.get_status()
+        return self.__observer.get_input_status()
 
     # Thermostat functions
-
-    def __get_all_thermostats(self):
-        """ Get basic information about all thermostats.
-
-        :returns: array containing 32 dicts (one for each thermostats) with the following keys: \
-        'active', 'sensor_nr', 'output0_nr', 'output1_nr', 'name'.
-        """
-        thermostats = {'heating': [], 'cooling': []}
-
-        fields = ['sensor', 'output0', 'output1', 'name']
-        heating_config = self.get_thermostat_configurations(fields=fields)
-        cooling_config = self.get_cooling_configurations(fields=fields)
-
-        for (key, config) in [('heating', heating_config), ('cooling', cooling_config)]:
-            for thermostat in config:
-                info = {'active': (thermostat['sensor'] <= 31 or thermostat['sensor'] == 240) and thermostat['output0'] <= 240,
-                        'sensor_nr': thermostat['sensor'],
-                        'output0_nr': thermostat['output0'],
-                        'output1_nr': thermostat['output1'],
-                        'name': thermostat['name']}
-
-                thermostats[key].append(info)
-
-        return thermostats
 
     def get_thermostat_status(self):
         """ Get the status of the thermostats. Note that the automatic and setpoint field returned
@@ -894,64 +839,7 @@ class GatewayApi(object):
         'id', 'act', 'csetp', 'output0', 'output1', 'outside', 'mode', 'name', 'sensor_nr',
         'automatic', 'setpoint'.
         """
-        if self.__thermostat_status is None:
-            self.__thermostat_status = ThermostatStatus(self.__get_all_thermostats(), 1800)
-        elif self.__thermostat_status.should_refresh():
-            self.__thermostat_status.update(self.__get_all_thermostats())
-
-        thermostat_info = self.__master_communicator.do_command(master_api.thermostat_list())
-        thermostat_mode = self.__master_communicator.do_command(master_api.thermostat_mode_list())
-
-        mode = thermostat_info['mode']
-        thermostats_on = bool(mode & 1 << 7)
-        cooling = bool(mode & 1 << 4)
-
-        def get_automatic_setpoint(_mode):
-            _automatic = bool(_mode & 1 << 3)
-            return _automatic, 0 if _automatic else (_mode & 0b00000111)
-
-        (automatic, setpoint) = get_automatic_setpoint(thermostat_mode['mode0'])
-
-        thermostats = []
-        outputs = self.get_output_status()
-
-        cached_thermostats = self.__thermostat_status.get_thermostats()['cooling' if cooling else 'heating']
-
-        aircos = self.__master_communicator.do_command(master_api.read_airco_status_bits())
-
-        for thermostat_id in range(0, 32):
-            if cached_thermostats[thermostat_id]['active'] is True:
-                thermostat = {'id': thermostat_id,
-                              'act': thermostat_info['tmp%d' % thermostat_id].get_temperature(),
-                              'csetp': thermostat_info['setp%d' % thermostat_id].get_temperature(),
-                              'outside': thermostat_info['outside'].get_temperature(),
-                              'mode': thermostat_mode['mode%d' % thermostat_id]}
-                (thermostat['automatic'], thermostat['setpoint']) = get_automatic_setpoint(thermostat['mode'])
-
-                output0_nr = cached_thermostats[thermostat_id]['output0_nr']
-                if output0_nr < len(outputs) and outputs[output0_nr]['status'] == 1:
-                    thermostat['output0'] = outputs[output0_nr]['dimmer']
-                else:
-                    thermostat['output0'] = 0
-
-                output1_nr = cached_thermostats[thermostat_id]['output1_nr']
-                if output1_nr < len(outputs) and outputs[output1_nr]['status'] == 1:
-                    thermostat['output1'] = outputs[output1_nr]['dimmer']
-                else:
-                    thermostat['output1'] = 0
-
-                thermostat['name'] = cached_thermostats[thermostat_id]['name']
-                thermostat['sensor_nr'] = cached_thermostats[thermostat_id]['sensor_nr']
-
-                thermostat['airco'] = aircos['ASB%d' % thermostat_id]
-
-                thermostats.append(thermostat)
-
-        return {'thermostats_on': thermostats_on,
-                'automatic': automatic,
-                'setpoint': setpoint,
-                'cooling': cooling,
-                'status': thermostats}
+        return self.__observer.get_thermostats()
 
     @staticmethod
     def __check_thermostat(thermostat):
@@ -969,12 +857,13 @@ class GatewayApi(object):
         :returns: dict with 'thermostat', 'config' and 'temp'
         """
         GatewayApi.__check_thermostat(thermostat)
-
         self.__master_communicator.do_command(master_api.write_setpoint(),
                                               {'thermostat': thermostat,
                                                'config': 0,
                                                'temp': master_api.Svt.temp(temperature)})
 
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
+        self.__observer.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
         return {'status': 'OK'}
 
     def set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
@@ -1043,6 +932,8 @@ class GatewayApi(object):
                 getattr(master_api, 'BA_ALL_SETPOINT_{0}'.format(setpoint)), 0
             ))
 
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
+        self.__observer.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
         return {'status': 'OK'}
 
     def set_per_thermostat_mode(self, thermostat_id, automatic, setpoint):
@@ -1081,6 +972,8 @@ class GatewayApi(object):
             )
         )
 
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
+        self.__observer.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
         return {'status': 'OK'}
 
     def get_airco_status(self):
@@ -1257,7 +1150,8 @@ class GatewayApi(object):
                                      'scheduled.db': constants.get_scheduling_database_file(),
                                      'power.db': constants.get_power_database_file(),
                                      'eeprom_extensions.db': constants.get_eeprom_extension_database_file(),
-                                     'metrics.db': constants.get_metrics_database_file()}.iteritems():
+                                     'metrics.db': constants.get_metrics_database_file(),
+                                     'pulse.db': constants.get_pulse_counter_database_file()}.iteritems():
                 target = '{0}/{1}'.format(tmp_sqlite_dir, filename)
                 backup_sqlite_db(source, target)
 
@@ -1324,7 +1218,8 @@ class GatewayApi(object):
                                      'scheduled.db': constants.get_scheduling_database_file(),
                                      'power.db': constants.get_power_database_file(),
                                      'eeprom_extensions.db': constants.get_eeprom_extension_database_file(),
-                                     'metrics.db': constants.get_metrics_database_file()}.iteritems():
+                                     'metrics.db': constants.get_metrics_database_file(),
+                                     'pulse.db': constants.get_pulse_counter_database_file()}.iteritems():
                 source = '{0}/{1}'.format(src_dir, filename)
                 if os.path.exists(source):
                     shutil.copyfile(source, target)
@@ -1371,7 +1266,8 @@ class GatewayApi(object):
                          constants.get_scheduling_database_file(),
                          constants.get_power_database_file(),
                          constants.get_eeprom_extension_database_file(),
-                         constants.get_metrics_database_file()]
+                         constants.get_metrics_database_file(),
+                         constants.get_pulse_counter_database_file()]
 
             for filename in filenames:
                 if os.path.exists(filename):
@@ -1494,18 +1390,71 @@ class GatewayApi(object):
 
     # Pulse counter functions
 
-    def get_pulse_counter_status(self):
-        """ Get the pulse counter values.
-
-        :returns: array with the 24 pulse counter values.
+    def set_pulse_counter_amount(self, amount):
         """
-        out_dict = self.__master_communicator.do_command(master_api.pulse_list())
-        return [out_dict['pv0'], out_dict['pv1'], out_dict['pv2'], out_dict['pv3'],
-                out_dict['pv4'], out_dict['pv5'], out_dict['pv6'], out_dict['pv7'],
-                out_dict['pv8'], out_dict['pv9'], out_dict['pv10'], out_dict['pv11'],
-                out_dict['pv12'], out_dict['pv13'], out_dict['pv14'], out_dict['pv15'],
-                out_dict['pv16'], out_dict['pv17'], out_dict['pv18'], out_dict['pv19'],
-                out_dict['pv20'], out_dict['pv21'], out_dict['pv22'], out_dict['pv23']]
+        Set the number of pulse counters.
+
+        :param amount: The number of pulse counters.
+        :type amount: int
+        :returns: the number of pulse counters.
+        """
+        return self.__pulse_controller.set_pulse_counter_amount(amount)
+
+    def get_pulse_counter_status(self):
+        """
+        Get the pulse counter values.
+
+        :returns: array with the pulse counter values.
+        """
+        return self.__pulse_controller.get_pulse_counter_status()
+
+    def set_pulse_counter_status(self, pulse_counter_id, value):
+        """
+        Sets a pulse counter to a value.
+
+        :returns: the updated value of the pulse counter.
+        """
+        return self.__pulse_controller.set_pulse_counter_status(pulse_counter_id, value)
+
+    def get_pulse_counter_configuration(self, pulse_counter_id, fields=None):
+        """
+        Get a specific pulse_counter_configuration defined by its id.
+
+        :param pulse_counter_id: The id of the pulse_counter_configuration
+        :type pulse_counter_id: Id
+        :param fields: The field of the pulse_counter_configuration to get. (None gets all fields)
+        :type fields: List of strings
+        :returns: pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
+        """
+        return self.__pulse_controller.get_configuration(pulse_counter_id, fields)
+
+    def get_pulse_counter_configurations(self, fields=None):
+        """
+        Get all pulse_counter_configurations.
+
+        :param fields: The field of the pulse_counter_configuration to get. (None gets all fields)
+        :type fields: List of strings
+        :returns: list of pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
+        """
+        return self.__pulse_controller.get_configurations(fields)
+
+    def set_pulse_counter_configuration(self, config):
+        """
+        Set one pulse_counter_configuration.
+
+        :param config: The pulse_counter_configuration to set
+        :type config: pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
+        """
+        self.__pulse_controller.set_configuration(config)
+
+    def set_pulse_counter_configurations(self, config):
+        """
+        Set multiple pulse_counter_configurations.
+
+        :param config: The list of pulse_counter_configurations to set
+        :type config: list of pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
+        """
+        self.__pulse_controller.set_configurations(config)
 
     # Below are the auto generated master configuration functions
 
@@ -1716,6 +1665,7 @@ class GatewayApi(object):
         :type config: thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
         """
         self.__eeprom_controller.write(ThermostatConfiguration.deserialize(config))
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def set_thermostat_configurations(self, config):
         """
@@ -1725,6 +1675,7 @@ class GatewayApi(object):
         :type config: list of thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
         """
         self.__eeprom_controller.write_batch([ThermostatConfiguration.deserialize(o) for o in config])
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def get_sensor_configuration(self, sensor_id, fields=None):
         """
@@ -1836,6 +1787,7 @@ class GatewayApi(object):
         :type config: cooling_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
         """
         self.__eeprom_controller.write(CoolingConfiguration.deserialize(config))
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def set_cooling_configurations(self, config):
         """
@@ -1845,6 +1797,7 @@ class GatewayApi(object):
         :type config: list of cooling_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
         """
         self.__eeprom_controller.write_batch([CoolingConfiguration.deserialize(o) for o in config])
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def get_cooling_pump_group_configuration(self, pump_group_id, fields=None):
         """
@@ -2065,46 +2018,6 @@ class GatewayApi(object):
         """
         self.__eeprom_controller.write_batch([ScheduledActionConfiguration.deserialize(o) for o in config])
 
-    def get_pulse_counter_configuration(self, pulse_counter_id, fields=None):
-        """
-        Get a specific pulse_counter_configuration defined by its id.
-
-        :param pulse_counter_id: The id of the pulse_counter_configuration
-        :type pulse_counter_id: Id
-        :param fields: The field of the pulse_counter_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
-        """
-        return self.__eeprom_controller.read(PulseCounterConfiguration, pulse_counter_id, fields).serialize()
-
-    def get_pulse_counter_configurations(self, fields=None):
-        """
-        Get all pulse_counter_configurations.
-
-        :param fields: The field of the pulse_counter_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(PulseCounterConfiguration, fields)]
-
-    def set_pulse_counter_configuration(self, config):
-        """
-        Set one pulse_counter_configuration.
-
-        :param config: The pulse_counter_configuration to set
-        :type config: pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
-        """
-        self.__eeprom_controller.write(PulseCounterConfiguration.deserialize(config))
-
-    def set_pulse_counter_configurations(self, config):
-        """
-        Set multiple pulse_counter_configurations.
-
-        :param config: The list of pulse_counter_configurations to set
-        :type config: list of pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
-        """
-        self.__eeprom_controller.write_batch([PulseCounterConfiguration.deserialize(o) for o in config])
-
     def get_startup_action_configuration(self, fields=None):
         """
         Get the startup_action_configuration.
@@ -2161,6 +2074,7 @@ class GatewayApi(object):
         :type config: global_thermostat_configuration dict: contains 'outside_sensor' (Byte), 'pump_delay' (Byte), 'switch_to_cooling_output_0' (Byte), 'switch_to_cooling_output_1' (Byte), 'switch_to_cooling_output_2' (Byte), 'switch_to_cooling_output_3' (Byte), 'switch_to_cooling_value_0' (Byte), 'switch_to_cooling_value_1' (Byte), 'switch_to_cooling_value_2' (Byte), 'switch_to_cooling_value_3' (Byte), 'switch_to_heating_output_0' (Byte), 'switch_to_heating_output_1' (Byte), 'switch_to_heating_output_2' (Byte), 'switch_to_heating_output_3' (Byte), 'switch_to_heating_value_0' (Byte), 'switch_to_heating_value_1' (Byte), 'switch_to_heating_value_2' (Byte), 'switch_to_heating_value_3' (Byte), 'threshold_temp' (Temp)
         """
         self.__eeprom_controller.write(GlobalThermostatConfiguration.deserialize(config))
+        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def get_can_led_configuration(self, can_led_id, fields=None):
         """

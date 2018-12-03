@@ -17,7 +17,6 @@
 
 import threading
 import random
-import ConfigParser
 import subprocess
 import os
 import sys
@@ -31,6 +30,7 @@ from decorator import decorator
 from cherrypy.lib.static import serve_file
 from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
+from bus.dbus_events import DBusEvents
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
 
@@ -172,7 +172,7 @@ def _openmotics_api(f, *args, **kwargs):
         status = 503
         data = {"success": False, "msg": 'maintenance_mode'}
     except Exception as ex:
-        LOGGER.exception('Unexpected error during API call')
+        LOGGER.exception('Unexpected error during API call {0}'.format(f.__name__))
         status = 200
         data = {"success": False, "msg": str(ex)}
     timings['process'] = ("Processing", time.time() - start)
@@ -262,7 +262,7 @@ class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 authorized_check, config_controller, scheduling_controller):
+                 dbus_service, config_controller, scheduling_controller):
         """
         Constructor for the WebInterface.
 
@@ -272,8 +272,8 @@ class WebInterface(object):
         :type gateway_api: gateway.gateway_api.GatewayApi
         :param maintenance_service: used when opening maintenance mode.
         :type maintenance_service: master.maintenance.MaintenanceService
-        :param authorized_check: check if the gateway is in authorized mode.
-        :type authorized_check: () -> boolean
+        :param dbus_service: check if the gateway is in authorized mode.
+        :type dbus_service: bus.dbus_service.DBusService
         :param config_controller: Configuration controller
         :type config_controller: gateway.config.ConfigController
         :param scheduling_controller: Scheduling Controller
@@ -287,11 +287,14 @@ class WebInterface(object):
 
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
-        self._authorized_check = authorized_check
+        self._dbus_service = dbus_service
 
         self.metrics_collector = None
         self._ws_metrics_registered = False
         self._power_dirty = False
+
+    def in_authorized_mode(self):
+        return self._dbus_service.get_state('led_service', {}).get('authorized_mode', False)
 
     def distribute_metric(self, metric):
         try:
@@ -379,7 +382,7 @@ class WebInterface(object):
         :param password: Password of the user.
         :type password: str
         """
-        if not self._authorized_check():
+        if not self.in_authorized_mode():
             raise cherrypy.HTTPError(401, "unauthorized")
         self._user_controller.create_user(username, password, 'admin', True)
         return {}
@@ -392,7 +395,7 @@ class WebInterface(object):
         :returns: 'usernames': list of usernames (String).
         :rtype: dict
         """
-        if not self._authorized_check():
+        if not self.in_authorized_mode():
             raise cherrypy.HTTPError(401, "unauthorized")
         return {'usernames': self._user_controller.get_usernames()}
 
@@ -404,7 +407,7 @@ class WebInterface(object):
         :param username: Name of the user to remove.
         :type username: str
         """
-        if not self._authorized_check():
+        if not self.in_authorized_mode():
             raise cherrypy.HTTPError(401, "unauthorized")
         self._user_controller.remove_user(username)
         return {}
@@ -491,10 +494,10 @@ class WebInterface(object):
         Returns all available features this Gateway supports. This allows to make flexible clients
         """
         return {'features': [
-            'metrics',       # Advanced metrics (including metrics over websockets)
-            'dirty_flag',    # A dirty flag that can be used to trigger syncs on power & master
-            'scheduling',    # Gateway backed scheduling
-            'factory_reset', # The gateway can be complete reset to factory standard
+            'metrics',        # Advanced metrics (including metrics over websockets)
+            'dirty_flag',     # A dirty flag that can be used to trigger syncs on power & master
+            'scheduling',     # Gateway backed scheduling
+            'factory_reset',  # The gateway can be complete reset to factory standard
         ]}
 
     @openmotics_api(auth=True, check=types(type=int, id=int))
@@ -1886,15 +1889,44 @@ class WebInterface(object):
         """
         return self._gateway_api.set_power_voltage(module_id, voltage)
 
+    @openmotics_api(auth=True, check=types(amount=int))
+    def set_pulse_counter_amount(self, amount):
+        """
+        Set the number of pulse counters. The minimum is 24, these are the pulse counters
+        that can be linked to an input. An amount greater than 24 will result in virtual
+        pulse counter that can be set through the API.
+
+        :param amount: The number of pulse counters.
+        :type amount: int
+        :returns: 'amount': number of pulse counters.
+        :rtype: dict
+        """
+        return {'amount': self._gateway_api.set_pulse_counter_amount(amount)}
+
     @openmotics_api(auth=True)
     def get_pulse_counter_status(self):
         """
         Get the pulse counter values.
 
-        :returns: 'counters': array with the 8 pulse counter values.
+        :returns: 'counters': array with the pulse counter values.
         :rtype: dict
         """
         return {'counters': self._gateway_api.get_pulse_counter_status()}
+
+    @openmotics_api(auth=True, check=types(pulse_counter_id=int, value=int))
+    def set_pulse_counter_status(self, pulse_counter_id, value):
+        """
+        Sets a pulse counter to a value. This can only be done for virtual pulse counters,
+        with a pulse_counter_id >= 24.
+
+        :param pulse_counter_id: The id of the pulse counter.
+        :type pulse_counter_id: int
+        :param value: The new value for the pulse counter.
+        :type value: int
+        :returns: 'value': the updated value of the pulse counter.
+        :rtype: dict
+        """
+        return {'value': self._gateway_api.set_pulse_counter_status(pulse_counter_id, value)}
 
     @openmotics_api(auth=True, check=types(module_id=int, input_id=int))
     def get_energy_time(self, module_id, input_id=None):
@@ -1964,10 +1996,8 @@ class WebInterface(object):
         :returns: 'version': String (a.b.c).
         :rtype: dict
         """
-        config = ConfigParser.ConfigParser()
-        config.read(constants.get_config_file())
-        return {'version': str(config.get('OpenMotics', 'version')),
-                'gateway': '2.7.3'}
+        return {'version': self._gateway_api.get_main_version(),
+                'gateway': '2.8.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
@@ -1986,13 +2016,10 @@ class WebInterface(object):
         if not os.path.exists(constants.get_update_dir()):
             os.mkdir(constants.get_update_dir())
 
-        update_file = open(constants.get_update_file(), "wb")
-        update_file.write(update_data)
-        update_file.close()
-
-        output_file = open(constants.get_update_output_file(), "w")
-        output_file.write('\n')
-        output_file.close()
+        with open(constants.get_update_file(), "wb") as update_file:
+            update_file.write(update_data)
+        with open(constants.get_update_output_file(), "w") as output_file:
+            output_file.write('\n')  # Truncate file
 
         subprocess.Popen(constants.get_update_cmd(version, md5), close_fds=True)
 
@@ -2006,11 +2033,12 @@ class WebInterface(object):
         :returns: 'output': String with the output from the update script.
         :rtype: dict
         """
-        output_file = open(constants.get_update_output_file(), "r")
-        output = output_file.read()
-        output_file.close()
+        with open(constants.get_update_output_file(), "r") as output_file:
+            output = output_file.read()
+        version = self._gateway_api.get_main_version()
 
-        return {'output': output}
+        return {'output': output,
+                'version': version}
 
     @openmotics_api(auth=True)
     def set_timezone(self, timezone):
@@ -2179,7 +2207,7 @@ class WebInterface(object):
         """
         Perform a Gateway self-test.
         """
-        if not self._authorized_check():
+        if not self.in_authorized_mode():
             raise cherrypy.HTTPError(401, "unauthorized")
         subprocess.Popen(constants.get_self_test_cmd(), close_fds=True)
         return {}
@@ -2207,6 +2235,34 @@ class WebInterface(object):
         self._gateway_api.factory_reset()
         return {}
 
+    @openmotics_api(auth=False)
+    def health_check(self):
+        """ Requests the state of the various services and checks the returned value for the global state """
+        health = {'openmotics': {'state': True}}
+        try:
+            state = self._dbus_service.get_state('vpn_service', {})
+            health['vpn_service'] = {'state': state.get('last_cycle', 0) > time.time() - 300}
+        except Exception as ex:
+            LOGGER.error('Error loading vpn_service health: {0}'.format(ex))
+            health['vpn_service'] = {'state': False}
+        try:
+            state = self._dbus_service.get_state('led_service', {})
+            state_ok = True
+            for run in ['run_gpio', 'run_i2c', 'run_buttons', 'run_state_check']:
+                state_ok = state_ok and (state.get(run, 0) > time.time() - 5)
+            health['led_service'] = {'state': state_ok}
+        except Exception as ex:
+            LOGGER.error('Error loading led_service health: {0}'.format(ex))
+            health['led_service'] = {'state': False}
+        return {'health': health,
+                'health_version': 1.0}
+
+    @openmotics_api(auth=True)
+    def indicate(self):
+        """ Blinks the Status led on the Gateway to indicate the module """
+        self._dbus_service.send_event(DBusEvents.INDICATE_GATEWAY, None)
+        return {}
+
     @cherrypy.expose
     @cherrypy.tools.authenticated(pass_token=True)
     def ws_metrics(self, token, client_id, source=None, metric_type=None, interval=None):
@@ -2223,11 +2279,13 @@ class WebService(object):
 
     name = 'web'
 
-    def __init__(self, webinterface, config_controller):
+    def __init__(self, webinterface, config_controller, verbose=False):
         self._webinterface = webinterface
         self._config_controller = config_controller
         self._https_server = None
         self._http_server = None
+        if not verbose:
+            logging.getLogger("cherrypy").propagate = False
 
     def run(self):
         """ Run the web service: start cherrypy. """
