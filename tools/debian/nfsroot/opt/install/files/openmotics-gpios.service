@@ -1,0 +1,14 @@
+[Unit]
+Description=Export required gpios for OpenMotics Cape
+Documentation=http://wiki.openmotics.com
+Before=supervisor.service
+
+[Service]
+ExecStart=/opt/openmotics/bin/configure_ports.sh
+ExecReload=/opt/openmotics/bin/configure_ports.sh
+KillMode=process
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=network.target
