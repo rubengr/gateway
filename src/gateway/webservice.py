@@ -1008,7 +1008,7 @@ class WebInterface(object):
         """
         return {'config': self._gateway_api.get_shutter_configurations(fields)}
 
-    @openmotics_api(auth=True, check=types(confi='json'))
+    @openmotics_api(auth=True, check=types(config='json'))
     def set_shutter_configuration(self, config):
         """
         Set one shutter_configuration.
@@ -1997,7 +1997,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.8.0'}
+                'gateway': '2.8.1'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
