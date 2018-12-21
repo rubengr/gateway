@@ -2203,24 +2203,26 @@ class GatewayApi(object):
             version = self.__power_controller.get_version(mod['id'])
             addr = self.__power_controller.get_address(mod['id'])
             if version == power_api.POWER_API_8_PORTS:
-                # 2 = 25A, 3 = 50A
+                def _check_sid(key):
+                    # 2 = 25A, 3 = 50A
+                    if mod[key] in [2, 3]:
+                        return mod[key]
+                    return 2
                 self.__power_communicator.do_command(
                     addr, power_api.set_sensor_types(version),
-                    *[mod['sensor{0}'.format(i)] for i in xrange(power_api.NUM_PORTS[version])]
+                    *[_check_sid('sensor{0}'.format(i)) for i in xrange(power_api.NUM_PORTS[version])]
                 )
             elif version == power_api.POWER_API_12_PORTS:
                 def _convert_ccf(key):
-                    if mod[key] == 2:  # 12.5A
+                    try:
+                        if mod[key] == 2:  # 12.5 A
+                            return 0.5
+                        if mod[key] in [3, 4, 5, 6]:  # 25 A, 50 A, 100 A, 200 A
+                            return int(math.pow(2, mod[key] - 3))
+                        return mod[key] / 25.0
+                    except Exception:
+                        # In case of calculation errors, default to 12.5 A
                         return 0.5
-                    if mod[key] == 3:  # 25A
-                        return 1
-                    if mod[key] == 4:  # 50A
-                        return 2
-                    if mod[key] == 5:  # 100A
-                        return 4
-                    if mod[key] == 6:  # 200A
-                        return 8
-                    return 0.5  # 12.5A is default
                 self.__power_communicator.do_command(
                     addr, power_api.set_current_clamp_factor(version),
                     *[_convert_ccf('sensor{0}'.format(i)) for i in xrange(power_api.NUM_PORTS[version])]
