@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-The vpn_service asks the OpenMotics cloud it a vpn tunnel should be opened. It start openvpn
+The vpn_service asks the OpenMotics cloud it a vpn tunnel should be opened. It starts openvpn
 if required. On each check the vpn_service sends some status information about the outputs and
 thermostats to the cloud, to keep the status information in the cloud in sync.
 """
@@ -44,12 +44,12 @@ except ImportError:
     import simplejson as json
 
 REBOOT_TIMEOUT = 900
-
+DEFAULT_SLEEP_TIME = 30
 
 class LOGGER(object):
     @staticmethod
     def log(line):
-        sys.stdout.write('{0}\n'.format(line))
+        sys.stdout.write('{0}: {1}\n'.format(datetime.now(),line))
         sys.stdout.flush()
 
 
@@ -68,7 +68,7 @@ class VpnController(object):
 
     def __init__(self):
         self.vpn_connected = False
-        gobject.timeout_add(5000, self._vpn_connected)
+        gobject.timeout_add_seconds(5, self._vpn_connected)
 
     @staticmethod
     def start_vpn():
@@ -98,13 +98,11 @@ class VpnController(object):
         except Exception as ex:
             LOGGER.log('Exception occured during vpn connectivity test: {0}'.format(ex))
             self.vpn_connected = False
-        gobject.timeout_add(5000, self._vpn_connected)
+        gobject.timeout_add_seconds(5, self._vpn_connected)
 
 
 class Cloud(object):
     """ Connects to the OpenMotics cloud to check if the vpn should be opened. """
-
-    DEFAULT_SLEEP_TIME = 30
 
     def __init__(self, url, dbus_service, config, sleep_time=DEFAULT_SLEEP_TIME):
         self.__url = url
@@ -114,7 +112,7 @@ class Cloud(object):
         self.__config = config
 
     def should_open_vpn(self, extra_data):
-        """ Check with the OpenMotics could if we should open a VPN """
+        """ Check with the OpenMotics cloud if we should open a VPN """
         try:
             request = requests.post(self.__url,
                                     data={'extra_data': json.dumps(extra_data)},
@@ -124,7 +122,7 @@ class Cloud(object):
             if 'sleep_time' in data:
                 self.__sleep_time = data['sleep_time']
             else:
-                self.__sleep_time = Cloud.DEFAULT_SLEEP_TIME
+                self.__sleep_time = DEFAULT_SLEEP_TIME
 
             if 'configuration' in data:
                 for setting, value in data['configuration'].iteritems():
@@ -132,7 +130,6 @@ class Cloud(object):
 
             self.__last_connect = time.time()
             self.__dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, True)
-
             return data['open_vpn']
         except Exception as ex:
             LOGGER.log('Exception occured during check: {0}'.format(ex))
@@ -291,11 +288,22 @@ class VPNService(object):
         if target is None:
             return False
 
+        # The popen_timeout has been added as a workaround for the hanging subprocess
+        # If NTP date changes the time during a execution of a sub process this hangs forever.
+        def popen_timeout(command, timeout):
+            p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            for t in xrange(timeout):
+                time.sleep(1)
+                if p.poll() is not None:
+                    return p.communicate()
+            p.kill()
+            return False
+
         if verbose is True:
             LOGGER.log("Testing ping to {0}".format(target))
         try:
             # Ping returns status code 0 if at least 1 ping is successful
-            subprocess.check_output("ping -c 3 {0}".format(target), shell=True)
+            popen_timeout(["ping", "-c", "3", target], 10)
             return True
         except Exception as ex:
             LOGGER.log("Error during ping: {0}".format(ex))
@@ -338,10 +346,10 @@ class VPNService(object):
     def _set_vpn(self, should_open):
         is_running = VpnController.check_vpn()
         if should_open and not is_running:
-            LOGGER.log(str(datetime.now()) + ": opening vpn")
+            LOGGER.log("opening vpn")
             VpnController.start_vpn()
         elif not should_open and is_running:
-            LOGGER.log(str(datetime.now()) + ": closing vpn")
+            LOGGER.log("closing vpn")
             VpnController.stop_vpn()
         is_running = VpnController.check_vpn()
         self._vpn_open = is_running and self._vpn_controller.vpn_connected
@@ -365,7 +373,7 @@ class VPNService(object):
                 self._dbus_service.send_event(DBusEvents.VPN_OPEN, False)
                 self._dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, False)
 
-                gobject.timeout_add(30000, self._check_vpn)
+                gobject.timeout_add_seconds(DEFAULT_SLEEP_TIME, self._check_vpn)
                 return
 
             vpn_data = {'events': {}}
@@ -402,19 +410,18 @@ class VPNService(object):
             # Open or close the VPN
             self._set_vpn(should_open)
 
-            # Getting some cleep
+            # Getting some sleep
             exec_time = time.time() - start_time
             if exec_time > 1:
-                LOGGER.log('Heartbeat took more that 1s to complete: {0:.2f}s'.format(exec_time))
+                LOGGER.log('Heartbeat took more than 1s to complete: {0:.2f}s'.format(exec_time))
             sleep_time = self._cloud.get_sleep_time()
             if self._previous_sleep_time != sleep_time:
                 LOGGER.log('Set sleep interval to {0}s'.format(sleep_time))
                 self._previous_sleep_time = sleep_time
-            gobject.timeout_add(sleep_time * 1000, self._check_vpn)
+            gobject.timeout_add_seconds(sleep_time, self._check_vpn)
         except Exception as ex:
             LOGGER.log("Error during vpn check loop: {0}".format(ex))
-            gobject.timeout_add(1000, self._check_vpn)
-
+            gobject.timeout_add_seconds(1, self._check_vpn)
 
 if __name__ == '__main__':
     LOGGER.log("Starting VPN service")
