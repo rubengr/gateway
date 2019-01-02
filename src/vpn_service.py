@@ -230,7 +230,7 @@ class DataCollector(object):
         self.__last_collect = 0
 
     def __should_collect(self):
-        """ Should we execute the collect ? """
+        """ Should we execute the collect? """
 
         return self.__period == 0 or time.time() >= self.__last_collect + self.__period
 
