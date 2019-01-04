@@ -126,11 +126,6 @@ class MetricsCollector(object):
                     self._plugin_intervals[metric_type].append(interval_info['interval'])
                     self._update_intervals(metric_type)
 
-    @staticmethod
-    def _log(message, level='exception'):
-        getattr(LOGGER, level)(message)
-        print message
-
     def _update_intervals(self, metric_type):
         min_interval = self._min_intervals[metric_type]
         interval = max(min_interval, self._cloud_intervals[metric_type])
@@ -217,7 +212,7 @@ class MetricsCollector(object):
                     changed_output_ids.append(output_id)
             self._process_outputs(changed_output_ids, 'output')
         except Exception as ex:
-            MetricsCollector._log('Error processing outputs: {0}'.format(ex))
+            LOGGER.exception('Error processing outputs: {0}'.format(ex))
 
     def _process_outputs(self, output_ids, metric_type):
         try:
@@ -244,7 +239,7 @@ class MetricsCollector(object):
                                           tags=tags,
                                           timestamp=now)
         except Exception as ex:
-            MetricsCollector._log('Error processing outputs {0}: {1}'.format(output_ids, ex))
+            LOGGER.exception('Error processing outputs {0}: {1}'.format(output_ids, ex))
 
     def on_input(self, data):
         self._process_input(data['input'])
@@ -265,7 +260,7 @@ class MetricsCollector(object):
                                       tags=tags,
                                       timestamp=now)
         except Exception as ex:
-            MetricsCollector._log('Error processing input: {0}'.format(ex))
+            LOGGER.exception('Error processing input: {0}'.format(ex))
 
     def _run_system(self, metric_type):
         while not self._stopped:
@@ -286,7 +281,7 @@ class MetricsCollector(object):
                                             'section': 'main'},
                                       timestamp=now)
             except Exception as ex:
-                MetricsCollector._log('Error sending system data: {0}'.format(ex))
+                LOGGER.exception('Error sending system data: {0}'.format(ex))
             if self._metrics_controller is not None:
                 try:
                     self._enqueue_metrics(metric_type=metric_type,
@@ -346,7 +341,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting output status: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error getting output status: {0}'.format(ex))
+                LOGGER.exception('Error getting output status: {0}'.format(ex))
             self._process_outputs(self._environment['outputs'].keys(), metric_type)
             if self._stopped:
                 return
@@ -382,7 +377,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting sensor status: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error getting sensor status: {0}'.format(ex))
+                LOGGER.exception('Error getting sensor status: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -420,7 +415,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting thermostat status: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error getting thermostat status: {0}'.format(ex))
+                LOGGER.exception('Error getting thermostat status: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -453,7 +448,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting module errors: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error getting module errors: {0}'.format(ex))
+                LOGGER.exception('Error getting module errors: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -484,7 +479,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting pulse counter status: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error getting pulse counter status: {0}'.format(ex))
+                LOGGER.exception('Error getting pulse counter status: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -506,7 +501,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting power modules: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error getting power modules: {0}'.format(ex))
+                LOGGER.exception('Error getting power modules: {0}'.format(ex))
             try:
                 result = self._gateway_api.get_realtime_power()
                 for module_id, device_id in mapping.iteritems():
@@ -521,7 +516,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting realtime power: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error getting realtime power: {0}'.format(ex))
+                LOGGER.exception('Error getting realtime power: {0}'.format(ex))
             try:
                 result = self._gateway_api.get_total_energy()
                 for module_id, device_id in mapping.iteritems():
@@ -535,7 +530,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting total energy: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error getting total energy: {0}'.format(ex))
+                LOGGER.exception('Error getting total energy: {0}'.format(ex))
             for device_id in power_data:
                 device = power_data[device_id]
                 try:
@@ -553,7 +548,7 @@ class MetricsCollector(object):
                                                     'name': device['name']},
                                               timestamp=now)
                 except Exception as ex:
-                    MetricsCollector._log('Error processing OpenMotics power device {0}: {1}'.format(device_id, ex))
+                    LOGGER.exception('Error processing OpenMotics power device {0}: {1}'.format(device_id, ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -611,7 +606,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting power analytics: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error getting power analytics: {0}'.format(ex))
+                LOGGER.exception('Error getting power analytics: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -631,9 +626,9 @@ class MetricsCollector(object):
                     if input_id not in ids:
                         del self._environment['inputs'][input_id]
             except CommunicationTimedOutException:
-                MetricsCollector._log('Error while loading input configurations: CommunicationTimedOutException')
+                LOGGER.error('Error while loading input configurations: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error while loading input configurations: {0}'.format(ex))
+                LOGGER.exception('Error while loading input configurations: {0}'.format(ex))
             # Outputs
             try:
                 result = self._gateway_api.get_output_configurations()
@@ -656,7 +651,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error while loading output configurations: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error while loading output configurations: {0}'.format(ex))
+                LOGGER.exception('Error while loading output configurations: {0}'.format(ex))
             # Sensors
             try:
                 result = self._gateway_api.get_sensor_configurations()
@@ -671,7 +666,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error while loading sensor configurations: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error while loading sensor configurations: {0}'.format(ex))
+                LOGGER.exception('Error while loading sensor configurations: {0}'.format(ex))
             # Pulse counters
             try:
                 result = self._gateway_api.get_pulse_counter_configurations()
@@ -686,7 +681,7 @@ class MetricsCollector(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Error while loading pulse counter configurations: CommunicationTimedOutException')
             except Exception as ex:
-                MetricsCollector._log('Error while loading pulse counter configurations: {0}'.format(ex))
+                LOGGER.exception('Error while loading pulse counter configurations: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, name, interval)

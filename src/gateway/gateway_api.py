@@ -18,10 +18,10 @@ and call the master_api to complete the actions.
 """
 
 import os
+import time
 import threading
 import time as pytime
 import datetime
-import traceback
 import math
 import sqlite3
 import constants
@@ -31,12 +31,11 @@ import shutil
 import subprocess
 import tempfile
 import ConfigParser
-from threading import Timer
+from threading import Timer, Thread
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
 from bus.dbus_events import DBusEvents
 import master.master_api as master_api
-from master.shutters import ShutterStatus
 from master.master_communicator import BackgroundConsumer
 from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
     SensorConfiguration, PumpGroupConfiguration, GroupActionConfiguration, \
@@ -44,7 +43,7 @@ from master.eeprom_models import OutputConfiguration, InputConfiguration, Thermo
     ShutterConfiguration, ShutterGroupConfiguration, DimmerConfiguration, \
     GlobalThermostatConfiguration, CoolingConfiguration, CoolingPumpGroupConfiguration, \
     GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
-    CanLedConfiguration, RoomConfiguration, ThermostatSetpointConfiguration
+    CanLedConfiguration, RoomConfiguration
 import power.power_api as power_api
 
 LOGGER = logging.getLogger('openmotics')
@@ -66,7 +65,7 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
-    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer):
+    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer, config_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -82,8 +81,11 @@ class GatewayApi(object):
         :type dbus_service: bus.dbus_service.DBusService
         :param observer: Observer
         :type observer: gateway.observer.Observer
+        :param config_controller: Configuration controller
+        :type config_controller: gateway.config.ConfigurationController
         """
         self.__master_communicator = master_communicator
+        self.__config_controller = config_controller
         self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
         self.__power_controller = power_controller
@@ -98,43 +100,21 @@ class GatewayApi(object):
         self.__discover_mode_timer = None
 
         self.__module_log = []
-        self.__shutter_status = ShutterStatus()
 
         self.__previous_on_outputs = set()
 
         self.__master_communicator.register_consumer(
-                BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
+            BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
         )
         self.__master_communicator.register_consumer(
             BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
         )
 
-        self.__init_shutter_status()
-        self.__master_communicator.register_consumer(
-                BackgroundConsumer(master_api.shutter_status(), 0,
-                                   self.__on_shutter_update)
-        )
+        self.__master_checker_thread = Thread(target=self.__master_checker)
+        self.__master_checker_thread.daemon = True
 
-        self.__extend_method('set_shutter_configuration', self.__init_shutter_status)
-        self.__extend_method('set_shutter_configurations', self.__init_shutter_status)
-
-        self.__init_master()
-        self.__load_thermostat_setpoints()
-        self.__run_master_timer()
-
-    def __extend_method(self, method_name, extension):
-        """ Extend a method of the object to call the extension function after method execution.
-        This is used to add an event to the auto-generated code. This way, we don't have to modify
-        the auto-generated code.
-        """
-        old = getattr(self, method_name)
-
-        def override(*args, **kwargs):
-            ret = old(*args, **kwargs)
-            extension()
-            return ret
-
-        setattr(self, method_name, override)
+    def start(self):
+        self.__master_checker_thread.start()
 
     def set_plugin_controller(self, plugin_controller):
         """
@@ -144,116 +124,180 @@ class GatewayApi(object):
         """
         self.__plugin_controller = plugin_controller
 
-    def __init_master(self):
-        """ Initialize the master: disable the async RO messages, enable async OL, IL and SO
-        messages, enables multi-tenant thermostats. """
-        try:
-            eeprom_data = self.__master_communicator.do_command(master_api.eeprom_list(),
-                                                                {'bank': 0})['data']
-
-            write = False
-
-            if eeprom_data[11] != chr(255):
-                LOGGER.info('Disabling async RO messages.')
-                self.__master_communicator.do_command(
-                    master_api.write_eeprom(),
-                    {'bank': 0, 'address': 11, 'data': chr(255)}
-                )
-                write = True
-
-            if eeprom_data[18] != chr(0):
-                LOGGER.info('Enabling async OL messages.')
-                self.__master_communicator.do_command(
-                    master_api.write_eeprom(),
-                    {'bank': 0, 'address': 18, 'data': chr(0)}
-                )
-                write = True
-
-            if eeprom_data[20] != chr(0):
-                LOGGER.info('Enabling async IL messages.')
-                self.__master_communicator.do_command(
-                    master_api.write_eeprom(),
-                    {'bank': 0, 'address': 20, 'data': chr(0)}
-                )
-                write = True
-
-            if eeprom_data[28] != chr(0):
-                LOGGER.info('Enabling async SO messages.')
-                self.__master_communicator.do_command(
-                    master_api.write_eeprom(),
-                    {'bank': 0, 'address': 28, 'data': chr(0)}
-                )
-                write = True
-
-            thermostat_mode = ord(eeprom_data[14])
-            if thermostat_mode & 64 == 0:
-                LOGGER.info('Enabling multi-tenant thermostats.')
-                self.__master_communicator.do_command(
-                    master_api.write_eeprom(),
-                    {'bank': 0, 'address': 14, 'data': chr(thermostat_mode | 64)}
-                )
-                write = True
-
-            if eeprom_data[59] != chr(32):
-                LOGGER.info('Enabling 32 thermostats.')
-                self.__master_communicator.do_command(
-                    master_api.write_eeprom(),
-                    {'bank': 0, 'address': 59, 'data': chr(32)}
-                )
-                write = True
-
-            if write:
-                self.__master_communicator.do_command(master_api.activate_eeprom(), {'eep': 0})
-
-            LOGGER.info('Turn master leds ON - disable low power mode')
-            self.set_master_status_leds(True)
-
-        except CommunicationTimedOutException:
-            LOGGER.error('Got CommunicationTimedOutException during gateway_api initialization.')
-
-    def __load_thermostat_setpoints(self):
-        """ Load the thermostat setpoints from the EepromController into the master. """
-        for config in self.__eeprom_controller.read_all(ThermostatSetpointConfiguration):
-            if config.setpoint != 255:  # Skip not initialised ThermostatSetpointConfiguration
-                self.set_per_thermostat_mode(config.id, config.automatic, config.setpoint)
-
-    def __run_master_timer(self):
+    def __master_checker(self):
         """
-        Run the master timer, this sets the masters clock if it differs more than 3 minutes
-        from the gateway clock.
+        Validates certain master settings such as time and whether e.g. events are enabled. It will try to correct all
+        unexpected values
         """
+        last_communication_check = 0
+        last_master_time_check = 0
+        last_master_settings_check = 0
+        while True:
+            try:
+                now = time.time()
+                if last_communication_check < now - 60:
+                    self.__check_master_communications()
+                    last_communication_check = now
+                if last_master_time_check < now - 300:
+                    self.__validate_master_time()
+                    last_master_time_check = now
+                if last_master_settings_check < now - 900:
+                    self.__check_master_settings()
+                    last_master_settings_check = now
+                time.sleep(5)
+            except CommunicationTimedOutException:
+                LOGGER.error('Got communication timeout while checking the master.')
+                time.sleep(60)
+            except Exception as ex:
+                LOGGER.exception('Got unexpected exception while checking the master: {0}'.format(ex))
+                time.sleep(60)
 
-        try:
-            status = self.__master_communicator.do_command(master_api.status())
+    def __check_master_communications(self):
+        communication_recovery = self.__config_controller.get_setting('communication_recovery', {})
+        calls_timedout = self.__master_communicator.get_communication_statistics()['calls_timedout']
+        calls_succeeded = self.__master_communicator.get_communication_statistics()['calls_succeeded']
+        all_calls = sorted(calls_timedout + calls_succeeded)
 
-            master_time = datetime.datetime(1, 1, 1, status['hours'], status['minutes'], status['seconds'])
+        oldest_success = 0 if len(calls_succeeded) == 0 else calls_succeeded[0]
+        last_timeout = 0 if len(calls_timedout) == 0 else calls_timedout[-1]
+        if len(calls_timedout) == 0 or last_timeout < oldest_success:
+            # If there are no timeouts at all, or if the oldest success was after the most recent timeout, we consider the system to be OK
+            return
 
-            now = datetime.datetime.now()
-            expected_weekday = now.weekday() + 1
-            expected_time = now.replace(year=1, month=1, day=1, microsecond=0)
+        if len(all_calls) <= 10:
+            # Not enough calls made to have a decent view on what's going on
+            LOGGER.warning('Noticed communication timeouts with the master, but waiting for more samples...')
+            return
+        if not any(t in calls_timedout for t in all_calls[-10:]):
+            # The last X calls are successfull
+            LOGGER.warning('Noticed communication timeouts with the master, but things look fine now.')
+            return
+        calls_last_x_minutes = [t for t in all_calls if t > time.time() - 180]
+        ratio = len([t in calls_timedout for t in calls_last_x_minutes]) / float(len(calls_last_x_minutes))
+        if ratio < 0.25:
+            # Less than 25% of the calls fail, let's assume everything is just "fine"
+            LOGGER.warning('Noticed communication timeouts with the master, but there\'s only a failure ratio of {0:.2f}%.'.format(ratio))
+            return
 
-            sync = False
-            if abs((master_time - expected_time).total_seconds()) > 180:  # Allow 3 minutes difference
-                sync = True
-            if status['weekday'] != expected_weekday:
-                sync = True
+        service_restart = None
+        master_reset = None
+        # There's no successful communication.
+        if len(communication_recovery) == 0:
+            service_restart = 'communication_errors'
+        else:
+            last_service_restart = communication_recovery.get('service_restart')
+            if last_service_restart is None or last_service_restart['time'] < time.time() - 900:
+                service_restart = 'communication_errors'
+            else:
+                last_master_reset = communication_recovery.get('master_reset')
+                if last_master_reset is None or last_master_reset['time'] < last_service_restart['time']:
+                    master_reset = 'communication_errors'
+        if service_restart is not None:
+            LOGGER.fatal('Major issues in communication with master. Restarting service...')
+            communication_recovery['service_restart'] = {'reason': service_restart,
+                                                         'time': time.time()}
+            self.__config_controller.set_setting('communication_recovery', communication_recovery)
+            time.sleep(15)  # Wait a tad for the I/O to complete (both for DB changes as log flushing)
+            os._exit(1)
+        if master_reset is not None:
+            LOGGER.fatal('Major issues in communication with master. Resetting master...')
+            communication_recovery['master_reset'] = {'reason': master_reset,
+                                                      'time': time.time()}
+            self.__config_controller.set_setting('communication_recovery', communication_recovery)
+            self.reset_master()
 
-            if sync is True:
-                LOGGER.info('Time - master: {0} ({1}) - gateway: {2} ({3})'.format(
-                    master_time, status['weekday'], expected_time, expected_weekday)
-                )
-                if expected_time.hour == 0 and expected_time.minute < 15:
-                    LOGGER.info('Skip setting time between 00:00 and 00:15')
-                else:
-                    self.sync_master_time(abs(expected_time.hour - master_time.hour) > 2)
+    def __check_master_settings(self):
+        """
+        Checks master settings such as:
+        * Enable async messages
+        * Enable multi-tenancy
+        * Enable 32 thermostats
+        * Turn on all leds
+        """
+        eeprom_data = self.__master_communicator.do_command(master_api.eeprom_list(),
+                                                            {'bank': 0})['data']
+        write = False
 
-        except Exception:
-            LOGGER.error('Got error while setting the time on the master.')
-            traceback.print_exc()
-        finally:
-            Timer(120, self.__run_master_timer).start()
+        if eeprom_data[11] != chr(255):
+            LOGGER.info('Disabling async RO messages.')
+            self.__master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 11, 'data': chr(255)}
+            )
+            write = True
 
-    def sync_master_time(self, reset_thermostats):
+        if eeprom_data[18] != chr(0):
+            LOGGER.info('Enabling async OL messages.')
+            self.__master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 18, 'data': chr(0)}
+            )
+            write = True
+
+        if eeprom_data[20] != chr(0):
+            LOGGER.info('Enabling async IL messages.')
+            self.__master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 20, 'data': chr(0)}
+            )
+            write = True
+
+        if eeprom_data[28] != chr(0):
+            LOGGER.info('Enabling async SO messages.')
+            self.__master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 28, 'data': chr(0)}
+            )
+            write = True
+
+        thermostat_mode = ord(eeprom_data[14])
+        if thermostat_mode & 64 == 0:
+            LOGGER.info('Enabling multi-tenant thermostats.')
+            self.__master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 14, 'data': chr(thermostat_mode | 64)}
+            )
+            write = True
+
+        if eeprom_data[59] != chr(32):
+            LOGGER.info('Enabling 32 thermostats.')
+            self.__master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 59, 'data': chr(32)}
+            )
+            write = True
+
+        if write:
+            self.__master_communicator.do_command(master_api.activate_eeprom(), {'eep': 0})
+        self.set_master_status_leds(True)
+
+    def __validate_master_time(self):
+        """
+        Validates the master's time with the Gateway time
+        """
+        status = self.__master_communicator.do_command(master_api.status())
+        master_time = datetime.datetime(1, 1, 1, status['hours'], status['minutes'], status['seconds'])
+
+        now = datetime.datetime.now()
+        expected_weekday = now.weekday() + 1
+        expected_time = now.replace(year=1, month=1, day=1, microsecond=0)
+
+        sync = False
+        if abs((master_time - expected_time).total_seconds()) > 180:  # Allow 3 minutes difference
+            sync = True
+        if status['weekday'] != expected_weekday:
+            sync = True
+
+        if sync is True:
+            LOGGER.info('Time - master: {0} ({1}) - gateway: {2} ({3})'.format(
+                master_time, status['weekday'], expected_time, expected_weekday)
+            )
+            if expected_time.hour == 0 and expected_time.minute < 15:
+                LOGGER.info('Skip setting time between 00:00 and 00:15')
+            else:
+                self.sync_master_time()
+
+    def sync_master_time(self):
         """ Set the time on the master. """
         LOGGER.info('Setting the time on the master.')
         now = datetime.datetime.now()
@@ -263,17 +307,6 @@ class GatewayApi(object):
              'weekday': now.isoweekday(), 'day': now.day, 'month': now.month,
              'year': now.year % 100}
         )
-        if reset_thermostats is True:
-            try:
-                LOGGER.info('Trigger thermostat (re)set to check changed time.')
-                thermostat_status = self.get_thermostat_status()
-                self.set_thermostat_mode(thermostat_status['thermostats_on'],
-                                         thermostat_status['cooling'],
-                                         thermostat_status['thermostats_on'],
-                                         thermostat_status['automatic'],
-                                         thermostat_status['setpoint'])
-            except Exception as ex:
-                LOGGER.info('Could not (re)set thermostats: {0}'.format(ex))
 
     def set_timezone(self, timezone):
         _ = self  # Not static for consistency
@@ -291,28 +324,6 @@ class GatewayApi(object):
             self.set_timezone('UTC')
             return 'UTC'
         return path[20:]
-
-    def __init_shutter_status(self):
-        """ Initialize the shutter status. """
-        ret = self.__master_communicator.do_command(master_api.number_of_io_modules())
-        num_shutter_modules = ret['shutter']
-
-        configs = []
-        for i in range(num_shutter_modules):
-            configs.append([self.get_shutter_configuration(i * 4 + j) for j in range(4)])
-
-        status = []
-        for i in range(num_shutter_modules):
-            status.append(self.__master_communicator.do_command(master_api.shutter_status(),
-                                                                {'module_nr': i})['status'])
-
-        self.__shutter_status.init(configs, status)
-
-    def __on_shutter_update(self, update):
-        self.__shutter_status.handle_shutter_update(update)
-
-        if self.__plugin_controller is not None:
-            self.__plugin_controller.process_shutter_status(self.__shutter_status.get_status())
 
     def __event_triggered(self, ev_output):
         """ Handle an event triggered by the master. """
@@ -372,7 +383,6 @@ class GatewayApi(object):
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__eeprom_controller.dirty = True
         self.__dbus_service.send_event(DBusEvents.DIRTY_EEPROM, None)
-        self.__init_shutter_status()
 
     def get_status(self):
         """ Get the status of the Master.
@@ -711,7 +721,7 @@ class GatewayApi(object):
 
         :returns: A list is a dicts containing the following keys: id, status.
         """
-        return self.__shutter_status.get_status()
+        return self.__observer.get_shutter_status()
 
     def do_shutter_down(self, shutter_id):
         """ Make a shutter go down. The shutter stops automatically when the down position is
@@ -965,12 +975,6 @@ class GatewayApi(object):
             check_basic_action(self.__master_communicator.do_basic_action(
                 getattr(master_api, 'BA_ONE_SETPOINT_{0}'.format(setpoint)), thermostat_id
             ))
-
-        self.__eeprom_controller.write(
-            ThermostatSetpointConfiguration.deserialize(
-                {'id': thermostat_id, 'automatic': automatic, 'setpoint': setpoint}
-            )
-        )
 
         self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
         self.__observer.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
@@ -1494,6 +1498,7 @@ class GatewayApi(object):
                 master_api.write_timer(),
                 {'id': output_nr, 'timer': timer}
             )
+        self.__observer.invalidate_cache(Observer.Types.OUTPUTS)
 
     def set_output_configurations(self, config):
         """
@@ -1510,6 +1515,7 @@ class GatewayApi(object):
                     master_api.write_timer(),
                     {'id': output_nr, 'timer': timer}
                 )
+        self.__observer.invalidate_cache(Observer.Types.OUTPUTS)
 
     def get_shutter_configuration(self, shutter_id, fields=None):
         """
@@ -1541,6 +1547,7 @@ class GatewayApi(object):
         :type config: shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
         self.__eeprom_controller.write(ShutterConfiguration.deserialize(config))
+        self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
 
     def set_shutter_configurations(self, config):
         """
@@ -1550,6 +1557,7 @@ class GatewayApi(object):
         :type config: list of shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
         self.__eeprom_controller.write_batch([ShutterConfiguration.deserialize(o) for o in config])
+        self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
 
     def get_shutter_group_configuration(self, group_id, fields=None):
         """

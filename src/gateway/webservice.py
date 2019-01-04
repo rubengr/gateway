@@ -31,7 +31,7 @@ from cherrypy.lib.static import serve_file
 from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from bus.dbus_events import DBusEvents
-from master.master_communicator import InMaintenanceModeException
+from master.master_communicator import InMaintenanceModeException, CommunicationTimedOutException
 from platform_utils import System
 
 try:
@@ -164,23 +164,27 @@ def _openmotics_api(f, *args, **kwargs):
     status = 200
     try:
         return_data = f(*args, **kwargs)
-        data = limit_floats(dict({"success": True}.items() + return_data.items()))
+        data = limit_floats(dict({'success': True}.items() + return_data.items()))
     except cherrypy.HTTPError as ex:
         status = ex.status
-        data = {"success": False, "msg": ex._message}
+        data = {'success': False, 'msg': ex._message}
     except InMaintenanceModeException:
         status = 503
-        data = {"success": False, "msg": 'maintenance_mode'}
+        data = {'success': False, 'msg': 'maintenance_mode'}
+    except CommunicationTimedOutException:
+        LOGGER.error('Communication timeout during API call {0}'.format(f.__name__))
+        status = 200
+        data = {'success': False, 'msg': 'Internal communication timeout'}
     except Exception as ex:
         LOGGER.exception('Unexpected error during API call {0}'.format(f.__name__))
         status = 200
-        data = {"success": False, "msg": str(ex)}
-    timings['process'] = ("Processing", time.time() - start)
+        data = {'success': False, 'msg': str(ex)}
+    timings['process'] = ('Processing', time.time() - start)
     serialization_start = time.time()
     contents = json.dumps(data)
-    timings['serialization'] = "Serialization", time.time() - serialization_start
-    cherrypy.response.headers["Content-Type"] = "application/json"
-    cherrypy.response.headers["Server-Timing"] = ','.join(['{0}={1}; "{2}"'.format(key, value[1] * 1000, value[0])
+    timings['serialization'] = 'Serialization', time.time() - serialization_start
+    cherrypy.response.headers['Content-Type'] = 'application/json'
+    cherrypy.response.headers['Server-Timing'] = ','.join(['{0}={1}; "{2}"'.format(key, value[1] * 1000, value[0])
                                                            for key, value in timings.iteritems()])
     if hasattr(f, 'deprecated') and f.deprecated is not None:
         cherrypy.response.headers['Warning'] = 'Warning: 299 - "Deprecated, replaced by: {0}"'.format(f.deprecated)
@@ -1997,7 +2001,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.8.2'}
+                'gateway': '2.8.3'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
@@ -2049,7 +2053,7 @@ class WebInterface(object):
         :type timezone: str
         """
         self._gateway_api.set_timezone(timezone)
-        self._gateway_api.sync_master_time(True)
+        self._gateway_api.sync_master_time()
         return {}
 
     @openmotics_api(auth=True)

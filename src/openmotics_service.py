@@ -131,8 +131,6 @@ def main():
         passthrough_service = PassthroughService(master_communicator, passthrough_serial)
         passthrough_service.start()
 
-    master_communicator.start()  # A running master_communicator is required for the startup of services below
-
     power_controller = PowerController(constants.get_power_database_file())
     power_communicator = PowerCommunicator(power_serial, power_controller)
 
@@ -143,7 +141,7 @@ def main():
     )
 
     observer = Observer(master_communicator, dbus_service)
-    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer)
+    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer, config_controller)
 
     observer.set_gateway_api(gateway_api)
 
@@ -181,7 +179,9 @@ def main():
     observer.subscribe(Observer.Events.INPUT_TRIGGER, plugin_controller.process_input_status)
     observer.subscribe(Observer.Events.ON_OUTPUTS, metrics_collector.on_output)
     observer.subscribe(Observer.Events.ON_OUTPUTS, plugin_controller.process_output_status)
+    observer.subscribe(Observer.Events.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
 
+    master_communicator.start()
     observer.start()
     power_communicator.start()
     plugin_controller.start_plugins()
@@ -189,6 +189,7 @@ def main():
     scheduling_controller.start()
     metrics_collector.start()
     web_service.start()
+    gateway_api.start()
 
     led_thread = threading.Thread(target=led_driver, args=(dbus_service, master_communicator, power_communicator))
     led_thread.setName("Serial led driver thread")

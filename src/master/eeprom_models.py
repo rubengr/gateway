@@ -23,7 +23,7 @@ from eeprom_controller import EepromModel, EepromAddress, EepromId, EepromString
 
 
 def page_per_module(module_size, start_page, start_offset, field_size):
-    """ 
+    """
     Returns a function that takes an id and returns an address (page, offset). The page is
     calculated by adding the module id to the start_page and the offset is calculated by adding the
     start_offset to the field_size times the id in the module (the offset id).
@@ -32,7 +32,7 @@ def page_per_module(module_size, start_page, start_offset, field_size):
 
 
 def per_module(module_size, func):
-    """ 
+    """
     Returns a function that takes an id and returns an address. The id is split into the a
     module id and offset id, these two iids are provided to func to calculate the address.
 
@@ -44,7 +44,7 @@ def per_module(module_size, func):
 
 
 def gen_address(start_page, ids_per_page, extra_offset):
-    """ 
+    """
     Returns a function that takes an id and returns an address. The returned address starts at
     the given start_page, has a fixed number of ids_per_page. The extra_offset is added to the
     offset calculated using the ids_per_page.
@@ -413,13 +413,6 @@ class SensorConfiguration(EepromModel):
     offset = EepromSignedTemp(lambda mid: (0, 60 + mid))
     virtual = EepromIBool(lambda mid: (195, mid))
     room = EextByte()
-
-
-class ThermostatSetpointConfiguration(EepromModel):
-    """ Models the setpoints for all of the thermostats. """
-    id = EepromId(32)
-    automatic = EextBool()
-    setpoint = EextByte()
 
 
 class GroupActionConfiguration(EepromModel):
