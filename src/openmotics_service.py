@@ -196,16 +196,21 @@ def main():
     led_thread.daemon = True
     led_thread.start()
 
+    signal_request = {'stop': False}
+
     def stop(signum, frame):
         """ This function is called on SIGTERM. """
         _ = signum, frame
         sys.stderr.write("Shutting down")
+        signal_request['stop'] = True
         web_service.stop()
         metrics_collector.stop()
         metrics_controller.stop()
         plugin_controller.stop()
 
     signal(SIGTERM, stop)
+    while not signal_request['stop']:
+        time.sleep(1)
 
 
 if __name__ == "__main__":
