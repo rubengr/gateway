@@ -2201,7 +2201,8 @@ class WebInterface(object):
         """
         Configures a setting
         """
-        if setting not in ['cloud_enabled', 'cloud_metrics_enabled|energy', 'cloud_metrics_enabled|counter']:
+        if setting not in ['cloud_enabled', 'cloud_metrics_enabled|energy', 'cloud_metrics_enabled|counter',
+                           'cloud_support']:
             raise RuntimeError('Setting {0} cannot be set'.format(setting))
         self._config_controller.set_setting(setting, value)
         return {}

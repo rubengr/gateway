@@ -37,19 +37,15 @@ class MasterCommunicator(object):
     communication is not working properly and watchdog callback is called.
     """
 
-    def __init__(self, serial, init_master=True, verbose=False,
-                 passthrough_timeout=0.2):
-        """ Default constructor.
-
+    def __init__(self, serial, init_master=True, verbose=False, passthrough_timeout=0.2):
+        """
         :param serial: Serial port to communicate with
         :type serial: Instance of :class`serial.Serial`
-        :param init_master: Send an initialization sequence to the master to make sure we are in \
-        CLI mode. This can be turned of for testing.
+        :param init_master: Send an initialization sequence to the master to make sure we are in CLI mode. This can be turned of for testing.
         :type init_master: boolean.
         :param verbose: Print all serial communication to stdout.
         :type verbose: boolean.
-        :param passthrough_timeout: The time to wait for an answer on a passthrough message \
-        (in sec)
+        :param passthrough_timeout: The time to wait for an answer on a passthrough message (in sec)
         :type passthrough_timeout: float.
         """
         self.__init_master = init_master
@@ -85,6 +81,8 @@ class MasterCommunicator(object):
                                       'calls_timedout': [],
                                       'bytes_written': 0,
                                       'bytes_read': 0}
+        self.__debug_buffer = {'read': [],
+                               'write': []}
 
     def start(self):
         """ Start the MasterComunicator, this starts the background read thread. """
@@ -124,6 +122,9 @@ class MasterCommunicator(object):
     def get_communication_statistics(self):
         return self.__communication_stats
 
+    def get_debug_buffer(self):
+        return self.__debug_buffer
+
     def get_seconds_since_last_success(self):
         """ Get the number of seconds since the last successful communication. """
         if self.__last_success == 0:
@@ -145,6 +146,10 @@ class MasterCommunicator(object):
         with self.__serial_write_lock:
             if self.__verbose:
                 LOGGER.info('Writing to Master serial:   {0}'.format(printable(data)))
+
+            self.__debug_buffer['write'].append(data)
+            self.__debug_buffer['write'] = self.__debug_buffer['write'][-50:]
+
             self.__serial.write(data)
             self.__serial_bytes_written += len(data)
             self.__communication_stats['bytes_written'] += len(data)
@@ -397,6 +402,8 @@ class MasterCommunicator(object):
                 self.__serial_bytes_read += (1 + num_bytes)
                 self.__communication_stats['bytes_read'] += (1 + num_bytes)
 
+                self.__debug_buffer['read'].append(data)
+                self.__debug_buffer['read'] = self.__debug_buffer['read'][-50:]
                 if self.__verbose:
                     LOGGER.info('Reading from Master serial: {0}'.format(printable(data)))
 

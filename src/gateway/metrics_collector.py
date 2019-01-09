@@ -265,8 +265,8 @@ class MetricsCollector(object):
     def _run_system(self, metric_type):
         while not self._stopped:
             start = time.time()
+            now = time.time()
             try:
-                now = time.time()
                 with open('/proc/uptime', 'r') as f:
                     system_uptime = float(f.readline().split()[0])
                 service_uptime = time.time() - self._start
@@ -431,6 +431,7 @@ class MetricsCollector(object):
                     count = error[1]
                     types = {'i': 'Input',
                              'I': 'Input',
+                             't': 'Temperature',
                              'T': 'Temperature',
                              'o': 'Output',
                              'O': 'Output',

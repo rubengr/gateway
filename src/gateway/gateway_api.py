@@ -158,12 +158,11 @@ class GatewayApi(object):
         calls_succeeded = self.__master_communicator.get_communication_statistics()['calls_succeeded']
         all_calls = sorted(calls_timedout + calls_succeeded)
 
-        oldest_success = 0 if len(calls_succeeded) == 0 else calls_succeeded[0]
-        last_timeout = 0 if len(calls_timedout) == 0 else calls_timedout[-1]
-        if len(calls_timedout) == 0 or last_timeout < oldest_success:
-            # If there are no timeouts at all, or if the oldest success was after the most recent timeout, we consider the system to be OK
+        if len(calls_timedout) == 0:
+            # If there are no timeouts at all
+            if len(communication_recovery) > 0:
+                self.__config_controller.remove_setting('communication_recovery')
             return
-
         if len(all_calls) <= 10:
             # Not enough calls made to have a decent view on what's going on
             LOGGER.warning('Noticed communication timeouts with the master, but waiting for more samples...')
@@ -192,6 +191,10 @@ class GatewayApi(object):
                 last_master_reset = communication_recovery.get('master_reset')
                 if last_master_reset is None or last_master_reset['time'] < last_service_restart['time']:
                     master_reset = 'communication_errors'
+        if service_restart is not None or master_reset is not None:
+            # Send debug information to the cloud
+            # TODO
+            pass
         if service_restart is not None:
             LOGGER.fatal('Major issues in communication with master. Restarting service...')
             communication_recovery['service_restart'] = {'reason': service_restart,
@@ -205,6 +208,7 @@ class GatewayApi(object):
                                                       'time': time.time()}
             self.__config_controller.set_setting('communication_recovery', communication_recovery)
             self.reset_master()
+            LOGGER.info('Resetting master... Done.')
 
     def __check_master_settings(self):
         """
