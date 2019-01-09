@@ -31,6 +31,11 @@ import shutil
 import subprocess
 import tempfile
 import ConfigParser
+try:
+    import json
+except ImportError:
+    import simplejson as json
+from subprocess import check_output
 from threading import Timer, Thread
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
@@ -160,7 +165,7 @@ class GatewayApi(object):
 
         if len(calls_timedout) == 0:
             # If there are no timeouts at all
-            if len(communication_recovery) > 0:
+            if len(calls_succeeded) > 30:
                 self.__config_controller.remove_setting('communication_recovery')
             return
         if len(all_calls) <= 10:
@@ -180,35 +185,55 @@ class GatewayApi(object):
 
         service_restart = None
         master_reset = None
+        backoff = 300
         # There's no successful communication.
         if len(communication_recovery) == 0:
             service_restart = 'communication_errors'
         else:
             last_service_restart = communication_recovery.get('service_restart')
-            if last_service_restart is None or last_service_restart['time'] < time.time() - 900:
+            if last_service_restart is None:
                 service_restart = 'communication_errors'
             else:
-                last_master_reset = communication_recovery.get('master_reset')
-                if last_master_reset is None or last_master_reset['time'] < last_service_restart['time']:
-                    master_reset = 'communication_errors'
+                backoff = last_service_restart['backoff']
+                if last_service_restart['time'] < time.time() - backoff:
+                    service_restart = 'communication_errors'
+                    backoff = min(1200, backoff * 2)
+                else:
+                    last_master_reset = communication_recovery.get('master_reset')
+                    if last_master_reset is None or last_master_reset['time'] < last_service_restart['time']:
+                        master_reset = 'communication_errors'
+
         if service_restart is not None or master_reset is not None:
-            # Send debug information to the cloud
-            # TODO
-            pass
+            # Log debug information
+            try:
+                debug_buffer = self.__master_communicator.get_debug_buffer()
+                debug_data = {'type': 'communication_recovery',
+                              'data': {'buffer': debug_buffer,
+                                       'calls': {'timedout': calls_timedout,
+                                                 'succeeded': calls_succeeded},
+                                       'action': 'service_restart' if service_restart is not None else 'master_reset'}}
+                with open('/tmp/debug_{0}.json'.format(int(time.time())), 'w') as recovery_file:
+                    json.dump(debug_data, fp=recovery_file)
+                check_output("ls -tp /tmp/ | grep 'debug_.*json' | tail -n +10 | while read file; do rm -r /tmp/$file; done", shell=True)
+            except Exception as ex:
+                LOGGER.error('Could not store debug file: {0}'.format(ex))
+
         if service_restart is not None:
             LOGGER.fatal('Major issues in communication with master. Restarting service...')
             communication_recovery['service_restart'] = {'reason': service_restart,
-                                                         'time': time.time()}
+                                                         'time': time.time(),
+                                                         'backoff': backoff}
             self.__config_controller.set_setting('communication_recovery', communication_recovery)
             time.sleep(15)  # Wait a tad for the I/O to complete (both for DB changes as log flushing)
             os._exit(1)
         if master_reset is not None:
-            LOGGER.fatal('Major issues in communication with master. Resetting master...')
+            LOGGER.fatal('Major issues in communication with master. Resetting master & service')
             communication_recovery['master_reset'] = {'reason': master_reset,
                                                       'time': time.time()}
             self.__config_controller.set_setting('communication_recovery', communication_recovery)
             self.reset_master()
-            LOGGER.info('Resetting master... Done.')
+            time.sleep(5)  # Waiting for the master to come back online before restarting the service
+            os._exit(1)  # TODO: This can be removed once the master communicator can recover "alignment issues"
 
     def __check_master_settings(self):
         """
@@ -268,6 +293,14 @@ class GatewayApi(object):
             self.__master_communicator.do_command(
                 master_api.write_eeprom(),
                 {'bank': 0, 'address': 59, 'data': chr(32)}
+            )
+            write = True
+
+        if eeprom_data[24] != chr(0):
+            LOGGER.info('Disable auto-reset thermostat setpoint')
+            self.__master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 24, 'data': chr(0)}
             )
             write = True
 

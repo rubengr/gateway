@@ -147,7 +147,7 @@ class MasterCommunicator(object):
             if self.__verbose:
                 LOGGER.info('Writing to Master serial:   {0}'.format(printable(data)))
 
-            self.__debug_buffer['write'].append(data)
+            self.__debug_buffer['write'].append([time.time(), printable(data)])
             self.__debug_buffer['write'] = self.__debug_buffer['write'][-50:]
 
             self.__serial.write(data)
@@ -402,7 +402,7 @@ class MasterCommunicator(object):
                 self.__serial_bytes_read += (1 + num_bytes)
                 self.__communication_stats['bytes_read'] += (1 + num_bytes)
 
-                self.__debug_buffer['read'].append(data)
+                self.__debug_buffer['read'].append([time.time(), printable(data)])
                 self.__debug_buffer['read'] = self.__debug_buffer['read'][-50:]
                 if self.__verbose:
                     LOGGER.info('Reading from Master serial: {0}'.format(printable(data)))
