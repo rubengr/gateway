@@ -293,7 +293,7 @@ class MetricsController(object):
         time_ago_send = int(now - self._cloud_last_send)
         time_ago_try = int(now - self._cloud_last_try)
         outstanding_data_length = len(self._cloud_buffer) + len(self._cloud_queue)
-        send = ((outstanding_data_length > 0) and  # There must be outstanding data
+        send = (outstanding_data_length > 0 and  # There must be outstanding data
                 ((outstanding_data_length > cloud_batch_size and time_ago_send == time_ago_try) or  # Last send was successful, but the buffer length > batch size
                  (time_ago_send > cloud_min_interval and time_ago_send == time_ago_try) or  # Last send was successful, but it has been too long ago
                  (time_ago_send > time_ago_try > self._cloud_retry_interval)))  # Last send was unsuccessful, and it has been a while

@@ -19,7 +19,6 @@ The main module for the OpenMotics
 """
 
 import logging
-import sys
 import time
 import threading
 
@@ -75,6 +74,11 @@ def setup_logger():
     logger.addHandler(handler)
 
 
+def log(message):
+    logger = logging.getLogger("openmotics")
+    logger.info(message)
+
+
 def led_driver(dbus_service, master_communicator, power_communicator):
     """
     Blink the serial leds if necessary.
@@ -101,6 +105,8 @@ def led_driver(dbus_service, master_communicator, power_communicator):
 
 def main():
     """ Main function. """
+    log('Starting service...')
+
     config = ConfigParser()
     config.read(constants.get_config_file())
 
@@ -201,14 +207,16 @@ def main():
     def stop(signum, frame):
         """ This function is called on SIGTERM. """
         _ = signum, frame
-        sys.stderr.write("Shutting down")
+        log('Stopping service...')
         signal_request['stop'] = True
         web_service.stop()
         metrics_collector.stop()
         metrics_controller.stop()
         plugin_controller.stop()
+        log('Stopping service... Done')
 
     signal(SIGTERM, stop)
+    log('Starting service... Done')
     while not signal_request['stop']:
         time.sleep(1)
 

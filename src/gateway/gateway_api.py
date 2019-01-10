@@ -170,11 +170,9 @@ class GatewayApi(object):
             return
         if len(all_calls) <= 10:
             # Not enough calls made to have a decent view on what's going on
-            LOGGER.warning('Noticed communication timeouts with the master, but waiting for more samples...')
             return
         if not any(t in calls_timedout for t in all_calls[-10:]):
             # The last X calls are successfull
-            LOGGER.warning('Noticed communication timeouts with the master, but things look fine now.')
             return
         calls_last_x_minutes = [t for t in all_calls if t > time.time() - 180]
         ratio = len([t in calls_timedout for t in calls_last_x_minutes]) / float(len(calls_last_x_minutes))
