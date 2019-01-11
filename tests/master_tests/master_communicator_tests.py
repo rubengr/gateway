@@ -14,8 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Tests for MasterCommunicator module.
-
-@author: fryckbos
 """
 
 import unittest
@@ -28,6 +26,7 @@ import master.master_api as master_api
 
 from serial_tests import SerialMock, sin, sout
 from serial_utils import CommunicationTimedOutException
+
 
 class MasterCommunicatorTest(unittest.TestCase):
     """ Tests for MasterCommunicator class """
@@ -292,55 +291,6 @@ class MasterCommunicatorTest(unittest.TestCase):
         self.assertEquals(21, comm.get_bytes_written())
         self.assertEquals(5 + 18, comm.get_bytes_read())
 
-    def test_watchdog(self):
-        """ Test the watchdog. """
-        action = master_api.basic_action()
-        in_fields = {"action_type": 1, "action_number": 2}
-
-        serial_mock = SerialMock([sin(action.create_input(1, in_fields)),
-                                  sin(action.create_input(2, in_fields)),
-                                  sin(action.create_input(3, in_fields))])
-
-        timeout = False
-        watchdog = {}
-
-        def callback():
-            """ Callback for the watchdog """
-            watchdog['done'] = True
-
-        comm = MasterCommunicator(serial_mock, init_master=False,
-                                  watchdog_period=0.5, watchdog_callback=callback)
-        comm.start()
-
-        try:
-            comm.do_command(action, in_fields, timeout=0.1)
-        except CommunicationTimedOutException:
-            timeout = True
-
-        time.sleep(1)
-
-        self.assertTrue(timeout)
-        self.assertFalse('done' in watchdog)
-
-        timeout = False
-        try:
-            comm.do_command(action, in_fields, timeout=0.1)
-        except CommunicationTimedOutException:
-            timeout = True
-
-        self.assertTrue(timeout)
-
-        timeout = False
-        try:
-            comm.do_command(action, in_fields, timeout=0.1)
-        except CommunicationTimedOutException:
-            timeout = True
-
-        time.sleep(1.5)
-
-        self.assertTrue(timeout)
-        self.assertTrue('done' in watchdog)
-
     def test_crc_checking(self):
         """ Test the crc checking in the MasterCommunciator. """
         action = master_api.sensor_humidity_list()
@@ -371,5 +321,4 @@ class MasterCommunicatorTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

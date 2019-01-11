@@ -19,7 +19,6 @@ The main module for the OpenMotics
 """
 
 import logging
-import sys
 import time
 import threading
 
@@ -75,6 +74,11 @@ def setup_logger():
     logger.addHandler(handler)
 
 
+def log(message):
+    logger = logging.getLogger("openmotics")
+    logger.info(message)
+
+
 def led_driver(dbus_service, master_communicator, power_communicator):
     """
     Blink the serial leds if necessary.
@@ -101,6 +105,8 @@ def led_driver(dbus_service, master_communicator, power_communicator):
 
 def main():
     """ Main function. """
+    log('Starting service...')
+
     config = ConfigParser()
     config.read(constants.get_config_file())
 
@@ -131,8 +137,6 @@ def main():
         passthrough_service = PassthroughService(master_communicator, passthrough_serial)
         passthrough_service.start()
 
-    master_communicator.start()  # A running master_communicator is required for the startup of services below
-
     power_controller = PowerController(constants.get_power_database_file())
     power_communicator = PowerCommunicator(power_serial, power_controller)
 
@@ -143,7 +147,7 @@ def main():
     )
 
     observer = Observer(master_communicator, dbus_service)
-    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer)
+    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer, config_controller)
 
     observer.set_gateway_api(gateway_api)
 
@@ -181,7 +185,9 @@ def main():
     observer.subscribe(Observer.Events.INPUT_TRIGGER, plugin_controller.process_input_status)
     observer.subscribe(Observer.Events.ON_OUTPUTS, metrics_collector.on_output)
     observer.subscribe(Observer.Events.ON_OUTPUTS, plugin_controller.process_output_status)
+    observer.subscribe(Observer.Events.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
 
+    master_communicator.start()
     observer.start()
     power_communicator.start()
     plugin_controller.start_plugins()
@@ -189,22 +195,30 @@ def main():
     scheduling_controller.start()
     metrics_collector.start()
     web_service.start()
+    gateway_api.start()
 
     led_thread = threading.Thread(target=led_driver, args=(dbus_service, master_communicator, power_communicator))
     led_thread.setName("Serial led driver thread")
     led_thread.daemon = True
     led_thread.start()
 
+    signal_request = {'stop': False}
+
     def stop(signum, frame):
         """ This function is called on SIGTERM. """
         _ = signum, frame
-        sys.stderr.write("Shutting down")
+        log('Stopping service...')
+        signal_request['stop'] = True
         web_service.stop()
         metrics_collector.stop()
         metrics_controller.stop()
         plugin_controller.stop()
+        log('Stopping service... Done')
 
     signal(SIGTERM, stop)
+    log('Starting service... Done')
+    while not signal_request['stop']:
+        time.sleep(1)
 
 
 if __name__ == "__main__":

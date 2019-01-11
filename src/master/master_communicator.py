@@ -21,8 +21,6 @@ Module to communicate with the master.
 import logging
 LOGGER = logging.getLogger("openmotics")
 
-import os
-import sys
 import time
 from threading import Thread, Lock, Event
 from Queue import Queue, Empty
@@ -39,25 +37,15 @@ class MasterCommunicator(object):
     communication is not working properly and watchdog callback is called.
     """
 
-    def __init__(self, serial, init_master=True, verbose=False,
-                 watchdog_period=150, watchdog_callback=lambda: os._exit(1),
-                 passthrough_timeout=0.2):
-        """ Default constructor.
-
+    def __init__(self, serial, init_master=True, verbose=False, passthrough_timeout=0.2):
+        """
         :param serial: Serial port to communicate with
         :type serial: Instance of :class`serial.Serial`
-        :param init_master: Send an initialization sequence to the master to make sure we are in \
-        CLI mode. This can be turned of for testing.
+        :param init_master: Send an initialization sequence to the master to make sure we are in CLI mode. This can be turned of for testing.
         :type init_master: boolean.
         :param verbose: Print all serial communication to stdout.
         :type verbose: boolean.
-        :param watchdog_period: The number of seconds between two watchdog checks.
-        :type watchdog_period: integer.
-        :param watchdog_callback: The action to call if the watchdog detects a communication \
-        problem.
-        :type watchdog_callback: function without arguments.
-        :param passthrough_timeout: The time to wait for an answer on a passthrough message \
-        (in sec)
+        :param passthrough_timeout: The time to wait for an answer on a passthrough message (in sec)
         :type passthrough_timeout: float.
         """
         self.__init_master = init_master
@@ -68,7 +56,6 @@ class MasterCommunicator(object):
         self.__command_lock = Lock()
         self.__serial_bytes_written = 0
         self.__serial_bytes_read = 0
-        self.__timeouts = 0
 
         self.__cid = 1
 
@@ -90,11 +77,12 @@ class MasterCommunicator(object):
         self.__read_thread = Thread(target=self.__read, name="MasterCommunicator read thread")
         self.__read_thread.daemon = True
 
-        self.__watchdog_period = watchdog_period
-        self.__watchdog_callback = watchdog_callback
-        self.__watchdog_thread = Thread(target=self.__watchdog,
-                                        name="MasterCommunicator watchdog thread")
-        self.__watchdog_thread.daemon = True
+        self.__communication_stats = {'calls_succeeded': [],
+                                      'calls_timedout': [],
+                                      'bytes_written': 0,
+                                      'bytes_read': 0}
+        self.__debug_buffer = {'read': [],
+                               'write': []}
 
     def start(self):
         """ Start the MasterComunicator, this starts the background read thread. """
@@ -119,7 +107,6 @@ class MasterCommunicator(object):
 
         self.__stop = False
         self.__read_thread.start()
-        self.__watchdog_thread.start()
 
     def enable_passthrough(self):
         self.__passthrough_enabled = True
@@ -131,6 +118,12 @@ class MasterCommunicator(object):
     def get_bytes_read(self):
         """ Get the number of bytes read from the Master. """
         return self.__serial_bytes_read
+
+    def get_communication_statistics(self):
+        return self.__communication_stats
+
+    def get_debug_buffer(self):
+        return self.__debug_buffer
 
     def get_seconds_since_last_success(self):
         """ Get the number of seconds since the last successful communication. """
@@ -153,8 +146,13 @@ class MasterCommunicator(object):
         with self.__serial_write_lock:
             if self.__verbose:
                 LOGGER.info('Writing to Master serial:   {0}'.format(printable(data)))
+
+            self.__debug_buffer['write'].append([time.time(), printable(data)])
+            self.__debug_buffer['write'] = self.__debug_buffer['write'][-50:]
+
             self.__serial.write(data)
             self.__serial_bytes_written += len(data)
+            self.__communication_stats['bytes_written'] += len(data)
 
     def register_consumer(self, consumer):
         """ Register a customer consumer with the communicator. An instance of :class`Consumer`
@@ -214,9 +212,12 @@ class MasterCommunicator(object):
                     raise CrcCheckFailedException()
                 else:
                     self.__last_success = time.time()
+                    self.__communication_stats['calls_succeeded'].append(time.time())
+                    self.__communication_stats['calls_succeeded'] = self.__communication_stats['calls_succeeded'][-50:]
                     return result
             except CommunicationTimedOutException:
-                self.__timeouts += 1
+                self.__communication_stats['calls_timedout'].append(time.time())
+                self.__communication_stats['calls_timedout'] = self.__communication_stats['calls_timedout'][-50:]
                 raise
 
     def __check_crc(self, cmd, result):
@@ -238,7 +239,7 @@ class MasterCommunicator(object):
 
     def __passthrough_wait(self):
         """ Waits until the passthrough is done or a timeout is reached. """
-        if self.__passthrough_done.wait(self.__passthrough_timeout) != True:
+        if not self.__passthrough_done.wait(self.__passthrough_timeout):
             LOGGER.info("Timed out on passthrough message")
 
         self.__passthrough_mode = False
@@ -338,26 +339,16 @@ class MasterCommunicator(object):
                 start_bytes[start_byte] = [consumer]
         return start_bytes
 
-    def __watchdog(self):
-        """ Run in the background watchdog thread: checks the number of timeouts per minute. If the
-        number of timeouts is larger than 1, the watchdog callback is called. """
-        while not self.__stop:
-            (timeouts, self.__timeouts) = (self.__timeouts, 0)
-            if timeouts > 1:
-                sys.stderr.write("Watchdog detected problems in communication !\n")
-                self.__watchdog_callback()
-            time.sleep(self.__watchdog_period)
-
     def __read(self):
         """ Code for the background read thread: reads from the serial port, checks if
         consumers for incoming bytes, if not: put in pass through buffer.
         """
-        def consumer_done(consumer):
+        def consumer_done(_consumer):
             """ Callback for when consumer is done. ReadState does not access parent directly. """
-            if isinstance(consumer, Consumer):
-                self.__consumers.remove(consumer)
-            elif isinstance(consumer, BackgroundConsumer) and consumer.send_to_passthrough:
-                self.__push_passthrough_data(consumer.last_cmd_data)
+            if isinstance(_consumer, Consumer):
+                self.__consumers.remove(_consumer)
+            elif isinstance(_consumer, BackgroundConsumer) and _consumer.send_to_passthrough:
+                self.__push_passthrough_data(_consumer.last_cmd_data)
 
         class ReadState(object):
             """" The read state keeps track of the current consumer and the partial result
@@ -368,38 +359,36 @@ class MasterCommunicator(object):
 
             def should_resume(self):
                 """ Checks whether we should resume consuming data with the current_consumer. """
-                return self.current_consumer != None
+                return self.current_consumer is not None
 
             def should_find_consumer(self):
                 """ Checks whether we should find a new consumer. """
-                return self.current_consumer == None
+                return self.current_consumer is None
 
-            def set_consumer(self, consumer):
+            def set_consumer(self, _consumer):
                 """ Set a new consumer. """
-                self.current_consumer = consumer
+                self.current_consumer = _consumer
                 self.partial_result = None
 
-            def consume(self, data):
+            def consume(self, _data):
                 """ Consume the bytes in data using the current_consumer, and return the bytes
                 that were not used. """
                 try:
-                    (bytes_consumed, result, done) = \
-                        read_state.current_consumer.consume(data, read_state.partial_result)
+                    bytes_consumed, result, done = read_state.current_consumer.consume(_data, read_state.partial_result)
                 except ValueError, value_error:
-                    sys.stderr.write("Got ValueError: " + str(value_error))
-                    return ""
-                else:
-                    if done:
-                        consumer_done(self.current_consumer)
-                        self.current_consumer.deliver(result)
+                    LOGGER.error('Could not consume/decode message from the master: {0}'.format(value_error))
+                    return ''
 
-                        self.current_consumer = None
-                        self.partial_result = None
+                if done:
+                    consumer_done(self.current_consumer)
+                    self.current_consumer.deliver(result)
 
-                        return data[bytes_consumed:]
-                    else:
-                        self.partial_result = result
-                        return ""
+                    self.current_consumer = None
+                    self.partial_result = None
+
+                    return _data[bytes_consumed:]
+                self.partial_result = result
+                return ''
 
         read_state = ReadState()
         data = ""
@@ -409,9 +398,12 @@ class MasterCommunicator(object):
             num_bytes = self.__serial.inWaiting()
             if num_bytes > 0:
                 data += self.__serial.read(num_bytes)
-            if data != None and len(data) > 0:
+            if data is not None and len(data) > 0:
                 self.__serial_bytes_read += (1 + num_bytes)
+                self.__communication_stats['bytes_read'] += (1 + num_bytes)
 
+                self.__debug_buffer['read'].append([time.time(), printable(data)])
+                self.__debug_buffer['read'] = self.__debug_buffer['read'][-50:]
                 if self.__verbose:
                     LOGGER.info('Reading from Master serial: {0}'.format(printable(data)))
 
@@ -432,7 +424,7 @@ class MasterCommunicator(object):
                                     if data[:3] == consumer.get_prefix():
                                         # Found matching consumer
                                         read_state.set_consumer(consumer)
-                                        data = read_state.consume(data[3:]) # Strip off prefix
+                                        data = read_state.consume(data[3:])  # Strip off prefix
                                         # Consumers might have changed, update start_bytes
                                         start_bytes = self.__get_start_bytes()
                                         match = True
@@ -460,10 +452,12 @@ class InMaintenanceModeException(Exception):
     def __init__(self):
         Exception.__init__(self)
 
+
 class CrcCheckFailedException(Exception):
     """ This exception is raised if we receive a bad message. """
     def __init__(self):
         Exception.__init__(self)
+
 
 class Consumer(object):
     """ A consumer is registered to the read thread before a command is issued.  If an output
@@ -515,7 +509,7 @@ class BackgroundConsumer(object):
         self.cmd = cmd
         self.cid = cid
         self.callback = callback
-        self.last_cmd_data = None # Keep the data of the last command.
+        self.last_cmd_data = None  # Keep the data of the last command.
         self.send_to_passthrough = send_to_passthrough
 
     def get_prefix(self):
@@ -526,9 +520,8 @@ class BackgroundConsumer(object):
         """ Consume data. """
         (bytes_consumed, last_result, done) = self.cmd.consume_output(data, partial_result)
         self.last_cmd_data = (self.get_prefix() + last_result.actual_bytes) if done else None
-        return (bytes_consumed, last_result, done)
+        return bytes_consumed, last_result, done
 
     def deliver(self, output):
         """ Deliver output to the thread waiting on get(). """
         self.callback(output)
-
