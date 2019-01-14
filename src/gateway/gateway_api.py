@@ -175,10 +175,10 @@ class GatewayApi(object):
             # The last X calls are successfull
             return
         calls_last_x_minutes = [t for t in all_calls if t > time.time() - 180]
-        ratio = len([t in calls_timedout for t in calls_last_x_minutes]) / float(len(calls_last_x_minutes))
+        ratio = len([t for t in calls_last_x_minutes if t in calls_timedout]) / float(len(calls_last_x_minutes))
         if ratio < 0.25:
             # Less than 25% of the calls fail, let's assume everything is just "fine"
-            LOGGER.warning('Noticed communication timeouts with the master, but there\'s only a failure ratio of {0:.2f}%.'.format(ratio))
+            LOGGER.warning('Noticed communication timeouts with the master, but there\'s only a failure ratio of {0:.2f}%.'.format(ratio * 100))
             return
 
         service_restart = None
@@ -211,7 +211,7 @@ class GatewayApi(object):
                                                  'succeeded': calls_succeeded},
                                        'action': 'service_restart' if service_restart is not None else 'master_reset'}}
                 with open('/tmp/debug_{0}.json'.format(int(time.time())), 'w') as recovery_file:
-                    json.dump(debug_data, fp=recovery_file)
+                    json.dump(debug_data, fp=recovery_file, indent=4, sort_keys=True)
                 check_output("ls -tp /tmp/ | grep 'debug_.*json' | tail -n +10 | while read file; do rm -r /tmp/$file; done", shell=True)
             except Exception as ex:
                 LOGGER.error('Could not store debug file: {0}'.format(ex))
@@ -2330,8 +2330,10 @@ class GatewayApi(object):
                                 convert_nan(current[i]), convert_nan(power[i])])
 
                 output[str(module_id)] = out
+            except CommunicationTimedOutException:
+                LOGGER.error('Communication timeout while fetching realtime power from {0}: CommunicationTimedOutException'.format(module_id))
             except Exception as ex:
-                LOGGER.exception('Got Exception for power module {0}: {1}'.format(module_id, ex))
+                LOGGER.exception('Got exception while fetching realtime power from {0}: {1}'.format(module_id, ex))
 
         return output
 
@@ -2358,8 +2360,10 @@ class GatewayApi(object):
                     out.append([convert_nan(day[i]), convert_nan(night[i])])
 
                 output[str(module_id)] = out
+            except CommunicationTimedOutException:
+                LOGGER.error('Communication timeout while fetching total energy from {0}: CommunicationTimedOutException'.format(module_id))
             except Exception as ex:
-                LOGGER.exception('Got Exception for power module {0}: {1}'.format(module_id, ex))
+                LOGGER.exception('Got exception while fetching total energy from {0}: {1}'.format(module_id, ex))
 
         return output
 

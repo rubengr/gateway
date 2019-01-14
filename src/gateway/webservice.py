@@ -31,7 +31,8 @@ from cherrypy.lib.static import serve_file
 from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from bus.dbus_events import DBusEvents
-from master.master_communicator import InMaintenanceModeException, CommunicationTimedOutException
+from master.master_communicator import InMaintenanceModeException
+from serial_utils import CommunicationTimedOutException
 from platform_utils import System
 
 try:

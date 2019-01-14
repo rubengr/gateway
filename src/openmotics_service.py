@@ -67,6 +67,7 @@ def setup_logger():
     """ Setup the OpenMotics logger. """
     logger = logging.getLogger("openmotics")
     logger.setLevel(logging.INFO)
+    logger.propagate = False
 
     handler = logging.StreamHandler()
     handler.setLevel(logging.INFO)
