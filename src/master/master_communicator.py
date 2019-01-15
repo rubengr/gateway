@@ -81,8 +81,9 @@ class MasterCommunicator(object):
                                       'calls_timedout': [],
                                       'bytes_written': 0,
                                       'bytes_read': 0}
-        self.__debug_buffer = {'read': [],
-                               'write': []}
+        self.__debug_buffer = {'read': {},
+                               'write': {}}
+        self.__debug_buffer_duration = 300
 
     def start(self):
         """ Start the MasterComunicator, this starts the background read thread. """
@@ -147,8 +148,11 @@ class MasterCommunicator(object):
             if self.__verbose:
                 LOGGER.info('Writing to Master serial:   {0}'.format(printable(data)))
 
-            self.__debug_buffer['write'].append([time.time(), printable(data)])
-            self.__debug_buffer['write'] = self.__debug_buffer['write'][-50:]
+            threshold = time.time() - self.__debug_buffer_duration
+            self.__debug_buffer['write'][time.time()] = printable(data)
+            for t in self.__debug_buffer['write'].keys():
+                if t < threshold:
+                    del self.__debug_buffer['write'][t]
 
             self.__serial.write(data)
             self.__serial_bytes_written += len(data)
@@ -402,8 +406,12 @@ class MasterCommunicator(object):
                 self.__serial_bytes_read += (1 + num_bytes)
                 self.__communication_stats['bytes_read'] += (1 + num_bytes)
 
-                self.__debug_buffer['read'].append([time.time(), printable(data)])
-                self.__debug_buffer['read'] = self.__debug_buffer['read'][-50:]
+                threshold = time.time() - self.__debug_buffer_duration
+                self.__debug_buffer['read'][time.time()] = printable(data)
+                for t in self.__debug_buffer['read'].keys():
+                    if t < threshold:
+                        del self.__debug_buffer['read'][t]
+
                 if self.__verbose:
                     LOGGER.info('Reading from Master serial: {0}'.format(printable(data)))
 
