@@ -121,7 +121,7 @@ class PowerCommunicator(object):
         if self.__address_mode:
             raise InAddressModeException()
 
-        def do_once(_address, _cmd, ignore_timeout, *_data):
+        def do_once(_address, _cmd, *_data):
             """ Send the command once. """
             cid = self.__get_cid()
             send_data = _cmd.create_input(_address, cid, *_data)
@@ -130,62 +130,42 @@ class PowerCommunicator(object):
             if _address == power_api.BROADCAST_ADDRESS:
                 return None  # No reply on broadcast messages !
             else:
-                header = None
-                response_data = None
-                try:
-                    tries = 0
-                    while True:
-                        # In this loop we might receive data that didn't match the expected header. This might happen
-                        # if we for some reason had a timeout on the previous call, and we now read the response
-                        # to that call. In this case, we just re-try (up to 3 times), as the correct data might be
-                        # next in line.
-                        header, response_data = self.__read_from_serial(ignore_timeout)
-                        if not _cmd.check_header(header, _address, cid):
-                            if _cmd.is_nack(header, _address, cid) and response_data == "\x02":
-                                raise UnkownCommandException()
-                            tries += 1
-                            LOGGER.warning("Header did not match command ({0})".format(tries))
-                            if tries == 3:
-                                raise Exception("Header did not match command ({0})".format(tries))
-                            else:
-                                if not self.__verbose:
-                                    self.__log('writing to', send_data)
-                                    self.__log('reading header from', header)
-                                    self.__log('reading data from', response_data)
-                        else:
-                            break
-                except CommunicationTimedOutException:
-                    if not self.__verbose and ignore_timeout is False:
-                        self.__log('writing to', send_data)
-                        self.__log('reading header from', header)
-                        self.__log('reading data from', response_data)
-                    raise
-                except Exception:
-                    if not self.__verbose:
-                        self.__log('writing to', send_data)
-                        self.__log('reading header from', header)
-                        self.__log('reading data from', response_data)
-                    raise
+                tries = 0
+                while True:
+                    # In this loop we might receive data that didn't match the expected header. This might happen
+                    # if we for some reason had a timeout on the previous call, and we now read the response
+                    # to that call. In this case, we just re-try (up to 3 times), as the correct data might be
+                    # next in line.
+                    header, response_data = self.__read_from_serial()
+                    if not _cmd.check_header(header, _address, cid):
+                        if _cmd.is_nack(header, _address, cid) and response_data == "\x02":
+                            raise UnkownCommandException()
+                        tries += 1
+                        LOGGER.warning("Header did not match command ({0})".format(tries))
+                        if tries == 3:
+                            raise Exception("Header did not match command ({0})".format(tries))
+                    else:
+                        break
 
                 self.__last_success = time.time()
                 return _cmd.read_output(response_data)
 
         with self.__serial_lock:
             try:
-                return do_once(address, cmd, True, *data)
+                return do_once(address, cmd, *data)
             except UnkownCommandException:
                 # This happens when the module is stuck in the bootloader.
                 LOGGER.error("Got UnkownCommandException")
-                do_once(address, power_api.bootloader_jump_application(), False)
+                do_once(address, power_api.bootloader_jump_application())
                 time.sleep(1)
                 return self.do_command(address, cmd, *data)
             except CommunicationTimedOutException:
                 # Communication timed out, try again.
-                return do_once(address, cmd, False, *data)
+                return do_once(address, cmd, *data)
             except Exception as ex:
                 LOGGER.exception("Unexpected error: {0}".format(ex))
                 time.sleep(0.25)
-                return do_once(address, cmd, False, *data)
+                return do_once(address, cmd, *data)
 
     def start_address_mode(self):
         """ Start address mode.
@@ -271,7 +251,7 @@ class PowerCommunicator(object):
         """ Returns whether the PowerCommunicator is in address mode. """
         return self.__address_mode
 
-    def __read_from_serial(self, ignore_timeout=False):
+    def __read_from_serial(self):
         """ Read a PowerCommand from the serial port. """
         phase = 0
         index = 0
@@ -282,7 +262,6 @@ class PowerCommunicator(object):
         crc = 0
 
         command = ""
-        error = False
 
         try:
             while phase < 8:
@@ -336,14 +315,9 @@ class PowerCommunicator(object):
             if crc7(header + data) != crc:
                 raise Exception("CRC doesn't match")
         except Queue.Empty:
-            if ignore_timeout is False:
-                error = True
             raise CommunicationTimedOutException()
-        except Exception:
-            error = True
-            raise
         finally:
-            if self.__verbose or error is True:
+            if self.__verbose:
                 self.__log('reading from', command)
 
         return header, data

@@ -21,12 +21,13 @@ thermostats to the cloud, to keep the status information in the cloud in sync.
 from platform_utils import System
 System.import_eggs()
 
+import os
+import glob
 import gobject
 import sys
 import requests
 import time
 import subprocess
-import os
 import traceback
 import constants
 import threading
@@ -46,10 +47,11 @@ except ImportError:
 REBOOT_TIMEOUT = 900
 DEFAULT_SLEEP_TIME = 30
 
+
 class LOGGER(object):
     @staticmethod
     def log(line):
-        sys.stdout.write('{0}: {1}\n'.format(datetime.now(),line))
+        sys.stdout.write('{0}: {1}\n'.format(datetime.now(), line))
         sys.stdout.flush()
 
 
@@ -102,7 +104,7 @@ class VpnController(object):
 
 
 class Cloud(object):
-    """ Connects to the OpenMotics cloud to check if the vpn should be opened. """
+    """ Connects to the cloud """
 
     def __init__(self, url, dbus_service, config, sleep_time=DEFAULT_SLEEP_TIME):
         self.__url = url
@@ -111,8 +113,8 @@ class Cloud(object):
         self.__sleep_time = sleep_time
         self.__config = config
 
-    def should_open_vpn(self, extra_data):
-        """ Check with the OpenMotics cloud if we should open a VPN """
+    def call_home(self, extra_data):
+        """ Call home reporting our state, and optionally get new settings or other stuff """
         try:
             request = requests.post(self.__url,
                                     data={'extra_data': json.dumps(extra_data)},
@@ -130,12 +132,13 @@ class Cloud(object):
 
             self.__last_connect = time.time()
             self.__dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, True)
-            return data['open_vpn']
+            return {'open_vpn': data['open_vpn'],
+                    'success': True}
         except Exception as ex:
             LOGGER.log('Exception occured during check: {0}'.format(ex))
             self.__dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, False)
-
-            return True
+            return {'open_vpn': True,
+                    'success': False}
 
     def get_sleep_time(self):
         """ Get the time to sleep between two cloud checks. """
@@ -264,6 +267,7 @@ class VPNService(object):
         self._sleep_time = 0
         self._previous_sleep_time = 0
         self._vpn_open = False
+        self._debug_data = {}
         self._output_events = deque()
         self._eeprom_events = deque()
         self._thermostat_events = deque()
@@ -308,6 +312,29 @@ class VPNService(object):
         except Exception as ex:
             LOGGER.log("Error during ping: {0}".format(ex))
             return False
+
+    def _get_debug_dumps(self):
+        if not self._config_controller.get_setting('cloud_support', False):
+            return {}
+        found_timestamps = []
+        for filename in glob.glob('/tmp/debug_*.json'):
+            timestamp = int(filename.replace('/tmp/debug_', '').replace('.json', ''))
+            if timestamp not in self._debug_data:
+                with open(filename, 'r') as debug_file:
+                    self._debug_data[timestamp] = json.load(debug_file)
+            found_timestamps.append(timestamp)
+        for timestamp in self._debug_data.keys():
+            if timestamp not in found_timestamps:
+                del self._debug_data[timestamp]
+        return self._debug_data
+
+    def _clean_debug_dumps(self):
+        for timestamp in self._debug_data.keys():
+            filename = '/tmp/debug_{0}.json'.format(timestamp)
+            try:
+                os.remove(filename)
+            except Exception as ex:
+                LOGGER.log('Could not remove debug file {0}: {1}'.format(filename, ex))
 
     @staticmethod
     def _get_gateway():
@@ -376,28 +403,32 @@ class VPNService(object):
                 gobject.timeout_add_seconds(DEFAULT_SLEEP_TIME, self._check_vpn)
                 return
 
-            vpn_data = {'events': {}}
+            call_data = {'events': {}}
 
             # Events
             output_events = VPNService._unload_queue(self._output_events)
             if len(output_events) > 0:
-                vpn_data['events']['OUTPUT_CHANGE'] = output_events
+                call_data['events']['OUTPUT_CHANGE'] = output_events
             thermostat_events = VPNService._unload_queue(self._thermostat_events)
             if len(thermostat_events) > 0:
-                vpn_data['events']['THERMOSTAT_CHANGE'] = thermostat_events
+                call_data['events']['THERMOSTAT_CHANGE'] = thermostat_events
             dirty_events = VPNService._unload_queue(self._eeprom_events)
             if len(dirty_events) > 0:
-                vpn_data['events']['DIRTY_EEPROM'] = True
+                call_data['events']['DIRTY_EEPROM'] = True
 
             # Collect data to be send to the Cloud
             for collector_name in self._collectors:
                 collector = self._collectors[collector_name]
                 data = collector.collect()
                 if data is not None:
-                    vpn_data[collector_name] = data
+                    call_data[collector_name] = data
+            call_data['debug'] = {'dumps': self._get_debug_dumps()}
 
             # Send data to the cloud and see if the VPN should be opened
-            should_open = self._cloud.should_open_vpn(vpn_data)
+            feedback = self._cloud.call_home(call_data)
+
+            if feedback['success']:
+                self._clean_debug_dumps()
 
             if self._iterations > 20 and self._cloud.get_last_connect() < time.time() - REBOOT_TIMEOUT:
                 # The cloud is not responding for a while.
@@ -408,7 +439,7 @@ class VPNService(object):
             self._iterations += 1
 
             # Open or close the VPN
-            self._set_vpn(should_open)
+            self._set_vpn(feedback['open_vpn'])
 
             # Getting some sleep
             exec_time = time.time() - start_time
@@ -422,6 +453,7 @@ class VPNService(object):
         except Exception as ex:
             LOGGER.log("Error during vpn check loop: {0}".format(ex))
             gobject.timeout_add_seconds(1, self._check_vpn)
+
 
 if __name__ == '__main__':
     LOGGER.log("Starting VPN service")

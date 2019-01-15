@@ -23,8 +23,9 @@ try:
 except ImportError:
     import simplejson as json
 from threading import Thread
-from master.master_communicator import BackgroundConsumer
+from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.outputs import OutputStatus
+from master.shutters import ShutterStatus
 from master.thermostats import ThermostatStatus
 from master.inputs import InputStatus
 from master import master_api
@@ -40,11 +41,13 @@ class Observer(object):
 
     class Events(object):
         ON_OUTPUTS = 'ON_OUTPUTS'
+        ON_SHUTTER_UPDATE = 'ON_SHUTTER_UPDATE'
         INPUT_TRIGGER = 'INPUT_TRIGGER'
 
     class Types(object):
         OUTPUTS = 'OUTPUTS'
         THERMOSTATS = 'THERMOSTATS'
+        SHUTTERS = 'SHUTTERS'
 
     def __init__(self, master_communicator, dbus_service):
         """
@@ -58,11 +61,13 @@ class Observer(object):
         self._gateway_api = None
 
         self._subscriptions = {Observer.Events.ON_OUTPUTS: [],
+                               Observer.Events.ON_SHUTTER_UPDATE: [],
                                Observer.Events.INPUT_TRIGGER: []}
 
         self._input_status = InputStatus()
         self._output_status = OutputStatus(on_output_change=self._output_changed)
         self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed)
+        self._shutter_status = ShutterStatus()
 
         self._output_interval = 600
         self._output_last_updated = 0
@@ -70,12 +75,15 @@ class Observer(object):
         self._thermostats_interval = self._thermostats_original_interval
         self._thermostats_last_updated = 0
         self._thermostats_restore = 0
+        self._shutters_interval = 600
+        self._shutters_last_updated = 0
 
         self._thread = Thread(target=self._monitor)
         self._thread.daemon = True
 
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.output_list(), 0, self._on_output, True))
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(), 0, self._on_input))
+        self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(), 0, self._on_shutter_update))
 
     def set_gateway_api(self, gateway_api):
         """
@@ -107,6 +115,8 @@ class Observer(object):
             self._output_last_updated = 0
         if object_type is None or object_type == Observer.Types.THERMOSTATS:
             self._thermostats_last_updated = 0
+        if object_type is None or object_type == Observer.Types.SHUTTERS:
+            self._shutters_last_updated = 0
 
     def increase_interval(self, object_type, interval, window):
         """ Increases a certain interval to a new setting for a given amount of time """
@@ -123,10 +133,15 @@ class Observer(object):
                     self._refresh_thermostats()
                 if self._output_last_updated + self._output_interval < time.time():
                     self._refresh_outputs()
+                if self._shutters_last_updated + self._shutters_interval < time.time():
+                    self._refresh_shutters()
                 # Restore interval if required
                 if self._thermostats_restore < time.time():
                     self._thermostats_interval = self._thermostats_original_interval
                 time.sleep(1)
+            except CommunicationTimedOutException:
+                LOGGER.error('Got communication timeout during monitoring, waiting 10 seconds.')
+                time.sleep(10)
             except Exception as ex:
                 LOGGER.exception('Unexpected error during monitoring: {0}'.format(ex))
                 time.sleep(10)
@@ -134,6 +149,33 @@ class Observer(object):
     def _ensure_gateway_api(self):
         if self._gateway_api is None:
             raise RuntimeError('The observer has no access to the Gateway API yet')
+
+    # Handle master "events"
+
+    def _on_output(self, data):
+        """ Triggers when the master informs us of an Output state change """
+        on_outputs = data['outputs']
+        # Notify subscribers
+        for callback in self._subscriptions[Observer.Events.ON_OUTPUTS]:
+            callback(on_outputs)
+        # Update status tracker
+        self._output_status.partial_update(on_outputs)
+
+    def _on_input(self, data):
+        """ Triggers when the master informs us of an Input press """
+        # Notify subscribers
+        for callback in self._subscriptions[Observer.Events.INPUT_TRIGGER]:
+            callback(data)
+        # Update status tracker
+        self._input_status.add_data((data['input'], data['output']))
+
+    def _on_shutter_update(self, data):
+        """ Triggers when the master informs us of an Shutter state change """
+        # Update status tracker
+        self._shutter_status.update_states(data)
+        # Notify subscribers
+        for callback in self._subscriptions[Observer.Events.ON_SHUTTER_UPDATE]:
+            callback(self._shutter_status.get_states())
 
     # Outputs
 
@@ -150,19 +192,10 @@ class Observer(object):
         """ Refreshes the Output Status tracker """
         number_of_outputs = self._master_communicator.do_command(master_api.number_of_io_modules())['out'] * 8
         outputs = []
-        for i in range(0, number_of_outputs):
+        for i in xrange(number_of_outputs):
             outputs.append(self._master_communicator.do_command(master_api.read_output(), {'id': i}))
         self._output_status.full_update(outputs)
         self._output_last_updated = time.time()
-
-    def _on_output(self, data):
-        """ Triggers when the master informs us of an Output state change """
-        on_outputs = data['outputs']
-        # Notify subscribers
-        for callback in self._subscriptions[Observer.Events.ON_OUTPUTS]:
-            callback(on_outputs)
-        # Update status tracker
-        self._output_status.partial_update(on_outputs)
 
     # Inputs
 
@@ -170,13 +203,22 @@ class Observer(object):
         self._ensure_gateway_api()
         return self._input_status.get_status()
 
-    def _on_input(self, data):
-        """ Triggers when the master informs us of an Input press """
-        # Notify subscribers
-        for callback in self._subscriptions[Observer.Events.INPUT_TRIGGER]:
-            callback(data)
-        # Update status tracker
-        self._input_status.add_data((data['input'], data['output']))
+    # Shutters
+
+    def get_shutter_status(self):
+        return self._shutter_status.get_states()
+
+    def _refresh_shutters(self):
+        """ Refreshes the Shutter status tracker """
+        number_of_shutter_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['shutter']
+        self._shutter_status.update_config(self._gateway_api.get_shutter_configurations())
+        for module_id in xrange(number_of_shutter_modules):
+            self._shutter_status.update_states(
+                {'module_nr': module_id,
+                 'status': self._master_communicator.do_command(master_api.shutter_status(),
+                                                                {'module_nr': module_id})['status']}
+            )
+        self._shutters_last_updated = time.time()
 
     # Thermostats
 
@@ -215,7 +257,7 @@ class Observer(object):
             thermostats_config = self._gateway_api.get_thermostat_configurations(fields=fields)
 
         thermostats = []
-        for thermostat_id in xrange(0, 32):
+        for thermostat_id in xrange(32):
             config = thermostats_config[thermostat_id]
             if (config['sensor'] <= 31 or config['sensor'] == 240) and config['output0'] <= 240:
                 t_mode = thermostat_mode['mode{0}'.format(thermostat_id)]
