@@ -1,5 +1,5 @@
 #!/bin/bash -e
-export PYTHONPATH=$PYTHONPATH:`pwd`/../src
+export PYTHONPATH=$PYTHONPATH:`pwd`/../../src
 
 echo "Running master api tests"
 python2 -m master_tests.master_api_tests
