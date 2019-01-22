@@ -1,3 +1,13 @@
-node ('master') {
-    checkout scm
+pipeline {
+    agent { docker { image 'python:2.7-slim-jessie' } }
+    stages {
+        stage('Running unittests') {
+            steps {
+                checkout scm
+                sh '''cd testing/unittests/
+                      ls -al
+                      ./run.sh'''
+            }
+        }
+    }
 }
