@@ -1,0 +1,36 @@
+{
+  "tests": [
+    "login_test.test_create_user_authorized",
+    "login_test.test_login_with_user_with_terms",
+    "login_test.test_remove_user_authorized",
+    "login_test.test_use_case_creating_user_logging_in_deleting_user",
+    "login_test.test_token_validity",
+    "login_test.test_logout_existing_user",
+
+    "io_test.test_discovery",
+    "io_test.test_set_input_configuration",
+    "io_test.test_get_version",
+    "io_test.test_validate_master_status",
+    "io_test.test_get_features",
+    "io_test.test_open_maintenance",
+    "io_test.test_toggle_all_outputs_testee",
+    "io_test.test_get_modules",
+
+    "actions_test.test_set_group_action_configuration",
+    "actions_test.test_motion_sensor_timer_short",
+    "actions_test.test_set_group_action_configurations",
+    "actions_test.test_set_startup_action_configuration",
+    "actions_test.test_do_basic_action",
+
+    "rooms_test.test_set_output_configurations_rooms_floors",
+    "rooms_test.test_set_room_configuration",
+    "rooms_test.test_set_room_configurations",
+    "rooms_test.test_set_all_lights_off",
+    "rooms_test.test_set_all_lights_floor_on",
+    "rooms_test.test_set_all_lights_floor_off",
+
+    "thermostat_test.test_thermostat_config_after_reset"
+  ],
+
+  "dependencies": []
+}
