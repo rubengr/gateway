@@ -9,9 +9,5 @@ pipeline {
                       ./run.sh'''
             }
         }
-    }post {
-        always {
-            slackNotifier(currentBuild.currentResult)
-        }
     }
 }
