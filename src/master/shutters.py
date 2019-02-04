@@ -34,11 +34,12 @@ class ShutterStatus(object):
         UP = 'up'
         DOWN = 'down'
 
-    def __init__(self):
+    def __init__(self, on_shutter_change=None):
         """ Default constructor. Call init to initialize the states. """
         self._shutters = {}
         self._merge_lock = Lock()
         self._states = {}
+        self._on_shutter_change = on_shutter_change
 
     def update_config(self, config):
         with self._merge_lock:
@@ -91,6 +92,7 @@ class ShutterStatus(object):
                     # The state changed, but it is not stopped. This means the shutter just started moving
                     previous_state = [now, new_state[i]]
                 self._states[shutter_id] = previous_state
+                self._report_change(shutter_id, self._shutters[shutter_id])
 
     def _interprete_states(self, module_id, state):
         states = []
@@ -121,3 +123,7 @@ class ShutterStatus(object):
         for i in sorted(self._states.keys()):
             all_states.append(self._states[i][1])
         return all_states
+
+    def _report_change(self, shutter_id, shutter_data):
+        if self._on_shutter_change is not None:
+            self._on_shutter_change(shutter_id, shutter_data)
