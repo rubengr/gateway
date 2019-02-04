@@ -182,11 +182,12 @@ def main():
 
     web_service = WebService(web_interface, config_controller)
 
-    observer.subscribe(Observer.Events.INPUT_TRIGGER, metrics_collector.on_input)
-    observer.subscribe(Observer.Events.INPUT_TRIGGER, plugin_controller.process_input_status)
-    observer.subscribe(Observer.Events.ON_OUTPUTS, metrics_collector.on_output)
-    observer.subscribe(Observer.Events.ON_OUTPUTS, plugin_controller.process_output_status)
-    observer.subscribe(Observer.Events.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
+    observer.subscribe_master(Observer.MasterEvents.INPUT_TRIGGER, metrics_collector.on_input)
+    observer.subscribe_master(Observer.MasterEvents.INPUT_TRIGGER, plugin_controller.process_input_status)
+    observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, metrics_collector.on_output)
+    observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
+    observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
+    observer.subscribe_events(web_interface.process_observer_event)
 
     master_communicator.start()
     observer.start()
