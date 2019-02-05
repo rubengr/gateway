@@ -105,13 +105,13 @@ class IoTest(unittest.TestCase):
         """
         Testing discovery mode auth verification
         """
-        response_json = self.tools._api_testee('module_discover_start', 'some_token')
+        response_json = self.tools._api_testee('module_discover_start', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
-        response_json = self.tools._api_testee('module_discover_status', 'some_token')
+        response_json = self.tools._api_testee('module_discover_status', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
-        response_json = self.tools._api_testee('module_discover_stop', 'some_token')
+        response_json = self.tools._api_testee('module_discover_stop', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
     @unittest.skip('Currently factory reset is not working properly')

@@ -246,7 +246,7 @@ class LoginTest(unittest.TestCase):
         self.tools.enter_testee_authorized_mode(self.webinterface, 6)
         self.assertEquals(self.tools._api_testee('get_usernames').get('success'), True, 'Should be True after entering authorized mode and getting user names.')
         self.tools.exit_testee_authorized_mode(self.webinterface)
-        self.assertEquals(self.tools._api_testee('get_usernames').get('success'), False, 'Should be False after attempting to get user names when not in authorized mode anymore.')
+        self.assertEquals(self.tools._api_testee('get_usernames', token=None, expected_failure=True).get('success'), False, 'Should be False after attempting to get user names when not in authorized mode anymore.')
 
     @exception_handler
     def test_enter_exit_authorized_mode_duration_force_checked(self):

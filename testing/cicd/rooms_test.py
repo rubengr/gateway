@@ -148,10 +148,10 @@ class RoomsTest(unittest.TestCase):
         """
         Testing turning all lights off for a specific floor number auth validation
         """
-        response_json = self.tools._api_testee('set_all_lights_floor_off', 'some_token')
+        response_json = self.tools._api_testee('set_all_lights_floor_off', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token', 'Should not be able to call set_all_lights_floor_off API without a valid token. Got: {0}'.format(response_json))
 
-        response_json = self.tools._api_testee('set_all_lights_floor_on', 'some_token')
+        response_json = self.tools._api_testee('set_all_lights_floor_on', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token', 'Should not be able to call set_all_lights_floor_on API without a valid token. Got: {0}'.format(response_json))
 
     @exception_handler

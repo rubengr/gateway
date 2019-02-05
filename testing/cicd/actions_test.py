@@ -23,7 +23,7 @@ class ActionsTest(unittest.TestCase):
     token = ''
     TESTEE_POWER = 8
     ROOM_NUMBER = 5
-    GROUP_ACTION_CONFIG = '240, 0, 244, {0}, 240, 10, 161, {0}, 235, 5, 160, {0}, 235, 255, 240, 20, 160, {0}, 235, 5, 161, {0}, 235, 255, 240, 255'
+    GROUP_ACTION_CONFIG = '240,0,244,{0},240,10,161,{0},235,5,160,{0},235,255,240,20,160,{0},235,5,161,{0},235,255,240,255'
     FLOOR_NUMBER = 3
     GROUP_ACTION_TARGET_ID = 0
     INPUT_COUNT = 8
@@ -98,7 +98,7 @@ class ActionsTest(unittest.TestCase):
 
         url_params = urllib.urlencode({'id': i})
         response_json = self.tools._api_testee('get_group_action_configuration?{0}'.format(url_params), self.token)
-        self.assertEquals(response_json.get('config'), one_group_action_config, 'The new config should be the same as the present group action config. Got{0}'.format(response_json))
+        self.assertEquals(response_json.get('config'), one_group_action_config, 'The new config should be the same as the present group action config. Got: returned: {0} configured: {1}'.format(response_json.get('config'), one_group_action_config))
 
         url_params = urllib.urlencode({'group_action_id': i})
         self.tools._api_testee('do_group_action?{0}'.format(url_params), self.token)
@@ -160,9 +160,11 @@ class ActionsTest(unittest.TestCase):
             json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False))
             time.sleep(0.5)
             json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True))
-
         self.assertTrue(self._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, time.time(), 1), 'Should execute startup action and turn output 0 on, Tester\'s input will see a press')
+
         self.assertTrue(self._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, time.time(), 0), 'Should execute startup action and turn output 0 off, Tester\'s input will see a press')
+
+        self.tools.token = self.tools._get_new_token('openmotics', '123456')
 
     @exception_handler
     def test_set_startup_action_configuration_authorization(self):
@@ -178,21 +180,16 @@ class ActionsTest(unittest.TestCase):
         Testing if do basic action API call and execution works.
         """
         i = randint(0, 7)
-        response_json = self.tools._api_testee('get_output_status', self.token)
-        output_status = response_json.get('status')[i]
+        url_params = urllib.urlencode(
+            {'action_type': 165, 'action_number': i})  # ActionType 165 turns on an output.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should have toggled the tester\'s input. Got {0}, expected output ID to toggle: {1}'.format(self.tools.input_status, i))
 
-        self.assertIsNotNone(output_status, 'Expected the output status to be not none. Response from get_output_status {0}'.format(response_json))
-        if output_status.get('status') == 0:
-            url_params = urllib.urlencode(
-                {'action_type': 165, 'action_number': i})  # ActionType 165 turns on an output.
-            self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-            self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should have toggled the tester\'s input. Got {0}, expected output ID to toggle: {1}'.format(self.tools.input_status, i))
+        url_params = urllib.urlencode({'action_type': 160, 'action_number': i})  # ActionType 160 turns off an output.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
 
-            url_params = urllib.urlencode({'action_type': 160, 'action_number': i})  # ActionType 160 turns off an output.
-            self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-
-            self.assertTrue(self._check_if_event_is_captured(i, time.time(), 0), 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(self.tools.input_status, i))
-            self.tools._api_testee('get_output_status', self.token)
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 0), 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(self.tools.input_status, i))
+        self.tools._api_testee('get_output_status', self.token)
 
     @exception_handler
     def test_do_basic_action_authorization(self):
