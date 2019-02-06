@@ -257,7 +257,7 @@ class OMPlugin(WebSocketPlugin):
         return self.metrics_receivers
 
     def remove_metrics_receiver(self, client_id):
-        del self.metrics_receivers[client_id]
+        self.metrics_receivers.pop(client_id, None)
 
     def add_events_receiver(self, client_id, receiver_info):
         self.events_receivers[client_id] = receiver_info
@@ -266,7 +266,7 @@ class OMPlugin(WebSocketPlugin):
         return self.events_receivers
 
     def remove_events_receiver(self, client_id):
-        del self.events_receivers[client_id]
+        self.events_receivers.pop(client_id, None)
 
     def update_events_receiver(self, client_id, receiver_info):
         self.events_receivers[client_id].update(receiver_info)
@@ -433,7 +433,8 @@ class WebInterface(object):
                 except cherrypy.HTTPError as ex:  # As might be caught from the `check_token` function
                     receiver_info['socket'].close(ex.code, ex.message)
                 except Exception as ex:
-                    LOGGER.error('Failed to distribute metrics to WebSocket for client {0}: {1}'.format(client_id, ex))
+                    LOGGER.error('Failed to distribute metrics to WebSocket: {0}'.format(ex))
+                    cherrypy.engine.publish('remove-metrics-receiver', client_id)
         except Exception as ex:
             LOGGER.error('Failed to distribute metrics to WebSockets: {0}'.format(ex))
 
@@ -457,7 +458,8 @@ class WebInterface(object):
                 except cherrypy.HTTPError as ex:  # As might be caught from the `check_token` function
                     receiver_info['socket'].close(ex.code, ex.message)
                 except Exception as ex:
-                    LOGGER.error('Failed to distribute events to WebSocket for client {0}: {1}'.format(client_id, ex))
+                    LOGGER.error('Failed to distribute events to WebSocket: {0}'.format(ex))
+                    cherrypy.engine.publish('remove-events-receiver', client_id)
         except Exception as ex:
             LOGGER.error('Failed to distribute events to WebSockets: {0}'.format(ex))
 
