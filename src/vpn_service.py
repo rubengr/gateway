@@ -268,9 +268,7 @@ class VPNService(object):
         self._previous_sleep_time = 0
         self._vpn_open = False
         self._debug_data = {}
-        self._output_events = deque()
         self._eeprom_events = deque()
-        self._thermostat_events = deque()
         self._gateway = Gateway()
         self._vpn_controller = VpnController()
         self._config_controller = ConfigurationController(constants.get_config_database_file(), threading.Lock())
@@ -353,12 +351,9 @@ class VPNService(object):
                 'last_cycle': self._last_cycle}
 
     def _event_receiver(self, event, payload):
-        if event == DBusEvents.OUTPUT_CHANGE:
-            self._output_events.appendleft(payload)
-        elif event == DBusEvents.DIRTY_EEPROM:
+        _ = payload
+        if event == DBusEvents.DIRTY_EEPROM:
             self._eeprom_events.appendleft(True)
-        elif event == DBusEvents.THERMOSTAT_CHANGE:
-            self._thermostat_events.appendleft(payload)
 
     @staticmethod
     def _unload_queue(queue):
@@ -405,13 +400,7 @@ class VPNService(object):
 
             call_data = {'events': {}}
 
-            # Events
-            output_events = VPNService._unload_queue(self._output_events)
-            if len(output_events) > 0:
-                call_data['events']['OUTPUT_CHANGE'] = output_events
-            thermostat_events = VPNService._unload_queue(self._thermostat_events)
-            if len(thermostat_events) > 0:
-                call_data['events']['THERMOSTAT_CHANGE'] = thermostat_events
+            # Events  # TODO: Replace this by websocket events in the future
             dirty_events = VPNService._unload_queue(self._eeprom_events)
             if len(dirty_events) > 0:
                 call_data['events']['DIRTY_EEPROM'] = True
