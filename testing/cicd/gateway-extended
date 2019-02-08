@@ -20,7 +20,12 @@
         	}
         	stage ('gateway unit tests running') {
         	    steps{
-                    build(job: 'gateway-unittest-runner', propagate: false)
+                    script{
+                    env.text = 'something'
+         	        build job: 'prepare-env', parameters: [[$class: 'StringParameterValue', name: 'GW_COMMIT_HASH', value: $hashes[0]],
+         	                                               [$class: 'StringParameterValue', name: 'FE_COMMIT_HASH', value: params.FE_COMMIT_HASH]]
+
+         	          }
         	    }
             }
 

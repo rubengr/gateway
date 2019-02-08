@@ -13,11 +13,7 @@
         stages{
         	stage ('gateway unit tests running') {
         	    steps{
-        	    script{
-        	        def scmVars = sh 'git checkout ${FE_BRANCH}'
-        	        echo scmVars.GIT_BRANCH
                     build(job: 'gateway-unittest-runner')
-                    }
         	    }
             }
         }
