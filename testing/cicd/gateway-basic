@@ -1,4 +1,3 @@
-# gateway-basic
     pipeline {
             parameters {
                 string( name: 'GW_BRANCH',
@@ -11,27 +10,18 @@
             }
 
         agent { node { label 'master' } }
+        stages{
             stage ('prepare environment') {
         	    steps{
-        	        build job: 'calculate hashes'
          	        build job: 'prepare-env', parameters: [[$class: 'StringParameterValue', name: 'GW_BRANCH', value: params.GW_BRANCH],
          	                                               [$class: 'StringParameterValue', name: 'FE_BRANCH', value: params.FE_BRANCH]]
         	    }
         	}
-        stages{
         	stage ('Tests running') {
         	    steps{
-                    setBuildStatus("Pending", "PENDING")
                     build(job: 'gateway-unittest-runner')
         	    }
             }
         }
-        post {
-    success {
-        setBuildStatus("Build succeeded", "SUCCESS")
-    }
-    failure {
-        setBuildStatus("Build failed", "FAILURE")
-    }
+
   }
-    }
