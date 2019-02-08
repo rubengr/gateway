@@ -27,22 +27,7 @@
             stage ('gateway integration tests running') {
         	    steps{
                     build job: 'gateway-integration', parameters: [[$class: 'StringParameterValue', name: 'NAME', value: 'gateway'],
-         	                                                       [$class: 'StringParameterValue', name: 'TEST', value: '[
-                                                                                                                            "io_test.test_how_healthy_after_reboot",
-                                                                                                                            "login_test.test_create_user_authorized_force_checked",
-                                                                                                                            "rooms_test.test_set_output_configurations_rooms_floors",
-                                                                                                                            "rooms_test.test_set_all_lights_floor_on",
-                                                                                                                            "rooms_test.test_set_all_lights_floor_off",
-                                                                                                                            "actions_test.test_execute_group_action",
-                                                                                                                            "actions_test.test_toggles_output",
-                                                                                                                            "actions_test.test_turn_output_on_off",
-                                                                                                                            "actions_test.test_toggles_all_outputs",
-                                                                                                                            "actions_test.test_turn_all_outputs_on_off",
-                                                                                                                            "actions_test.test_toggles_all_outputs_floor",
-                                                                                                                            "actions_test.test_turn_all_outputs_on_off_floor",
-                                                                                                                            "actions_test.test_turn_all_outputs_off",
-                                                                                                                            "actions_test.test_execute_group_actions_after_xtime"
-                                                                                                                          ]'
+         	                                                       [$class: 'StringParameterValue', name: 'TEST', value: '["io_test.test_how_healthy_after_reboot","login_test.test_create_user_authorized_force_checked","rooms_test.test_set_output_configurations_rooms_floors","rooms_test.test_set_all_lights_floor_on","rooms_test.test_set_all_lights_floor_off","actions_test.test_execute_group_action","actions_test.test_toggles_output","actions_test.test_turn_output_on_off","actions_test.test_toggles_all_outputs","actions_test.test_turn_all_outputs_on_off","actions_test.test_toggles_all_outputs_floor","actions_test.test_turn_all_outputs_on_off_floor","actions_test.test_turn_all_outputs_off","actions_test.test_execute_group_actions_after_xtime"]'
                                                                   ]]
         	    }
             }
