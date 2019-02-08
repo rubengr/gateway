@@ -20,7 +20,7 @@
         	}
         	stage ('gateway unit tests running') {
         	    steps{
-                    build(job: 'gateway-unittest-runner')
+                    build(job: 'gateway-unittest-runner', propagate: false)
         	    }
             }
 
