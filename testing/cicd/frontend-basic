@@ -11,9 +11,9 @@
 
         agent { node { label 'master' } }
         stages{
-        	stage ('gateway unit tests running') {
+        	stage ('frontend unit tests running') {
         	    steps{
-                    build(job: 'gateway-unittest-runner')
+                    build(job: 'frontend-unittest-runner')
         	    }
             }
         }

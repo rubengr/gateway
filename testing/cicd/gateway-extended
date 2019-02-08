@@ -1,0 +1,51 @@
+    pipeline {
+            parameters {
+                string( name: 'GW_BRANCH',
+                defaultValue: '*/develop',
+                description: 'target GW branch to install')
+
+                string( name: 'FE_BRANCH',
+                defaultValue: '*/develop',
+                description: 'target FE branch to install')
+
+            }
+
+        agent { node { label 'master' } }
+        stages{
+            stage ('prepare environment') {
+        	    steps{
+         	        build job: 'prepare-env', parameters: [[$class: 'StringParameterValue', name: 'GW_BRANCH', value: params.GW_BRANCH],
+         	                                               [$class: 'StringParameterValue', name: 'FE_BRANCH', value: params.FE_BRANCH]]
+        	    }
+        	}
+        	stage ('gateway unit tests running') {
+        	    steps{
+                    build(job: 'gateway-unittest-runner')
+        	    }
+            }
+
+            stage ('gateway integration tests running') {
+        	    steps{
+                    build job: 'gateway-integration', parameters: [[$class: 'StringParameterValue', name: 'NAME', value: 'gateway'],
+         	                                                       [$class: 'StringParameterValue', name: 'TEST', value: '[
+                                                                                                                            "io_test.test_how_healthy_after_reboot",
+                                                                                                                            "login_test.test_create_user_authorized_force_checked",
+                                                                                                                            "rooms_test.test_set_output_configurations_rooms_floors",
+                                                                                                                            "rooms_test.test_set_all_lights_floor_on",
+                                                                                                                            "rooms_test.test_set_all_lights_floor_off",
+                                                                                                                            "actions_test.test_execute_group_action",
+                                                                                                                            "actions_test.test_toggles_output",
+                                                                                                                            "actions_test.test_turn_output_on_off",
+                                                                                                                            "actions_test.test_toggles_all_outputs",
+                                                                                                                            "actions_test.test_turn_all_outputs_on_off",
+                                                                                                                            "actions_test.test_toggles_all_outputs_floor",
+                                                                                                                            "actions_test.test_turn_all_outputs_on_off_floor",
+                                                                                                                            "actions_test.test_turn_all_outputs_off",
+                                                                                                                            "actions_test.test_execute_group_actions_after_xtime"
+                                                                                                                          ]'
+                                                                  ]]
+        	    }
+            }
+        }
+
+  }
