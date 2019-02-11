@@ -26,8 +26,11 @@ import logging
 import cherrypy
 import constants
 import msgpack
+import base64
+import uuid
 from decorator import decorator
 from cherrypy.lib.static import serve_file
+from ws4py import WS_VERSION
 from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from bus.dbus_events import DBusEvents
@@ -131,13 +134,22 @@ def authentication_handler(pass_token=False):
     if request.method == 'OPTIONS':
         return
     try:
+        token = None
         if 'token' in request.params:
             token = request.params.pop('token')
-        else:
-            token = None
+        if token is None:
             header = request.headers.get('Authorization')
             if header is not None and 'Bearer ' in header:
                 token = header.replace('Bearer ', '')
+        if token is None:
+            header = request.headers.get('Sec-WebSocket-Protocol')
+            if header is not None and 'authorization.bearer.' in header:
+                unpadded_base64_token = header.replace('authorization.bearer.', '')
+                base64_token = unpadded_base64_token + '=' * (-len(unpadded_base64_token) % 4)
+                try:
+                    token = base64.decodestring(base64_token).decode('utf-8')
+                except Exception:
+                    pass
         _self = request.handler.callable.__self__
         if request.remote.ip != '127.0.0.1':
             check_token = _self._user_controller.check_token if hasattr(_self, '_user_controller') else _self.webinterface.check_token
@@ -215,31 +227,97 @@ def types(**kwargs):
 class OMPlugin(WebSocketPlugin):
     def __init__(self, bus):
         WebSocketPlugin.__init__(self, bus)
-        self.metric_receivers = {}
+        self.metrics_receivers = {}
+        self.events_receivers = {}
 
     def start(self):
         WebSocketPlugin.start(self)
         self.bus.subscribe('add-metrics-receiver', self.add_metrics_receiver)
         self.bus.subscribe('get-metrics-receivers', self.get_metrics_receivers)
         self.bus.subscribe('remove-metrics-receiver', self.remove_metrics_receiver)
+        self.bus.subscribe('add-events-receiver', self.add_events_receiver)
+        self.bus.subscribe('get-events-receivers', self.get_events_receivers)
+        self.bus.subscribe('remove-events-receiver', self.remove_events_receiver)
+        self.bus.subscribe('update-events-receiver', self.update_events_receiver)
 
     def stop(self):
         WebSocketPlugin.stop(self)
         self.bus.unsubscribe('add-metrics-receiver', self.add_metrics_receiver)
         self.bus.unsubscribe('get-metrics-receivers', self.get_metrics_receivers)
         self.bus.unsubscribe('remove-metrics-receiver', self.remove_metrics_receiver)
+        self.bus.unsubscribe('add-events-receiver', self.add_events_receiver)
+        self.bus.unsubscribe('get-events-receivers', self.get_events_receivers)
+        self.bus.unsubscribe('remove-events-receiver', self.remove_events_receiver)
+        self.bus.unsubscribe('update-events-receiver', self.update_events_receiver)
 
-    def add_metrics_receiver(self, client_id, receiver_ino):
-        self.metric_receivers[client_id] = receiver_ino
+    def add_metrics_receiver(self, client_id, receiver_info):
+        self.metrics_receivers[client_id] = receiver_info
 
     def get_metrics_receivers(self):
-        return self.metric_receivers
+        return self.metrics_receivers
 
     def remove_metrics_receiver(self, client_id):
-        del self.metric_receivers[client_id]
+        self.metrics_receivers.pop(client_id, None)
+
+    def add_events_receiver(self, client_id, receiver_info):
+        self.events_receivers[client_id] = receiver_info
+
+    def get_events_receivers(self):
+        return self.events_receivers
+
+    def remove_events_receiver(self, client_id):
+        self.events_receivers.pop(client_id, None)
+
+    def update_events_receiver(self, client_id, receiver_info):
+        self.events_receivers[client_id].update(receiver_info)
 
 
-class MetricsSocket(WebSocket):
+class OMSocketTool(WebSocketTool):
+    def upgrade(self, protocols=None, extensions=None, version=WS_VERSION, handler_cls=WebSocket, heartbeat_freq=None):
+        _ = protocols  # ws4py doesn't support protocols the way we like (using them for authentication)
+        request = cherrypy.serving.request
+        allowed_protocols = []
+        requested_protocols = request.headers.get('Sec-WebSocket-Protocol')
+        if requested_protocols:
+            for protocol in requested_protocols.split(','):
+                protocol = protocol.strip()
+                if 'authorization.bearer.' in protocol:
+                    allowed_protocols.append(protocol)
+        return WebSocketTool.upgrade(self,
+                                     protocols=allowed_protocols,
+                                     extensions=extensions,
+                                     version=version,
+                                     handler_cls=handler_cls,
+                                     heartbeat_freq=heartbeat_freq)
+
+
+class OMSocket(WebSocket):
+    def once(self):
+        """
+        Almost exact the same code as in `WebSocket`, but somehow resolves an issue where not all
+        data was read from the (secure) socket.
+        """
+        if self.terminated:
+            return False
+
+        try:
+            b = self.sock.recv(self.reading_buffer_size)
+            if self._is_secure:
+                extra_b = self._get_from_pending()
+                while len(extra_b) > 0:
+                    b += extra_b
+                    extra_b = self._get_from_pending()
+        except Exception as e:
+            self.unhandled_error(e)
+            return False
+        else:
+            if not self.process(b):
+                return False
+
+        return True
+
+
+class MetricsSocket(OMSocket):
     """
     Handles web socket communications for metrics
     """
@@ -261,6 +339,40 @@ class MetricsSocket(WebSocket):
         self.metadata['interface'].metrics_collector.set_websocket_interval(client_id,
                                                                             self.metadata['metric_type'],
                                                                             None)
+
+
+class EventsSocket(OMSocket):
+    """
+    Handles web socket communications for events
+    """
+    def opened(self):
+        cherrypy.engine.publish('add-events-receiver',
+                                self.metadata['client_id'],
+                                {'token': self.metadata['token'],
+                                 'subscribed_types': [],
+                                 'socket': self})
+
+    def closed(self, *args, **kwargs):
+        _ = args, kwargs
+        client_id = self.metadata['client_id']
+        cherrypy.engine.publish('remove-events-receiver', client_id)
+
+    def received_message(self, message):
+        allowed_types = ['OUTPUT_CHANGE', 'THERMOSTAT_CHANGE', 'SHUTTER_CHANGE', 'INPUT_TRIGGER']
+        try:
+            data = msgpack.loads(message.data)
+            if data.get('type') == 'ACTION':
+                if data['data']['action'] == 'set_subscription':
+                    subscribed_types = [stype for stype in data['data']['types'] if stype in allowed_types]
+                    cherrypy.engine.publish('update-events-receiver',
+                                            self.metadata['client_id'],
+                                            {'subscribed_types': subscribed_types})
+            elif data.get('type') == 'PING':
+                self.send(msgpack.dumps({'type': 'PONG',
+                                         'data': time.time()}), binary=True)
+        except Exception as ex:
+            LOGGER.exception('Error receiving message: {0}'.format(ex))
+            # pass  # Ignore malformed data processing; in that case there's nothing that will happen
 
 
 class WebInterface(object):
@@ -306,7 +418,11 @@ class WebInterface(object):
             answers = cherrypy.engine.publish('get-metrics-receivers')
             if len(answers) == 0:
                 return
-            for client_id, receiver_info in answers.pop().iteritems():
+            receivers = answers.pop()
+            for client_id in receivers.keys():
+                receiver_info = receivers.get(client_id)
+                if receiver_info is None:
+                    continue
                 try:
                     if cherrypy.request.remote.ip != '127.0.0.1' and not self._user_controller.check_token(receiver_info['token']):
                         raise cherrypy.HTTPError(401, 'invalid_token')
@@ -317,9 +433,35 @@ class WebInterface(object):
                 except cherrypy.HTTPError as ex:  # As might be caught from the `check_token` function
                     receiver_info['socket'].close(ex.code, ex.message)
                 except Exception as ex:
-                    LOGGER.error('Failed to distribute metrics to WebSocket for client {0}: {1}'.format(client_id, ex))
+                    LOGGER.error('Failed to distribute metrics to WebSocket: {0}'.format(ex))
+                    cherrypy.engine.publish('remove-metrics-receiver', client_id)
         except Exception as ex:
             LOGGER.error('Failed to distribute metrics to WebSockets: {0}'.format(ex))
+
+    def process_observer_event(self, event):
+        """ Processes an observer event, pushing it forward to the event websocket """
+        try:
+            answers = cherrypy.engine.publish('get-events-receivers')
+            if len(answers) == 0:
+                return
+            receivers = answers.pop()
+            for client_id in receivers.keys():
+                receiver_info = receivers.get(client_id)
+                if receiver_info is None:
+                    continue
+                try:
+                    if event['type'] not in receiver_info['subscribed_types']:
+                        continue
+                    if cherrypy.request.remote.ip != '127.0.0.1' and not self._user_controller.check_token(receiver_info['token']):
+                        raise cherrypy.HTTPError(401, 'invalid_token')
+                    receiver_info['socket'].send(msgpack.dumps(event), binary=True)
+                except cherrypy.HTTPError as ex:  # As might be caught from the `check_token` function
+                    receiver_info['socket'].close(ex.code, ex.message)
+                except Exception as ex:
+                    LOGGER.error('Failed to distribute events to WebSocket: {0}'.format(ex))
+                    cherrypy.engine.publish('remove-events-receiver', client_id)
+        except Exception as ex:
+            LOGGER.error('Failed to distribute events to WebSockets: {0}'.format(ex))
 
     def set_plugin_controller(self, plugin_controller):
         """ Set the plugin controller. """
@@ -2002,7 +2144,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.9.0'}
+                'gateway': '2.10.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
@@ -2270,13 +2412,22 @@ class WebInterface(object):
         return {}
 
     @cherrypy.expose
+    @cherrypy.tools.cors()
     @cherrypy.tools.authenticated(pass_token=True)
-    def ws_metrics(self, token, client_id, source=None, metric_type=None, interval=None):
+    def ws_metrics(self, token, source=None, metric_type=None, interval=None):
         cherrypy.request.ws_handler.metadata = {'token': token,
-                                                'client_id': client_id,
+                                                'client_id': uuid.uuid4().hex,
                                                 'source': source,
                                                 'metric_type': metric_type,
                                                 'interval': None if interval is None else int(interval),
+                                                'interface': self}
+
+    @cherrypy.expose
+    @cherrypy.tools.cors()
+    @cherrypy.tools.authenticated(pass_token=True)
+    def ws_events(self, token):
+        cherrypy.request.ws_handler.metadata = {'token': token,
+                                                'client_id': uuid.uuid4().hex,
                                                 'interface': self}
 
 
@@ -2297,7 +2448,7 @@ class WebService(object):
         """ Run the web service: start cherrypy. """
         try:
             OMPlugin(cherrypy.engine).subscribe()
-            cherrypy.tools.websocket = WebSocketTool()
+            cherrypy.tools.websocket = OMSocketTool()
 
             config = {'/terms': {'tools.staticdir.on': True,
                                  'tools.staticdir.dir': '/opt/openmotics/python/terms'},
@@ -2305,6 +2456,8 @@ class WebService(object):
                                   'tools.staticdir.dir': '/opt/openmotics/static'},
                       '/ws_metrics': {'tools.websocket.on': True,
                                       'tools.websocket.handler_cls': MetricsSocket},
+                      '/ws_events': {'tools.websocket.on': True,
+                                     'tools.websocket.handler_cls': EventsSocket},
                       '/': {'tools.timestamp_filter.on': True,
                             'tools.cors.on': self._config_controller.get_setting('cors_enabled', False),
                             'tools.sessions.on': False}}
