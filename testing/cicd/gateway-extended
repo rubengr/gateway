@@ -38,7 +38,7 @@
         post {
             always {
                 githubNotify account: 'openmotics-ci', context: 'basic test', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
-                             description: 'This is an example', repo: params.REPO_NAME, sha: params.GW_BRANCH,
+                             description: 'This is an example', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
                              status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
             }
         }
