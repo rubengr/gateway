@@ -8,6 +8,9 @@
                 defaultValue: '*/develop',
                 description: 'target FE branch to install')
 
+                string( name: 'REPO_NAME',
+                defaultValue: '',
+                description: 'target repo to install')
             }
 
         agent { node { label 'master' } }
@@ -20,12 +23,7 @@
         	}
         	stage ('gateway unit tests running') {
         	    steps{
-                    script{
-                    env.text = 'something'
-         	        build job: 'prepare-env', parameters: [[$class: 'StringParameterValue', name: 'GW_COMMIT_HASH', value: $hashes[0]],
-         	                                               [$class: 'StringParameterValue', name: 'FE_COMMIT_HASH', value: params.FE_COMMIT_HASH]]
-
-         	          }
+                    build job: 'gateway-unittest-runner', propagate: false
         	    }
             }
 
@@ -35,6 +33,13 @@
          	                                                       [$class: 'StringParameterValue', name: 'TEST', value: '["io_test.test_how_healthy_after_reboot","login_test.test_create_user_authorized_force_checked","rooms_test.test_set_output_configurations_rooms_floors","rooms_test.test_set_all_lights_floor_on","rooms_test.test_set_all_lights_floor_off","actions_test.test_execute_group_action","actions_test.test_toggles_output","actions_test.test_turn_output_on_off","actions_test.test_toggles_all_outputs","actions_test.test_turn_all_outputs_on_off","actions_test.test_toggles_all_outputs_floor","actions_test.test_turn_all_outputs_on_off_floor","actions_test.test_turn_all_outputs_off","actions_test.test_execute_group_actions_after_xtime"]'
                                                                   ]]
         	    }
+            }
+        }
+        post {
+            always {
+                githubNotify account: 'openmotics-ci', context: 'basic test', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                             description: 'This is an example', repo: params.REPO_NAME, sha: params.GW_BRANCH,
+                             status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
             }
         }
 
