@@ -7,6 +7,10 @@
                 string( name: 'FE_BRANCH',
                 defaultValue: '*/develop',
                 description: 'target FE branch to install')
+
+                string( name: 'REPO_NAME',
+                defaultValue: '',
+                description: 'target repo to install')
             }
 
         agent { node { label 'master' } }
@@ -15,6 +19,13 @@
         	    steps{
                     build(job: 'gateway-unittest-runner')
         	    }
+            }
+        }
+        post {
+            always {
+                githubNotify account: 'Zoolixx', context: 'basic test', credentialsId: 'e1b6576b-70c5-4f76-96ea-ea73d13c744c',
+                             description: 'This is an example', repo: params.REPO_NAME, sha: params.GW_BRANCH,
+                             status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
             }
         }
 
