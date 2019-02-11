@@ -42,6 +42,7 @@ from gateway.observer import Observer
 from bus.dbus_events import DBusEvents
 import master.master_api as master_api
 from master.master_communicator import BackgroundConsumer
+from master.eeprom_controller import EepromAddress
 from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
     SensorConfiguration, PumpGroupConfiguration, GroupActionConfiguration, \
     ScheduledActionConfiguration, StartupActionConfiguration, \
@@ -627,8 +628,6 @@ class GatewayApi(object):
                                                      'hardware': hardware_version,
                                                      'firmware': firmware_version,
                                                      'address': module_address}
-        # Just execute a call to make sure possible CommunicationTimedOutExceptions above don't trigger the watchdog
-        self.__master_communicator.do_command(master_api.number_of_io_modules())
 
         # Energy/power modules
         modules = self.__power_controller.get_power_modules().values()
