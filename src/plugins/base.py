@@ -357,13 +357,9 @@ class PluginController(object):
             # Check if the package contains a valid plugin
             checker = open("%s/check.py" % tmp_dir, "w")
             checker.write("""import sys
-import os
-
-os.environ['PYTHON_EGG_CACHE'] = '/tmp/.eggs-cache/'
-for egg in os.listdir('/opt/openmotics/python/eggs'):
-    if egg.endswith('.egg'):
-        sys.path.insert(0, '/opt/openmotics/python/eggs/{0}'.format(egg))
 sys.path.append('/opt/openmotics/python')
+from platform_utils import System
+System.import_eggs()
 
 from plugins.base import PluginController, PluginException
 
@@ -494,11 +490,11 @@ else:
                             '/plugins/{0}'.format(plugin.name),
                             {"/": root_config})
 
-    def process_input_status(self, input_status_inst):
+    def process_input_status(self, data):
         """ Should be called when the input status changes, notifies all plugins. """
         for isr in self.__input_status_receivers:
             try:
-                isr[1](input_status_inst)
+                isr[1]((data['input'], data['output']))  # Tuple with input/output
             except Exception as exception:
                 self.log(isr[0], "Exception while processing input status", exception,
                          traceback.format_exc())

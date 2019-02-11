@@ -25,6 +25,7 @@ from croniter import croniter
 from random import randint
 from threading import Thread
 from gateway.webservice import params_parser
+from master.master_communicator import CommunicationTimedOutException
 try:
     import json
 except ImportError:
@@ -210,15 +211,16 @@ class SchedulingController(object):
         self._processor = Thread(target=self._process)
         self._processor.daemon = True
         self._processor.start()
-    
+
     def stop(self):
         self._stop = True
-        
+
     def _process(self):
         while self._stop is False:
             for schedule in self._schedules.values():
                 if schedule.status == 'ACTIVE' and schedule.is_due:
                     thread = Thread(target=self._execute_schedule, args=(schedule,))
+                    thread.daemon = True
                     thread.start()
             now = int(time.time())
             time.sleep(now - now % 60 + 60 - time.time())  # Wait for the next minute mark
@@ -229,8 +231,6 @@ class SchedulingController(object):
         :type schedule: gateway.scheduling.Schedule
         """
         try:
-            LOGGER.info("Executing schedule '{0}' ({1}) with arguments {2}".format(schedule.name, schedule.schedule_type, schedule.arguments))
-
             # Execute
             if schedule.schedule_type == 'GROUP_ACTION':
                 self._gateway_api.do_group_action(schedule.arguments)
@@ -246,6 +246,8 @@ class SchedulingController(object):
             schedule.last_executed = time.time()
             if schedule.has_ended:
                 self._update_schedule_status(schedule.id, 'COMPLETED')
+        except CommunicationTimedOutException:
+            LOGGER.error('Got error while executing schedule: CommunicationTimedOutException')
         except Exception as ex:
             LOGGER.error('Got error while executing schedule: {0}'.format(ex))
             schedule.last_executed = time.time()

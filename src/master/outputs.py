@@ -15,49 +15,73 @@
 """
 The outputs module contains classes to track the current state of the outputs on
 the master.
-
-@author: fryckbos
 """
 
-import time
+from threading import Lock
+
 
 class OutputStatus(object):
     """ Contains a cached version of the current output of the controller. """
 
-    def __init__(self, outputs, refresh_period=600):
-        """ Create a status object using a list of outputs (can be None),
-        and a refresh period: the refresh has to be invoked explicitly. """
-        self.__outputs = outputs
-        self.__refresh_period = refresh_period
-        self.__last_refresh = time.time()
-
-    def force_refresh(self):
-        """ Force a refresh on the OuptutStatus. """
-        self.__last_refresh = 0
-
-    def should_refresh(self):
-        """ Check whether the status should be refreshed. """
-        return time.time() >= self.__last_refresh + self.__refresh_period
+    def __init__(self, on_output_change=None):
+        """
+        Create a status object using a list of outputs (can be None),
+        and a refresh period: the refresh has to be invoked explicitly.
+        """
+        self._outputs = {}
+        self._on_output_change = on_output_change
+        self._merge_lock = Lock()
 
     def partial_update(self, on_outputs):
-        """ Update the status of the outputs using a list of tuples containing the
-        light id an the dimmer value of the lights that are on. """
+        """
+        Update the status of the outputs using a list of tuples containing the
+        light id an the dimmer value of the lights that are on.
+        """
         on_dict = {}
         for on_output in on_outputs:
             on_dict[on_output[0]] = on_output[1]
 
-        for output in self.__outputs:
-            if output['id'] in on_dict:
-                output['status'] = 1
-                output['dimmer'] = on_dict[output['id']]
-            else:
-                output['status'] = 0
+        with self._merge_lock:
+            for output_id, output in self._outputs.iteritems():
+                self._update_maybe_report_change(output, {'status': output_id in on_dict,
+                                                          'dimmer': on_dict.get(output_id)})
 
     def full_update(self, outputs):
         """ Update the status of the outputs using a list of Outputs. """
-        self.__outputs = outputs
-        self.__last_refresh = time.time()
+        with self._merge_lock:
+            obsolete_ids = self._outputs.keys()
+            for output in outputs:
+                output_id = output['id']
+                if output_id in obsolete_ids:
+                    obsolete_ids.remove(output_id)
+                if output_id in self._outputs:
+                    self._update_maybe_report_change(self._outputs[output_id], output)
+                else:
+                    self._report_change(output_id)
+                self._outputs[output_id] = output
+            for output_id in obsolete_ids:
+                del self._outputs[output_id]
 
     def get_outputs(self):
         """ Return the list of Outputs. """
-        return self.__outputs
+        return self._outputs.values()
+
+    def _update_maybe_report_change(self, output, new_output):
+        report = False
+        status = new_output['status']
+        dimmer = new_output['dimmer']
+        if status:
+            if output.get('status') != 1 or output.get('dimmer') != dimmer:
+                output['status'] = 1
+                output['dimmer'] = dimmer
+                report = True
+        else:
+            if output.get('status') != 0:
+                output['status'] = 0
+                report = True
+        if report:
+            self._report_change(output['id'])
+
+    def _report_change(self, output_id):
+        if self._on_output_change is not None:
+            self._on_output_change(output_id)
