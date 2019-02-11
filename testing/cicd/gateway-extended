@@ -37,10 +37,13 @@
         }
         post {
             always {
-                githubNotify account: 'openmotics-ci', context: 'basic test', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
-                             description: 'This is an example', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
+                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                             description: 'Building the buildings...', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
                              status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
+
+                sh '''
+                    curl --header "Content-Type: application/json" --request POST --data '{"body": "Failed.", "event": "REQUEST_CHANGES"}' https://openmotics-ci:4067f6210d379c1098e46a4f629a16a4afbc0a30@api.github.com/repos/openmotics/dummy-jenkins-test/pulls/1/reviews/202163045/events
+                '''
             }
         }
-
   }
