@@ -20,6 +20,15 @@
         agent { node { label 'master' } }
         options { disableConcurrentBuilds() }
         stages{
+            stage ('Notify build in progress on GitHub') {
+        	    steps{
+              withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                    usernameVariable: 'USERNAME', passwordVariable: 'TOKEN']]) {
+
+                    sh "curl --header 'Content-Type: application/json' --request POST --data '{\"body\": \"Please wait: Building and running tests...\", \"event\": \"REQUEST_CHANGES\"}' https://${USERNAME}:${TOKEN}@api.github.com/repos/openmotics/dummy-jenkins-test/pulls/${params.PULL}/reviews"
+                 }
+        	    }
+        	}
             stage ('prepare environment') {
         	    steps{
          	        build job: 'prepare-env', parameters: [[$class: 'StringParameterValue', name: 'GW_BRANCH', value: params.GW_BRANCH],
