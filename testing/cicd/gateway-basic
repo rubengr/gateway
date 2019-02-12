@@ -29,14 +29,14 @@
             success {
                 githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
                              description: 'All tests have passed.', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
-                             status: 'success', targetUrl: 'https://jenkins.openmotics.com'
+                             status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
 
             }
 
             failure {
                 githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
                              description: 'One or more tests have failed.', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
-                             status: 'failure', targetUrl: 'https://jenkins.openmotics.com'
+                             status: 'FAILURE', targetUrl: 'https://jenkins.openmotics.com'
 
             }
 
