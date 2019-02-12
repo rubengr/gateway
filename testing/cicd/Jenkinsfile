@@ -1,11 +1,12 @@
 pipeline {
-    agent { docker { image 'python:2.7-slim-jessie' } }
+    agent { docker { image 'python:2.7-slim-jessie'
+                     args '-u root:root' } }
     stages {
         stage('Running unittests') {
             steps {
                 checkout scm
-                sh '''cd testing/unittests/
-                      ls -al
+                sh ''' pip install --user cherrypy
+                      cd testing/unittests/
                       ./run.sh'''
             }
         }
