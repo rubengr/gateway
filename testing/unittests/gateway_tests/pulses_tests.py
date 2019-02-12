@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -91,7 +91,7 @@ class PulseCounterControllerTest(unittest.TestCase):
         action = master_api.pulse_list()
 
         in_fields = {}
-        out_fields = {'pv0': 0, 'pv1': 1, 'pv2': 2, 'pv3': 3, 'pv4': 4, 'pv5':5, 'pv6': 6, 'pv7': 7,
+        out_fields = {'pv0': 0, 'pv1': 1, 'pv2': 2, 'pv3': 3, 'pv4': 4, 'pv5': 5, 'pv6': 6, 'pv7': 7,
                       'pv8': 8, 'pv9': 9, 'pv10': 10, 'pv11': 11, 'pv12': 12, 'pv13': 13, 'pv14': 14,
                       'pv15': 15, 'pv16': 16, 'pv17': 17, 'pv18': 18, 'pv19': 19, 'pv20': 20, 'pv21': 21,
                       'pv22': 22, 'pv23': 23, 'crc': [67, 1, 20]}
@@ -170,10 +170,12 @@ class PulseCounterControllerTest(unittest.TestCase):
             self.assertEquals('Virtual pulse counter 25 can only have input -1', str(e))
 
         # Get configuration for existing master pulse counter
-        self.assertEquals({'input': 10, 'room': 1, 'id': 1, 'name': 'Water', 'persistent': False}, controller.get_configuration(1))
+        self.assertEquals({'input': 10, 'room': 1, 'id': 1, 'name': 'Water', 'persistent': False},
+                          controller.get_configuration(1))
 
         # Get configuration for existing virtual pulse counter
-        self.assertEquals({'input': -1, 'room': 3, 'id': 25, 'name': 'Electricity', 'persistent': True}, controller.get_configuration(25))
+        self.assertEquals({'input': -1, 'room': 3, 'id': 25, 'name': 'Electricity', 'persistent': True},
+                          controller.get_configuration(25))
 
         # Get configuration for unexisting pulse counter
         try:

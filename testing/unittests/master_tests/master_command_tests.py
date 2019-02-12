@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -23,6 +23,7 @@ import unittest
 import master.master_api as master_api
 from master.master_command import MasterCommandSpec, Field, OutputFieldType, DimmerFieldType, \
                                   ErrorListFieldType
+
 
 class MasterCommandSpecTest(unittest.TestCase):
     """ Tests for :class`MasterCommandSpec` """

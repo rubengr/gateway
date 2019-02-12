@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -23,6 +23,7 @@ import unittest
 from plugins.base import OMPluginBase, PluginException, om_expose
 from plugins.interfaces import check_interfaces
 
+
 class CheckInterfacesTest(unittest.TestCase):
     """ Tests for check_interfaces. """
 
@@ -34,7 +35,7 @@ class CheckInterfacesTest(unittest.TestCase):
             version = "1.0"
             interfaces = []
 
-        check_interfaces(P1) ## Should not raise exceptions
+        check_interfaces(P1)  # Should not raise exceptions
 
     def test_wrong_interface_format(self):
         """ Test a plugin with the wrong interface format. """
@@ -189,7 +190,7 @@ class CheckInterfacesTest(unittest.TestCase):
             interfaces = [("webui", "1.0")]
 
             @om_expose(auth=True)
-            def html_index(): # pylint: disable=E0211
+            def html_index():  # pylint: disable=E0211
                 """ Without self. """
                 pass
 
@@ -231,5 +232,4 @@ class CheckInterfacesTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

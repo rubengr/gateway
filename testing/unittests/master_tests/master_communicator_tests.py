@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -18,7 +18,6 @@ Tests for MasterCommunicator module.
 
 import unittest
 import threading
-import time
 
 from master.master_communicator import MasterCommunicator, InMaintenanceModeException, \
                                        BackgroundConsumer, CrcCheckFailedException
@@ -232,7 +231,7 @@ class MasterCommunicatorTest(unittest.TestCase):
         comm = MasterCommunicator(serial_mock, init_master=False)
         comm.enable_passthrough()
 
-        got_output = {"phase" : 1}
+        got_output = {"phase": 1}
 
         def callback(output):
             """ Callback that check if the correct result was returned for OL. """
@@ -253,11 +252,11 @@ class MasterCommunicatorTest(unittest.TestCase):
 
     def test_background_consumer_passthrough(self):
         """ Test the background consumer with passing the data to the passthrough. """
-        serial_mock = SerialMock([ sout("OL\x00\x01"), sout("\x03\x0c\r\n") ])
+        serial_mock = SerialMock([sout("OL\x00\x01"), sout("\x03\x0c\r\n")])
         comm = MasterCommunicator(serial_mock, init_master=False)
         comm.enable_passthrough()
 
-        got_output = {"passed" : False}
+        got_output = {"passed": False}
 
         def callback(output):
             """ Callback that check if the correct result was returned for OL. """

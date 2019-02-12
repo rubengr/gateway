@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -26,18 +26,19 @@ from master.passthrough import PassthroughService
 
 from serial_tests import SerialMock, sout, sin
 
+
 class PassthroughServiceTest(unittest.TestCase):
     """ Tests for :class`PassthroughService`. """
 
     def test_passthrough(self):
         """ Test the passthrough. """
         master_mock = SerialMock([
-                        sout("data for the passthrough"), sin("response"),
-                        sout("more data"), sin("more response")])
+            sout("data for the passthrough"), sin("response"),
+            sout("more data"), sin("more response")])
 
         passthrough_mock = SerialMock([
-                        sin("data for the passthrough"), sout("response"),
-                        sin("more data"), sout("more response")])
+            sin("data for the passthrough"), sout("response"),
+            sin("more data"), sout("more response")])
 
         master_communicator = MasterCommunicator(master_mock, init_master=False)
         master_communicator.enable_passthrough()
@@ -61,5 +62,5 @@ class PassthroughServiceTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    # import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

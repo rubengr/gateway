@@ -1,4 +1,4 @@
-# Copyright (c) 2013, Pete Fein
+# Copyright (c) 2019, Pete Fein
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
@@ -72,8 +72,8 @@ def asctime(t=None):
     return originals['asctime'](t if t is not None else localtime())
 
 
-def strftime(format, t=None):
-    return originals['strftime'](format, t if t is not None else localtime())
+def strftime(target_format, t=None):
+    return originals['strftime'](target_format, t if t is not None else localtime())
 
 
 def monkey_patch():

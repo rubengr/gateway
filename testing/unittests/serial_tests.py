@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -24,13 +24,16 @@ import unittest
 
 from serial_utils import printable
 
+
 def sin(data):
     """ Input for the SerialMock """
-    return ('i', data)
+    return 'i', data
+
 
 def sout(data):
     """ Output from the SerialMock """
-    return ('o', data)
+    return 'o', data
+
 
 class SerialMock(object):
     """ Mockup for :class`serial.Serial`.
@@ -79,7 +82,7 @@ class SerialMock(object):
             self.bytes_read += len(ret)
             return ret
 
-    def inWaiting(self): #pylint: disable=C0103
+    def inWaiting(self):  # pylint: disable=C0103
         """ Get the number of bytes pending to be read """
         if len(self.__sequence) == 0 or self.__sequence[0][0] == 'i':
             return 0
@@ -113,7 +116,7 @@ class SerialMockTest(unittest.TestCase):
     def test_threaded_serial_mock(self):
         """ Tests for SerialMock in thread, check if reads and writes are in sequence. """
         serial_mock = SerialMock([sin("abc"), sout("def"), sin("g"), sout("h")])
-        phase = {'phase':0}
+        phase = {'phase': 0}
 
         def __reader(serial, phase):
             """ Code for reading from a differen thread, checks the output and phase. """
@@ -139,7 +142,7 @@ class SerialMockTest(unittest.TestCase):
         """ Tests for serial mock, that checks if a read() stays waiting if there is
         no data available. """
         serial_mock = SerialMock([])
-        phase = {'phase':0}
+        phase = {'phase': 0}
 
         def __timeout(serial, phase):
             """ Interrupts the read to make the test finish. """
@@ -152,6 +155,7 @@ class SerialMockTest(unittest.TestCase):
         serial_mock.read(1)
         self.assertEquals(1, phase['phase'])
 
+
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
+    #  import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
