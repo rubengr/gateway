@@ -1,0 +1,45 @@
+    pipeline {
+            parameters {
+                string( name: 'GW_BRANCH',
+                defaultValue: '',
+                description: 'target GW branch to install')
+
+                string( name: 'FE_BRANCH',
+                defaultValue: '',
+                description: 'target FE branch to install')
+
+                string( name: 'REPO_NAME',
+                defaultValue: '',
+                description: 'target repo to install')
+
+                string( name: 'PULL',
+                defaultValue: '',
+                description: 'Current pull request ID.')
+            }
+
+        agent { node { label 'master' } }
+        stages{
+        	stage ('gateway unit tests running') {
+        	    steps{
+                    build(job: 'gateway-unittest-runner')
+        	    }
+            }
+        }
+           post {
+            success {
+                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                             description: 'All tests have passed.', repo: 'dummy-jenkins-test', sha: '${GW_BRANCH}',
+                             status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
+
+            }
+
+            failure {
+                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                             description: 'One or more tests have failed.', repo: 'dummy-jenkins-test', sha: '${GW_BRANCH}',
+                             status: 'FAILURE', targetUrl: 'https://jenkins.openmotics.com'
+
+            }
+
+        }
+
+  }
