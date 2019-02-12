@@ -12,19 +12,14 @@
                 defaultValue: '',
                 description: 'target repo to install')
 
-                string( name: 'PULL',
-                defaultValue: '',
-                description: 'Current pull request ID.')
             }
 
         agent { node { label 'master' } }
         stages{
             stage ('Set pending status while building'){
             steps{
-            githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
-                             description: 'Unit tests running...', repo: 'dummy-jenkins-test', sha: "${params.GW_BRANCH}",
-                             status: 'PENDING', targetUrl: 'https://jenkins.openmotics.com'
-            }
+                    build(job: 'github-commit-status-reporter', parameters: [[$class: 'StringParameterValue', name: 'STATUS', value: 'PENDING'], [$class: 'StringParameterValue', name: 'BRANCH', value: params.GW_BRANCH], [$class: 'StringParameterValue', name: 'REPO', value: params.REPO_NAME]])
+        	    }
             }
 
         	stage ('gateway unit tests running') {
@@ -35,16 +30,12 @@
         }
            post {
             success {
-                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
-                             description: 'All tests have passed.', repo: 'dummy-jenkins-test', sha: "${params.GW_BRANCH}",
-                             status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
+                build(job: 'github-commit-status-reporter', parameters: [[$class: 'StringParameterValue', name: 'STATUS', value: 'SUCCESS'], [$class: 'StringParameterValue', name: 'BRANCH', value: params.GW_BRANCH], [$class: 'StringParameterValue', name: 'REPO', value: params.REPO_NAME]])
 
             }
 
             failure {
-                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
-                             description: 'One or more tests have failed.', repo: 'dummy-jenkins-test', sha: "${params.GW_BRANCH}",
-                             status: 'FAILURE', targetUrl: 'https://jenkins.openmotics.com'
+                build(job: 'github-commit-status-reporter', parameters: [[$class: 'StringParameterValue', name: 'STATUS', value: 'FAILURE'], [$class: 'StringParameterValue', name: 'BRANCH', value: params.GW_BRANCH], [$class: 'StringParameterValue', name: 'REPO', value: params.REPO_NAME]])
 
             }
 
