@@ -11,6 +11,10 @@
                 string( name: 'REPO_NAME',
                 defaultValue: '',
                 description: 'target repo to install')
+
+                string( name: 'PULL',
+                defaultValue: '',
+                description: 'Current pull request ID.')
             }
 
         agent { node { label 'master' } }
@@ -21,12 +25,21 @@
         	    }
             }
         }
-        post {
-            always {
-                githubNotify account: 'Zoolixx', context: 'basic test', credentialsId: 'e1b6576b-70c5-4f76-96ea-ea73d13c744c',
-                             description: 'This is an example', repo: params.REPO_NAME, sha: params.GW_BRANCH,
-                             status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
+           post {
+            success {
+                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                             description: 'All tests have passed.', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
+                             status: 'success', targetUrl: 'https://jenkins.openmotics.com'
+
             }
+
+            failure {
+                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                             description: 'One or more tests have failed.', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
+                             status: 'failure', targetUrl: 'https://jenkins.openmotics.com'
+
+            }
+
         }
 
   }

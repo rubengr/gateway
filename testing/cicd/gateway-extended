@@ -12,10 +12,6 @@
                 defaultValue: '',
                 description: 'target repo to install')
 
-                string( name: 'REVIEW_ID',
-                defaultValue: '',
-                description: 'Current review ID on the pull request of the target repo/branch.')
-
                 string( name: 'PULL',
                 defaultValue: '',
                 description: 'Current pull request ID.')
@@ -31,7 +27,7 @@
         	}
         	stage ('gateway unit tests running') {
         	    steps{
-                    build job: 'gateway-unittest-runner', propagate: false
+                    build job: 'gateway-unittest-runner'
         	    }
             }
 
@@ -44,16 +40,30 @@
             }
         }
         post {
-            always {
+            failure {
                 githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
-                             description: 'Building the buildings...', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
+                             description: 'One or more tests failed.', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
+                             status: 'failure', targetUrl: 'https://jenkins.openmotics.com'
+
+
+                      withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                usernameVariable: 'USERNAME', passwordVariable: 'TOKEN']]) {
+
+                sh "curl --header 'Content-Type: application/json' --request POST --data '{\"body\": \"One or more tests have failed.\", \"event\": \"REQUEST_CHANGES\"}' https://${USERNAME}:${TOKEN}@api.github.com/repos/openmotics/dummy-jenkins-test/pulls/${params.PULL}/reviews"
+                 }
+
+            }
+
+            success {
+                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                             description: 'All tests have passed.', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
                              status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
 
 
                       withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
                 usernameVariable: 'USERNAME', passwordVariable: 'TOKEN']]) {
 
-                sh "curl --header 'Content-Type: application/json' --request POST --data '{\"body\": \"All good.\", \"event\": \"APPROVE\"}' https://${USERNAME}:${TOKEN}@api.github.com/repos/openmotics/dummy-jenkins-test/pulls/${params.PULL}/reviews/${params.REVIEW_ID}/events"
+                sh "curl --header 'Content-Type: application/json' --request POST --data '{\"body\": \"All extended tests have passed.\", \"event\": \"APPROVE\"}' https://${USERNAME}:${TOKEN}@api.github.com/repos/openmotics/dummy-jenkins-test/pulls/${params.PULL}/reviews"
                  }
 
             }
