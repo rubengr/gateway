@@ -1,4 +1,4 @@
-# Copyright (C) 2019 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -20,9 +20,9 @@ import unittest
 import os
 
 from master.eeprom_controller import EepromController, EepromFile, EepromModel, EepromAddress, \
-    EepromData, EepromId, EepromString, EepromByte, EepromWord, \
-    CompositeDataType, EepromActions, EepromSignedTemp, \
-    EepromIBool, EextByte, EextString
+                                     EepromData, EepromId, EepromString, EepromByte, EepromWord, \
+                                     CompositeDataType, EepromActions, EepromSignedTemp, \
+                                     EepromIBool, EextByte, EextString
 
 from master.eeprom_extension import EepromExtension
 import master.master_api as master_api
@@ -55,9 +55,9 @@ class Model4(EepromModel):
 class Model5(EepromModel):
     """ Dummy model with multiple fields and an id. """
     id = EepromId(3)
-    name = EepromString(10, lambda id: (3 + id, 4))
-    link = EepromByte(lambda id: (3 + id, 14))
-    out = EepromWord(lambda id: (3 + id, 15))
+    name = EepromString(10, lambda id: (3+id, 4))
+    link = EepromByte(lambda id: (3+id, 14))
+    out = EepromWord(lambda id: (3+id, 15))
 
 
 class Model6(EepromModel):
@@ -94,7 +94,6 @@ def get_eeprom_file_dummy(banks):
 
     :param banks: list of basestring
     """
-
     def list_fct(data):
         """ Dummy for listing a bank. """
         return {"data": banks[data["bank"]]}
@@ -105,7 +104,7 @@ def get_eeprom_file_dummy(banks):
         address = data["address"]
         data_bytes = data["data"]
 
-        banks[data["bank"]] = bank[0:address] + data_bytes + bank[address + len(data_bytes):]
+        banks[data["bank"]] = bank[0:address] + data_bytes + bank[address+len(data_bytes):]
 
     return EepromFile(MasterCommunicator(list_fct, write_fct))
 
@@ -331,7 +330,7 @@ class EepromControllerTest(unittest.TestCase):
         model7 = controller.read(Model7, 1)
 
         self.assertEquals(1, model7.id)
-        self.assertEquals('\x00' * 10, model7.name)
+        self.assertEquals('\x00'*10, model7.name)
         self.assertEquals(0, model7.link)
         self.assertEquals(255, model7.room)
 
@@ -341,12 +340,12 @@ class EepromControllerTest(unittest.TestCase):
         models = controller.read_batch(Model7, [1, 2])
 
         self.assertEquals(1, models[0].id)
-        self.assertEquals('\x00' * 10, models[0].name)
+        self.assertEquals('\x00'*10, models[0].name)
         self.assertEquals(0, models[0].link)
         self.assertEquals(255, models[0].room)
 
         self.assertEquals(2, models[1].id)
-        self.assertEquals('\x00' * 10, models[1].name)
+        self.assertEquals('\x00'*10, models[1].name)
         self.assertEquals(0, models[1].link)
         self.assertEquals(255, models[1].room)
 
@@ -427,7 +426,6 @@ class EepromFileTest(unittest.TestCase):
 
     def test_read_one_bank_one_address(self):
         """ Test read from one bank with one address """
-
         def read(_data):
             """ Read dummy. """
             if _data["bank"] == 1:
@@ -445,7 +443,6 @@ class EepromFileTest(unittest.TestCase):
 
     def test_read_one_bank_two_addresses(self):
         """ Test read from one bank with two addresses. """
-
         def read(_data):
             """ Read dummy """
             if _data["bank"] == 1:
@@ -469,7 +466,6 @@ class EepromFileTest(unittest.TestCase):
 
     def test_read_multiple_banks(self):
         """ Test read from multiple banks. """
-
         def read(_data):
             """ Read dummy. """
             if _data["bank"] == 1:
@@ -850,10 +846,8 @@ class EepromModelTest(unittest.TestCase):
         """ Test to_dict. """
         self.assertEquals({'id': 1, 'name': 'test'}, Model1.deserialize({'id': 1, 'name': "test"}).to_dict())
         self.assertEquals({'name': 'hello world'}, Model2.deserialize({'name': "hello world"}).to_dict())
-        self.assertEquals({'name': 'a', 'status': [1, 2]},
-                          Model6.deserialize({'name': "a", 'status': [1, 2]}).to_dict())
-        self.assertEquals({'id': 2, 'name': 'a', 'link': 4, 'room': 5},
-                          Model7.deserialize({'id': 2, 'name': "a", 'link': 4, 'room': 5}).to_dict())
+        self.assertEquals({'name': 'a', 'status': [1, 2]}, Model6.deserialize({'name': "a", 'status': [1, 2]}).to_dict())
+        self.assertEquals({'id': 2, 'name': 'a', 'link': 4, 'room': 5}, Model7.deserialize({'id': 2, 'name': "a", 'link': 4, 'room': 5}).to_dict())
 
     def test_from_dict(self):
         """ Test from_dict. """
@@ -944,7 +938,6 @@ class EepromModelTest(unittest.TestCase):
 
     def test_get_eeprom_data_readonly(self):
         """ Test get_eeprom_data with a read only field. """
-
         class RoModel(EepromModel):
             """ Dummy model. """
             id = EepromId(10)
@@ -981,8 +974,8 @@ class CompositeDataTypeTest(unittest.TestCase):
 
     def test_get_addresses_id(self):
         """ Test get_addresses with an id. """
-        cdt = CompositeDataType([('one', EepromByte(lambda id: (1, 10 + id))),
-                                 ('two', EepromByte(lambda id: (1, 20 + id)))])
+        cdt = CompositeDataType([('one', EepromByte(lambda id: (1, 10+id))),
+                                 ('two', EepromByte(lambda id: (1, 20+id)))])
         addresses = cdt.get_addresses(5, 'cdt')
 
         self.assertEquals(2, len(addresses))

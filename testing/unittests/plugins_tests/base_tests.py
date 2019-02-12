@@ -24,10 +24,10 @@ import os
 import shutil
 
 import plugins
-from plugins.base import PluginConfigChecker, PluginException
 
 BASE_PATH = os.path.dirname(plugins.__file__)
 
+from plugins.base import PluginConfigChecker, PluginException
 
 class PluginControllerTest(unittest.TestCase):
     """ Tests for the PluginController. """
