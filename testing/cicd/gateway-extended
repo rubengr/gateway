@@ -18,6 +18,7 @@
             }
 
         agent { node { label 'master' } }
+        options { disableConcurrentBuilds() }
         stages{
             stage ('prepare environment') {
         	    steps{
