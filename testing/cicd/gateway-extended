@@ -11,6 +11,14 @@
                 string( name: 'REPO_NAME',
                 defaultValue: '',
                 description: 'target repo to install')
+
+                string( name: 'REVIEW_ID',
+                defaultValue: '',
+                description: 'Current review ID on the pull request of the target repo/branch.')
+
+                string( name: 'PULL',
+                defaultValue: '',
+                description: 'Current pull request ID.')
             }
 
         agent { node { label 'master' } }
@@ -44,10 +52,8 @@
 
                       withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
                 usernameVariable: 'USERNAME', passwordVariable: 'TOKEN']]) {
-                
-                sh '''
-                    curl --header "Content-Type: application/json" --request POST --data '{"body": "Failed.", "event": "REQUEST_CHANGES"}' https://${USERNAME}:${TOKEN}@api.github.com/repos/openmotics/dummy-jenkins-test/pulls/1/reviews/202163045/events
-                '''
+
+                sh "curl --header 'Content-Type: application/json' --request POST --data '{\"body\": \"All good.\", \"event\": \"APPROVE\"}' https://${USERNAME}:${TOKEN}@api.github.com/repos/openmotics/dummy-jenkins-test/pulls/${params.PULL}/reviews/${params.REVIEW_ID}/events"
                  }
 
             }
