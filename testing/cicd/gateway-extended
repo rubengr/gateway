@@ -1,11 +1,11 @@
     pipeline {
             parameters {
                 string( name: 'GW_BRANCH',
-                defaultValue: '*/develop',
+                defaultValue: '',
                 description: 'target GW branch to install')
 
                 string( name: 'FE_BRANCH',
-                defaultValue: '*/develop',
+                defaultValue: '',
                 description: 'target FE branch to install')
 
                 string( name: 'REPO_NAME',
@@ -42,10 +42,6 @@
         }
         post {
             failure {
-                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
-                             description: 'One or more tests failed.', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
-                             status: 'FAILURE', targetUrl: 'https://jenkins.openmotics.com'
-
 
                       withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
                 usernameVariable: 'USERNAME', passwordVariable: 'TOKEN']]) {
@@ -56,10 +52,6 @@
             }
 
             success {
-                githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
-                             description: 'All tests have passed.', repo: 'dummy-jenkins-test', sha: '6b156bf8a3c050e94a0adf15b680d8da4d69111d',
-                             status: 'SUCCESS', targetUrl: 'https://jenkins.openmotics.com'
-
 
                       withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
                 usernameVariable: 'USERNAME', passwordVariable: 'TOKEN']]) {
