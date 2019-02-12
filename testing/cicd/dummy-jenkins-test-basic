@@ -19,6 +19,12 @@
 
         agent { node { label 'master' } }
         stages{
+            stage ('Set pending status while building'){
+            githubNotify account: 'openmotics', context: '@openmotics-ci', credentialsId: '054a9d2a-8534-44f7-861f-106e7f0fc328',
+                             description: 'All tests have passed.', repo: 'dummy-jenkins-test', sha: "${params.GW_BRANCH}",
+                             status: 'PENDING', targetUrl: 'https://jenkins.openmotics.com'
+            }
+            
         	stage ('gateway unit tests running') {
         	    steps{
                     build(job: 'gateway-unittest-runner')
