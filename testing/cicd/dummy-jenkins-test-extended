@@ -44,8 +44,26 @@
                                                                   ]]
         	    }
             }
+
+            stage ('getting xml JUnit reports') {
+        	    steps{
+                    sh '''
+                            login=`curl -sk -X GET "https://localhost:8089/login?username=openmotics&password=123456"`
+                            token=`echo $login | grep -Po '"token": "\K\w+'`
+
+                            wget --no-check-certificate --header="Authorization: Bearer $token" -O initial.xml https://localhost:8089/plugins/testrunner/get_test_report
+                            echo "got test report"
+                            csplit -f gateway -b "%04d.xml" initial.xml \'/^<?xml version="1.0" ?>$/\' \'{*}\'
+                            find . -type f -empty -delete
+
+                     '''
+        	    }
+            }
         }
         post {
+            always {
+                junit 'gateway*.xml'
+            }
             failure {
 
                       build(job: 'github-pr-reporter', parameters: [[$class: 'StringParameterValue', name: 'STATE', value: 'FAILURE'], [$class: 'StringParameterValue', name: 'PULL_ID', value: params.PULL]])
