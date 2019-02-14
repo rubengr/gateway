@@ -358,7 +358,7 @@ class EventsSocket(OMSocket):
         cherrypy.engine.publish('remove-events-receiver', client_id)
 
     def received_message(self, message):
-        allowed_types = ['OUTPUT_CHANGE', 'THERMOSTAT_CHANGE', 'SHUTTER_CHANGE', 'INPUT_TRIGGER']
+        allowed_types = ['OUTPUT_CHANGE', 'THERMOSTAT_CHANGE', 'THERMOSTAT_GROUP_CHANGE', 'SHUTTER_CHANGE', 'INPUT_TRIGGER']
         try:
             data = msgpack.loads(message.data)
             if data.get('type') == 'ACTION':

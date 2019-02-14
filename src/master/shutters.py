@@ -92,7 +92,7 @@ class ShutterStatus(object):
                     # The state changed, but it is not stopped. This means the shutter just started moving
                     previous_state = [now, new_state[i]]
                 self._states[shutter_id] = previous_state
-                self._report_change(shutter_id, self._shutters[shutter_id])
+                self._report_change(shutter_id, self._shutters[shutter_id], self._states[shutter_id])
 
     def _interprete_states(self, module_id, state):
         states = []
@@ -124,6 +124,6 @@ class ShutterStatus(object):
             all_states.append(self._states[i][1])
         return all_states
 
-    def _report_change(self, shutter_id, shutter_data):
+    def _report_change(self, shutter_id, shutter_data, shutter_state):
         if self._on_shutter_change is not None:
-            self._on_shutter_change(shutter_id, shutter_data)
+            self._on_shutter_change(shutter_id, shutter_data, shutter_state[1].upper())
