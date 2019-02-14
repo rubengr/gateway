@@ -67,7 +67,8 @@ class Observer(object):
 
         self._input_status = InputStatus()
         self._output_status = OutputStatus(on_output_change=self._output_changed)
-        self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed)
+        self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed,
+                                                   on_thermostat_group_change=self._thermostat_group_changed)
         self._shutter_status = ShutterStatus(on_shutter_change=self._shutter_changed)
 
         self._output_interval = 600
@@ -198,12 +199,14 @@ class Observer(object):
         self._ensure_gateway_api()
         return self._output_status.get_outputs()
 
-    def _output_changed(self, output_id):
+    def _output_changed(self, output_id, status):
         """ Executed by the Output Status tracker when an output changed state """
         self._dbus_service.send_event(DBusEvents.OUTPUT_CHANGE, {'id': output_id})
         for callback in self._event_subscriptions:
             callback({'type': 'OUTPUT_CHANGE',
-                      'data': {'data': {'id': output_id},
+                      'data': {'data': {'id': output_id,
+                                        'status': {'on': status['on'],
+                                                   'value': status['value']}},
                                'location': {'room_id': self._output_config[output_id]['room']}}})
 
     def _refresh_outputs(self):
@@ -227,11 +230,12 @@ class Observer(object):
     def get_shutter_status(self):
         return self._shutter_status.get_states()
 
-    def _shutter_changed(self, shutter_id, shutter_data):
+    def _shutter_changed(self, shutter_id, shutter_data, shutter_state):
         """ Executed by the Shutter Status tracker when a shutter changed state """
         for callback in self._event_subscriptions:
             callback({'type': 'SHUTTER_CHANGE',
-                      'data': {'data': {'id': shutter_id},
+                      'data': {'data': {'id': shutter_id,
+                                        'status': {'state': shutter_state}},
                                'location': {'room_id': shutter_data['room']}}})
 
     def _refresh_shutters(self):
@@ -254,16 +258,28 @@ class Observer(object):
         self._refresh_thermostats()  # Always return the latest information
         return self._thermostat_status.get_thermostats()
 
-    def _thermostat_changed(self, thermostat_id):
+    def _thermostat_changed(self, thermostat_id, status):
         """ Executed by the Thermostat Status tracker when an output changed state """
         self._dbus_service.send_event(DBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
-        location = {}
-        if thermostat_id is not None:
-            location['room_id'] = self._thermostats_config[thermostat_id]['room']
+        location = {'room_id': self._thermostats_config[thermostat_id]['room']}
         for callback in self._event_subscriptions:
             callback({'type': 'THERMOSTAT_CHANGE',
-                      'data': {'data': {'id': thermostat_id},
+                      'data': {'data': {'id': thermostat_id,
+                                        'status': {'preset': status['preset'],
+                                                   'current_setpoint': status['current_setpoint'],
+                                                   'actual_temperature': status['actual_temperature'],
+                                                   'output_0': status['output_0'],
+                                                   'output_1': status['output_1']}},
                                'location': location}})
+
+    def _thermostat_group_changed(self, status):
+        self._dbus_service.send_event(DBusEvents.THERMOSTAT_CHANGE, {'id': None})
+        for callback in self._event_subscriptions:
+            callback({'type': 'THERMOSTAT_GROUP_CHANGE',
+                      'data': {'data': {'id': 0,
+                                        'status': {'state': status['state'],
+                                                   'mode': status['mode']}},
+                               'location': {}}})
 
     def _refresh_thermostats(self):
         """
