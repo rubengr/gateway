@@ -7,8 +7,8 @@ import glob
 import os
 import logging
 from pytz import timezone
-from tools_and_stuff import exception_handler
-import tools_and_stuff
+from toolbox import exception_handler
+import toolbox
 
 LOGGER = logging.getLogger('openmotics')
 #                                            _   _
@@ -84,8 +84,8 @@ class IoTest(unittest.TestCase):
         response_json = self.tools._api_testee('module_discover_status', self.token)
         self.assertEquals(response_json.get('running'), True, 'Should be true to indicate discovery mode has started.')
 
-        self.tools.human_click(tools_and_stuff.DISCOVER_TESTEE_OUTPUT_ID, True, self.webinterface)
-        self.tools.human_click(tools_and_stuff.DISCOVER_TESTEE_INPUT_ID, True, self.webinterface)
+        self.tools.human_click(toolbox.DISCOVER_TESTEE_OUTPUT_ID, True, self.webinterface)
+        self.tools.human_click(toolbox.DISCOVER_TESTEE_INPUT_ID, True, self.webinterface)
 
         self.tools._api_testee('module_discover_stop', self.token)
         response_json = self.tools._api_testee('module_discover_status', self.token)
