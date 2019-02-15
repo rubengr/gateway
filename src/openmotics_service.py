@@ -113,6 +113,7 @@ def main():
         controller_serial = Serial(controller_serial_port, 115200)
         master_communicator = MasterCommunicator(controller_serial)
 
+    power_controller = PowerController(constants.get_power_database_file())
     if mode == 'DEV' and power_serial_port == '':
         power_communicator = PowerCommunicatorMock()
     else:
@@ -125,8 +126,6 @@ def main():
         passthrough_service.start()
 
     master_communicator.start()  # A running master_communicator is required for the startup of services below
-
-    power_controller = PowerController(constants.get_power_database_file())
 
     gateway_api = GatewayApi(master_communicator, power_communicator, power_controller)
 

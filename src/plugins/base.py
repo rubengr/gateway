@@ -291,7 +291,7 @@ class PluginController(object):
                         runner.distribute_metric(receiver['name'], metric)
                         delivery_count += 1
                 except Exception as exception:
-                    self.log(mr[0], "Exception while distributing metrics", exception, traceback.format_exc())
+                    self.log(runner.name, "Exception while distributing metrics", exception, traceback.format_exc())
         return delivery_count
 
     def get_metric_receivers(self):

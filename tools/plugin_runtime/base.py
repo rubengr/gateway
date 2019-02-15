@@ -1,6 +1,15 @@
+import logging
 import os
 
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
 from decorators import *  # Import for backwards compatibility
+
+LOGGER = logging.getLogger("openmotics")
+
 
 class PluginException(Exception):
     """ Exception that is raised when there are errors in a plugin implementation. """
