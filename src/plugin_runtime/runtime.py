@@ -1,12 +1,9 @@
 import sys
 import os
-import pkgutil
 import traceback
-import inspect
 import time
 
 from threading import Thread
-from Queue import Queue
 
 import base
 from utils import get_plugin_class, check_plugin, get_special_methods
@@ -97,7 +94,7 @@ class PluginRuntime:
         for method in get_special_methods(self._plugin, 'om_metric_data'):
             self._metric_collectors.append({'name': method.__name__,
                                             'interval': method.om_metric_data['interval']})
-        
+
         # Set the metric receivers
         for method in get_special_methods(self._plugin, 'om_metric_receive'):
             self._metric_receivers.append({'name': method.__name__,

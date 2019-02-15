@@ -40,7 +40,7 @@ LOGGER = logging.getLogger("openmotics")
 class PluginController(object):
     """ The controller keeps track of all plugins in the system. """
 
-    def __init__(self, webinterface, config_controller, runtime_path='/opt/openmotics/plugin_runtime'):
+    def __init__(self, webinterface, config_controller, runtime_path='/opt/openmotics/python/plugin_runtime'):
         self.__webinterface = webinterface
         self.__config_controller = config_controller
         self.__runtime_path = runtime_path
