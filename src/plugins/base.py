@@ -250,10 +250,10 @@ class PluginController(object):
 
         return {'msg': 'Plugin successfully removed'}
 
-    def process_input_status(self, input_status_inst):
+    def process_input_status(self, data):
         """ Should be called when the input status changes, notifies all plugins. """
         for runner in self.__runners:
-            runner.process_input_status(input_status_inst)
+            runner.process_input_status((data['input'], data['output']))
 
     def process_output_status(self, output_status_inst):
         """ Should be called when the output status changes, notifies all plugins. """

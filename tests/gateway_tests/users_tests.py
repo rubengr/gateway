@@ -53,7 +53,7 @@ class UserControllerTest(unittest.TestCase):
         self.assertEquals(False, user_controller.check_token('some token 123'))
         self.assertEquals(None, user_controller.get_role('fred'))
 
-        success, data = user_controller.login('om', 'pass', accept_terms=True)
+        success, data = user_controller.login('om', 'pass')
         self.assertTrue(success)
         self.assertNotEquals(None, data)
 
@@ -62,13 +62,14 @@ class UserControllerTest(unittest.TestCase):
     def test_terms(self):
         """ Tests acceptance of the terms """
         user_controller = self._get_controller()
-        success, data = user_controller.login('om', 'pass')
+        user_controller.create_user('om2', 'pass', 'admin', True)
+        success, data = user_controller.login('om2', 'pass')
         self.assertFalse(success)
         self.assertEqual(data, 'terms_not_accepted')
-        success, data = user_controller.login('om', 'pass', accept_terms=True)
+        success, data = user_controller.login('om2', 'pass', accept_terms=True)
         self.assertTrue(success)
         self.assertIsNotNone(data)
-        success, data = user_controller.login('om', 'pass')
+        success, data = user_controller.login('om2', 'pass')
         self.assertTrue(success)
         self.assertIsNotNone(data)
 
@@ -92,7 +93,7 @@ class UserControllerTest(unittest.TestCase):
         """ Test the timeout on the tokens. """
         user_controller = UserController(self._db, Lock(), {'username': 'om', 'password': 'pass'}, 3)
 
-        token = user_controller.login('om', 'pass', accept_terms=True)[1]
+        token = user_controller.login('om', 'pass')[1]
         self.assertNotEquals(None, token)
         self.assertTrue(user_controller.check_token(token))
 
@@ -100,7 +101,7 @@ class UserControllerTest(unittest.TestCase):
 
         self.assertFalse(user_controller.check_token(token))
 
-        token = user_controller.login('om', 'pass', accept_terms=True)[1]
+        token = user_controller.login('om', 'pass')[1]
         self.assertNotEquals(None, token)
         self.assertTrue(user_controller.check_token(token))
 
@@ -108,7 +109,7 @@ class UserControllerTest(unittest.TestCase):
         """ Test logout. """
         user_controller = UserController(self._db, Lock(), {'username': 'om', 'password': 'pass'}, 3)
 
-        token = user_controller.login('om', 'pass', accept_terms=True)[1]
+        token = user_controller.login('om', 'pass')[1]
         self.assertNotEquals(None, token)
         self.assertTrue(user_controller.check_token(token))
 

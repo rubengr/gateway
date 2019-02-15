@@ -18,106 +18,112 @@ the master.
 """
 
 import time
+from threading import Lock
+
+import logging
+LOGGER = logging.getLogger('openmotics')
 
 
 class ShutterStatus(object):
     """ Tracks the current state of the shutters. """
 
-    def __init__(self):
+    class State(object):
+        GOING_UP = 'going_up'
+        GOING_DOWN = 'going_down'
+        STOPPED = 'stopped'
+        UP = 'up'
+        DOWN = 'down'
+
+    def __init__(self, on_shutter_change=None):
         """ Default constructor. Call init to initialize the states. """
-        self.__configs = None
-        self.__timestamped_states = []
+        self._shutters = {}
+        self._merge_lock = Lock()
+        self._states = {}
+        self._on_shutter_change = on_shutter_change
 
-    def init(self, shutter_configs, shutter_states):
-        """ Initialize the states using the shutter configs and shutter states.
+    def update_config(self, config):
+        with self._merge_lock:
+            shutter_ids = []
+            for shutter_config in config:
+                shutter_id = shutter_config['id']
+                shutter_ids.append(shutter_id)
+                difference = shutter_id not in self._shutters
+                if difference is False:
+                    for key in shutter_config:
+                        if shutter_config[key] != self._shutters[shutter_id][key]:
+                            difference = True
+                            break
+                if difference:
+                    self._shutters[shutter_id] = shutter_config
+                    self._states[shutter_id] = [0, ShutterStatus.State.STOPPED]
+            for shutter_id in self._shutters:
+                if shutter_id not in shutter_ids:
+                    del self._shutters[shutter_id]
+                    del self._states[shutter_id]
 
-        :param shutter_configs: The shutter configurations.
-        :type shutter_configs: List of shutter configurations (1 element per shutter module).
-        :name shutter_states: The shutter states.
-        :type shutter_states: List of shutter states (1 element per shutter module).
-        """
-        if len(shutter_configs) != len(shutter_states):
-            raise ValueError('The size of the configs ({0}) and states ({1}) do not match '.format(
-                len(shutter_configs), len(shutter_states)
-            ))
+    def update_states(self, data):
+        with self._merge_lock:
+            now = time.time()
+            module_id = data['module_nr']
+            state = data['status']
+            new_state = self._interprete_states(module_id, state)
+            if new_state is None:
+                return
+            for i in xrange(4):
+                shutter_id = module_id * 4 + i
+                previous_state = self._states[shutter_id]
+                if previous_state[1] == new_state[i]:
+                    continue
+                if new_state[i] == ShutterStatus.State.STOPPED:
+                    if previous_state[1] == ShutterStatus.State.GOING_UP:
+                        threshold = 0.95 * self._shutters[shutter_id]['timer_up']  # Allow 5% difference
+                        if previous_state[0] + threshold <= now:
+                            previous_state = [now, ShutterStatus.State.UP]
+                        else:
+                            previous_state = [now, ShutterStatus.State.STOPPED]
+                    elif previous_state[1] == ShutterStatus.State.GOING_DOWN:
+                        threshold = 0.95 * self._shutters[shutter_id]['timer_down']  # Allow 5% difference
+                        if previous_state[0] + threshold <= now:
+                            previous_state = [now, ShutterStatus.State.DOWN]
+                        else:
+                            previous_state = [now, ShutterStatus.State.STOPPED]
+                    # Was already stopped, nothing to change
+                else:
+                    # The state changed, but it is not stopped. This means the shutter just started moving
+                    previous_state = [now, new_state[i]]
+                self._states[shutter_id] = previous_state
+                self._report_change(shutter_id, self._shutters[shutter_id])
 
-        self.__configs = shutter_configs
-
-        self.__timestamped_states = []
-        for i in range(len(shutter_configs)):
-            states = ShutterStatus._create_states(shutter_configs[i], shutter_states[i])
-            self.__timestamped_states.append(zip([time.time() for _ in states], states))
-
-    @staticmethod
-    def _create_states(module_config, module_state):
-        """ Create a list containing the state of one module, for example:
-         ['going_up', 'going_down', 'stopped', 'stopped'].
-
-         :param module_config: List of all shutter configurations for the module.
-         :param module_state: byte containing 1 bit per outputs for the module.
-         :returns: List of strings.
-        """
+    def _interprete_states(self, module_id, state):
         states = []
-        for i in range(4):
-            # updown = 0 -> output 0 = up, updown = 1 -> output 1 = up
-            up_down = 0 if module_config[i]['up_down_config'] == 0 else 1
+        for i in xrange(4):
+            shutter_id = module_id * 4 + i
+            if shutter_id not in self._shutters:
+                return
 
-            up = (module_state >> (i * 2 + (1 - up_down))) & 0x1
-            down = (module_state >> (i * 2 + up_down)) & 0x1
+            # first_up = 0 -> output 0 = up, output 1 = down
+            # first_up = 1 -> output 0 = down, output 1 = up
+            first_up = 0 if self._shutters[shutter_id]['up_down_config'] == 0 else 1
+
+            up = (state >> (i * 2 + (1 - first_up))) & 0x1
+            down = (state >> (i * 2 + first_up)) & 0x1
 
             if up == 1:
-                states.append('going_up')
+                states.append(ShutterStatus.State.GOING_UP)
             elif down == 1:
-                states.append('going_down')
+                states.append(ShutterStatus.State.GOING_DOWN)
             else:
-                states.append('stopped')
+                states.append(ShutterStatus.State.STOPPED)
 
         return states
 
-    def handle_shutter_update(self, update):
-        """ Update the status with an shutter update message. """
-        now = time.time()
-        module = update['module_nr']
-
-        current_state = ShutterStatus._create_states(self.__configs[module], update['status'])
-        t_state = self.__timestamped_states[module]
-
-        for i in range(4):
-            if current_state[i] == t_state[i][1]:
-                pass  # Nothing changed.
-            else:
-                if current_state[i] == 'stopped':
-                    if t_state[i][1] == 'going_up':
-                        roll_time = 0.95 * self.__configs[module][i]['timer_up']  # 5% time slack.
-                        full_run = (t_state[i][0] + roll_time <= now)
-
-                        if full_run:
-                            t_state[i] = (now, 'up')
-                        else:
-                            t_state[i] = (now, 'stopped')
-
-                    elif t_state[i][1] == 'going_down':
-                        roll_time = 0.95 * self.__configs[module][i]['timer_down']  # 5% time slack.
-                        full_run = (t_state[i][0] + roll_time <= now)
-
-                        if full_run:
-                            t_state[i] = (now, 'down')
-                        else:
-                            t_state[i] = (now, 'stopped')
-
-                    else:
-                        pass  # Was already stopped, nothing changed.
-
-                else:
-                    # The new state is going_up or going_down, the old state was stopped, up or down.
-                    # Set the timestamp, so when know when the shutter started going up/down.
-                    t_state[i] = (now, current_state[i])
-
-    def get_status(self):
+    def get_states(self):
         """ Return the list of shutters states. """
-        status = []
+        all_states = []
+        for i in sorted(self._states.keys()):
+            all_states.append(self._states[i][1])
+        return all_states
 
-        for states in self.__timestamped_states:
-            status.extend([state[1] for state in states])
-
-        return status
+    def _report_change(self, shutter_id, shutter_data):
+        if self._on_shutter_change is not None:
+            self._on_shutter_change(shutter_id, shutter_data)

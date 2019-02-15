@@ -21,6 +21,7 @@ import logging
 from threading import Thread, Event
 from collections import deque
 from serial_utils import CommunicationTimedOutException
+from master.master_communicator import InMaintenanceModeException
 
 LOGGER = logging.getLogger("openmotics")
 
@@ -30,10 +31,12 @@ class MetricsCollector(object):
     The Metrics Collector collects OpenMotics metrics and makes them available.
     """
 
-    def __init__(self, gateway_api):
+    def __init__(self, gateway_api, pulse_controller):
         """
         :param gateway_api: Gateway API
         :type gateway_api: gateway.gateway_api.GatewayApi
+        :param pulse_controller: Pulse Controller
+        :type pulse_controller: gateway.pulses.PulseCounterController
         """
         self._start = time.time()
         self._last_service_uptime = 0
@@ -61,6 +64,7 @@ class MetricsCollector(object):
                                         'end': 0} for metric_type in self._min_intervals}
 
         self._gateway_api = gateway_api
+        self._pulse_controller = pulse_controller
         self._metrics_queue = deque()
 
     def start(self):
@@ -123,10 +127,6 @@ class MetricsCollector(object):
                     self._plugin_intervals[metric_type].append(interval_info['interval'])
                     self._update_intervals(metric_type)
 
-    @staticmethod
-    def _log(message, level='exception'):
-        getattr(LOGGER, level)(message)
-        print message
 
     def _update_intervals(self, metric_type):
         min_interval = self._min_intervals[metric_type]
@@ -191,7 +191,7 @@ class MetricsCollector(object):
 
     def on_output(self, data):
         try:
-            on_outputs = {entry[0]: entry[1] for entry in data['outputs']}
+            on_outputs = {entry[0]: entry[1] for entry in data}
             outputs = self._environment['outputs']
             changed_output_ids = []
             for output_id in outputs:
@@ -214,7 +214,7 @@ class MetricsCollector(object):
                     changed_output_ids.append(output_id)
             self._process_outputs(changed_output_ids, 'output')
         except Exception as ex:
-            MetricsCollector._log('Error processing outputs: {0}'.format(ex))
+            LOGGER.exception('Error processing outputs: {0}'.format(ex))
 
     def _process_outputs(self, output_ids, metric_type):
         try:
@@ -241,7 +241,7 @@ class MetricsCollector(object):
                                           tags=tags,
                                           timestamp=now)
         except Exception as ex:
-            MetricsCollector._log('Error processing outputs {0}: {1}'.format(output_ids, ex))
+            LOGGER.exception('Error processing outputs {0}: {1}'.format(output_ids, ex))
 
     def on_input(self, data):
         self._process_input(data['input'])
@@ -262,13 +262,13 @@ class MetricsCollector(object):
                                       tags=tags,
                                       timestamp=now)
         except Exception as ex:
-            MetricsCollector._log('Error processing input: {0}'.format(ex))
+            LOGGER.exception('Error processing input: {0}'.format(ex))
 
     def _run_system(self, metric_type):
         while not self._stopped:
             start = time.time()
+            now = time.time()
             try:
-                now = time.time()
                 with open('/proc/uptime', 'r') as f:
                     system_uptime = float(f.readline().split()[0])
                 service_uptime = time.time() - self._start
@@ -283,7 +283,7 @@ class MetricsCollector(object):
                                             'section': 'main'},
                                       timestamp=now)
             except Exception as ex:
-                MetricsCollector._log('Error sending system data: {0}'.format(ex))
+                LOGGER.exception('Error sending system data: {0}'.format(ex))
             if self._metrics_controller is not None:
                 try:
                     self._enqueue_metrics(metric_type=metric_type,
@@ -342,8 +342,10 @@ class MetricsCollector(object):
                     self._environment['outputs'][output_id]['dimmer'] = output['dimmer']
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting output status: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error getting output status: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error getting output status: {0}'.format(ex))
+                LOGGER.exception('Error getting output status: {0}'.format(ex))
             self._process_outputs(self._environment['outputs'].keys(), metric_type)
             if self._stopped:
                 return
@@ -378,8 +380,10 @@ class MetricsCollector(object):
                                           timestamp=now)
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting sensor status: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error getting sensor status: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error getting sensor status: {0}'.format(ex))
+                LOGGER.exception('Error getting sensor status: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -416,8 +420,10 @@ class MetricsCollector(object):
                                           timestamp=now)
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting thermostat status: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error getting thermostat status: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error getting thermostat status: {0}'.format(ex))
+                LOGGER.exception('Error getting thermostat status: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -433,6 +439,7 @@ class MetricsCollector(object):
                     count = error[1]
                     types = {'i': 'Input',
                              'I': 'Input',
+                             't': 'Temperature',
                              'T': 'Temperature',
                              'o': 'Output',
                              'O': 'Output',
@@ -449,8 +456,10 @@ class MetricsCollector(object):
                                           timestamp=now)
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting module errors: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error getting module errors: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error getting module errors: {0}'.format(ex))
+                LOGGER.exception('Error getting module errors: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -471,7 +480,7 @@ class MetricsCollector(object):
                         counters_data[counter_id]['count'] = counters[counter_id]
                 for counter_id in counters_data:
                     counter = counters_data[counter_id]
-                    if counter['name'] != '':
+                    if counter['name'] != '' and counter['count'] is not None:
                         self._enqueue_metrics(metric_type=metric_type,
                                               values={'value': int(counter['count'])},
                                               tags={'name': counter['name'],
@@ -480,8 +489,10 @@ class MetricsCollector(object):
                                               timestamp=now)
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting pulse counter status: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error getting pulse counter status: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error getting pulse counter status: {0}'.format(ex))
+                LOGGER.exception('Error getting pulse counter status: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -502,8 +513,10 @@ class MetricsCollector(object):
                             power_data[device_id.format(i)] = {'name': power_module['input{0}'.format(i)]}
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting power modules: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error getting power modules: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error getting power modules: {0}'.format(ex))
+                LOGGER.exception('Error getting power modules: {0}'.format(ex))
             try:
                 result = self._gateway_api.get_realtime_power()
                 for module_id, device_id in mapping.iteritems():
@@ -517,8 +530,10 @@ class MetricsCollector(object):
                                               'power': entry[3]})
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting realtime power: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error getting realtime power: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error getting realtime power: {0}'.format(ex))
+                LOGGER.exception('Error getting realtime power: {0}'.format(ex))
             try:
                 result = self._gateway_api.get_total_energy()
                 for module_id, device_id in mapping.iteritems():
@@ -531,8 +546,10 @@ class MetricsCollector(object):
                                               'counter_night': entry[1]})
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting total energy: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error getting total energy: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error getting total energy: {0}'.format(ex))
+                LOGGER.exception('Error getting total energy: {0}'.format(ex))
             for device_id in power_data:
                 device = power_data[device_id]
                 try:
@@ -550,7 +567,7 @@ class MetricsCollector(object):
                                                     'name': device['name']},
                                               timestamp=now)
                 except Exception as ex:
-                    MetricsCollector._log('Error processing OpenMotics power device {0}: {1}'.format(device_id, ex))
+                    LOGGER.exception('Error processing OpenMotics power device {0}: {1}'.format(device_id, ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -607,8 +624,10 @@ class MetricsCollector(object):
                             timestamp += 0.250  # Stretch actual data by 1000 for visualtisation purposes
             except CommunicationTimedOutException:
                 LOGGER.error('Error getting power analytics: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error getting power analytics: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error getting power analytics: {0}'.format(ex))
+                LOGGER.exception('Error getting power analytics: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, metric_type)
@@ -628,9 +647,11 @@ class MetricsCollector(object):
                     if input_id not in ids:
                         del self._environment['inputs'][input_id]
             except CommunicationTimedOutException:
-                MetricsCollector._log('Error while loading input configurations: CommunicationTimedOutException')
+                LOGGER.error('Error while loading input configurations: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error while loading input configurations: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error while loading input configurations: {0}'.format(ex))
+                LOGGER.exception('Error while loading input configurations: {0}'.format(ex))
             # Outputs
             try:
                 result = self._gateway_api.get_output_configurations()
@@ -652,8 +673,10 @@ class MetricsCollector(object):
                         del self._environment['outputs'][output_id]
             except CommunicationTimedOutException:
                 LOGGER.error('Error while loading output configurations: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error while loading output configurations: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error while loading output configurations: {0}'.format(ex))
+                LOGGER.exception('Error while loading output configurations: {0}'.format(ex))
             # Sensors
             try:
                 result = self._gateway_api.get_sensor_configurations()
@@ -667,8 +690,10 @@ class MetricsCollector(object):
                         del self._environment['sensors'][input_id]
             except CommunicationTimedOutException:
                 LOGGER.error('Error while loading sensor configurations: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error while loading sensor configurations: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error while loading sensor configurations: {0}'.format(ex))
+                LOGGER.exception('Error while loading sensor configurations: {0}'.format(ex))
             # Pulse counters
             try:
                 result = self._gateway_api.get_pulse_counter_configurations()
@@ -682,8 +707,10 @@ class MetricsCollector(object):
                         del self._environment['pulse_counters'][input_id]
             except CommunicationTimedOutException:
                 LOGGER.error('Error while loading pulse counter configurations: CommunicationTimedOutException')
+            except InMaintenanceModeException:
+                LOGGER.info('Error while loading pulse counter configurations: InMaintenanceModeException')
             except Exception as ex:
-                MetricsCollector._log('Error while loading pulse counter configurations: {0}'.format(ex))
+                LOGGER.exception('Error while loading pulse counter configurations: {0}'.format(ex))
             if self._stopped:
                 return
             self._pause(start, name, interval)
@@ -697,7 +724,7 @@ class MetricsCollector(object):
         >                                    "type": "counter",
         >                                    "unit": "kWh"}]}
         """
-        _ = self  # Easier as non-static method
+        pulse_persistence = self._pulse_controller.get_persistence()
         return [
             # system
             {'type': 'system',
@@ -831,7 +858,11 @@ class MetricsCollector(object):
              'metrics': [{'name': 'value',
                           'description': 'Number of received pulses',
                           'type': 'counter',
-                          'policies': ['persistent', 'buffered'],
+                          'policies': [{'policy': 'persist',
+                                        'key': 'id',
+                                        'matches': ['P{0}'.format(i) for i in xrange(0, len(pulse_persistence))
+                                                    if not pulse_persistence[i]]},
+                                       'buffer'],
                           'unit': ''}]},
             # energy
             {'type': 'energy',
@@ -855,17 +886,17 @@ class MetricsCollector(object):
                          {'name': 'counter',
                           'description': 'Total energy consumed',
                           'type': 'counter',
-                          'policies': ['persistent', 'buffered'],
+                          'policies': ['persist', 'buffer'],
                           'unit': 'Wh'},
                          {'name': 'counter_day',
                           'description': 'Total energy consumed during daytime',
                           'type': 'counter',
-                          'policies': ['persistent', 'buffered'],
+                          'policies': ['persist', 'buffer'],
                           'unit': 'Wh'},
                          {'name': 'counter_night',
                           'description': 'Total energy consumed during nighttime',
                           'type': 'counter',
-                          'policies': ['persistent', 'buffered'],
+                          'policies': ['persist', 'buffer'],
                           'unit': 'Wh'}]},
             # energy_analytics
             {'type': 'energy_analytics',
