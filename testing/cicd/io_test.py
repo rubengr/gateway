@@ -3,8 +3,6 @@ import time
 import datetime
 import urllib
 import simplejson as json
-import glob
-import os
 import logging
 from pytz import timezone
 from toolbox import exception_handler
@@ -44,9 +42,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_toggle_all_outputs_testee(self):
-        """
-        Testing toggling on all outputs on the Testee.
-        """
+        """ Testing toggling on all outputs on the Testee. """
         config = self.tools._api_testee('get_output_configurations', self.token).get('config', [])
         self.assertTrue(bool(config), 'Should not be empty and should have the output configurations of the testee. But got {0}'.format(config))
         for one in config:
@@ -60,9 +56,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_set_input_configuration(self):
-        """
-        Testing configuring and linking inputs to outputs; action: output_id
-        """
+        """ Testing configuring and linking inputs to outputs; action: output_id. """
         initial_config = []
         for i in xrange(self.INPUT_COUNT):
             config = {'name': 'input'+str(i), 'basic_actions': '', 'invert': 255, 'module_type': 'I', 'can': '',
@@ -76,9 +70,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_discovery(self):
-        """
-        Testing discovery mode
-        """
+        """ Testing discovery mode. """
         self.tools._api_testee('module_discover_start', self.token)
         time.sleep(0.3)
         response_json = self.tools._api_testee('module_discover_status', self.token)
@@ -102,9 +94,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_discovery_authorization(self):
-        """
-        Testing discovery mode auth verification
-        """
+        """ Testing discovery mode auth verification. """
         response_json = self.tools._api_testee('module_discover_start', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
@@ -117,9 +107,7 @@ class IoTest(unittest.TestCase):
     @unittest.skip('Currently factory reset is not working properly')
     @exception_handler
     def test_factory_reset_and_reconfigure_use_case(self):
-        """
-        Testing factory reset and reconfiguring Testee.
-        """
+        """ Testing factory reset and reconfiguring Testee. """
         if self.tools._api_testee('factory_reset', self.token) is not None:
             self.tools.enter_testee_autorized_mode(self.webinterface, 6)
             url_params = urllib.urlencode({'username': 'openmotics', 'password': '123456'})
@@ -139,9 +127,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_output_stress_toggling(self):
-        """
-        Testing stress toggling all outputs on the Testee.
-        """
+        """ Testing stress toggling all outputs on the Testee. """
         response_json = self.tools._api_testee('get_output_configurations', self.token)
         config = response_json.get('config')
         self.assertTrue(bool(config), 'Should not be empty and should have the output configurations of the testee. Got: {0}'.format(config))
@@ -155,9 +141,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_output_stress_toggling_authorization(self):
-        """
-        Testing stress toggling all outputs on the Testee auth verification.
-        """
+        """ Testing stress toggling all outputs on the Testee auth verification. """
         response_json = self.tools._api_testee('get_output_configuration', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
@@ -170,9 +154,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_get_version(self):
-        """
-        Testing getting the firmware and gateway versions
-        """
+        """ Testing getting the firmware and gateway versions. """
         response_json = self.tools._api_testee('get_version', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
@@ -182,9 +164,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_get_modules(self):
-        """
-        Testing getting the list of modules
-        """
+        """ Testing getting the list of modules. """
         response_json = self.tools._api_testee('get_modules', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
@@ -194,9 +174,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_validate_master_status(self):
-        """
-        Testing master's timezone
-        """
+        """ Testing master's timezone. """
         response_json = self.tools._api_testee('get_timezone', self.token)
         self.assertEquals(response_json.get('timezone'), 'UTC', 'Expected default timezone on the gateway to be UTC but got {0}'.format(response_json))
 
@@ -229,9 +207,7 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_validate_master_status_authorization(self):
-        """
-        Testing master's timezone
-        """
+        """ Testing master's timezone. """
         response_json = self.tools._api_testee('get_timezone', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
@@ -243,57 +219,43 @@ class IoTest(unittest.TestCase):
 
     @exception_handler
     def test_get_features(self):
-        """
-        Testing whether or not the API call does return the features list
-        """
+        """ Testing whether or not the API call does return the features list. """
         response_json = self.tools._api_testee('get_features', self.token)
         self.assertTrue(bool(response_json.get('features')), 'Should have the list of features after the API call. Got: {0}'.format(response_json))
 
     @exception_handler
     def test_get_features_authorization(self):
-        """
-        Testing whether or not the API call does return the features list
-        """
+        """ Testing whether or not the API call does return the features list. """
         response_json = self.tools._api_testee('get_features', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
     @unittest.skip('can\'t truly validate. Visual validation required')
     @exception_handler
     def test_indicate(self):
-        """
-        Testing API call to indicate LEDs. Only verifying the API currently.
-        """
+        """ Testing API call to indicate LEDs. Only verifying the API currently. """
         response_json = self.tools._api_testee('indicate', self.token)
         self.assertEquals(response_json.get('success'), True, 'Should return true to indicate a successful indicate API call.')
 
     @exception_handler
     def test_indicate_authorization(self):
-        """
-        Testing API call to indicate LEDs. Only verifying the API currently.
-        """
+        """ Testing API call to indicate LEDs. Only verifying the API currently. """
         response_json = self.tools._api_testee('indicate', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token', 'The indicate API call should return \'invalid_token\' when called with an invalid token.')
 
     @exception_handler
     def test_open_maintenance(self):
-        """
-        Testing API call to open maintenance and get the port.
-        """
+        """ Testing API call to open maintenance and get the port. """
         response_json = self.tools._api_testee('open_maintenance', self.token)
         self.assertTrue(bool(response_json.get('port')), 'The open_maintenance API call should return the port of the maintenance socket.')
 
     @exception_handler
     def test_open_maintenance_authorization(self):
-        """
-        Testing API call to open maintenance and get the port.
-        """
+        """ Testing API call to open maintenance and get the port. """
         response_json = self.tools._api_testee('open_maintenance', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token', 'The open_maintenance API call should return \'invalid_token\' when called with an invalid token.')
 
     def test_how_healthy_after_reboot(self):
-        """
-        Testing how healthy the services are after power cycle
-        """
+        """ Testing how healthy the services are after power cycle. """
         response_json = json.loads(self.webinterface.get_output_status())
         status_list = response_json.get('status', [])
         self.assertTrue(bool(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
@@ -322,41 +284,22 @@ class IoTest(unittest.TestCase):
         url_params = urllib.urlencode({'username': 'openmotics', 'password': '123456', 'accept_terms': True})
         self.tools.token = self.tools._api_testee('login?{0}'.format(url_params)).get('token')
 
-    def test_install_plugin(self):
+    def _check_if_event_is_captured(self, toggled_output, start, value):
         """
-        Testing the ability to install new plugins on the Testee.
-        Currently skipped until further investigation.
+        Checks if the toggled output has turned an input on.
+        :param toggled_output: the id of the toggled output
+        :type toggled_output: int
+
+        :param start: the time from which counting will start
+        :type start: float
+
+        :param value: the expected is_on value of the input.
+        :type value: int
+
+        :return: if the the toggled output has turned an input on
+        :rtype: bool
         """
-        filepath = '/tmp/tests/*.md5'
-        md5_file = [os.path.basename(x) for x in glob.glob(filepath)]
-        result = None
-        f = open('/tmp/tests/{0}'.format(md5_file[0]), 'r')
-        for line in f:
-            result = line
-        md5, _ = result.split(' ')
-        filepath = '/tmp/tests/*.tgz'
-
-        tgz_file_name = [os.path.basename(x) for x in glob.glob(filepath)]
-        with open('/tmp/tests/{0}'.format(tgz_file_name[0]), 'rb') as f:
-            tgz_file = f.read()
-
-        import requests
-
-        url = "https://10.91.99.52/install_plugin"
-
-        # payload = "------WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name=\"package_data\"; " \
-        #           "filename=\"C:\\Users\\MedMahdi\\Desktop\\dev area\\testing-ci-cd\\tests\\blank-plugin_1.0.0.tgz\"\r\nContent-Type: false\r\n\r\n\r\n----" \
-        #           "--WebKitFormBoundary7MA4YWxkTrZu0gW\r\nContent-Disposition: form-data; name=\"md5\"\r\n\r\nc34695df01b2b7cf81f32f254875365b\r\n------WebKitFormBoundary7MA4YWxkTrZ" \
-        #           "u0gW\r\nContent-Disposition: form-data; name=\"token\"\r\n\r\n8356419d53624463a556d4688403c172\r\n------WebKitFormBoundary7MA4YWxkTrZu0gW--"
-
-        # payload = {'package_data': tgz_file, 'md5': md5, 'token': self.token}
-        # headers = {'Content-Type': 'multipart/form-data'}
-
-        response = requests.post(url, params={'md5': md5}, files=[('package_data', ('data', tgz_file, 'Multipart/form-data'))], verify=False)
-        self.assertEquals(response, True)
-
-    def _check_if_event_is_captured(self, output_to_toggle, start, value):
-        while self.tools.input_status.get(str(output_to_toggle)) is not str(value):
+        while self.tools.input_status.get(str(toggled_output)) is not str(value):
             if time.time() - start < self.tools.TIMEOUT:
                 time.sleep(0.3)
                 continue

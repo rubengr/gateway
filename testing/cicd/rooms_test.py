@@ -39,9 +39,7 @@ class RoomsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_output_configurations_rooms_floors(self):
-        """
-        Testing setting up outputs floor
-        """
+        """ Testing setting up outputs floor. """
         expected_to_be_inserted_config = self._set_room_floor_configuration(room_number=self.ROOM_NUMBER)
         response_json = self.tools._api_testee('get_output_configurations', self.token)
         response_config = response_json.get('config')
@@ -49,9 +47,7 @@ class RoomsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_room_configurations(self):
-        """
-        Testing setting up rooms
-        """
+        """ Testing setting up rooms. """
         config = []
         for i in xrange(100):
             one_room_config = {'id': i, 'name': 'room{0}'.format(self.ROOM_NUMBER), 'floor': self.FLOOR_NUMBER}
@@ -65,9 +61,7 @@ class RoomsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_room_configurations_authorization(self):
-        """
-        Testing setting up rooms auth validation
-        """
+        """ Testing setting up rooms auth validation. """
         response_json = self.tools._api_testee('set_room_configurations', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token', 'Should not be able to call set_room_configurations API without a valid token. Got: {0}'.format(response_json))
 
@@ -76,9 +70,7 @@ class RoomsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_room_configuration(self):
-        """
-        Testing setting up one room
-        """
+        """ Testing setting up one room. """
         i = randint(0, 99)
         one_room_config = {'id': i, 'name': 'room' + str(i), 'floor': self.FLOOR_NUMBER}
         url_params = urllib.urlencode({'config': json.dumps(one_room_config)})
@@ -90,9 +82,7 @@ class RoomsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_room_configuration_authorization(self):
-        """
-        Testing setting up one room auth validation
-        """
+        """ Testing setting up one room auth validation. """
         response_json = self.tools._api_testee('set_room_configuration', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token', 'Should not be able to call set_room_configuration API without a valid token. Got: {0}'.format(response_json))
 
@@ -101,9 +91,7 @@ class RoomsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_all_lights_off(self):
-        """
-        Testing turning all lights off
-        """
+        """ Testing turning all lights off. """
         url_params = urllib.urlencode({'floor': self.FLOOR_NUMBER})
         self.tools._api_testee('set_all_lights_floor_on?{0}'.format(url_params), self.token)
 
@@ -113,17 +101,13 @@ class RoomsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_all_lights_off_authorization(self):
-        """
-        Testing turning all lights off auth validation
-        """
+        """ Testing turning all lights off auth validation. """
         response_json = self.tools._api_testee('set_all_lights_off', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token', 'Should not be able to call set_all_lights_off API without a valid token. Got: {0}'.format(response_json))
 
     @exception_handler
     def test_set_all_lights_floor_off(self):
-        """
-        Testing turning all lights off for a specific floor number
-        """
+        """ Testing turning all lights off for a specific floor number. """
         self._set_room_floor_configuration(room_number=self.ROOM_NUMBER)  # Setting up configuration first. Room: 5, Floor 3
 
         url_params = urllib.urlencode({'floor': self.FLOOR_NUMBER})
@@ -145,9 +129,7 @@ class RoomsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_all_lights_floor_authorization(self):
-        """
-        Testing turning all lights off for a specific floor number auth validation
-        """
+        """ Testing turning all lights off for a specific floor number auth validation. """
         response_json = self.tools._api_testee('set_all_lights_floor_off', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token', 'Should not be able to call set_all_lights_floor_off API without a valid token. Got: {0}'.format(response_json))
 
@@ -156,9 +138,7 @@ class RoomsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_all_lights_floor_on(self):
-        """
-        Testing turning all lights on for a specific floor number
-        """
+        """ Testing turning all lights on for a specific floor number. """
         self._set_room_floor_configuration(room_number=self.ROOM_NUMBER)  # Setting up configuration first. Room: 5, Floor 3
 
         url_params = urllib.urlencode({'floor': self.FLOOR_NUMBER})
@@ -178,9 +158,7 @@ class RoomsTest(unittest.TestCase):
             self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Toggled outputs must show input presses on the Tester. Got: {0}'.format(self.tools.input_status))
 
     def _set_room_floor_configuration(self, room_number):
-        """
-        Setting room floor and room configurations: Used to eliminate dependencies between tests.
-        """
+        """ Setting room floor and room configurations: Used to eliminate dependencies between tests. """
         expected_to_be_inserted_config = []
         for i in xrange(self.INPUT_COUNT):
             config = {'room': room_number, 'can_led_4_function': 'UNKNOWN', 'floor': 3, 'can_led_1_id': 255, 'can_led_1_function': 'UNKNOWN',
@@ -191,8 +169,22 @@ class RoomsTest(unittest.TestCase):
             self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
         return expected_to_be_inserted_config
 
-    def _check_if_event_is_captured(self, output_to_toggle, start, value):
-        while self.tools.input_status.get(str(output_to_toggle)) is not str(value):
+    def _check_if_event_is_captured(self, toggled_output, start, value):
+        """
+        Checks if the toggled output has turned an input on.
+        :param toggled_output: the id of the toggled output
+        :type toggled_output: int
+
+        :param start: the time from which counting will start
+        :type start: float
+
+        :param value: the expected is_on value of the input.
+        :type value: int
+
+        :return: if the the toggled output has turned an input on
+        :rtype: bool
+        """
+        while self.tools.input_status.get(str(toggled_output)) is not str(value):
             if time.time() - start < self.tools.TIMEOUT:
                 time.sleep(0.3)
                 continue

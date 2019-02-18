@@ -38,6 +38,7 @@ class ThermostatsTest(unittest.TestCase):
 
     @exception_handler
     def test_thermostat_config_after_reset(self):
+        """ Testing whether or not the thermostat configuration will be kept after resetting and power cycle. """
         sensor_config = {'id': 31, 'name': 'v_sensor', 'virtual': True, 'room': 255}
         url_params = urllib.urlencode({'config': json.dumps(sensor_config)})
         self.tools._api_testee('set_sensor_configuration?{0}'.format(url_params), self.token, expected_failure=False)

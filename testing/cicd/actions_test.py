@@ -396,7 +396,7 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_toggles_all_outputs_floor(self):
         """ Testing toggling all outputs by floor number. """
-        self._set_outputs_floor_config(self.token)
+        self._set_input_room_config(self.token)
         time.sleep(0.3)
 
         input_number = randint(0, 7)
@@ -433,7 +433,7 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_turn_all_outputs_on_off_floor(self):
         """ Testing turning all outputs on and off by floor number. """
-        self._set_outputs_floor_config(self.token)
+        self._set_input_room_config(self.token)
         time.sleep(0.3)
         input_number = randint(0, 7)
         config = {'name': 'turnerfO',
@@ -583,9 +583,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_motion_sensor_timer_7m30s(self):
-        """
-        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 7m30s
-        """
+        """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 7m30s """
         i = randint(0, 7)
 
         modified_config = {'name': 'MotionS',
@@ -616,9 +614,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_motion_sensor_timer_15m(self):
-        """
-        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 15m
-        """
+        """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 15m """
         i = randint(0, 7)
 
         modified_config = {'name': 'MotionS',
@@ -649,9 +645,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_motion_sensor_timer_25m(self):
-        """
-        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 25m
-        """
+        """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 25m """
         i = randint(0, 7)
 
         modified_config = {'name': 'MotionS',
@@ -683,9 +677,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_motion_sensor_timer_37m(self):
-        """
-        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 37m
-        """
+        """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 37m """
         i = randint(0, 7)
 
         modified_config = {'name': 'MotionS',
@@ -716,9 +708,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_motion_sensor_timer_52m(self):
-        """
-        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 52m
-        """
+        """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 52m """
         i = randint(0, 7)
 
         modified_config = {'name': 'MotionS',
@@ -749,9 +739,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_time_no_overrule_2m30s(self):
-        """
-        Testing the execution of an action (toggling output for 2m30s) without that does not overrule the timer
-        """
+        """ Testing the execution of an action (toggling output for 2m30s) without that does not overrule the timer """
         i = randint(0, 7)
 
         modified_output_config = {"room": 5,
@@ -811,9 +799,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_time_no_overrule_7m30s(self):
-        """
-        Testing the execution of an action (toggling output for 7m30s) without that does not overrule the timer
-        """
+        """ Testing the execution of an action (toggling output for 7m30s) without that does not overrule the timer """
         i = randint(0, 7)
 
         modified_output_config = {"room": 5,
@@ -873,9 +859,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_time_no_overrule_15m(self):
-        """
-        Testing the execution of an action (toggling output for 15m) without that does not overrule the timer
-        """
+        """ Testing the execution of an action (toggling output for 15m) without that does not overrule the timer """
         i = randint(0, 7)
 
         modified_output_config = {"room": 5,
@@ -935,9 +919,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_time_no_overrule_25(self):
-        """
-        Testing the execution of an action (toggling output for 25m) without that does not overrule the timer
-        """
+        """ Testing the execution of an action (toggling output for 25m) without that does not overrule the timer """
         i = randint(0, 7)
 
         modified_output_config = {"room": 5,
@@ -997,9 +979,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_time_no_overrule_37m(self):
-        """
-        Testing the execution of an action (toggling output for 37m) without that does not overrule the timer
-        """
+        """ Testing the execution of an action (toggling output for 37m) without that does not overrule the timer """
         i = randint(0, 7)
 
         modified_output_config = {"room": 5,
@@ -1059,9 +1039,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_time_no_overrule_52m(self):
-        """
-        Testing the execution of an action (toggling output for 52m) without that does not overrule the timer
-        """
+        """ Testing the execution of an action (toggling output for 52m) without that does not overrule the timer """
         i = randint(0, 7)
 
         modified_output_config = {"room": 5,
@@ -1120,6 +1098,15 @@ class ActionsTest(unittest.TestCase):
         self.assertTrue(3130 > end - start > 3110, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
 
     def _set_group_actions_config(self, token):
+        """
+        Sets the standard 160 group actions configurations that will toggle output id=0
+        :param token: the authorization token
+        :type token: str
+
+        :return: the response from setting the group action configurations
+        :rtype: request.Response
+
+        """
         config = []
         for i in xrange(160):
             one_group_action_config = {'id': i,
@@ -1130,7 +1117,15 @@ class ActionsTest(unittest.TestCase):
 
         return self.tools._api_testee('set_group_action_configurations?{0}'.format(url_params), token), config
 
-    def _set_outputs_floor_config(self, token):
+    def _set_input_room_config(self, token):
+        """
+        Sets the standard input configuration with the relevant floor number and room number
+        :param token: the authorization token
+        :type token: str
+
+        :return: the response from setting room configurations.
+        :rtype: request.Response
+        """
         for i in xrange(self.INPUT_COUNT):
             config = {'name': 'input'+str(i), 'basic_actions': '', 'invert': 255, 'module_type': 'I', 'can': '',
                       'action': i, 'id': i, 'room': self.ROOM_NUMBER}
@@ -1145,8 +1140,22 @@ class ActionsTest(unittest.TestCase):
 
         return self.tools._api_testee('set_room_configurations?{0}'.format(url_params), token)
 
-    def _check_if_event_is_captured(self, output_to_toggle, start, value):
-        while self.tools.input_status.get(str(output_to_toggle)) is not str(value):
+    def _check_if_event_is_captured(self, toggled_output, start, value):
+        """
+        Checks if the toggled output has turned an input on.
+        :param toggled_output: the id of the toggled output
+        :type toggled_output: int
+
+        :param start: the time from which counting will start
+        :type start: float
+
+        :param value: the expected is_on value of the input.
+        :type value: int
+
+        :return: if the the toggled output has turned an input on
+        :rtype: bool
+        """
+        while self.tools.input_status.get(str(toggled_output)) is not str(value):
             if time.time() - start < self.tools.TIMEOUT:
                 time.sleep(0.3)
                 continue

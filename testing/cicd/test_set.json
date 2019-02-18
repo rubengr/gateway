@@ -30,7 +30,5 @@
     "rooms_test.test_set_all_lights_floor_off",
 
     "thermostats_test.test_thermostat_config_after_reset"
-  ],
-
-  "dependencies": []
+  ]
 }

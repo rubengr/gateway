@@ -38,10 +38,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_create_user_authorized(self):
-        """
-        Testing a creation of a user using a random login and password after entering authorized mode quick.
-
-        """
+        """ Testing a creation of a user using a random login and password after entering authorized mode quick. """
         self.tools.enter_testee_authorized_mode(self.webinterface)
         url_params = urllib.urlencode({'username': self.login, 'password': self.password})
         self.tools._api_testee('create_user?{0}'.format(url_params))
@@ -49,10 +46,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_create_user_authorized_force_checked(self):
-        """
-        Testing a creation of a user using a random login and password after entering authorized mode.
-
-        """
+        """ Testing a creation of a user using a random login and password after entering authorized mode. """
         start = time.time()
         entered_authorized_mode = self.tools.enter_testee_authorized_mode(self.webinterface)  # enter_testee_authorized_mode will return True as soon as the Testee enters authorized mode, False if the timeout is reached.
 
@@ -65,10 +59,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_login_with_user_with_terms(self):
-        """
-        Testing login with accepted terms & conditions quick.
-
-        """
+        """ Testing login with accepted terms & conditions quick. """
         self.tools.enter_testee_authorized_mode(self.webinterface)
         url_params = urllib.urlencode({'username': self.login, 'password': self.password})
         self.tools._api_testee('create_user?{0}'.format(url_params))
@@ -77,10 +68,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_login_with_user_with_terms_force_checked(self):
-        """
-        Testing login with accepted terms & conditions.
-
-        """
+        """ Testing login with accepted terms & conditions. """
         entered_authorized_mode = self.tools.enter_testee_authorized_mode(self.webinterface, 6)  # 6 is a forced timeout, 120 is default.
         self.assertEquals(entered_authorized_mode, True, 'Should enter authorized mode within 6 seconds of pressing. {0}'.format(entered_authorized_mode))
         url_params = urllib.urlencode({'username': self.login, 'password': self.password})
@@ -90,9 +78,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_remove_user_authorized(self):
-        """
-        Testing a removal of a user after entering authorized mode.
-        """
+        """ Testing a removal of a user after entering authorized mode. """
         self.tools.enter_testee_authorized_mode(self.webinterface)
         url_params = urllib.urlencode({'username': self.login})
         self.tools._api_testee('remove_user?{0}'.format(url_params))
@@ -100,9 +86,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_auto_exiting_authorized_mode_time(self):
-        """
-        Testing if the Testee is able to exit authorized mode after some time.
-        """
+        """ Testing if the Testee is able to exit authorized mode after some time. """
         self.tools.enter_testee_authorized_mode(self.webinterface)
         start = time.time()
         while self.tools._api_testee('get_usernames', expected_failure=True).get('success', False) is not False and time.time() - start <= self.tools.TIMEOUT:
@@ -112,10 +96,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_use_case_creating_user_logging_in_deleting_user_force_checked(self):
-        """
-        Testing the creation, login, deletion of a user with all conditions.
-        """
-
+        """ Testing the creation, login, deletion of a user with all conditions. """
         if self.tools._api_testee('get_usernames').get('success'):
             self.tools.exit_testee_authorized_mode(self.webinterface)
 
@@ -164,10 +145,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_scenario_creating_user_logging_in_deleting_user(self):
-        """
-        Testing the creation, login, deletion of a user with all conditions quick.
-        """
-
+        """ Testing the creation, login, deletion of a user with all conditions quick. """
         self.tools.enter_testee_authorized_mode(self.webinterface, 6)
 
         url_params = urllib.urlencode({'username': self.login, 'password': self.password})
@@ -188,9 +166,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_token_validity_force_checked(self):
-        """
-        Testing the validity of a returned token after a login and an invalid token.
-        """
+        """ Testing the validity of a returned token after a login and an invalid token. """
         response_json = self._login_testee_user('openmotics', '123456', True)
         valid_token = response_json.get('token')
         self.tools._api_testee('get_features', valid_token)
@@ -200,9 +176,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_token_validity(self):
-        """
-        Testing the validity of a returned token after a login and an invalid token quick.
-        """
+        """ Testing the validity of a returned token after a login and an invalid token quick. """
         login_response = self._login_testee_user('openmotics', '123456', True)
         self.tools._api_testee('get_features', login_response.get('token'))
         response_json = self.tools._api_testee('get_features', 'some_token', expected_failure=True)
@@ -211,9 +185,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_logout_existing_user_force_checked(self):
-        """
-        Testing logging out using a valid token from a valid user.
-        """
+        """ Testing logging out using a valid token from a valid user. """
         response_json = self._login_testee_user('openmotics', '123456', True)
         valid_token = response_json.get('token')
 
@@ -231,18 +203,14 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_logout_existing_user(self):
-        """
-        Testing logging out using a valid token from a valid user.
-        """
+        """ Testing logging out using a valid token from a valid user. """
         response_json = self._login_testee_user('openmotics', '123456', True)
         valid_token = response_json.get('token')
         self._logout_testee_user(valid_token)
 
     @exception_handler
     def test_authorized_unauthorized_force_checked(self):
-        """
-        Testing whether the testee is able to enter and exit authorized mode.
-        """
+        """ Testing whether the testee is able to enter and exit authorized mode. """
         self.tools.enter_testee_authorized_mode(self.webinterface, 6)
         self.assertEquals(self.tools._api_testee('get_usernames').get('success'), True, 'Should be True after entering authorized mode and getting user names.')
         self.tools.exit_testee_authorized_mode(self.webinterface)
@@ -250,9 +218,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_enter_exit_authorized_mode_duration_force_checked(self):
-        """
-        Testing the duration to enter authorized mode
-        """
+        """ Testing the duration to enter authorized mode. """
         entered_authorized_mode = self.tools.enter_testee_authorized_mode(self.webinterface, 1)
         self.assertEquals(entered_authorized_mode, False, 'Should not enter authorized mode after a 1 second press. Got{0}'.format(entered_authorized_mode))
         self.tools.exit_testee_authorized_mode(self.webinterface)
@@ -266,9 +232,7 @@ class LoginTest(unittest.TestCase):
 
     @exception_handler
     def test_timed_presses_for_authorized_mode_entrance(self):
-        """
-        Testing the necessary time in seconds to enter authorized mode.
-        """
+        """ Testing the necessary time in seconds to enter authorized mode. """
         start = time.time()
         entered_authorized_mode = self.tools.enter_testee_authorized_mode(self.webinterface, 1)
         end = time.time()
