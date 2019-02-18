@@ -51,13 +51,13 @@ def create_bl_action(command, command_input):
     crc += ord(command.action[1])
 
     for field in command.input_fields:
-        if field.name == "literal" and field.encode(None) == "C":
+        if field.name == 'literal' and field.encode(None) == 'C':
             break
 
         for byte in field.encode(command_input[field.name]):
             crc += ord(byte)
 
-        command_input['crc0'] = crc / 256
+    command_input['crc0'] = crc / 256
     command_input['crc1'] = crc % 256
 
     return command, command_input
