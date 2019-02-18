@@ -9,7 +9,7 @@
       "login_test.test_logout_existing_user_force_checked",
       "login_test.test_authorized_unauthorized_force_checked",
       "login_test.test_enter_exit_authorized_mode_duration_force_checked",
-  
+
       "io_test.test_discovery",
       "io_test.test_discovery_authorization",
       "io_test.test_set_input_configuration",
@@ -27,7 +27,7 @@
       "io_test.test_factory_reset_and_reconfigure_use_case",
       "io_test.test_toggle_all_outputs_testee",
       "io_test.test_get_modules",
-  
+
       "actions_test.test_do_group_action_on_off",
       "actions_test.test_do_group_action_on_off_authorization",
       "actions_test.test_set_group_action_configuration",
@@ -48,6 +48,17 @@
       "actions_test.test_turn_all_outputs_on_off_floor",
       "actions_test.test_turn_all_outputs_off",
       "actions_test.test_execute_group_actions_after_xtime",
+      "actions_test.test_motion_sensor_timer_7m30s",
+      "actions_test.test_motion_sensor_timer_15m",
+      "actions_test.test_motion_sensor_timer_25m",
+      "actions_test.test_motion_sensor_timer_37m",
+      "actions_test.test_motion_sensor_timer_52m",
+      "actions_test.test_time_no_overrule_2m30s",
+      "actions_test.test_time_no_overrule_7m30s",
+      "actions_test.test_time_no_overrule_15m",
+      "actions_test.test_time_no_overrule_25",
+      "actions_test.test_time_no_overrule_37m",
+      "actions_test.test_time_no_overrule_52m",
 
       "rooms_test.test_set_output_configurations_rooms_floors",
       "rooms_test.test_set_room_configuration",

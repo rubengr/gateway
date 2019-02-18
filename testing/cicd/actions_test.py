@@ -44,9 +44,7 @@ class ActionsTest(unittest.TestCase):
     @unittest.skip('Currently skipped due to loudness.')
     @exception_handler
     def test_do_group_action_on_off(self):
-        """
-        Testing the execution of all configured group actions on the testee.
-        """
+        """ Testing the execution of all configured group actions on the testee. """
         self._set_group_actions_config(self.token)
         response_json = self.tools._api_testee('get_group_action_configurations', self.token)
         config = response_json.get('config')
@@ -66,9 +64,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_do_group_action_on_off_authorization(self):
-        """
-        Testing do_group_action API auth verification.
-        """
+        """ Testing do_group_action API auth verification. """
         response_json = self.tools._api_testee('get_group_action_configurations', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token',
                           'Should not be able to return group action configurations without a valid token. Got: {0}'.format(response_json))
@@ -84,9 +80,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_group_action_configuration(self):
-        """
-        Testing the setting up of one group action.
-        """
+        """ Testing the setting up of one group action. """
         time.sleep(0.5)
         i = randint(0, 159)
         one_group_action_config = {'id': i,
@@ -109,18 +103,14 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_group_action_configuration_authorization(self):
-        """
-        Testing the setting up of one group action auth verification.
-        """
+        """ Testing the setting up of one group action auth verification. """
         response_json = self.tools._api_testee('set_group_action_configuration', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token',
                           'Should be True after setting the group action configuration. Got: {0}'.format(response_json))
 
     @exception_handler
     def test_set_group_action_configurations(self):
-        """
-        Testing the setting up of all configurable group actions ( all = 160 available group actions configurations )
-        """
+        """ Testing the setting up of all configurable group actions ( all = 160 available group actions configurations ) """
         _, config = self._set_group_actions_config(self.token)
 
         response_json = self.tools._api_testee('get_group_action_configurations', self.token)
@@ -128,9 +118,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_group_action_configurations_authorization(self):
-        """
-        Testing set_group_action_configurations auth verification
-        """
+        """ Testing set_group_action_configurations auth verification """
         response_json = self.tools._api_testee('set_group_action_configurations', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
@@ -139,9 +127,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_startup_action_configuration(self):
-        """
-        Testing the setting up of the startup action configuration.
-        """
+        """ Testing the setting up of the startup action configuration. """
         config = {"actions": self.GROUP_ACTION_CONFIG.format(0)}
         url_params = urllib.urlencode({'config': json.dumps(config)})
 
@@ -168,17 +154,13 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_set_startup_action_configuration_authorization(self):
-        """
-        Testing the setting up of the startup action configuration.
-        """
+        """ Testing the setting up of the startup action configuration. """
         response_json = self.tools._api_testee('set_startup_action_configuration', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
     @exception_handler
     def test_do_basic_action(self):
-        """
-        Testing if do basic action API call and execution works.
-        """
+        """ Testing if do basic action API call and execution works. """
         i = randint(0, 7)
         url_params = urllib.urlencode(
             {'action_type': 165, 'action_number': i})  # ActionType 165 turns on an output.
@@ -193,9 +175,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_do_basic_action_authorization(self):
-        """
-        Testing do basic action API auth verification.
-        """
+        """ Testing do basic action API auth verification. """
         response_json = self.tools._api_testee('do_basic_action', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token')
 
@@ -205,9 +185,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_motion_sensor_timer_short(self):
-        """
-        Testing the setting up of a virtual motion sensor and validating the timer setting ( short = 2m30s )
-        """
+        """ Testing the setting up of a virtual motion sensor and validating the timer setting ( short = 2m30s ) """
         i = randint(0, 7)
 
         modified_config = {'name': 'MotionS',
@@ -238,6 +216,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_get_input_configuration_authorization(self):
+        """ Testing if getting input configurations works without a valid authorization. """
         url_params = urllib.urlencode({'id': 3})
 
         response_json = self.tools._api_testee('get_input_configuration?{0}'.format(url_params), 'some_token', expected_failure=True)
@@ -250,6 +229,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_execute_group_action(self):
+        """ Testing the execution of a group action that toggles output 0. """
         self._set_group_actions_config(self.token)
 
         input_number = randint(0, 7)
@@ -272,6 +252,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_toggles_output(self):
+        """ Testing toggling one output. """
         time.sleep(0.3)
         output_to_toggle = randint(0, 7)
         config = {'name': 'input_to',
@@ -299,6 +280,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_turn_output_on_off(self):
+        """ Testing turning one output on and off. """
         time.sleep(0.3)
         output_to_toggle = randint(0, 7)
         config = {'name': 'input_to',
@@ -337,6 +319,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_toggles_all_outputs(self):
+        """ Testing toggling all outputs. """
         time.sleep(0.3)
         input_number = randint(0, 7)
         config = {'name': 'togglerO',
@@ -370,6 +353,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_turn_all_outputs_on_off(self):
+        """ Testing turning all outputs on and off. """
         output_to_toggle = randint(0, 7)
         config = {'name': 'turnallO',
                   'basic_actions': '172,255',
@@ -411,6 +395,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_toggles_all_outputs_floor(self):
+        """ Testing toggling all outputs by floor number. """
         self._set_outputs_floor_config(self.token)
         time.sleep(0.3)
 
@@ -447,6 +432,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_turn_all_outputs_on_off_floor(self):
+        """ Testing turning all outputs on and off by floor number. """
         self._set_outputs_floor_config(self.token)
         time.sleep(0.3)
         input_number = randint(0, 7)
@@ -492,6 +478,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_turn_all_outputs_off(self):
+        """ Testing turning all outputs off. """
         time.sleep(0.3)
 
         input_number = randint(0, 7)
@@ -537,6 +524,7 @@ class ActionsTest(unittest.TestCase):
 
     @exception_handler
     def test_execute_group_actions_after_xtime(self):
+        """ Testing the execution of a group action that will be executed after pressing an output for a while. """
         time.sleep(0.3)
 
         config = {'id': 1, 'actions': self.GROUP_ACTION_CONFIG.format(1), 'name': 'Test1'}
@@ -592,6 +580,544 @@ class ActionsTest(unittest.TestCase):
         self.assertTrue(self._check_if_event_is_captured(4, time.time(), 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         self.assertTrue(self._check_if_event_is_captured(5, time.time(), 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+
+    @exception_handler
+    def test_motion_sensor_timer_7m30s(self):
+        """
+        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 7m30s
+        """
+        i = randint(0, 7)
+
+        modified_config = {'name': 'MotionS',
+                           'basic_actions': '196,{0}'.format(i),
+                           'invert': 255,
+                           'module_type': 'I',
+                           'can': '',
+                           'action': 240,
+                           'id': i,
+                           'room': 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        time.sleep(300)
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(460 > end - start > 440, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_motion_sensor_timer_15m(self):
+        """
+        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 15m
+        """
+        i = randint(0, 7)
+
+        modified_config = {'name': 'MotionS',
+                           'basic_actions': '197,{0}'.format(i),
+                           'invert': 255,
+                           'module_type': 'I',
+                           'can': '',
+                           'action': 240,
+                           'id': i,
+                           'room': 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        time.sleep(780)
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(910 > end - start > 890, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_motion_sensor_timer_25m(self):
+        """
+        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 25m
+        """
+        i = randint(0, 7)
+
+        modified_config = {'name': 'MotionS',
+                           'basic_actions': '198,{0}'.format(i),
+                           'invert': 255,
+                           'module_type': 'I',
+                           'can': '',
+                           'action': 240,
+                           'id': i,
+                           'room': 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        time.sleep(1380)
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(1510 > end - start > 1490, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_motion_sensor_timer_37m(self):
+        """
+        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 37m
+        """
+        i = randint(0, 7)
+
+        modified_config = {'name': 'MotionS',
+                           'basic_actions': '199,{0}'.format(i),
+                           'invert': 255,
+                           'module_type': 'I',
+                           'can': '',
+                           'action': 240,
+                           'id': i,
+                           'room': 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        time.sleep(2100)
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(2230 > end - start > 2210, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_motion_sensor_timer_52m(self):
+        """
+        Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 52m
+        """
+        i = randint(0, 7)
+
+        modified_config = {'name': 'MotionS',
+                           'basic_actions': '200,{0}'.format(i),
+                           'invert': 255,
+                           'module_type': 'I',
+                           'can': '',
+                           'action': 240,
+                           'id': i,
+                           'room': 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        time.sleep(3000)
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(3130 > end - start > 3110, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_time_no_overrule_2m30s(self):
+        """
+        Testing the execution of an action (toggling output for 2m30s) without that does not overrule the timer
+        """
+        i = randint(0, 7)
+
+        modified_output_config = {"room": 5,
+                                  "can_led_4_function": "UNKNOWN",
+                                  "floor": 3,
+                                  "can_led_1_id": 255,
+                                  "can_led_1_function": "UNKNOWN",
+                                  "timer": 30,
+                                  "can_led_4_id": 255,
+                                  "can_led_3_id": 255,
+                                  "can_led_2_function": "UNKNOWN",
+                                  "id": i,
+                                  "module_type": "O",
+                                  "can_led_3_function": "UNKNOWN",
+                                  "type": 255,
+                                  "can_led_2_id": 255,
+                                  "name": "Out{0}".format(i)}
+
+        modified_input_config = {"name": "timed201",
+                                 "basic_actions": "201,{0}".format(i),
+                                 "invert": 255,
+                                 "module_type": "I",
+                                 "can": "",
+                                 "action": 240,
+                                 "id": i,
+                                 "room": 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
+        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+
+        while time.time() - start < 100:
+            continue
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(158 > end - start > 148, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_time_no_overrule_7m30s(self):
+        """
+        Testing the execution of an action (toggling output for 7m30s) without that does not overrule the timer
+        """
+        i = randint(0, 7)
+
+        modified_output_config = {"room": 5,
+                                  "can_led_4_function": "UNKNOWN",
+                                  "floor": 3,
+                                  "can_led_1_id": 255,
+                                  "can_led_1_function": "UNKNOWN",
+                                  "timer": 30,
+                                  "can_led_4_id": 255,
+                                  "can_led_3_id": 255,
+                                  "can_led_2_function": "UNKNOWN",
+                                  "id": i,
+                                  "module_type": "O",
+                                  "can_led_3_function": "UNKNOWN",
+                                  "type": 255,
+                                  "can_led_2_id": 255,
+                                  "name": "Out{0}".format(i)}
+
+        modified_input_config = {"name": "timed202",
+                                 "basic_actions": "202,{0}".format(i),
+                                 "invert": 255,
+                                 "module_type": "I",
+                                 "can": "",
+                                 "action": 240,
+                                 "id": i,
+                                 "room": 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
+        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+
+        while time.time() - start < 360:
+            continue
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(460 > end - start > 440, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_time_no_overrule_15m(self):
+        """
+        Testing the execution of an action (toggling output for 15m) without that does not overrule the timer
+        """
+        i = randint(0, 7)
+
+        modified_output_config = {"room": 5,
+                                  "can_led_4_function": "UNKNOWN",
+                                  "floor": 3,
+                                  "can_led_1_id": 255,
+                                  "can_led_1_function": "UNKNOWN",
+                                  "timer": 30,
+                                  "can_led_4_id": 255,
+                                  "can_led_3_id": 255,
+                                  "can_led_2_function": "UNKNOWN",
+                                  "id": i,
+                                  "module_type": "O",
+                                  "can_led_3_function": "UNKNOWN",
+                                  "type": 255,
+                                  "can_led_2_id": 255,
+                                  "name": "Out{0}".format(i)}
+
+        modified_input_config = {"name": "timed203",
+                                 "basic_actions": "203,{0}".format(i),
+                                 "invert": 255,
+                                 "module_type": "I",
+                                 "can": "",
+                                 "action": 240,
+                                 "id": i,
+                                 "room": 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
+        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+
+        while time.time() - start < 780:
+            continue
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(910 > end - start > 890, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_time_no_overrule_25(self):
+        """
+        Testing the execution of an action (toggling output for 25m) without that does not overrule the timer
+        """
+        i = randint(0, 7)
+
+        modified_output_config = {"room": 5,
+                                  "can_led_4_function": "UNKNOWN",
+                                  "floor": 3,
+                                  "can_led_1_id": 255,
+                                  "can_led_1_function": "UNKNOWN",
+                                  "timer": 30,
+                                  "can_led_4_id": 255,
+                                  "can_led_3_id": 255,
+                                  "can_led_2_function": "UNKNOWN",
+                                  "id": i,
+                                  "module_type": "O",
+                                  "can_led_3_function": "UNKNOWN",
+                                  "type": 255,
+                                  "can_led_2_id": 255,
+                                  "name": "Out{0}".format(i+1)}
+
+        modified_input_config = {"name": "timed204",
+                                 "basic_actions": "204,{0}".format(i),
+                                 "invert": 255,
+                                 "module_type": "I",
+                                 "can": "",
+                                 "action": 240,
+                                 "id": i,
+                                 "room": 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
+        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+
+        while time.time() - start < 1380:
+            continue
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(1510 > end - start > 1490, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_time_no_overrule_37m(self):
+        """
+        Testing the execution of an action (toggling output for 37m) without that does not overrule the timer
+        """
+        i = randint(0, 7)
+
+        modified_output_config = {"room": 5,
+                                  "can_led_4_function": "UNKNOWN",
+                                  "floor": 3,
+                                  "can_led_1_id": 255,
+                                  "can_led_1_function": "UNKNOWN",
+                                  "timer": 30,
+                                  "can_led_4_id": 255,
+                                  "can_led_3_id": 255,
+                                  "can_led_2_function": "UNKNOWN",
+                                  "id": i,
+                                  "module_type": "O",
+                                  "can_led_3_function": "UNKNOWN",
+                                  "type": 255,
+                                  "can_led_2_id": 255,
+                                  "name": "Out{0}".format(i)}
+
+        modified_input_config = {"name": "timed205",
+                                 "basic_actions": "205,{0}".format(i),
+                                 "invert": 255,
+                                 "module_type": "I",
+                                 "can": "",
+                                 "action": 240,
+                                 "id": i,
+                                 "room": 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
+        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+
+        while time.time() - start < 2100:
+            continue
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(2230 > end - start > 2210, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+
+    @exception_handler
+    def test_time_no_overrule_52m(self):
+        """
+        Testing the execution of an action (toggling output for 52m) without that does not overrule the timer
+        """
+        i = randint(0, 7)
+
+        modified_output_config = {"room": 5,
+                                  "can_led_4_function": "UNKNOWN",
+                                  "floor": 3,
+                                  "can_led_1_id": 255,
+                                  "can_led_1_function": "UNKNOWN",
+                                  "timer": 30,
+                                  "can_led_4_id": 255,
+                                  "can_led_3_id": 255,
+                                  "can_led_2_function": "UNKNOWN",
+                                  "id": i,
+                                  "module_type": "O",
+                                  "can_led_3_function": "UNKNOWN",
+                                  "type": 255,
+                                  "can_led_2_id": 255,
+                                  "name": "Out{0}".format(i)}
+
+        modified_input_config = {"name": "timed206",
+                                 "basic_actions": "206,{0}".format(i),
+                                 "invert": 255,
+                                 "module_type": "I",
+                                 "can": "",
+                                 "action": 240,
+                                 "id": i,
+                                 "room": 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
+        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        start = time.time()
+
+        while time.time() - start < 3000:
+            continue
+        self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
+        time.sleep(0.2)
+        self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
+
+        result = self._check_if_event_is_captured(i, time.time(), 0)
+
+        end = time.time()
+        self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
+        self.assertTrue(3130 > end - start > 3110, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
 
     def _set_group_actions_config(self, token):
         config = []
