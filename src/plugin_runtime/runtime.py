@@ -1,8 +1,7 @@
-import sys
 import os
+import sys
 import traceback
 import time
-
 from threading import Thread
 
 import base
@@ -48,9 +47,9 @@ class PluginRuntime:
 
         # Add the plugin and it's eggs to the python path
         sys.path.insert(0, plugin_root)
-        for file in os.listdir(self._path):
-            if file.endswith(".egg"):
-                sys.path.append(os.path.join(self._path, file))
+        for egg_file in os.listdir(self._path):
+            if egg_file.endswith('.egg'):
+                sys.path.append(os.path.join(self._path, egg_file))
 
         # Expose plugins.base to the plugin
         sys.modules['plugins'] = sys.modules['__main__']
@@ -106,29 +105,28 @@ class PluginRuntime:
         """ Start all background tasks. """
         tasks = get_special_methods(self._plugin, 'background_task')
         for task in tasks:
-            thread = Thread(target=self._run_background_task, args=(task,))
-            thread.name = "Background thread (%s)" % task.__name__
+            thread = Thread(target=PluginRuntime._run_background_task, args=(task,))
+            thread.name = 'Background thread ({0})'.format(task.__name__)
             thread.daemon = True
             thread.start()
 
-    def _run_background_task(self, task):
+    @staticmethod
+    def _run_background_task(task):
         running = True
         while running:
             try:
                 task()
+                running = False  # Stop execution if the task returns without exception
             except Exception as exception:
-                log_exception("background task ", exception)
-                running = True
+                log_exception('background task', exception)
                 time.sleep(30)
-            else:
-                # Background task completed without Exception
-                running = False
 
     def run(self):
         while not self._stopped:
-            command = self._read_command()
+            command = PluginRuntime._wait_and_read_command()
 
             action = command['action']
+            ret = None
             if action == 'start':
                 ret = self._handle_start()
             elif action == 'stop':
@@ -152,26 +150,25 @@ class PluginRuntime:
             elif action == 'remove_callback':
                 ret = self._handle_remove_callback()
             else:
-                log('Unknown action: %s' % action)
+                log('Unknown action: {0}'.format(action))
 
-            response = { 'cid' : command['cid'], 'action' : action }
+            response = {'cid': command['cid'], 'action': action}
             if ret is not None:
                 response.update(ret)
             write(response)
 
-    def _read_command(self):
+    @staticmethod
+    def _wait_and_read_command():
         return json.loads(sys.stdin.readline().strip())
 
     def _handle_start(self):
-        return {
-              'name' : self._name,
-              'version' : self._version,
-              'receivers' : self._receivers,
-              'exposes' : self._exposes,
-              'interfaces' : self._interfaces,
-              'metric_collectors' : self._metric_collectors,
-              'metric_receivers' : self._metric_receivers
-        }
+        return {'name': self._name,
+                'version': self._version,
+                'receivers': self._receivers,
+                'exposes': self._exposes,
+                'interfaces': self._interfaces,
+                'metric_collectors': self._metric_collectors,
+                'metric_receivers': self._metric_receivers}
 
     def _handle_stop(self):
         def delayed_stop():
@@ -221,7 +218,7 @@ class PluginRuntime:
         try:
             return {'success': True, 'response': func(*args, **kwargs)}
         except Exception as exception:
-            return {'success': False, 'exception': '%s' % exception, 'stacktrace': traceback.format_exc()}
+            return {'success': False, 'exception': str(exception), 'stacktrace': traceback.format_exc()}
 
     def _handle_remove_callback(self):
         for method in get_special_methods(self._plugin, 'on_remove'):
@@ -231,11 +228,11 @@ class PluginRuntime:
                 log_exception('on remove', exception)
 
 def log(msg):
-    write({'cid':0, 'action':'logs', 'logs':'%s' % msg})
+    write({'cid': 0, 'action': 'logs', 'logs': str(msg)})
 
 
 def log_exception(name, exception):
-    log("Exception (%s) in %s: %s" % (exception, name, traceback.format_exc()))
+    log('Exception ({0}) in {1}: {2}'.format(exception, name, traceback.format_exc()))
 
 
 def with_catch(name, target, args):
@@ -251,8 +248,8 @@ def write(msg):
     sys.stdout.flush()
 
 
-def print_usage(exit_code):
-    sys.stderr.write("Usage: python %s start <path>\n" % sys.argv[0])
+def print_usage():
+    sys.stderr.write('Usage: python {0} start <path>\n'.format(sys.argv[0]))
 
 
 def watch_parent():
@@ -262,8 +259,8 @@ def watch_parent():
     while True:
         if os.getppid() != parent:
             os._exit(1)
-
         time.sleep(1)
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 3 or sys.argv[1] != 'start':

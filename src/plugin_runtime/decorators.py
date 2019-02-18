@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """ The OpenMotics plugin decorators. """
 
+
 def om_expose(method=None, auth=True, content_type='application/json'):
     """
     Decorator to expose a method of the plugin class through the
@@ -25,20 +26,20 @@ def om_expose(method=None, auth=True, content_type='application/json'):
 
     @om_expose
     def method_to_expose(self, ...):
-        ...
+        pass
 
     It is possible to expose a method without authentication: no token
     will be required to access the method, this is done as follows:
 
     @om_expose(auth=False)
     def method_to_expose(self, ...):
-        ...
+        pass
     """
-    def decorate(method):
-        method.om_expose = {'method': method,
-                            'auth': auth,
-                            'content_type': content_type}
-        return method
+    def decorate(_method):
+        _method.om_expose = {'method': _method,
+                             'auth': auth,
+                             'content_type': content_type}
+        return _method
 
     if method is not None:
         return decorate(method)

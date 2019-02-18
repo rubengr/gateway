@@ -17,12 +17,15 @@ class PluginException(Exception):
 
 
 class OMPluginBase(object):
-    """ Base class for an OpenMotics plugin. Every plugin package should contain a
+    """
+    Base class for an OpenMotics plugin. Every plugin package should contain a
     module with the name 'main' that contains a class that extends this class.
     """
+    name = 'OMPluginBase'
+
     def __init__(self, webinterface, logger):
-        """ The web interface is provided to the plugin to interface with the OpenMotics
-        system.
+        """
+        The web interface is provided to the plugin to interface with the OpenMotics system.
 
         :param webinterface: Reference the OpenMotics webinterface, this can be used to
         perform actions, fetch status data, etc.
@@ -35,7 +38,7 @@ class OMPluginBase(object):
 
     def __get_config_path(self):
         """ Get the path for the plugin configuration file based on the plugin name. """
-        return '/opt/openmotics/etc/pi_%s.conf' % self.__class__.name
+        return '/opt/openmotics/etc/pi_{0}.conf'.format(self.__class__.name)
 
     def read_config(self, default_config=None):
         """ Read the configuration file for the plugin: the configuration file contains json
@@ -53,8 +56,7 @@ class OMPluginBase(object):
             try:
                 return json.loads(config)
             except Exception as exception:
-                LOGGER.error("Exception while getting config for plugin '%s': "
-                             "%s", self.__class__.name, exception)
+                LOGGER.error('Exception while getting config for plugin \'{0}\': {1}'.format(self.__class__.name, exception))
 
         return default_config
 
@@ -68,7 +70,8 @@ class OMPluginBase(object):
 
 
 class PluginConfigChecker(object):
-    """ The standard configuration controller for plugins enables the plugin creator to easily
+    """
+    The standard configuration controller for plugins enables the plugin creator to easily
     implement the 'config' plugin interface. By specifying a configuration description, the
     PluginConfigController is able to verify if a configuration dict matches this description.
     The description is a list of dicts, each dict contains the 'name', 'type' and optionally
@@ -92,23 +95,28 @@ class PluginConfigChecker(object):
 
     An example of a description:
     [
-      {'name' : 'hostname', 'type' : 'str',      'description': 'The hostname of the server.', 'i18n': 'hostname'},
-      {'name' : 'port',     'type' : 'int',      'description': 'Port on the server.',         'i18n': 'port'},
-      {'name' : 'use_auth', 'type' : 'bool',     'description': 'Use authentication while connecting.'},
-      {'name' : 'password', 'type' : 'password', 'description': 'Your secret password.' },
-      {'name' : 'enumtest', 'type' : 'enum',     'description': 'Test for enum',
-       'choices': [ 'First', 'Second' ] },
+      {'name': 'hostname', 'type': 'str',      'description': 'The hostname of the server.', 'i18n': 'hostname'},
+      {'name': 'port',     'type': 'int',      'description': 'Port on the server.',         'i18n': 'port'},
+      {'name': 'use_auth', 'type': 'bool',     'description': 'Use authentication while connecting.'},
+      {'name': 'password', 'type': 'password', 'description': 'Your secret password.' },
+      {'name': 'enumtest', 'type': 'enum',     'description': 'Test for enum',
+       'choices': ['First', 'Second']},
 
-      {'name' : 'outputs', 'type' : 'section', 'repeat' : true, 'min' : 1,
-       'content' : [{'name' : 'output', 'type' : 'int'}]
-      },
+      {'name': 'outputs', 'type': 'section', 'repeat': True, 'min': 1,
+       'content': [{'name': 'output', 'type': 'int'}]},
 
-        { 'name' : 'network',  'type' : 'nested_enum', 'choices' : [
-            { 'value': 'Facebook',  'content' : [ { 'name' : 'likes', 'type' : 'int' } ] },
-            { 'value': 'Twitter',  'content' : [ { 'name' : 'followers', 'type' : 'int' } ] }
-        ] }
+      {'name': 'network', 'type': 'nested_enum', 'choices': [
+           {'value': 'Facebook', 'content': [{'name': 'likes', 'type': 'int'}]} ,
+           {'value': 'Twitter', 'content': [{'name': 'followers', 'type': 'int'}]}
+       ]}
     ]
     """
+
+    MISSES_KEY = 'The configuration item \'{0}\' does not contain a \'{1}\' key.'
+    KEY_INVALID_TYPE = 'The key \'{0}\' of configuration item \'{1}\' is not {2}.'
+    UNKNOWN_TYPE = 'The configuration item \'{0}\' contains unknown type \'{1}\'.'
+    CHOICES_INVALID_TYPE = 'An element of the \'choices\' list of configuration item \'{0}\' is not {1}.'
+    CONFIG_INVALID_TYPE = 'Config \'{0}\': \'{1}\' is not {2}.'
 
     def __init__(self, description):
         """
@@ -121,24 +129,17 @@ class PluginConfigChecker(object):
     def _check_description(self, description):
         """ Checks if a plugin configuration description is valid. """
         if not isinstance(description, list):
-            raise PluginException("The configuration description is not a list")
+            raise PluginException('The configuration description is not a list')
         else:
             for item in description:
-                if 'name' not in item:
-                    raise PluginException("The configuration item '%s' does not contain a 'name' key." % item)
-                if not isinstance(item['name'], basestring):
-                    raise PluginException("The key 'name' of configuration item '%s' is not a string." % item)
-
-                if 'type' not in item:
-                    raise PluginException("The configuration item '%s' does not contain a 'type' key." % item)
-                if not isinstance(item['type'], basestring):
-                    raise PluginException("The key 'type' of configuration item '%s' is not a string." % item)
-
-                if 'description' in item and not isinstance(item['description'], basestring):
-                    raise PluginException("The key 'description' of configuration item '%s' is not a string." % item)
-
-                if 'i18n' in item and not isinstance(item['i18n'], basestring):
-                    raise PluginException("The key 'i18n' of configuration item '%s' is not a string." % item)
+                for key, mandatory in {'name': True,
+                                       'type': True,
+                                       'description': False,
+                                       'i18n': False}.iteritems():
+                    if mandatory is True and key not in item:
+                        raise PluginException(PluginConfigChecker.MISSES_KEY.format(item, key))
+                    if key in item and not isinstance(item[key], basestring):
+                        raise PluginException(PluginConfigChecker.KEY_INVALID_TYPE.format(key, item, 'a string'))
 
                 if item['type'] == 'enum':
                     PluginConfigChecker._check_enum(item)
@@ -147,135 +148,108 @@ class PluginConfigChecker(object):
                 elif item['type'] == 'nested_enum':
                     self._check_nested_enum(item)
                 elif item['type'] not in ['str', 'int', 'bool', 'password']:
-                    raise PluginException("Configuration item '%s' contains unknown type '%s'." % (item, item['type']))
+                    raise PluginException(PluginConfigChecker.UNKNOWN_TYPE.format(item, item['type']))
 
     @staticmethod
     def _check_enum(item):
         """ Check an enum configuration description. """
         if 'choices' not in item:
-            raise PluginException(
-                    "The configuration item '%s' does not contain a 'choices' key." % item)
-
+            raise PluginException(PluginConfigChecker.MISSES_KEY.format(item, 'choices'))
         if not isinstance(item['choices'], list):
-            raise PluginException(
-                    "The key 'choices' of configuration item '%s' is not a list." % item)
+            raise PluginException(PluginConfigChecker.KEY_INVALID_TYPE.format('choices', item, 'a list'))
 
         for choice in item['choices']:
             if not isinstance(choice, basestring):
-                raise PluginException("An element of the 'choices' list of configuration item"
-                                      " '%s' is not a string." % item)
+                raise PluginException(PluginConfigChecker.CHOICES_INVALID_TYPE.format(item, 'a string'))
 
     def _check_section(self, item):
         """ Check an section configuration description. """
         if 'repeat' in item and not isinstance(item['repeat'], bool):
-            raise PluginException(
-                    "The key 'repeat' of configuration item '%s' is not a bool." % item)
+            raise PluginException(PluginConfigChecker.KEY_INVALID_TYPE.format('repeat', item, 'a bool'))
 
         if ('repeat' not in item or item['repeat'] is False) and 'min' in item:
-            raise PluginException("The configuration item '%s' does contains a 'min' key but "
-                                  "is not repeatable." % item)
+            raise PluginException('The configuration item \'%s\' does contains a \'min\' key but is not repeatable.'.format(item))
 
         if 'min' in item and not isinstance(item['min'], int):
-            raise PluginException("The key 'min' of configuration item '%s' is not an int." % item)
+            raise PluginException(PluginConfigChecker.KEY_INVALID_TYPE.format('min', item, 'an int'))
 
         if 'content' not in item:
-            raise PluginException("The configuration item '%s' does not contain a 'content' key."
-                                  % item)
+            raise PluginException(PluginConfigChecker.MISSES_KEY.format(item, 'content'))
 
         try:
             self._check_description(item['content'])
         except PluginException as exception:
-            raise PluginException("Exception in 'content': %s" % exception)
+            raise PluginException('Exception in \'content\': {0}'.format(exception))
 
     def _check_nested_enum(self, item):
         """ Check a nested enum configuration description. """
         if 'choices' not in item:
-            raise PluginException("The configuration item '%s' does not contain a "
-                                  "'choices' key." % item)
-
+            raise PluginException(PluginConfigChecker.MISSES_KEY.format(item, 'choices'))
         if not isinstance(item['choices'], list):
-            raise PluginException(
-                    "The key 'choices' of configuration item '%s' is not a list." % item)
+            raise PluginException(PluginConfigChecker.KEY_INVALID_TYPE.format('choices', item, 'a list'))
 
         for choice in item['choices']:
             if not isinstance(choice, dict):
-                raise PluginException("An element of the 'choices' list of configuration item '%s'"
-                                      " is not a dict." % item)
+                raise PluginException(PluginConfigChecker.KEY_INVALID_TYPE.format('choices', item, 'a dict'))
 
-            if 'value' not in choice:
-                raise PluginException("The choices dict '%s' of item '%s' does not contain a "
-                                      "'value' key." % (choice, item['name']))
+            for key in ['value', 'content']:
+                if key not in choice:
+                    raise PluginException('The choices dict \'{0}\' of item \'{1}\' does not contain a \'{2}\' key.'.format(choice, item['name'], key))
 
             if not isinstance(choice['value'], str):
-                raise PluginException("The 'value' key of choices dict '%s' of item '%s' is not "
-                                      "a string." % (choice, item['name']))
-
-            if 'content' not in choice:
-                raise PluginException("The choices dict '%s' of item '%s' does not contain "
-                                      "a 'content' key." % (choice, item['name']))
+                raise PluginException('The \'value\' key of choices dict \'{0}\' of item \'{1}\' is not a string.'.format(choice, item['name']))
 
             try:
                 self._check_description(choice['content'])
             except PluginException as exception:
-                raise PluginException("Exception in 'choices' - 'content': %s" % exception)
+                raise PluginException('Exception in \'choices\' - \'content\': {0}'.format(exception))
 
     def check_config(self, config):
-        """ Check if a config is valid for the description.
+        """
+        Check if a config is valid for the description.
         Raises a PluginException if the config is not valid.
         """
         self._check_config(config, self.__description)
 
     def _check_config(self, config, description):
-        """ Check if a config is valid for this description.
+        """
+        Check if a config is valid for this description.
         Raises a PluginException if the config is not valid.
         """
         if not isinstance(config, dict):
-            raise PluginException("The config '%s' is not a dict" % config)
+            raise PluginException('The config \'{0}\' is not a dict'.format(config))
 
         for item in description:
             name = item['name']
             if name not in config:
-                raise PluginException("The config does not contain key '%s'" % name)
+                raise PluginException('The config does not contain key \'{0}\'.'.format(name))
 
-            if item['type'] == 'str':
-                if not isinstance(config[name], basestring):
-                    raise PluginException("Config '%s': '%s' is not a string" %
-                                          (name, config[name]))
-            elif item['type'] == 'int':
-                if not isinstance(config[name], int):
-                    raise PluginException("Config '%s': '%s' is not an int" % (name, config[name]))
-            elif item['type'] == 'bool':
-                if not isinstance(config[name], bool):
-                    raise PluginException("Config '%s': '%s' is not a bool" % (name, config[name]))
-            elif item['type'] == 'password':
-                if not isinstance(config[name], basestring):
-                    raise PluginException("Config '%s': '%s' is not a str" % (name, config[name]))
-            elif item['type'] == 'enum':
+            for key, type_info in {'str': (basestring, 'a string'),
+                                   'int': (int, 'an int'),
+                                   'bool': (bool, 'a bool'),
+                                   'password': (basestring, 'a string'),
+                                   'section': (list, 'a list')}.iteritems():
+                if item['type'] == key and not isinstance(config[name], type_info[0]):
+                    raise PluginException(PluginConfigChecker.CONFIG_INVALID_TYPE.format(name, config[name], type_info[1]))
+
+            if item['type'] == 'enum':
                 if config[name] not in item['choices']:
-                    raise PluginException("Config '%s': '%s' is not in the choices '%s'" %
-                                          (name, config[name], item['choices']))
+                    raise PluginException('Config \'{0}\': \'{1}\' is not in the choices: {2}'.format(name, config[name], ', '.format(item['choices'])))
             elif item['type'] == 'section':
-                if not isinstance(config[name], list):
-                    raise PluginException("Config '%s': '%s' is not a list" % (name, config[name]))
-
                 for config_section in config[name]:
                     try:
                         self._check_config(config_section, item['content'])
                     except PluginException as exception:
-                        raise PluginException("Exception in section list: %s" % exception)
+                        raise PluginException('Exception in section list: {0}'.format(exception))
             elif item['type'] == 'nested_enum':
                 if not isinstance(config[name], list) or len(config[name]) != 2:
-                    raise PluginException("Config '%s': '%s' is not a list of length 2" %
-                                          (name, config[name]))
+                    raise PluginException('Config \'{0}\': \'{1}\' is not a list of length 2'.format(name, config[name]))
 
-                choices = [c['value'] for c in item['choices']]
+                choices = [choice['value'] for choice in item['choices']]
                 try:
                     i = choices.index(config[name][0])
+                    self._check_config(config[name][1], item['choices'][i]['content'])
+                except PluginException as ex:
+                    raise PluginException("Exception in nested_enum dict: %s" % ex)
                 except ValueError:
-                    raise PluginException("Config '%s': '%s' is not in the choices '%s'" %
-                                          (name, config[name], choices))
-                else:
-                    try:
-                        self._check_config(config[name][1], item['choices'][i]['content'])
-                    except PluginException as exception:
-                        raise PluginException("Exception in nested_enum dict: %s" % exception)
+                    raise PluginException('Config \'{0}\': \'{1}\' is not in the choices: {2}'.format(name, config[name], ', '.join(choices)))
