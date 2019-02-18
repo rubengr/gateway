@@ -339,20 +339,30 @@ def main():
     args = parser.parse_args()
 
     log_file = None
-    if args.log is not None:
-        log_file = open(args.log, 'a')
-        logger = lambda msg: log_file.write('%s\n' % msg)
-    else:
-        logger = lambda msg: sys.stdout.write('%s\n' % msg)
+    try:
+        if args.log is not None:
+            try:
+                log_file = open(args.log, 'a')
+            except IOError as ex:
+                print 'Could not open the requested log file: {0}'.format(ex)
+                return False
+            logger = lambda msg: log_file.write('{0}\n'.format(msg))
+        else:
+            logger = lambda msg: sys.stdout.write('{0}\n'.format(msg))
+        try:
+            with open(args.file, 'r') as _:
+                pass
+        except IOError as ex:
+            print 'Could not open hex: {0}'.format(ex)
+            return False
 
-    # The type argument is lowercase for backwards compatibility reasons. However, all subsequent calls need the correct type
-    module_type = args.type.upper()
+        # The type argument is lowercase for backwards compatibility reasons. However, all subsequent calls need the correct type
+        module_type = args.type.upper()
 
-    update_success = bootload_modules(module_type, args.file, args.verbose, logger)
-
-    if log_file is not None:
-        log_file.flush()
-        log_file.close()
+        update_success = bootload_modules(module_type, args.file, args.verbose, logger)
+    finally:
+        if log_file is not None:
+            log_file.close()
 
     return update_success
 
