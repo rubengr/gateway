@@ -143,16 +143,16 @@ class PluginRunner:
             self._stopped = True
 
     def process_input_status(self, status):
-        self._do_async('input_status', {'status': status}, filter=True)
+        self._do_async('input_status', {'status': status}, should_filter=True)
 
     def process_output_status(self, status):
-        self._do_async('output_status', {'status': status}, filter=True)
+        self._do_async('output_status', {'status': status}, should_filter=True)
 
     def process_shutter_status(self, status):
-        self._do_async('shutter_status', {'status': status}, filter=True)
+        self._do_async('shutter_status', {'status': status}, should_filter=True)
 
     def process_event(self, code):
-        self._do_async('process_event', {'code': code}, filter=True)
+        self._do_async('process_event', {'code': code}, should_filter=True)
 
     def collect_metrics(self):
         for mc in self._metric_collectors:
