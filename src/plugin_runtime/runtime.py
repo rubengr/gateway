@@ -4,10 +4,12 @@ import traceback
 import time
 from threading import Thread
 
-import base
-from utils import get_plugin_class, check_plugin, get_special_methods
-from interfaces import has_interface
-from web import WebInterfaceDispatcher
+sys.path.insert(0, '/opt/openmotics/python')
+
+from plugin_runtime import base
+from plugin_runtime.utils import get_plugin_class, check_plugin, get_special_methods
+from plugin_runtime.interfaces import has_interface
+from plugin_runtime.web import WebInterfaceDispatcher
 
 try:
     import json

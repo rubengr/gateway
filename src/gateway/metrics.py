@@ -157,13 +157,13 @@ class MetricsController(object):
         #                  "type": "counter",
         #                  "unit": "kWh"}]
         # }
-        required_keys = {'type': str,
+        required_keys = {'type': basestring,
                          'metrics': list,
                          'tags': list}
-        metrics_keys = {'name': str,
-                        'description': str,
-                        'type': str,
-                        'unit': str}
+        metrics_keys = {'name': basestring,
+                        'description': basestring,
+                        'type': basestring,
+                        'unit': basestring}
         definitions = self._plugin_controller.get_metric_definitions()
         for plugin, plugin_definitions in definitions.iteritems():
             log = self._plugin_controller.get_logger(plugin)
@@ -402,7 +402,7 @@ class MetricsController(object):
                 # Validation, part 1
                 source = metric['source']
                 log = self._plugin_controller.get_logger(source)
-                required_keys = {'type': str,
+                required_keys = {'type': basestring,
                                  'timestamp': (float, int),
                                  'values': dict,
                                  'tags': dict}

@@ -92,13 +92,16 @@ def params_parser(params, param_types):
         value = params[key]
         if value is None:
             continue
-        if isinstance(value, basestring) and value.lower() in ['null', 'none']:
+        if isinstance(value, basestring) and value.lower() in ['null', 'none', '']:
             params[key] = None
         else:
             if param_types[key] == bool:
                 params[key] = str(value).lower() not in ['false', '0', '0.0', 'no']
             elif param_types[key] == 'json':
                 params[key] = json.loads(value)
+            elif param_types[key] == int:
+                # Double convertion. Params come in as strings, and int('0.0') fails, while int(float('0.0')) works as expected
+                params[key] = int(float(value))
             else:
                 params[key] = param_types[key](value)
 
@@ -111,7 +114,8 @@ def params_handler(**kwargs):
     except ValueError:
         cherrypy.response.headers['Content-Type'] = 'application/json'
         cherrypy.response.status = 406
-        cherrypy.response.body = '"invalid_parameters"'
+        cherrypy.response.body = json.dumps({'success': False,
+                                             'msg': 'invalid_parameters'})
         request.handler = None
 
 

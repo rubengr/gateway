@@ -73,10 +73,14 @@ class WebInterfaceDispatcher(object):
             # 2. Convert to kwargs, so it's possible to do parameter parsing
             for i in xrange(len(args)):
                 kwargs[params[i]] = args[i]
-            # 3. Perform the http call
-            request = requests.post('http://{0}:{1}/{2}/'.format(self.__hostname, self.__port, name),
-                                    data=kwargs,
+            # 3. Make sure empty (`None` value) params are included
+            for arg in kwargs:
+                if kwargs[arg] is None:
+                    kwargs[arg] = 'None'
+            # 4. Perform the http call
+            response = requests.get('http://{0}:{1}/{2}'.format(self.__hostname, self.__port, name),
+                                    params=kwargs,
                                     timeout=30.0)
-            return json.loads(request.text)
+            return response.text
 
         return wrapper

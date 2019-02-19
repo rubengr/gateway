@@ -335,7 +335,7 @@ class PluginController(object):
 
         def log(msg):
             """ Log function for the given plugin."""
-            LOGGER.info('PLUGIN {0}: {1}'.format(plugin_name, msg))
+            LOGGER.info('Plugin {0}: {1}'.format(plugin_name, msg))
             self.__logs[plugin_name].append('{0} - {1}'.format(datetime.now(), msg))
             if len(self.__logs[plugin_name]) > 100:
                 self.__logs[plugin_name].pop(0)

@@ -80,7 +80,7 @@ class PluginRunner:
         self._metric_collectors = start_out['metric_collectors']
         self._metric_receivers = start_out['metric_receivers']
 
-        self._async_command_queue = Queue(100)
+        self._async_command_queue = Queue(1000)
         self._async_command_thread = Thread(target=self._perform_async_commands,
                                             name='PluginRunner {0} async thread'.format(self.plugin_path))
         self._async_command_thread.daemon = True
