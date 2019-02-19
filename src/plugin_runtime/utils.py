@@ -4,6 +4,7 @@ import re
 from plugin_runtime.base import PluginException, OMPluginBase
 from plugin_runtime.interfaces import check_interfaces
 
+
 def get_plugin_class(package_name):
     """ Get the plugin class using the name of the plugin package. """
     plugin = __import__(package_name, globals(), locals(), ['main'])
@@ -13,11 +14,15 @@ def get_plugin_class(package_name):
         raise PluginException('Module main was not found in plugin {0}'.format(package_name))
 
     for _, obj in inspect.getmembers(plugin.main):
-        if inspect.isclass(obj) and issubclass(obj, OMPluginBase) and obj is not OMPluginBase:
-            if plugin_class is None:
-                plugin_class = obj
-            else:
-                raise PluginException('Found multiple OMPluginBase classes in {0}.main'.format(package_name))
+        if not inspect.isclass(obj):
+            continue
+        mro = inspect.getmro(obj)
+        if len(mro) < 2 or OMPluginBase.__name__ not in str(mro[1]):
+            continue
+        if plugin_class is None:
+            plugin_class = obj
+        else:
+            raise PluginException('Found multiple OMPluginBase classes in {0}.main'.format(package_name))
 
     if plugin_class is not None:
         return plugin_class
@@ -30,21 +35,21 @@ def check_plugin(plugin_class):
     Raises PluginException when the attributes are not present.
     """
     if not hasattr(plugin_class, 'name'):
-        raise PluginException('attribute \'name\' is missing from the plugin class')
+        raise PluginException('Attribute \'name\' is missing from the plugin class')
 
     # Check if valid plugin name
     if not re.match(r'^[a-zA-Z0-9_]+$', plugin_class.name):
         raise PluginException('Plugin name \'{0}\' is malformed: can only contain letters, numbers and underscores.'.format(plugin_class.name))
 
     if not hasattr(plugin_class, 'version'):
-        raise PluginException('attribute \'version\' is missing from the plugin class')
+        raise PluginException('Attribute \'version\' is missing from the plugin class')
 
     # Check if valid version (a.b.c)
     if not re.match(r'^[0-9]+\.[0-9]+\.[0-9]+$', plugin_class.version):
         raise PluginException('Plugin version \'{0}\' is malformed: expected \'a.b.c\' where a, b and c are numbers.'.format(plugin_class.version))
 
     if not hasattr(plugin_class, 'interfaces'):
-        raise PluginException('attribute \'interfaces\' is missing from the plugin class')
+        raise PluginException('Attribute \'interfaces\' is missing from the plugin class')
 
     check_interfaces(plugin_class)
 

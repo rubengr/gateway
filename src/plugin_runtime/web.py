@@ -1,3 +1,4 @@
+import os
 import re
 import requests
 
@@ -12,8 +13,9 @@ def _load_webinterface():
     This method parses the webinterface sourcecode and parses all API calls that are available to the plugins.
     It uses this method to prevent the runtime from having to load the file and its dependencies.
     """
+    import gateway
     def_regex = re.compile(r'^\s*?def ([^(]+)\((.*?)\):\s*$')
-    with open('/opt/openmotics/python/gateway/webservice.py', 'r') as source:
+    with open('{0}/webservice.py'.format(gateway.__path__[0]), 'r') as source:
         contents = source.readlines()
     calls = {}
     found_call = False

@@ -14,576 +14,494 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Tests for plugins.base.
-
-@author: fryckbos
 """
-
-import unittest
 
 import os
 import shutil
+import time
+import unittest
 
 import plugins
+import plugin_runtime
+from plugin_runtime.base import PluginConfigChecker, PluginException
 
 BASE_PATH = os.path.dirname(plugins.__file__)
+RUNTIME_PATH = os.path.dirname(plugin_runtime.__file__)
 
-from plugins.base import PluginConfigChecker, PluginException
 
 class PluginControllerTest(unittest.TestCase):
     """ Tests for the PluginController. """
 
-    def create_plugin(self, name, code):
+    @staticmethod
+    def create_plugin(name, code):
         """ Create a plugin with a given name and the provided code. """
-        path = "%s/%s" % (BASE_PATH, name)
+        path = '{0}/{1}'.format(BASE_PATH, name)
         os.makedirs(path)
 
-        code_file = open("%s/main.py" % path, "w")
-        code_file.write(code)
-        code_file.close()
+        with open('{0}/main.py'.format(path), 'w') as code_file:
+            code_file.write(code)
 
-        init_file = open("%s/__init__.py" % path, "w")
-        init_file.close()
+        with open('{0}/__init__.py'.format(path), 'w'):
+            pass
 
-    def destroy_plugin(self, name):
+    @staticmethod
+    def destroy_plugin(name):
         """ Remove the code for a plugin created by create_plugin. """
-        path = "%s/%s" % (BASE_PATH, name)
+        path = '{0}/{1}'.format(BASE_PATH, name)
         if os.path.exists(path):
             shutil.rmtree(path)
 
     def test_get_one_plugin(self):
         """ Test getting one plugin in the plugins package. """
+        controller = None
         try:
-            self.create_plugin("test", """
+            PluginControllerTest.create_plugin('test', """
 from plugins.base import *
 
 class P1(OMPluginBase):
-    name = "P1"
-    version = "1.0.0"
+    name = 'P1'
+    version = '1.0.0'
     interfaces = []
 """)
             from plugins.base import PluginController
 
-            controller = PluginController(None, None)
+            controller = PluginController(None, None, RUNTIME_PATH)
             plugin_list = controller.get_plugins()
             self.assertEquals(1, len(plugin_list))
-            self.assertEquals("P1", plugin_list[0].name)
+            self.assertEquals('P1', plugin_list[0].name)
         finally:
-            self.destroy_plugin("test")
+            if controller is None:
+                controller.stop()
+            PluginControllerTest.destroy_plugin('test')
 
     def test_get_two_plugins(self):
         """ Test getting two plugins in the plugins package. """
+        controller = None
         try:
-            self.create_plugin("test1", """
+            PluginControllerTest.create_plugin('test1', """
 from plugins.base import *
 
 class P1(OMPluginBase):
-    name = "P1"
-    version = "1.0.0"
+    name = 'P1'
+    version = '1.0.0'
     interfaces = []
 """)
 
-            self.create_plugin("test2", """
+            PluginControllerTest.create_plugin('test2', """
 from plugins.base import *
 
 class P2(OMPluginBase):
-    name = "P2"
-    version = "1.0.0"
+    name = 'P2'
+    version = '1.0.0'
     interfaces = []
 """)
 
             from plugins.base import PluginController
 
-            controller = PluginController(None, None)
+            controller = PluginController(None, None, RUNTIME_PATH)
             plugin_list = controller.get_plugins()
             self.assertEquals(2, len(plugin_list))
 
-            self.assertEquals("P2", plugin_list[0].name)
-            self.assertEquals("P1", plugin_list[1].name)
+            self.assertEquals('P2', plugin_list[0].name)
+            self.assertEquals('P1', plugin_list[1].name)
         finally:
-            self.destroy_plugin("test1")
-            self.destroy_plugin("test2")
-
+            if controller is None:
+                controller.stop()
+            PluginControllerTest.destroy_plugin('test1')
+            PluginControllerTest.destroy_plugin('test2')
 
     def test_get_special_methods(self):
         """ Test getting special methods on a plugin. """
-        from plugins.base import OMPluginBase, om_expose, input_status, output_status, \
-                                 background_task
+        controller = None
+        try:
+            PluginControllerTest.create_plugin('test', """
+import time
+from plugins.base import *
 
-        class P1(OMPluginBase):
-            """ Plugin 1. """
-            name = "P1"
-            version = "0.1.0"
-            interfaces = [("webui", "1.0")]
+class P1(OMPluginBase):
+    name = 'P1'
+    version = '0.1.0'
+    interfaces = [('webui', '1.0')]
 
-            def __init__(self, webservice, logger):
-                OMPluginBase.__init__(self, webservice, logger)
+    def __init__(self, webservice, logger):
+        OMPluginBase.__init__(self, webservice, logger)
+        self._bg_running = False
+        self._input_data = None
+        self._output_data = None
 
-            @om_expose(auth=True)
-            def html_index(self):
-                """ Nothing. """
-                pass
+    @om_expose(auth=True)
+    def html_index(self):
+        return 'HTML'
 
-            @om_expose(auth=False)
-            def get_log(self):
-                """ Nothing. """
-                pass
+    @om_expose(auth=False)
+    def get_log(self):
+        return {'bg_running': self._bg_running,
+                'input_data': self._input_data,
+                'output_data': self._output_data}
 
-            @input_status
-            def input(self, input_status_inst):
-                """ Nothing. """
-                pass
+    @input_status
+    def input(self, input_status_inst):
+        self._input_data = input_status_inst
 
-            @output_status
-            def output(self, output_status_inst):
-                """ Nothing. """
-                pass
+    @output_status
+    def output(self, output_status_inst):
+        self._output_data = output_status_inst
 
-            @background_task
-            def run(self):
-                """ Nothing. """
-                pass
+    @background_task
+    def run(self):
+        while True:
+            self._bg_running = True
+            time.sleep(1)
+""")
 
-        from plugins.base import PluginController
+            from plugins.base import PluginController
 
-        controller = PluginController(None, None)
-        plugin1 = P1(None, None)
+            controller = PluginController(None, None, RUNTIME_PATH)
 
-        ins = controller._get_special_methods(plugin1, "input_status")
-        self.assertEquals(1, len(ins))
-        self.assertEquals("input", ins[0].__name__)
+            response = controller._request('P1', 'html_index')
+            self.assertEqual(response, 'HTML')
 
-        outs = controller._get_special_methods(plugin1, "output_status")
-        self.assertEquals(1, len(outs))
-        self.assertEquals("output", outs[0].__name__)
+            controller.process_input_status({'input': 'INPUT',
+                                             'output': 'OUTPUT'})
+            controller.process_output_status('OUTPUT')
 
-        bts = controller._get_special_methods(plugin1, "background_task")
-        self.assertEquals(1, len(bts))
-        self.assertEquals("run", bts[0].__name__)
+            start = time.time()
+            while time.time() - start < 2:
+                response = controller._request('P1', 'get_log')
+                if response['input_data'] is not None and response['output_data'] is not None:
+                    break
+                time.sleep(0.1)
+            self.assertEqual(response, {'bg_running': True,
+                                        'input_data': ['INPUT', 'OUTPUT'],
+                                        'output_data': 'OUTPUT'})
+        finally:
+            if controller is None:
+                controller.stop()
+            PluginControllerTest.destroy_plugin('test')
 
     def test_check_plugin(self):
         """ Test the exception that can occur when checking a plugin. """
-        from plugins.base import OMPluginBase, om_expose, input_status, output_status, \
-                                 background_task
+        from plugin_runtime.utils import check_plugin
+        from plugin_runtime.base import OMPluginBase
 
         from plugins.base import PluginController
-        controller = PluginController(None, None)
+        PluginController(None, None)
 
         class P1(OMPluginBase):
             """ Plugin without name. """
             pass
 
         try:
-            controller.check_plugin(P1)
+            check_plugin(P1)
         except PluginException as exception:
-            self.assertEquals("attribute 'name' is missing from the plugin class", str(exception))
+            self.assertEquals('Attribute \'name\' is missing from the plugin class', str(exception))
 
         class P2(OMPluginBase):
             """ Plugin with malformed name. """
-            name = "malformed name"
+            name = 'malformed name'
 
         try:
-            controller.check_plugin(P2)
+            check_plugin(P2)
         except PluginException as exception:
-            self.assertEquals("Plugin name 'malformed name' is malformed: "
-                              "can only contain letters, numbers and underscores.", str(exception))
+            self.assertEquals('Plugin name \'malformed name\' is malformed: can only contain letters, numbers and underscores.', str(exception))
 
         class P3(OMPluginBase):
             """ Plugin without version. """
-            name = "test_name123"
+            name = 'test_name123'
 
         try:
-            controller.check_plugin(P3)
+            check_plugin(P3)
         except PluginException as exception:
-            self.assertEquals("attribute 'version' is missing from the plugin class",
-                              str(exception))
+            self.assertEquals('Attribute \'version\' is missing from the plugin class', str(exception))
 
         class P4(OMPluginBase):
             """ Plugin without interfaces. """
-            name = "test"
-            version = "1.0.0"
+            name = 'test'
+            version = '1.0.0'
 
         try:
-            controller.check_plugin(P4)
+            check_plugin(P4)
         except PluginException as exception:
-            self.assertEquals("attribute 'interfaces' is missing from the plugin class",
-                              str(exception))
+            self.assertEquals('Attribute \'interfaces\' is missing from the plugin class', str(exception))
 
         class P5(OMPluginBase):
             """ Valid plugin. """
-            name = "test"
-            version = "1.0.0"
+            name = 'test'
+            version = '1.0.0'
             interfaces = []
 
-        controller.check_plugin(P5)
+        check_plugin(P5)
 
         class P6(OMPluginBase):
             """ Plugin that violates the webui interface. """
-            name = "test"
-            version = "1.0.0"
-            interfaces = [("webui", "1.0")]
+            name = 'test'
+            version = '1.0.0'
+            interfaces = [('webui', '1.0')]
 
         try:
-            controller.check_plugin(P6)
+            check_plugin(P6)
         except PluginException as exception:
-            self.assertEquals("Plugin 'test' has no method named 'html_index'", str(exception))
+            self.assertEquals('Plugin \'test\' has no method named \'html_index\'', str(exception))
+
 
 FULL_DESCR = [
-    {'name' : 'hostname', 'type' : 'str', 'description': 'The hostname of the server.'},
-    {'name' : 'port', 'type' : 'int', 'description': 'Port on the server.'},
-    {'name' : 'use_auth', 'type' : 'bool', 'description': 'Use authentication while connecting.'},
-    {'name' : 'password', 'type' : 'password', 'description': 'Your secret password.'},
-    {'name' : 'enumtest', 'type' : 'enum',
-     'description': 'Test for enum', 'choices': ['First', 'Second']},
-
-    {'name' : 'outputs', 'type' : 'section', 'repeat' : True, 'min' : 1,
-     'content' : [{'name' : 'output', 'type' : 'int'}]
-    },
-
-    {'name' : 'network', 'type' : 'nested_enum', 'choices' : [
-        {'value': 'Facebook', 'content' : [{'name' : 'likes', 'type' : 'int'}]},
-        {'value': 'Twitter', 'content' : [{'name' : 'followers', 'type' : 'int'}]}
-    ]}
+    {'name': 'hostname', 'type': 'str', 'description': 'The hostname of the server.'},
+    {'name': 'port', 'type': 'int', 'description': 'Port on the server.'},
+    {'name': 'use_auth', 'type': 'bool', 'description': 'Use authentication while connecting.'},
+    {'name': 'password', 'type': 'password', 'description': 'Your secret password.'},
+    {'name': 'enumtest', 'type': 'enum', 'description': 'Test for enum',
+     'choices': ['First', 'Second']},
+    {'name': 'outputs', 'type': 'section', 'repeat': True, 'min': 1,
+     'content': [
+        {'name': 'output', 'type': 'int'}
+     ]},
+    {'name': 'network', 'type': 'nested_enum',
+     'choices': [
+        {'value': 'Facebook', 'content': [{'name': 'likes', 'type': 'int'}]},
+        {'value': 'Twitter', 'content': [{'name': 'followers', 'type': 'int'}]}
+     ]}
 ]
+
 
 class PluginConfigCheckerTest(unittest.TestCase):
     """ Tests for the PluginConfigChecker. """
 
     def test_constructor(self):
         """ Test for the constructor. """
+        _ = self
         PluginConfigChecker(FULL_DESCR)
 
     def test_constructor_error(self):
         """ Test with an invalid data type """
-        try:
-            PluginConfigChecker({'test' : 123})
-            self.fail("Expected PluginException")
-        except PluginException as exception:
-            self.assertTrue('list' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker({'test': 123})
+        self.assertTrue('list' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'test' : 123}])
-            self.fail("Expected PluginException")
-        except PluginException as exception:
-            self.assertTrue('name' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'test': 123}])
+        self.assertTrue('name' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 123}])
-            self.fail("Expected PluginException")
-        except PluginException as exception:
-            self.assertTrue('name' in str(exception) and 'string' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 123}])
+        self.assertTrue('name' in str(ex.exception) and 'string' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'test'}])
-            self.fail("Expected PluginException")
-        except PluginException as exception:
-            self.assertTrue('type' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'test'}])
+        self.assertTrue('type' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'test', 'type' : 123}])
-            self.fail("Expected PluginException")
-        except PluginException as exception:
-            self.assertTrue('type' in str(exception) and 'string' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'test', 'type': 123}])
+        self.assertTrue('type' in str(ex.exception) and 'string' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'test', 'type' : 'something_else'}])
-            self.fail("Expected PluginException")
-        except PluginException as exception:
-            self.assertTrue('type' in str(exception) and 'something_else' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'test', 'type': 'something_else'}])
+        self.assertTrue('type' in str(ex.exception) and 'something_else' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'test', 'type' : 'str', 'description': []}])
-            self.fail("Expected PluginException")
-        except PluginException as exception:
-            self.assertTrue('description' in str(exception) and 'string' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'test', 'type': 'str', 'description': []}])
+        self.assertTrue('description' in str(ex.exception) and 'string' in str(ex.exception))
 
     def test_constructor_str(self):
         """ Test for the constructor for str. """
-        PluginConfigChecker([{'name' : 'hostname', 'type' : 'str',
-                              'description': 'The hostname of the server.'}])
-        PluginConfigChecker([{'name' : 'hostname', 'type' : 'str'}])
+        PluginConfigChecker([{'name': 'hostname', 'type': 'str', 'description': 'The hostname of the server.'}])
+        PluginConfigChecker([{'name': 'hostname', 'type': 'str'}])
 
-        try:
-            PluginConfigChecker([{'type' : 'str'}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('name' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'type': 'str'}])
+        self.assertTrue('name' in str(ex.exception))
 
     def test_constructor_int(self):
         """ Test for the constructor for int. """
-        PluginConfigChecker([{'name' : 'port', 'type' : 'int',
-                              'description': 'Port on the server.'}])
-        PluginConfigChecker([{'name' : 'port', 'type' : 'int'}])
+        PluginConfigChecker([{'name': 'port', 'type': 'int', 'description': 'Port on the server.'}])
+        PluginConfigChecker([{'name': 'port', 'type': 'int'}])
 
-        try:
-            PluginConfigChecker([{'type' : 'int'}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('name' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'type': 'int'}])
+        self.assertTrue('name' in str(ex.exception))
 
     def test_constructor_bool(self):
         """ Test for the constructor for bool. """
-        PluginConfigChecker([{'name' : 'use_auth', 'type' : 'bool',
-                              'description': 'Use authentication while connecting.'}])
-        PluginConfigChecker([{'name' : 'use_auth', 'type' : 'bool'}])
+        PluginConfigChecker([{'name': 'use_auth', 'type': 'bool', 'description': 'Use authentication while connecting.'}])
+        PluginConfigChecker([{'name': 'use_auth', 'type': 'bool'}])
 
-        try:
-            PluginConfigChecker([{'type' : 'bool'}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('name' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'type': 'bool'}])
+        self.assertTrue('name' in str(ex.exception))
 
     def test_constructor_password(self):
         """ Test for the constructor for bool. """
-        PluginConfigChecker([{'name' : 'password', 'type' : 'password',
-                              'description': 'A password.'}])
-        PluginConfigChecker([{'name' : 'password', 'type' : 'password'}])
+        PluginConfigChecker([{'name': 'password', 'type': 'password', 'description': 'A password.'}])
+        PluginConfigChecker([{'name': 'password', 'type': 'password'}])
 
-        try:
-            PluginConfigChecker([{'type' : 'password'}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('name' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'type': 'password'}])
+        self.assertTrue('name' in str(ex.exception))
 
     def test_constructor_enum(self):
         """ Test for the constructor for enum. """
-        PluginConfigChecker([{'name' : 'enumtest', 'type' : 'enum', 'description': 'Test for enum',
-                              'choices': ['First', 'Second']}])
-        PluginConfigChecker([{'name' : 'enumtest', 'type' : 'enum',
-                              'choices': ['First', 'Second']}])
+        PluginConfigChecker([{'name': 'enumtest', 'type': 'enum', 'description': 'Test for enum', 'choices': ['First', 'Second']}])
+        PluginConfigChecker([{'name': 'enumtest', 'type': 'enum', 'choices': ['First', 'Second']}])
 
-        try:
-            PluginConfigChecker([{'name' : 'enumtest', 'type' : 'enum', 'choices': 'First'}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('choices' in str(exception) and 'list' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'enumtest', 'type': 'enum', 'choices': 'First'}])
+        self.assertTrue('choices' in str(ex.exception) and 'list' in str(ex.exception))
 
     def test_constructor_section(self):
         """ Test for the constructor for section. """
-        PluginConfigChecker([{'name' : 'outputs', 'type' : 'section', 'repeat' : True, 'min' : 1,
-                              'content' : [{'name' : 'output', 'type' : 'int'}]}])
+        PluginConfigChecker([{'name': 'outputs', 'type': 'section', 'repeat': True, 'min': 1, 'content': [{'name': 'output', 'type': 'int'}]}])
+        PluginConfigChecker([{'name': 'outputs', 'type': 'section', 'repeat': False, 'content': [{'name': 'output', 'type': 'int'}]}])
+        PluginConfigChecker([{'name': 'outputs', 'type': 'section', 'content': [{'name': 'output', 'type': 'int'}]}])
 
-        PluginConfigChecker([{'name' : 'outputs', 'type' : 'section', 'repeat' : False,
-                              'content' : [{'name' : 'output', 'type' : 'int'}]}])
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'outputs', 'type': 'section', 'repeat': 'hello', 'content': [{'name': 'output', 'type': 'int'}]}])
+        self.assertTrue('repeat' in str(ex.exception) and 'bool' in str(ex.exception))
 
-        PluginConfigChecker([{'name' : 'outputs', 'type' : 'section',
-                              'content' : [{'name' : 'output', 'type' : 'int'}]}])
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'outputs', 'type': 'section', 'min': 1, 'content': [{'name': 'output', 'type': 'int'}]}])
+        self.assertTrue('min' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'outputs', 'type' : 'section', 'repeat' : 'hello',
-                                  'content' : [{'name' : 'output', 'type' : 'int'}]}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('repeat' in str(exception) and 'bool' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'outputs', 'type': 'section', 'content': 'error'}])
+        self.assertTrue('content' in str(ex.exception) and 'list' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'outputs', 'type' : 'section', 'min' : 1,
-                                  'content' : [{'name' : 'output', 'type' : 'int'}]}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('min' in str(exception))
-
-        try:
-            PluginConfigChecker([{'name' : 'outputs', 'type' : 'section',
-                                  'content' : 'error'}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('content' in str(exception) and 'list' in str(exception))
-
-        try:
-            PluginConfigChecker([{'name' : 'outputs', 'type' : 'section',
-                                  'content' : [{'name' : 123}]}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('content' in str(exception) and 'name' in str(exception) \
-                            and 'string' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'outputs', 'type': 'section', 'content': [{'name': 123}]}])
+        self.assertTrue('content' in str(ex.exception) and 'name' in str(ex.exception) and 'string' in str(ex.exception))
 
     def test_constructor_nested_enum(self):
         """ Test for constructor for nested enum. """
-        PluginConfigChecker([{'name' : 'network', 'type' : 'nested_enum', 'choices' : [
-                               {'value': 'Facebook',
-                                'content' : [{'name' : 'likes', 'type' : 'int'}]},
-                               {'value': 'Twitter',
-                                'content' : [{'name' : 'followers', 'type' : 'int'}]}
-                            ]}])
+        PluginConfigChecker([{'name': 'network', 'type': 'nested_enum', 'choices': [
+            {'value': 'Facebook', 'content': [{'name': 'likes', 'type': 'int'}]},
+            {'value': 'Twitter', 'content': [{'name': 'followers', 'type': 'int'}]}
+        ]}])
 
-        try:
-            PluginConfigChecker([{'name' : 'network', 'type' : 'nested_enum',
-                                  'choices' : 'test'}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('choices' in str(exception) and 'list' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'network', 'type': 'nested_enum', 'choices': 'test'}])
+        self.assertTrue('choices' in str(ex.exception) and 'list' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'network', 'type' : 'nested_enum',
-                                  'choices' : ['test']}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('choices' in str(exception) and 'dict' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'network', 'type': 'nested_enum', 'choices': ['test']}])
+        self.assertTrue('choices' in str(ex.exception) and 'dict' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'network', 'type' : 'nested_enum', 'choices' : [{}]}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('choices' in str(exception) and 'value' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'network', 'type': 'nested_enum', 'choices': [{}]}])
+        self.assertTrue('choices' in str(ex.exception) and 'value' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'network', 'type' : 'nested_enum',
-                                  'choices' : [{'value' : 123}]}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('choices' in str(exception) and 'value' in str(exception) \
-                            and 'string' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'network', 'type': 'nested_enum', 'choices': [{'value': 123}]}])
+        self.assertTrue('choices' in str(ex.exception) and 'network' in str(ex.exception) and 'content' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'network', 'type' : 'nested_enum',
-                                  'choices' : [{'value' : 'test'}]}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('choices' in str(exception) and 'content' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'network', 'type': 'nested_enum', 'choices': [{'value': 'test'}]}])
+        self.assertTrue('choices' in str(ex.exception) and 'content' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'network', 'type' : 'nested_enum',
-                                  'choices' : [{'value' : 'test', 'content' : 'test'}]}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('choices' in str(exception) and 'content' in str(exception) \
-                            and 'list' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'network', 'type': 'nested_enum', 'choices': [{'value': 'test', 'content': 'test'}]}])
+        self.assertTrue('choices' in str(ex.exception) and 'content' in str(ex.exception) and 'list' in str(ex.exception))
 
-        try:
-            PluginConfigChecker([{'name' : 'network', 'type' : 'nested_enum',
-                                  'choices' : [{'value' : 'test', 'content' : [{}]}]}])
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('choices' in str(exception) and 'content' in str(exception) \
-                            and 'name' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            PluginConfigChecker([{'name': 'network', 'type': 'nested_enum', 'choices': [{'value': 'test', 'content': [{}]}]}])
+        self.assertTrue('choices' in str(ex.exception) and 'content' in str(ex.exception) and 'name' in str(ex.exception))
 
     def test_check_config_error(self):
         """ Test check_config with an invalid data type """
-        checker = PluginConfigChecker([{'name' : 'hostname', 'type' : 'str'}])
+        checker = PluginConfigChecker([{'name': 'hostname', 'type': 'str'}])
 
-        try:
+        with self.assertRaises(PluginException) as ex:
             checker.check_config('string')
-            self.fail("Expected PluginException")
-        except PluginException as exception:
-            self.assertTrue('dict' in str(exception))
+        self.assertTrue('dict' in str(ex.exception))
 
-        try:
+        with self.assertRaises(PluginException) as ex:
             checker.check_config({})
-            self.fail("Expected PluginException")
-        except PluginException as exception:
-            self.assertTrue('hostname' in str(exception))
+        self.assertTrue('hostname' in str(ex.exception))
 
     def test_check_config_str(self):
         """ Test check_config for str. """
-        checker = PluginConfigChecker([{'name' : 'hostname', 'type' : 'str'}])
-        checker.check_config({'hostname' : 'cloud.openmotics.com'})
+        checker = PluginConfigChecker([{'name': 'hostname', 'type': 'str'}])
+        checker.check_config({'hostname': 'cloud.openmotics.com'})
 
-        try:
-            checker.check_config({'hostname' : 123})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('str' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'hostname': 123})
+        self.assertTrue('str' in str(ex.exception))
 
     def test_check_config_int(self):
         """ Test check_config for int. """
-        checker = PluginConfigChecker([{'name' : 'port', 'type' : 'int'}])
-        checker.check_config({'port' : 123})
+        checker = PluginConfigChecker([{'name': 'port', 'type': 'int'}])
+        checker.check_config({'port': 123})
 
-        try:
-            checker.check_config({'port' : "123"})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('int' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'port': "123"})
+        self.assertTrue('int' in str(ex.exception))
 
     def test_check_config_bool(self):
         """ Test check_config for bool. """
-        checker = PluginConfigChecker([{'name' : 'use_auth', 'type' : 'bool'}])
-        checker.check_config({'use_auth' : True})
+        checker = PluginConfigChecker([{'name': 'use_auth', 'type': 'bool'}])
+        checker.check_config({'use_auth': True})
 
-        try:
-            checker.check_config({'use_auth' : 234543})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('bool' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'use_auth': 234543})
+        self.assertTrue('bool' in str(ex.exception))
 
     def test_check_config_password(self):
         """ Test check_config for bool. """
-        checker = PluginConfigChecker([{'name' : 'password', 'type' : 'password'}])
-        checker.check_config({'password' : 'test'})
+        checker = PluginConfigChecker([{'name': 'password', 'type': 'password'}])
+        checker.check_config({'password': 'test'})
 
-        try:
-            checker.check_config({'password' : 123})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('str' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'password': 123})
+        self.assertTrue('str' in str(ex.exception))
 
     def test_check_config_section(self):
         """ Test check_config for section. """
-        checker = PluginConfigChecker([{'name' : 'outputs', 'type' : 'section', 'repeat' : True,
-                                    'min' : 1, 'content' : [{'name' : 'output', 'type' : 'int'}]}])
+        checker = PluginConfigChecker([{'name': 'outputs', 'type': 'section', 'repeat': True, 'min': 1, 'content': [{'name': 'output', 'type': 'int'}]}])
 
-        checker.check_config({'outputs' : []})
-        checker.check_config({'outputs' : [{'output' : 2}]})
-        checker.check_config({'outputs' : [{'output' : 2}, {'output' : 4}]})
+        checker.check_config({'outputs': []})
+        checker.check_config({'outputs': [{'output': 2}]})
+        checker.check_config({'outputs': [{'output': 2}, {'output': 4}]})
 
-        try:
-            checker.check_config({'outputs' : 'test'})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('list' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'outputs': 'test'})
+        self.assertTrue('list' in str(ex.exception))
 
-        try:
-            checker.check_config({'outputs' : [{'test' : 123}]})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('section' in str(exception) and 'output' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'outputs': [{'test': 123}]})
+        self.assertTrue('section' in str(ex.exception) and 'output' in str(ex.exception))
 
     def test_check_config_nested_enum(self):
         """ Test check_config for nested_enum. """
-        checker = PluginConfigChecker([{'name' : 'network', 'type' : 'nested_enum', 'choices' : [
-                                     {'value': 'Facebook',
-                                      'content' : [{'name' : 'likes', 'type' : 'int'}]},
-                                     {'value': 'Twitter',
-                                      'content' : [{'name' : 'followers', 'type' : 'int'}]}
-                                    ]}])
+        checker = PluginConfigChecker([{'name': 'network', 'type': 'nested_enum', 'choices': [
+            {'value': 'Facebook', 'content': [{'name': 'likes', 'type': 'int'}]},
+            {'value': 'Twitter', 'content': [{'name': 'followers', 'type': 'int'}]}
+        ]}])
 
-        checker.check_config({'network' : ['Twitter', {'followers' : 3}]})
-        checker.check_config({'network' : ['Facebook', {'likes' : 3}]})
+        checker.check_config({'network': ['Twitter', {'followers': 3}]})
+        checker.check_config({'network': ['Facebook', {'likes': 3}]})
 
-        try:
-            checker.check_config({'network' : 'test'})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('list' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'network': 'test'})
+        self.assertTrue('list' in str(ex.exception))
 
-        try:
-            checker.check_config({'network' : []})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('list' in str(exception) and '2' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'network': []})
+        self.assertTrue('list' in str(ex.exception) and '2' in str(ex.exception))
 
-        try:
-            checker.check_config({'network' : ['something else', {}]})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('choices' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'network': ['something else', {}]})
+        self.assertTrue('choices' in str(ex.exception))
 
-        try:
-            checker.check_config({'network' : ['Twitter', {}]})
-            self.fail('Excepted exception')
-        except PluginException as exception:
-            self.assertTrue('nested_enum dict' in str(exception) and 'followers' in str(exception))
+        with self.assertRaises(PluginException) as ex:
+            checker.check_config({'network': ['Twitter', {}]})
+        self.assertTrue('nested_enum dict' in str(ex.exception) and 'followers' in str(ex.exception))
 
     def test_simple(self):
         """ Test a simple valid configuration. """
+        _ = self
         checker = PluginConfigChecker([
-            {'name' : 'log_inputs', 'type' : 'bool', 'description': 'Log the input data.'},
-            {'name' : 'log_outputs', 'type' : 'bool', 'description': 'Log the output data.'}
+            {'name': 'log_inputs', 'type': 'bool', 'description': 'Log the input data.'},
+            {'name': 'log_outputs', 'type': 'bool', 'description': 'Log the output data.'}
         ])
-
-        checker.check_config({'log_inputs' : True, 'log_outputs' : False})
+        checker.check_config({'log_inputs': True, 'log_outputs': False})
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

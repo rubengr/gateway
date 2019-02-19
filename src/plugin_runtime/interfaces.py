@@ -100,7 +100,7 @@ def check_interface(plugin, interface):
         plugin_method = getattr(plugin, method.name, None)
 
         if plugin_method is None or not callable(plugin_method):
-            raise PluginException('Plugin \'{0}\' has no method named \'{0}\''.format(plugin_name, method.name))
+            raise PluginException('Plugin \'{0}\' has no method named \'{1}\''.format(plugin_name, method.name))
 
         if not hasattr(plugin_method, 'om_expose'):
             raise PluginException('Plugin \'{0}\' does not expose method \'{1}\''.format(plugin_name, method.name))
@@ -129,7 +129,6 @@ def check_interfaces(plugin):
     the methods defined by the interface are not present.
 
     :param plugin: The plugin to check.
-    :type plugin: plugin_runtime.base.OMPluginBase
     :raises: PluginException
     """
     if not isinstance(plugin.interfaces, list):

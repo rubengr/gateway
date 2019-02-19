@@ -43,6 +43,7 @@ class PluginController(object):
 
         self.__stopped = True
         self.__logs = {}
+        # TODO: The plugins should not start when initializing the controller, but when start() is called
         self.__runners = self.__init_runners()
 
         self.__metrics_controller = None
@@ -268,6 +269,12 @@ class PluginController(object):
         """ Should be called when an event is triggered, notifies all plugins. """
         for runner in self.__runners:
             runner.process_event(code)
+
+    def _request(self, name, method, args=None, kwargs=None):
+        """ Allows to execute a programmatorical http request to the plugin """
+        for runner in self.__runners:
+            if runner.name == name:
+                return runner.request(method, args=args, kwargs=kwargs)
 
     def collect_metrics(self):
         """ Collects all metrics from all plugins """

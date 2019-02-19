@@ -124,6 +124,8 @@ class PluginRuntime:
     def run(self):
         while not self._stopped:
             command = PluginRuntime._wait_and_read_command()
+            if command is None:
+                continue
 
             action = command['action']
             ret = None
@@ -159,7 +161,13 @@ class PluginRuntime:
 
     @staticmethod
     def _wait_and_read_command():
-        return json.loads(sys.stdin.readline().strip())
+        data = ''
+        while data == '':
+            data = sys.stdin.readline().strip()
+        try:
+            return json.loads(data)
+        except ValueError:
+            log('Exception in _wait_and_read_command: Could not decode stdin: {0}'.format(data))
 
     def _handle_start(self):
         return {'name': self._name,
@@ -227,6 +235,7 @@ class PluginRuntime:
             except Exception as exception:
                 log_exception('on remove', exception)
 
+
 def log(msg):
     write({'cid': 0, 'action': 'logs', 'logs': str(msg)})
 
@@ -276,8 +285,8 @@ if __name__ == '__main__':
     try:
         pr = PluginRuntime(path=sys.argv[2])
         pr.run()
-    except BaseException as exc:
-        log_exception('__main__', exc)
+    except BaseException as ex:
+        log_exception('__main__', ex)
+        os._exit(1)
 
-    # Should not get here, but make sure the process is stopped if it gets here.
-    os._exit(1)
+    os._exit(0)

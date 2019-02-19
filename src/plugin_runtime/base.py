@@ -21,7 +21,6 @@ class OMPluginBase(object):
     Base class for an OpenMotics plugin. Every plugin package should contain a
     module with the name 'main' that contains a class that extends this class.
     """
-    name = 'OMPluginBase'
 
     def __init__(self, webinterface, logger):
         """
@@ -132,10 +131,10 @@ class PluginConfigChecker(object):
             raise PluginException('The configuration description is not a list')
         else:
             for item in description:
-                for key, mandatory in {'name': True,
-                                       'type': True,
-                                       'description': False,
-                                       'i18n': False}.iteritems():
+                for key, mandatory in [('name', True),
+                                       ('type', True),
+                                       ('description', False),
+                                       ('i18n', False)]:
                     if mandatory is True and key not in item:
                         raise PluginException(PluginConfigChecker.MISSES_KEY.format(item, key))
                     if key in item and not isinstance(item[key], basestring):
