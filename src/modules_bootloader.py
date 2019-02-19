@@ -14,11 +14,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Tool to bootload the slave modules (output, dimmer, input and temperature).
-
-@author: fryckbos
 """
 
 import argparse
+import os
+import sys
+import time
+import traceback
 from ConfigParser import ConfigParser
 from serial import Serial
 
@@ -31,70 +33,70 @@ from master.master_communicator import MasterCommunicator
 from master.eeprom_controller import EepromFile, EepromAddress
 
 import intelhex
-import time
-import sys
-import traceback
 
 
-def create_bl_action(cmd, input):
-    """ Create a bootload action, this uses the command and the inputs
+def create_bl_action(command, command_input):
+    """
+    Create a bootload action, this uses the command and the inputs
     to calculate the crc for the action, the crc is added to input.
 
-    :param cmd: The bootload action (from master_api).
-    :type cmd: MasterCommandSpec
-    :param input: dict with the inputs for the action.
-    :type input: dict
+    :param command: The bootload action (from master_api).
+    :type command: master.master_api.MasterCommandSpec
+    :param command_input: dict with the inputs for the action.
+    :type command_input: dict
     :returns: tuple of (cmd, input).
     """
     crc = 0
 
-    crc += ord(cmd.action[0])
-    crc += ord(cmd.action[1])
+    crc += ord(command.action[0])
+    crc += ord(command.action[1])
 
-    for field in cmd.input_fields:
-        if field.name == "literal" and field.encode(None) == "C":
+    for field in command.input_fields:
+        if field.name == 'literal' and field.encode(None) == 'C':
             break
 
-        for byte in field.encode(input[field.name]):
+        for byte in field.encode(command_input[field.name]):
             crc += ord(byte)
 
-    input['crc0'] = crc / 256
-    input['crc1'] = crc % 256
+    command_input['crc0'] = crc / 256
+    command_input['crc1'] = crc % 256
 
-    return (cmd, input)
+    return command, command_input
 
 
-def check_bl_crc(cmd, output):
-    """ Check the crc in the response from the master.
+def check_bl_crc(command, command_output):
+    """
+    Check the crc in the response from the master.
 
-    :param cmd: The bootload action (from master_api).
-    :type cmd: MasterCommandSpec
-    :param output: dict containing the values for the output field.
-    :type output: dict
+    :param command: The bootload action (from master_api).
+    :type command: master.master_api.MasterCommandSpec
+    :param command_output: dict containing the values for the output field.
+    :type command_output: dict
     :returns: True if the crc is valid.
     """
     crc = 0
 
-    crc += ord(cmd.action[0])
-    crc += ord(cmd.action[1])
+    crc += ord(command.action[0])
+    crc += ord(command.action[1])
 
-    for field in cmd.output_fields:
-        if field.name == "literal" and field.encode(None) == "C":
+    for field in command.output_fields:
+        if field.name == 'literal' and field.encode(None) == 'C':
             break
 
-        for byte in field.encode(output[field.name]):
+        for byte in field.encode(command_output[field.name]):
             crc += ord(byte)
 
-    return output['crc0'] == (crc / 256) and output['crc1'] == (crc % 256)
+    return command_output['crc0'] == (crc / 256) and command_output['crc1'] == (crc % 256)
 
 
-def get_module_addresses(master_communicator, type):
-    """ Get the addresses for the modules of the given type.
+def get_module_addresses(master_communicator, module_type):
+    """
+    Get the addresses for the modules of the given type.
 
     :param master_communicator: used to read the addresses from the master eeprom.
     :type master_communicator: MasterCommunicator
-    :param type: the type of the module (o, r, d, i, t, c)
-    :param type: chr
+    :param module_type: the type of the module (O, R, D, I, T, C)
+    :param module_type: chr
     :returns: A list containing the addresses of the modules (strings of length 4).
     """
     eeprom_file = EepromFile(master_communicator)
@@ -112,59 +114,66 @@ def get_module_addresses(master_communicator, type):
         address = EepromAddress(33 + i, 0, 4)
         modules.append(eeprom_file.read([address])[address].bytes)
 
-    return [module for module in modules if module[0].lower() == type]
+    return [module for module in modules if module[0] == module_type]
 
 
 def pretty_address(address):
-    """ Create a pretty printed version of an address.
+    """
+    Create a pretty printed version of an address.
 
     :param address: address string
     :type address: string
-    :returns: string with format 'M.x.y.z' where M is in {o, r, d, i, t, c} and x,y,z are integers.
+    :returns: string with format 'M.x.y.z' where M is in {O, R, D, I, T, C, o, r, d, i, t, c} and x,y,z are integers.
     """
-    return "%s.%d.%d.%d" % (address[0], ord(address[1]), ord(address[2]), ord(address[3]))
+    return '{0}.{1}.{2}.{3}'.format(address[0], ord(address[1]), ord(address[2]), ord(address[3]))
 
 
 def calc_crc(ihex, blocks):
-    """ Calculate the crc for a hex file.
+    """
+    Calculate the crc for a hex file.
 
     :param ihex: intelhex file.
-    :type ihex: IntelHex
+    :type ihex: intelhex.IntelHex
     :param blocks: the number of blocks.
-    :type blocks: Integer
+    :type blocks: int
     :returns: tuple containing 4 crc bytes.
     """
-    sum = 0
+    bytes_sum = 0
     for i in range(64 * blocks - 8):
-        sum += ihex[i]
+        bytes_sum += ihex[i]
 
-    crc0 = (sum & (255 << 24)) >> 24
-    crc1 = (sum & (255 << 16)) >> 16
-    crc2 = (sum & (255 << 8)) >> 8
-    crc3 = (sum & (255 << 0)) >> 0
+    crc0 = (bytes_sum & (255 << 24)) >> 24
+    crc1 = (bytes_sum & (255 << 16)) >> 16
+    crc2 = (bytes_sum & (255 << 8)) >> 8
+    crc3 = (bytes_sum & (255 << 0)) >> 0
 
-    return (crc0, crc1, crc2, crc3)
+    return crc0, crc1, crc2, crc3
 
 
-def check_result(cmd, result, success_code=0):
-    """ Raise an exception if the crc for the result is invalid,
-    or if the error_code is set in the result.
+def check_result(command, result, success_code=0):
     """
-    if not check_bl_crc(cmd, result):
-        raise Exception("Crc check failed on %s" % cmd.action)
+    Raise an exception if the crc for the result is invalid, or if an unexpectederror_code is set in the result.
+    """
+    if not check_bl_crc(command, result):
+        raise Exception('CRC check failed on {0}'.format(command.action))
 
     if result.get('error_code', None) != success_code:
-        raise Exception("%s returned error code %d" % (cmd.action, result['error_code']))
+        raise Exception('{0} returned error code {1}'.format(command.action, result['error_code']))
 
 
-def do_command(master_communicator, action, retry=True, success_code=0):
-    """ Execute a command using the master communicator. If the command times out, retry.
+def do_command(logger, master_communicator, action, retry=True, success_code=0):
+    """
+    Execute a command using the master communicator. If the command times out, retry.
+
+    :param logger: Logger
     :param master_communicator: Used to communicate with the master.
-    :type master_communicator: MasterCommunicator
+    :type master_communicator: master.master_communicator.MasterCommunicator
     :param action: the command to execute.
     :type action: tuple of command, input (generated by create_bl_action).
     :param retry: If the master command should be retried
-    :type retry: boolean
+    :type retry: boole
+    :param success_code: Expected success code
+    :type success_code: int
     """
     cmd = action[0]
     try:
@@ -172,20 +181,22 @@ def do_command(master_communicator, action, retry=True, success_code=0):
         check_result(cmd, result, success_code)
         return result
     except Exception as exception:
-        print "Got exception while executing command: %s" % exception
+        logger('Got exception while executing command: {0}'.format(exception))
         if retry:
-            print "Retrying..."
+            logger('Retrying...')
             result = master_communicator.do_command(*action)
             check_result(cmd, result, success_code)
             return result
         else:
             raise exception
 
+
 def bootload(master_communicator, address, ihex, crc, blocks, logger):
-    """ Bootload 1 module.
+    """
+    Bootload 1 module.
 
     :param master_communicator: Used to communicate with the master.
-    :type master_communicator: MasterCommunicator
+    :type master_communicator: master.master_communicator.MasterCommunicator
     :param address: Address for the module to bootload
     :type address: string of length 4
     :param ihex: The hex file
@@ -193,82 +204,98 @@ def bootload(master_communicator, address, ihex, crc, blocks, logger):
     :param crc: The crc for the hex file
     :type crc: tuple of 4 bytes
     :param blocks: The number of blocks to write
-    :type blocks:
+    :param logger: Logger
     """
-    logger("Checking the version")
-    result = do_command(master_communicator, create_bl_action(master_api.modules_get_version(),
-                                                              {"addr": address}), success_code=255)
+    logger('Checking the version')
+    result = do_command(logger,
+                        master_communicator,
+                        create_bl_action(master_api.modules_get_version(),
+                                         {"addr": address}),
+                        success_code=255)
 
-    if result["f1"] < 3 or (result["f1"] == 3 and result["f2"] < 1):
-        logger("No bootloader available (v %s.%s.%s)" % (result["f1"], result["f2"], result["f3"]))
+    if result['f1'] < 3 or (result['f1'] == 3 and result['f2'] < 1):
+        logger('No bootloader available (v {0}.{1}.{2})'.format(result['f1'], result['f2'], result['f3']))
         return
 
-    logger("Going to bootloader")
+    logger('Going to bootloader')
     try:
-        do_command(master_communicator, create_bl_action(master_api.modules_goto_bootloader(),
-                                                         {"addr" : address, "sec" : 5}), False)
-    except:
-        print "No response on goto bootloader: OK"
+        do_command(logger,
+                   master_communicator,
+                   create_bl_action(master_api.modules_goto_bootloader(),
+                                    {'addr': address, 'sec': 5}),
+                   retry=False)
+    except Exception:
+        print 'No response on goto bootloader: OK'
 
     time.sleep(1)
 
-    logger("Setting the firmware crc")
-    do_command(master_communicator,
+    logger('Setting the firmware crc')
+    do_command(logger,
+               master_communicator,
                create_bl_action(master_api.modules_new_crc(),
-                                {"addr" : address, "ccrc0": crc[0], "ccrc1": crc[1],
-                                 "ccrc2": crc[2], "ccrc3": crc[3]}))
+                                {'addr': address, 'ccrc0': crc[0], 'ccrc1': crc[1], 'ccrc2': crc[2], 'ccrc3': crc[3]}))
 
     try:
-        logger("Going to long mode")
+        logger('Going to long mode')
         master_communicator.do_command(master_api.change_communication_mode_to_long())
 
-        logger("Writing firmware data")
+        logger('Writing firmware data')
         for i in range(blocks):
-            bytes = ""
+            bytes_to_send = ''
             for j in range(64):
                 if i == blocks - 1 and j >= 56:
                     # The first 8 bytes (the jump) is placed at the end of the code.
-                    bytes += chr(ihex[j - 56])
+                    bytes_to_send += chr(ihex[j - 56])
                 else:
-                    bytes += chr(ihex[i*64 + j])
+                    bytes_to_send += chr(ihex[i*64 + j])
 
-            print "Block %d" % i
-            do_command(master_communicator,
+            logger('* Block {0}'.format(i))
+            do_command(logger,
+                       master_communicator,
                        create_bl_action(master_api.modules_update_firmware_block(),
-                                        {"addr" : address, "block" : i, "bytes": bytes}))
+                                        {'addr': address, 'block': i, 'bytes': bytes_to_send}))
     finally:
-        logger("Going to short mode")
+        logger('Going to short mode')
         master_communicator.do_command(master_api.change_communication_mode_to_short())
 
     logger("Integrity check")
-    do_command(master_communicator, create_bl_action(master_api.modules_integrity_check(),
-                                                     {"addr" : address}))
+    do_command(logger,
+               master_communicator,
+               create_bl_action(master_api.modules_integrity_check(),
+                                {'addr': address}))
 
     logger("Going to application")
-    do_command(master_communicator, create_bl_action(master_api.modules_goto_application(),
-                                                     {"addr" : address}))
+    do_command(logger,
+               master_communicator,
+               create_bl_action(master_api.modules_goto_application(),
+                                {'addr': address}))
 
     time.sleep(2)
 
-    logger("Verifying firmware")
-    do_command(master_communicator, create_bl_action(master_api.modules_get_version(),
-                                                     {"addr": address}), success_code=255)
+    logger('Verifying firmware')
+    do_command(logger,
+               master_communicator,
+               create_bl_action(master_api.modules_get_version(),
+                                {'addr': address}),
+               success_code=255)
 
-    logger("New version: v %s.%s.%s" % (result["f1"], result["f2"], result["f3"]))
+    logger('New version: v {0}.{1}.{2}'.format(result['f1'], result['f2'], result['f3']))
 
-    logger("Resetting error list")
+    logger('Resetting error list')
     master_communicator.do_command(master_api.clear_error_list())
 
 
-def bootload_modules(type, filename, verbose, logger):
-    """ Bootload all modules of the given type with the firmware in the given filename.
+def bootload_modules(module_type, filename, verbose, logger):
+    """
+    Bootload all modules of the given type with the firmware in the given filename.
 
-    :param type: Type of the modules (o, r, d, i, t, c)
-    :type type: chr
+    :param module_type: Type of the modules (O, R, D, I, T, C)
+    :type module_type: str
     :param filename: The filename for the hex file to load
-    :type filename: string
+    :type filename: str
     :param verbose: If true the serial communication is printed.
-    :param verbose: boolean
+    :param verbose: bool
+    :param logger: Logger
     """
     config = ConfigParser()
     config.read(constants.get_config_file())
@@ -279,55 +306,67 @@ def bootload_modules(type, filename, verbose, logger):
     master_communicator = MasterCommunicator(master_serial, verbose=verbose)
     master_communicator.start()
 
-    addresses = get_module_addresses(master_communicator, type)
+    addresses = get_module_addresses(master_communicator, module_type)
 
-    blocks = 922 if type == 'c' else 410
+    blocks = 922 if module_type == 'C' else 410
     ihex = intelhex.IntelHex(filename)
     crc = calc_crc(ihex, blocks)
 
-    success = True
+    update_success = True
     for address in addresses:
-        logger("Bootloading module %s" % pretty_address(address))
+        logger('Bootloading module {0}'.format(pretty_address(address)))
         try:
             bootload(master_communicator, address, ihex, crc, blocks, logger)
-        except Exception as exception:
-            success = False
-            logger("Bootloading failed")
-            traceback.print_exc()
+        except Exception:
+            update_success = False
+            logger('Bootloading failed:')
+            logger(traceback.format_exc())
 
-    return success
+    return update_success
 
 
 def main():
     """ The main function. """
-    parser = argparse.ArgumentParser(description='Tool to bootload the slave modules '
-                                                 '(output, dimmer, input and temperature).')
+    parser = argparse.ArgumentParser(description='Tool to bootload the slave modules (output, dimmer, input and temperature).')
 
-    parser.add_argument('-t', '--type', dest='type', choices=['o', 'r', 'd', 'i', 't', 'c'],
-                        required=True, help='the type of module to bootload (choices: o, r, d, i, t, c)')
+    parser.add_argument('-t', '--type', dest='type', choices=['o', 'r', 'd', 'i', 't', 'c', 'O', 'R', 'D', 'I', 'T', 'C'], required=True,
+                        help='the type of module to bootload (choices: O, R, D, I, T, C)')
     parser.add_argument('-f', '--file', dest='file', required=True,
                         help='the filename of the hex file to bootload')
-
     parser.add_argument('-l', '--log', dest='log', required=False)
-
     parser.add_argument('-V', '--verbose', dest='verbose', action='store_true',
                         help='show the serial output')
 
     args = parser.parse_args()
 
     log_file = None
-    if args.log is not None:
-        log_file = open(args.log, 'a')
-        logger = lambda msg: log_file.write('%s\n' % msg)
-    else:
-        logger = lambda msg: sys.stdout.write('%s\n' % msg)
+    try:
+        if args.log is not None:
+            try:
+                log_file = open(args.log, 'a')
+            except IOError as ex:
+                print 'Could not open the requested log file: {0}'.format(ex)
+                return False
+            logger = lambda msg: log_file.write('{0}\n'.format(msg))
+        else:
+            logger = lambda msg: sys.stdout.write('{0}\n'.format(msg))
+        try:
+            if os.path.getsize(args.file) <= 0:
+                print 'Could not read hex or file is empty: {0}'.format(args.file)
+                return False
+        except OSError as ex:
+            print 'Could not open hex: {0}'.format(ex)
+            return False
 
-    success = bootload_modules(args.type, args.file, args.verbose, logger)
+        # The type argument is lowercase for backwards compatibility reasons. However, all subsequent calls need the correct type
+        module_type = args.type.upper()
 
-    if log_file is not None:
-        log_file.close()
+        update_success = bootload_modules(module_type, args.file, args.verbose, logger)
+    finally:
+        if log_file is not None:
+            log_file.close()
 
-    return success
+    return update_success
 
 
 if __name__ == '__main__':
