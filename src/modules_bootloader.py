@@ -17,6 +17,7 @@ Tool to bootload the slave modules (output, dimmer, input and temperature).
 """
 
 import argparse
+import os
 import sys
 import time
 import traceback
@@ -350,9 +351,10 @@ def main():
         else:
             logger = lambda msg: sys.stdout.write('{0}\n'.format(msg))
         try:
-            with open(args.file, 'r') as _:
-                pass
-        except IOError as ex:
+            if os.path.getsize(args.file) <= 0:
+                print 'Could not read hex or file is empty: {0}'.format(args.file)
+                return False
+        except OSError as ex:
             print 'Could not open hex: {0}'.format(ex)
             return False
 
