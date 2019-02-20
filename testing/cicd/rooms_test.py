@@ -101,18 +101,10 @@ class RoomsTest(unittest.TestCase):
             self.assertTrue(self._check_if_event_is_captured(i, time.time(), 0), 'Untoggled outputs must show input releases. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
-    def test_set_all_lights_off_authorization(self):
+    def test_set_all_lights_off_force_checked(self):
         """ Testing turning all lights off auth validation. """
         response_json = self.tools._api_testee('set_all_lights_off', 'some_token', expected_failure=True)
         self.assertEquals(response_json, 'invalid_token', 'Should not be able to call set_all_lights_off API without a valid token. Got: {0}'.format(response_json))
-
-    @exception_handler
-    def test_set_all_lights_floor_off(self):
-        """ Testing turning all lights off for a specific floor number. """
-        self._set_room_floor_configuration(room_number=self.ROOM_NUMBER)  # Setting up configuration first. Room: 5, Floor 3
-
-        url_params = urllib.urlencode({'floor': self.FLOOR_NUMBER})
-        self.tools._api_testee('set_all_lights_floor_on?{0}'.format(url_params), self.token)
 
         url_params = urllib.urlencode({'floor': 'floor_number'})
         response_json = self.tools._api_testee('set_all_lights_floor_off?{0}'.format(url_params), self.token, expected_failure=True)
@@ -121,6 +113,14 @@ class RoomsTest(unittest.TestCase):
         url_params = urllib.urlencode({'floor': 600})
         response_json = self.tools._api_testee('set_all_lights_floor_off?{0}'.format(url_params), self.token, expected_failure=True)
         self.assertEquals(response_json.get('success'), False, 'Should not be able to call set_all_lights_floor_off API without a valid parameter value. Got: {0}'.format(response_json))
+
+    @exception_handler
+    def test_set_all_lights_floor_off(self):
+        """ Testing turning all lights off for a specific floor number. """
+        self._set_room_floor_configuration(room_number=self.ROOM_NUMBER)  # Setting up configuration first. Room: 5, Floor 3
+
+        url_params = urllib.urlencode({'floor': self.FLOOR_NUMBER})
+        self.tools._api_testee('set_all_lights_floor_on?{0}'.format(url_params), self.token)
 
         url_params = urllib.urlencode({'floor': self.FLOOR_NUMBER})
         self.tools._api_testee('set_all_lights_floor_off?{0}'.format(url_params), self.token)

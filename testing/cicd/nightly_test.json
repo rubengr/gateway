@@ -73,7 +73,7 @@
       "rooms_test.test_set_room_configurations",
       "rooms_test.test_set_room_configuration_authorization",
       "rooms_test.test_set_all_lights_off",
-      "rooms_test.test_set_all_lights_off_authorization",
+      "rooms_test.test_set_all_lights_off_force_checked",
       "rooms_test.test_set_all_lights_floor_on",
       "rooms_test.test_set_all_lights_floor_authorization",
       "rooms_test.test_set_all_lights_floor_off",
