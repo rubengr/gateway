@@ -110,7 +110,7 @@ def main():
     """ Main function. """
     log('Starting service...')
 
-    config = ConfigParser({'mode':'PROD'})
+    config = ConfigParser({'mode': 'PROD'})
     config.read(constants.get_config_file())
 
     defaults = {'username': config.get('OpenMotics', 'cloud_user'),
@@ -174,22 +174,22 @@ def main():
     plugin_controller = PluginController(web_interface, config_controller)
     web_interface.set_plugin_controller(plugin_controller)
     gateway_api.set_plugin_controller(plugin_controller)
-    plugin_controller.start()
 
     # Metrics
     metrics_cache_controller = MetricsCacheController(constants.get_metrics_database_file(), threading.Lock())
     metrics_collector = MetricsCollector(gateway_api, pulse_controller)
     metrics_controller = MetricsController(plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid)
     metrics_collector.set_controllers(metrics_controller, plugin_controller)
-    metrics_collector.set_plugin_intervals(plugin_controller.get_metric_receivers())
     metrics_controller.add_receiver(metrics_controller.receiver)
     metrics_controller.add_receiver(web_interface.distribute_metric)
 
     plugin_controller.set_metrics_controller(metrics_controller)
+    plugin_controller.set_metrics_collector(metrics_collector)
     web_interface.set_metrics_collector(metrics_collector)
     web_interface.set_metrics_controller(metrics_controller)
 
     web_service = WebService(web_interface, config_controller)
+    plugin_controller.set_webservice(web_service)
 
     observer.subscribe_master(Observer.MasterEvents.INPUT_TRIGGER, metrics_collector.on_input)
     observer.subscribe_master(Observer.MasterEvents.INPUT_TRIGGER, plugin_controller.process_input_status)
@@ -197,6 +197,11 @@ def main():
     observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
     observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
     observer.subscribe_events(web_interface.process_observer_event)
+
+    led_thread = threading.Thread(target=led_driver, args=(dbus_service, master_communicator, power_communicator))
+    led_thread.setName("Serial led driver thread")
+    led_thread.daemon = True
+    led_thread.start()
 
     master_communicator.start()
     observer.start()
@@ -206,11 +211,7 @@ def main():
     metrics_collector.start()
     web_service.start()
     gateway_api.start()
-
-    led_thread = threading.Thread(target=led_driver, args=(dbus_service, master_communicator, power_communicator))
-    led_thread.setName("Serial led driver thread")
-    led_thread.daemon = True
-    led_thread.start()
+    plugin_controller.start()
 
     signal_request = {'stop': False}
 
@@ -218,12 +219,12 @@ def main():
         """ This function is called on SIGTERM. """
         _ = signum, frame
         log('Stopping service...')
-        signal_request['stop'] = True
         web_service.stop()
         metrics_collector.stop()
         metrics_controller.stop()
         plugin_controller.stop()
         log('Stopping service... Done')
+        signal_request['stop'] = True
 
     signal(SIGTERM, stop)
     log('Starting service... Done')

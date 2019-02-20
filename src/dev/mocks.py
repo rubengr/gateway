@@ -1,5 +1,6 @@
 from master.master_command import FieldType, SvtFieldType, ErrorListFieldType
 
+
 class MasterCommunicatorMock:
 
     def __init__(self):
@@ -24,7 +25,7 @@ class MasterCommunicatorMock:
         pass
 
     def do_basic_action(self, action_type, action_number):
-        return { 'resp' : 'OK' }
+        return {'resp': 'OK'}
 
     def do_command(self, cmd, fields=None, timeout=2):
         output = {}
@@ -65,6 +66,16 @@ class MasterCommunicatorMock:
 
     def in_maintenance_mode(self):
         return False
+
+    def get_communication_statistics(self):
+        return {'calls_succeeded': [],
+                'calls_timedout': [],
+                'bytes_written': 0,
+                'bytes_read': 0}
+
+    def get_debug_buffer(self):
+        return {'read': {},
+                'write': {}}
 
 
 class PowerCommunicatorMock:

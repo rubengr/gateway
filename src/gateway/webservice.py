@@ -374,6 +374,7 @@ class EventsSocket(OMSocket):
             elif data.get('type') == 'PING':
                 self.send(msgpack.dumps({'type': 'PONG',
                                          'data': time.time()}), binary=True)
+
         except Exception as ex:
             LOGGER.exception('Error receiving message: {0}'.format(ex))
             # pass  # Ignore malformed data processing; in that case there's nothing that will happen
@@ -468,7 +469,11 @@ class WebInterface(object):
             LOGGER.error('Failed to distribute events to WebSockets: {0}'.format(ex))
 
     def set_plugin_controller(self, plugin_controller):
-        """ Set the plugin controller. """
+        """
+        Set the plugin controller.
+
+        :type plugin_controller: plugins.base.PluginController
+        """
         self._plugin_controller = plugin_controller
 
     def set_metrics_collector(self, metrics_collector):
@@ -645,10 +650,11 @@ class WebInterface(object):
         Returns all available features this Gateway supports. This allows to make flexible clients
         """
         return {'features': [
-            'metrics',        # Advanced metrics (including metrics over websockets)
-            'dirty_flag',     # A dirty flag that can be used to trigger syncs on power & master
-            'scheduling',     # Gateway backed scheduling
-            'factory_reset',  # The gateway can be complete reset to factory standard
+            'metrics',           # Advanced metrics (including metrics over websockets)
+            'dirty_flag',        # A dirty flag that can be used to trigger syncs on power & master
+            'scheduling',        # Gateway backed scheduling
+            'factory_reset',     # The gateway can be complete reset to factory standard
+            'isolated_plugins',  # Plugins run in a separate process, so allow fine-graded control
         ]}
 
     @openmotics_api(auth=True, check=types(type=int, id=int))
@@ -2293,8 +2299,10 @@ class WebInterface(object):
         :rtype: dict
         """
         plugins = self._plugin_controller.get_plugins()
-        ret = [{'name': p.name, 'version': p.version, 'interfaces': p.interfaces}
-               for p in plugins]
+        ret = [{'name': p.name,
+                'version': p.version,
+                'interfaces': p.interfaces,
+                'status': 'RUNNING' if p.is_running() else 'STOPPED'} for p in plugins]
         return {'plugins': ret}
 
     @openmotics_api(auth=True, plugin_exposed=False)
@@ -2330,6 +2338,22 @@ class WebInterface(object):
         :type name: str
         """
         return self._plugin_controller.remove_plugin(name)
+
+    @openmotics_api(auth=True, plugin_exposed=False)
+    def stop_plugin(self, name):
+        """
+        Stops a plugin
+        """
+        running = self._plugin_controller.stop_plugin(name)
+        return {'state': 'RUNNING' if running else 'STOPPED'}
+
+    @openmotics_api(auth=True, plugin_exposed=False)
+    def start_plugin(self, name):
+        """
+        Starts a plugin
+        """
+        running = self._plugin_controller.start_plugin(name)
+        return {'state': 'RUNNING' if running else 'STOPPED'}
 
     @openmotics_api(auth=True, check=types(settings='json'), plugin_exposed=False)
     def get_settings(self, settings):
@@ -2445,12 +2469,14 @@ class WebService(object):
         self._config_controller = config_controller
         self._https_server = None
         self._http_server = None
+        self._running = False
         if not verbose:
             logging.getLogger("cherrypy").propagate = False
 
     def run(self):
         """ Run the web service: start cherrypy. """
         try:
+            LOGGER.info('Starting webserver...')
             OMPlugin(cherrypy.engine).subscribe()
             cherrypy.tools.websocket = OMSocketTool()
 
@@ -2466,7 +2492,7 @@ class WebService(object):
                             'tools.cors.on': self._config_controller.get_setting('cors_enabled', False),
                             'tools.sessions.on': False}}
 
-            cherrypy.tree.mount(self._webinterface,
+            cherrypy.tree.mount(root=self._webinterface,
                                 config=config)
 
             cherrypy.config.update({'engine.autoreload.on': False})
@@ -2490,7 +2516,11 @@ class WebService(object):
             cherrypy.engine.autoreload_on = False
 
             cherrypy.engine.start()
+            self._running = True
+            LOGGER.info('Starting webserver... Done')
             cherrypy.engine.block()
+            LOGGER.info('Webserver stopped')
+            self._running = False
         except Exception:
             LOGGER.exception("Could not start webservice. Dying...")
             sys.exit(1)
@@ -2502,10 +2532,19 @@ class WebService(object):
         thread.daemon = True
         thread.start()
 
-    def stop(self):
+    def stop(self, timeout=1):
         """ Stop the web service. """
+        LOGGER.info('Stopping webserver...')
         cherrypy.engine.exit()  # Shutdown the cherrypy server: no new requests
-        if self._https_server is not None:
-            self._https_server.stop()
-        if self._http_server is not None:
-            self._http_server.stop()
+        start = time.time()
+        while self._running and time.time() - start < timeout:
+            time.sleep(0.1)
+        LOGGER.info('Stopping webserver... Done')
+
+    def update_tree(self, mounts):
+        self._http_server.stop()
+        self._https_server.stop()
+        for mount in mounts:
+            cherrypy.tree.mount(**mount)
+        self._http_server.start()
+        self._https_server.start()

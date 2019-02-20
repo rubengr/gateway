@@ -170,7 +170,7 @@ class SchedulingControllerTest(unittest.TestCase):
             # Not a valid call
             controller.add_schedule('local_api', start + 120, 'LOCAL_API', {'name': 'do_basic_action',
                                                                             'parameters': {'action_type': 'foo', 'action_number': 4}}, None, None, None)
-        self.assertEquals(ctx.exception.message, 'invalid literal for int() with base 10: \'foo\'')
+        self.assertEquals(ctx.exception.message, 'could not convert string to float: foo')
         controller.add_schedule('local_api', start + 120, 'LOCAL_API', {'name': 'do_basic_action',
                                                                         'parameters': {'action_type': 3, 'action_number': 4}}, None, None, None)
         self.assertEquals(len(controller.schedules), 1)

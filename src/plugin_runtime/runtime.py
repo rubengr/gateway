@@ -39,11 +39,9 @@ class PluginRuntime:
 
         self._plugin = None
 
-        webinterface = WebInterfaceDispatcher(log)
-        self._init_plugin(webinterface, log)
-        self._start_background_tasks()
+        self._webinterface = WebInterfaceDispatcher(IO._log)
 
-    def _init_plugin(self, webinterface, logger):
+    def _init_plugin(self):
         plugin_root = os.path.dirname(self._path)
         plugin_dir = os.path.basename(self._path)
 
@@ -60,7 +58,7 @@ class PluginRuntime:
         # Instanciate the plugin class
         plugin_class = get_plugin_class(plugin_dir)
         check_plugin(plugin_class)
-        self._plugin = plugin_class(webinterface, logger)
+        self._plugin = plugin_class(self._webinterface, IO._log)
 
         # Set the name, version, interfaces
         self._name = plugin_class.name
@@ -120,12 +118,12 @@ class PluginRuntime:
                 task()
                 running = False  # Stop execution if the task returns without exception
             except Exception as exception:
-                log_exception('background task', exception)
+                IO._log_exception('background task', exception)
                 time.sleep(30)
 
-    def run(self):
+    def process_stdin(self):
         while not self._stopped:
-            command = PluginRuntime._wait_and_read_command()
+            command = IO._wait_and_read_command()
             if command is None:
                 continue
 
@@ -154,24 +152,16 @@ class PluginRuntime:
             elif action == 'remove_callback':
                 ret = self._handle_remove_callback()
             else:
-                log('Unknown action: {0}'.format(action))
+                IO._log('Unknown action: {0}'.format(action))
 
             response = {'cid': command['cid'], 'action': action}
             if ret is not None:
                 response.update(ret)
-            write(response)
-
-    @staticmethod
-    def _wait_and_read_command():
-        data = ''
-        while data == '':
-            data = sys.stdin.readline().strip()
-        try:
-            return json.loads(data)
-        except ValueError:
-            log('Exception in _wait_and_read_command: Could not decode stdin: {0}'.format(data))
+            IO._write(response)
 
     def _handle_start(self):
+        self._init_plugin()
+        self._start_background_tasks()
         return {'name': self._name,
                 'version': self._version,
                 'receivers': self._receivers,
@@ -193,19 +183,19 @@ class PluginRuntime:
 
     def _handle_input_status(self, status):
         for receiver in self._input_status_receivers:
-            with_catch('input status', receiver, [status])
+            IO._with_catch('input status', receiver, [status])
 
     def _handle_output_status(self, status):
         for receiver in self._output_status_receivers:
-            with_catch('output status', receiver, [status])
+            IO._with_catch('output status', receiver, [status])
 
     def _handle_shutter_status(self, status):
         for receiver in self._shutter_status_receivers:
-            with_catch('shutter status', receiver, [status])
+            IO._with_catch('shutter status', receiver, [status])
 
     def _handle_process_event(self, code):
         for receiver in self._event_receivers:
-            with_catch('process event', receiver, [code])
+            IO._with_catch('process event', receiver, [code])
 
     def _handle_get_metric_definitions(self):
         return {'metric_definitions': self._metric_definitions}
@@ -216,12 +206,12 @@ class PluginRuntime:
         try:
             metrics.extend(list(collect()))
         except Exception as exception:
-            log_exception('collect metrics', exception)
+            IO._log_exception('collect metrics', exception)
         return {'metrics': metrics}
 
     def _handle_distribute_metric(self, name, metric):
         receive = getattr(self._plugin, name)
-        with_catch('distribute metric', receive, [metric])
+        IO._with_catch('distribute metric', receive, [metric])
 
     def _handle_request(self, method, args, kwargs):
         func = getattr(self._plugin, method)
@@ -235,48 +225,56 @@ class PluginRuntime:
             try:
                 method()
             except Exception as exception:
-                log_exception('on remove', exception)
+                IO._log_exception('on remove', exception)
 
 
-def log(msg):
-    write({'cid': 0, 'action': 'logs', 'logs': str(msg)})
+class IO(object):
+    @staticmethod
+    def _log(msg):
+        IO._write({'cid': 0, 'action': 'logs', 'logs': str(msg)})
 
+    @staticmethod
+    def _log_exception(name, exception):
+        IO._log('Exception ({0}) in {1}: {2}'.format(exception, name, traceback.format_exc()))
 
-def log_exception(name, exception):
-    log('Exception ({0}) in {1}: {2}'.format(exception, name, traceback.format_exc()))
+    @staticmethod
+    def _with_catch(name, target, args):
+        """ Logs Exceptions that happen in target(*args). """
+        try:
+            return target(*args)
+        except Exception as exception:
+            IO._log_exception(name, exception)
 
+    @staticmethod
+    def _wait_and_read_command():
+        data = ''
+        while data == '':
+            data = sys.stdin.readline().strip()
+        try:
+            return json.loads(data)
+        except ValueError:
+            IO._log('Exception in _wait_and_read_command: Could not decode stdin: {0}'.format(data))
 
-def with_catch(name, target, args):
-    """ Logs Exceptions that happen in target(*args). """
-    try:
-        return target(*args)
-    except Exception as exception:
-        log_exception(name, exception)
-
-
-def write(msg):
-    sys.stdout.write(json.dumps(msg) + '\n')
-    sys.stdout.flush()
-
-
-def print_usage():
-    sys.stderr.write('Usage: python {0} start <path>\n'.format(sys.argv[0]))
-
-
-def watch_parent():
-    parent = os.getppid()
-    # If the parent process gets kills, this process will be attached to init.
-    # In that case the plugin should stop running.
-    while True:
-        if os.getppid() != parent:
-            os._exit(1)
-        time.sleep(1)
+    @staticmethod
+    def _write(msg):
+        sys.stdout.write(json.dumps(msg) + '\n')
+        sys.stdout.flush()
 
 
 if __name__ == '__main__':
     if len(sys.argv) < 3 or sys.argv[1] != 'start':
-        print_usage()
+        sys.stderr.write('Usage: python {0} start <path>\n'.format(sys.argv[0]))
+        sys.stderr.flush()
         sys.exit(1)
+
+    def watch_parent():
+        parent = os.getppid()
+        # If the parent process gets kills, this process will be attached to init.
+        # In that case the plugin should stop running.
+        while True:
+            if os.getppid() != parent:
+                os._exit(1)
+            time.sleep(1)
 
     # Keep an eye on our parent process
     watcher = Thread(target=watch_parent)
@@ -285,10 +283,10 @@ if __name__ == '__main__':
 
     # Start the runtime
     try:
-        pr = PluginRuntime(path=sys.argv[2])
-        pr.run()
+        runtime = PluginRuntime(path=sys.argv[2])
+        runtime.process_stdin()
     except BaseException as ex:
-        log_exception('__main__', ex)
+        IO._log_exception('__main__', ex)
         os._exit(1)
 
     os._exit(0)

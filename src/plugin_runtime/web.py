@@ -78,9 +78,13 @@ class WebInterfaceDispatcher(object):
                 if kwargs[arg] is None:
                     kwargs[arg] = 'None'
             # 4. Perform the http call
-            response = requests.get('http://{0}:{1}/{2}'.format(self.__hostname, self.__port, name),
-                                    params=kwargs,
-                                    timeout=30.0)
-            return response.text
+            try:
+                response = requests.get('http://{0}:{1}/{2}'.format(self.__hostname, self.__port, name),
+                                        params=kwargs,
+                                        timeout=30.0)
+                return response.text
+            except Exception:
+                return json.dumps({'success': False,
+                                   'msg': 'Call temporarily unavailable'})
 
         return wrapper

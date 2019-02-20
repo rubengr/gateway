@@ -127,7 +127,6 @@ class MetricsCollector(object):
                     self._plugin_intervals[metric_type].append(interval_info['interval'])
                     self._update_intervals(metric_type)
 
-
     def _update_intervals(self, metric_type):
         min_interval = self._min_intervals[metric_type]
         interval = max(min_interval, self._cloud_intervals[metric_type])

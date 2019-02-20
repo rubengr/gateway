@@ -18,7 +18,7 @@ LOGGER = logging.getLogger("openmotics")
 
 class PluginRunner:
 
-    def __init__(self, runtime_path, plugin_path, logger, command_timeout=5):
+    def __init__(self, name, runtime_path, plugin_path, logger, command_timeout=5):
         self.runtime_path = runtime_path
         self.plugin_path = plugin_path
         self.logger = logger
@@ -26,19 +26,20 @@ class PluginRunner:
 
         self._cid = 0
         self._proc = None
-        self._stopped = True
+        self._running = False
+        self._process_running = False
         self._out_thread = None
         self._command_lock = Lock()
         self._response_queue = None
 
-        self.name = None
+        self.name = name
         self.version = None
         self.interfaces = None
 
-        self._receivers = None
-        self._exposes = None
-        self._metric_collectors = None
-        self._metric_receivers = None
+        self._receivers = []
+        self._exposes = []
+        self._metric_collectors = []
+        self._metric_receivers = []
 
         self._async_command_thread = None
         self._async_command_queue = None
@@ -49,7 +50,7 @@ class PluginRunner:
         self.__collector_runs = {}
 
     def start(self):
-        if not self._stopped:
+        if self._running:
             raise Exception('PluginRunner is already running')
 
         python_executable = sys.executable
@@ -59,8 +60,8 @@ class PluginRunner:
         self._proc = subprocess.Popen([python_executable, "runtime.py", "start", self.plugin_path],
                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=None,
                                       cwd=self.runtime_path, universal_newlines=True, bufsize=1)
+        self._process_running = True
 
-        self._stopped = False
         self._commands_executed = 0
         self._commands_failed = 0
 
@@ -70,7 +71,7 @@ class PluginRunner:
         self._out_thread.daemon = True
         self._out_thread.start()
 
-        start_out = self._do_command('start')
+        start_out = self._do_command('start', timeout=30)
         self.name = start_out['name']
         self.version = start_out['version']
         self.interfaces = start_out['interfaces']
@@ -85,6 +86,8 @@ class PluginRunner:
                                             name='PluginRunner {0} async thread'.format(self.plugin_path))
         self._async_command_thread.daemon = True
         self._async_command_thread.start()
+
+        self._running = True
 
     def get_webservice(self, webinterface):
         class Service:
@@ -112,17 +115,19 @@ class PluginRunner:
 
         return Service(self)
 
-    def is_stopped(self):
-        return self._stopped
+    def is_running(self):
+        return self._running
 
     def stop(self):
-        if not self._stopped:
+        if self._running:
+            self._running = False
+            self._process_running = False
+
             self.logger('[Runner] Sending stop command')
             try:
                 self._do_command('stop')
             except Exception as exception:
                 self.logger('[Runner] Exception during stopping plugin: {0}'.format(exception))
-
             time.sleep(0.1)
 
             if self._proc.poll() is None:
@@ -140,7 +145,6 @@ class PluginRunner:
                     except Exception as exception:
                         self.logger('[Runner] Exception during killing plugin: {0}'.format(exception))
 
-            self._stopped = True
 
     def process_input_status(self, status):
         self._do_async('input_status', {'status': status}, should_filter=True)
@@ -198,11 +202,11 @@ class PluginRunner:
         self._do_command('remove_callback')
 
     def _read_out(self):
-        while not self._stopped:
+        while self._process_running:
             exit_code = self._proc.poll()
             if exit_code is not None:
                 self.logger('[Runner] Stopped with exit code {0}'.format(exit_code))
-                self._stopped = True
+                self._process_running = False
                 break
 
             try:
@@ -234,7 +238,7 @@ class PluginRunner:
         self._response_queue.put(response)
 
     def _do_async(self, action, fields, should_filter=False):
-        if (should_filter and action not in self._receivers) or self._stopped:
+        if (should_filter and action not in self._receivers) or not self._process_running:
             return
 
         try:
@@ -243,7 +247,7 @@ class PluginRunner:
             self.logger('Async action cannot be queued, queue is full')
 
     def _perform_async_commands(self):
-        while not self._stopped:
+        while self._process_running:
             try:
                 # Give it a timeout in order to check whether the plugin is not stopped.
                 command = self._async_command_queue.get(block=True, timeout=10)
@@ -253,12 +257,14 @@ class PluginRunner:
             except Exception as exception:
                 self.logger('[Runner] Failed to perform async command: {0}'.format(exception))
 
-    def _do_command(self, action, fields=None):
+    def _do_command(self, action, fields=None, timeout=None):
         if fields is None:
             fields = {}
         self._commands_executed += 1
+        if timeout is None:
+            timeout = self.command_timeout
 
-        if self._stopped:
+        if not self._process_running:
             raise Exception('Plugin was stopped')
 
         with self._command_lock:
@@ -267,12 +273,12 @@ class PluginRunner:
             self._proc.stdin.flush()
 
             try:
-                response = self._response_queue.get(block=True, timeout=self.command_timeout)
+                response = self._response_queue.get(block=True, timeout=timeout)
                 while response['cid'] != self._cid:
                     response = self._response_queue.get(block=False)
                 return response
             except Empty:
-                self.logger('[Runner] No response within timeout (action={0}, fields={1})'.format(action, fields))
+                self.logger('[Runner] No response within {0}s (action={1}, fields={2})'.format(timeout, action, fields))
                 self._commands_failed += 1
                 raise Exception('Plugin did not respond')
 
@@ -321,7 +327,7 @@ class RunnerWatchdog:
                 if score > self._threshold:
                     self._plugin_runner.logger('[Watchdog] Stopping unhealthy runner')
                     self._plugin_runner.stop()
-                if self._plugin_runner.is_stopped():
+                if not self._plugin_runner.is_running():
                     self._plugin_runner.logger('[Watchdog] Starting stopped runner')
                     self._plugin_runner.start()
             except Exception as e:
