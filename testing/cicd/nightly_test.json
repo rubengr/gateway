@@ -59,6 +59,13 @@
       "actions_test.test_time_no_overrule_25",
       "actions_test.test_time_no_overrule_37m",
       "actions_test.test_time_no_overrule_52m",
+      "actions_test.test_do_basic_action_flash_led_output",
+      "actions_test.test_do_basic_action_flash_led_input",
+      "actions_test.test_do_basic_action_output_dimmer_level",
+      "actions_test.test_thermostat_setpoint_action_type",
+      "actions_test.test_thermostat_increase_setpoint_action_type",
+      "actions_test.test_thermostat_decrease_setpoint_action_type",
+      "actions_test.test_turn_only_lights_off",
 
       "rooms_test.test_set_output_configurations_rooms_floors",
       "rooms_test.test_set_room_configuration",

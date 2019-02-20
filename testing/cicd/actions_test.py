@@ -1303,6 +1303,92 @@ class ActionsTest(unittest.TestCase):
         self.assertEquals(response.get('status')[0].get('csetp'), 21,
                           'Should contain the expected decreased set point. Got: {0}'.format(response))
 
+    def test_turn_only_lights_off(self):
+        """ Testing turning only lights off. """
+        for i in xrange(8):
+            config = {"room": 5,
+                      "can_led_4_function": "UNKNOWN",
+                      "floor": 3,
+                      "can_led_1_id": 255,
+                      "can_led_1_function": "UNKNOWN",
+                      "timer": 65535,
+                      "can_led_4_id": 255,
+                      "can_led_3_id": 255,
+                      "can_led_2_function": "UNKNOWN",
+                      "id": i,
+                      "module_type": "O",
+                      "can_led_3_function": "UNKNOWN",
+                      "type": 255,  # configured as light
+                      "can_led_2_id": 255,
+                      "name": "Out{0}".format(i)
+                      }  # this will set relay, light, relay...etc
+            url_params = urllib.urlencode({'config': json.dumps(config)})
+            self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+
+        url_params = urllib.urlencode(
+            {'action_type': 172, 'action_number': 3})  # ActionType 172 will turn all lights on a specific floor.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+
+        for i in xrange(8):
+            config = {"room": 5,
+                      "can_led_4_function": "UNKNOWN",
+                      "floor": 3,
+                      "can_led_1_id": 255,
+                      "can_led_1_function": "UNKNOWN",
+                      "timer": 65535,
+                      "can_led_4_id": 255,
+                      "can_led_3_id": 255,
+                      "can_led_2_function": "UNKNOWN",
+                      "id": i,
+                      "module_type": "O",
+                      "can_led_3_function": "UNKNOWN",
+                      "type": 0 if i % 2 == 0 else 255,
+                      "can_led_2_id": 255,
+                      "name": "Out{0}".format(i)
+                      }  # this will set relay, light, relay...etc
+            url_params = urllib.urlencode({'config': json.dumps(config)})
+            self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+
+        url_params = urllib.urlencode(
+            {'action_type': 163, 'action_number': randint(0, 239)})  # ActionType 172 will turn all lights on a specific floor, X value here doesn't matter.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+
+        self.assertTrue(self._check_if_event_is_captured(0, time.time(), 1), 'Output 0 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self._check_if_event_is_captured(1, time.time(), 0), 'Output 1 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
+
+        self.assertTrue(self._check_if_event_is_captured(2, time.time(), 1), 'Output 2 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self._check_if_event_is_captured(3, time.time(), 0), 'Output 3 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
+
+        self.assertTrue(self._check_if_event_is_captured(4, time.time(), 1), 'Output 4 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self._check_if_event_is_captured(5, time.time(), 0), 'Output 5 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
+
+        self.assertTrue(self._check_if_event_is_captured(6, time.time(), 1), 'Output 6 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self._check_if_event_is_captured(7, time.time(), 0), 'Output 7 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
+
+        for i in xrange(8):
+            config = {"room": 5,
+                      "can_led_4_function": "UNKNOWN",
+                      "floor": 3,
+                      "can_led_1_id": 255,
+                      "can_led_1_function": "UNKNOWN",
+                      "timer": 65535,
+                      "can_led_4_id": 255,
+                      "can_led_3_id": 255,
+                      "can_led_2_function": "UNKNOWN",
+                      "id": i,
+                      "module_type": "O",
+                      "can_led_3_function": "UNKNOWN",
+                      "type": 255,  # configured as light
+                      "can_led_2_id": 255,
+                      "name": "Out{0}".format(i)
+                      }  # this will set relay, light, relay...etc
+            url_params = urllib.urlencode({'config': json.dumps(config)})
+            self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+
+        url_params = urllib.urlencode(
+            {'action_type': 173, 'action_number': 3})  # Turning all outputs off after setting the default settings back.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+
     def _set_group_actions_config(self, token):
         """
         Sets the standard 160 group actions configurations that will toggle output id=0
