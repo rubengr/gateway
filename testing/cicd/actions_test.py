@@ -1241,16 +1241,67 @@ class ActionsTest(unittest.TestCase):
     def test_thermostat_setpoint_action_type(self):
         """ Testing changing the setpoint of the Testee's thermostat 0. """
         url_params = urllib.urlencode(
-            {'action_type': 148, 'action_number': 0})  # ActionType 149 changes the set point of thermostat X to 16.
+            {'action_type': 148, 'action_number': 0})  # ActionType 148 changes the set point of thermostat X to 16.
         self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
         response = self.tools._api_testee('get_thermostat_status', self.token)
-        self.assertEquals(response.get('status')[0].get('csetp'), 16, 'Should return true to indicate a successful API call. Got: {0}'.format(response))
+        self.assertEquals(response.get('status')[0].get('csetp'), 16, 'Should contain the expected set point. Got: {0}'.format(response))
 
         url_params = urllib.urlencode(
             {'action_type': 149, 'action_number': 0})  # ActionType 149 changes the set point of thermostat X to 22.5.
         self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
         response = self.tools._api_testee('get_thermostat_status', self.token)
-        self.assertEquals(response.get('status')[0].get('csetp'), 22.5, 'Should return true to indicate a successful API call. Got: {0}'.format(response))
+        self.assertEquals(response.get('status')[0].get('csetp'), 22.5, 'Should contain the expected set point. Got: {0}'.format(response))
+
+    def test_thermostat_increase_setpoint_action_type(self):
+        """ Testing increasing the setpoint of the Testee's thermostat 0. """
+        url_params = urllib.urlencode(
+            {'action_type': 148, 'action_number': 0})  # ActionType 148 changes the set point of thermostat X to 16.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_thermostat_status', self.token)
+
+        if response.get('status')[0].get('csetp') != 16:
+            self.fail('Setting standard thermostat set point has failed.')
+
+        url_params = urllib.urlencode(
+            {'action_type': 143, 'action_number': 0})  # ActionType 143 increases the set point by 0.5 of thermostat X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+
+        response = self.tools._api_testee('get_thermostat_status', self.token)
+        self.assertEquals(response.get('status')[0].get('csetp'), 16.5, 'Should contain the expected increased set point. Got: {0}'.format(response))
+
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        time.sleep(0.2)
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+
+        response = self.tools._api_testee('get_thermostat_status', self.token)
+        self.assertEquals(response.get('status')[0].get('csetp'), 17.5,
+                          'Should contain the expected increased set point. Got: {0}'.format(response))
+
+    def test_thermostat_decrease_setpoint_action_type(self):
+        """ Testing decreasing the setpoint of the Testee's thermostat 0. """
+        url_params = urllib.urlencode(
+            {'action_type': 149, 'action_number': 0})  # ActionType 148 changes the set point of thermostat X to 22.5.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_thermostat_status', self.token)
+
+        if response.get('status')[0].get('csetp') != 22.5:
+            self.fail('Setting standard thermostat set point has failed.')
+
+        url_params = urllib.urlencode(
+            {'action_type': 142, 'action_number': 0})  # ActionType 142 decreases the set point by 0.5 of thermostat X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+
+        response = self.tools._api_testee('get_thermostat_status', self.token)
+        self.assertEquals(response.get('status')[0].get('csetp'), 22,
+                          'Should contain the expected decreased set point. Got: {0}'.format(response))
+
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        time.sleep(0.2)
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+
+        response = self.tools._api_testee('get_thermostat_status', self.token)
+        self.assertEquals(response.get('status')[0].get('csetp'), 21,
+                          'Should contain the expected decreased set point. Got: {0}'.format(response))
 
     def _set_group_actions_config(self, token):
         """
