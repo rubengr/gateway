@@ -29,6 +29,8 @@
     "rooms_test.test_set_all_lights_floor_on",
     "rooms_test.test_set_all_lights_floor_off",
 
-    "thermostats_test.test_thermostat_config_after_reset"
+    "thermostats_test.test_thermostat_config_after_reset",
+
+    "websocket_test.test_websocket_input_output_events"
   ]
 }
