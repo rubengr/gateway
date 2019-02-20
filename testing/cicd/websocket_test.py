@@ -53,20 +53,52 @@ class WebsocketTest(unittest.TestCase):
 
         self.tools.clicker_releaser(3, token, True)
         time.sleep(0.5)
-        self.assertTrue(bool(WebsocketTest.DATA), " Got something else: {0}".format(WebsocketTest.DATA))
+        self.assertTrue(bool(WebsocketTest.DATA), ' Should not be None. Got: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
-        self.assertTrue(WebsocketTest.DATA['status']['on'], " Got something else: {0}".format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['id'], 3, " Got something else: {0}".format(WebsocketTest.DATA))
+        self.assertTrue(WebsocketTest.DATA['data']['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['data']['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
         time.sleep(0.5)
 
         self.tools.clicker_releaser(3, token, False)
 
         time.sleep(0.5)
-        self.assertTrue(bool(WebsocketTest.DATA), " Got something else: {0}".format(WebsocketTest.DATA))
+        self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
-        self.assertTrue(not WebsocketTest.DATA['status']['on'], " Got something else: {0}".format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['id'], 3, " Got something else: {0}".format(WebsocketTest.DATA))
+        self.assertTrue(not WebsocketTest.DATA['data']['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['data']['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+
+    @exception_handler
+    def test_websocket_input_trigger(self):
+
+        token = requests.get('https://{0}/login'.format('10.91.99.52'),
+                             params={'username': 'openmotics',
+                                     'password': '123456'},
+                             verify=False).json()['token']
+        socket = PassthroughClient('wss://{0}/ws_events'.format('10.91.99.52'),
+                                   protocols=['authorization.bearer.{0}'.format(
+                                       base64.b64encode(token.encode('ascii')).decode('utf-8').replace('=', ''))], callback=_callback)
+        socket.connect()
+
+        self.webinterface.set_output(id=4, is_on=True)
+        time.sleep(0.5)
+        self.webinterface.set_output(id=4, is_on=False)
+        self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
+        time.sleep(1)
+        self.assertEquals(WebsocketTest.DATA['data']['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+
+        time.sleep(0.5)
+
+        self.webinterface.set_output(id=4, is_on=True)
+        time.sleep(0.5)
+        self.webinterface.set_output(id=4, is_on=False)
+        self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
+        time.sleep(1)
+        self.assertEquals(WebsocketTest.DATA['data']['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
 
 class PassthroughClient(WebSocketClient):
@@ -87,7 +119,7 @@ class PassthroughClient(WebSocketClient):
     def received_message(self, message):
         try:
             data = msgpack.loads(message.data)
-            self.callback(data['data']['data'])
+            self.callback(data)
         except Exception:
             pass
 
