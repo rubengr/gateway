@@ -8,6 +8,7 @@ from ws4py.client.threadedclient import WebSocketClient
 from toolbox import exception_handler
 
 LOGGER = logging.getLogger('openmotics')
+
 #                                            _   _
 #                                           | | (_)
 #    ___  _ __   ___ _ __    _ __ ___   ___ | |_ _  ___ ___
@@ -39,7 +40,7 @@ class WebsocketTest(unittest.TestCase):
         LOGGER.info('Running: {}'.format(self.id()))
 
     @exception_handler
-    def test_websocket_input_output_events(self):
+    def test_websocket_output_change(self):
 
         token = requests.get('https://{0}/login'.format('10.91.99.52'),
                              params={'username': 'openmotics',
@@ -85,7 +86,6 @@ class PassthroughClient(WebSocketClient):
 
     def received_message(self, message):
         try:
-
             data = msgpack.loads(message.data)
             self.callback(data['data']['data'])
         except Exception:
