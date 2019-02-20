@@ -33,6 +33,7 @@ class ThermostatsTest(unittest.TestCase):
         if not self.tools.discovery_success:
             self.tools.discovery_success = self.tools._assert_discovered(self.token, self.webinterface)
             if not self.tools.discovery_success:
+                LOGGER.error('Skipped: {} due to discovery failure.'.format(self.id()))
                 self.skipTest('Failed to discover modules.')
         LOGGER.info('Running: {}'.format(self.id()))
 
