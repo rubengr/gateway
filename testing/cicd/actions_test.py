@@ -1097,6 +1097,161 @@ class ActionsTest(unittest.TestCase):
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
         self.assertTrue(3130 > end - start > 3110, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
 
+    @exception_handler
+    def test_do_basic_action_flash_led_output(self):
+        """ Testing do basic action API call for flashing output led without visual validation for now. """
+        # TODO: Update test for visual validation
+        x = randint(0, 7)  # Get a random input number
+        url_params = urllib.urlencode(
+            {'action_type': 65, 'action_number': x})  # ActionType 65 flashes output number X.
+        response = self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        self.assertTrue(response.get('success'), 'Should return true to indicate a successful API call. Got: {0}'.format(response))
+
+    @exception_handler
+    def test_do_basic_action_flash_led_input(self):
+        """ Testing do basic action API call for flashing input led without visual validation for now. """
+        # TODO: Update test for visual validation
+        x = randint(0, 7)  # Get a random input number
+        url_params = urllib.urlencode(
+            {'action_type': 66, 'action_number': x})  # ActionType 66 flashes input number X.
+        response = self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        self.assertTrue(response.get('success'), 'Should return true to indicate a successful API call. Got: {0}'.format(response))
+
+    @exception_handler
+    def test_do_basic_action_output_dimmer_level(self):
+        """ Testing do basic action API call for changing dimmer level without visual validation for now. """
+        # TODO: Update test for visual validation for every dimmer level
+        x = randint(0, 7)  # Get a random output number
+        self.tools.clicker_releaser(x, self.token, False)
+
+        url_params = urllib.urlencode({'action_type': 176, 'action_number': x})  # ActionType 176 sets dimmer level to 10% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 10,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 177, 'action_number': x})  # ActionType 176 sets dimmer level to 20% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 20,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 178, 'action_number': x})  # ActionType 176 sets dimmer level to 30% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 30,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 179, 'action_number': x})  # ActionType 176 sets dimmer level to 40% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 40,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 180, 'action_number': x})  # ActionType 176 sets dimmer level to 50% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 50,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 181, 'action_number': x})  # ActionType 176 sets dimmer level to 60% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 60,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 182, 'action_number': x})  # ActionType 176 sets dimmer level to 70% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 70,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 183, 'action_number': x})  # ActionType 176 sets dimmer level to 80% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 80,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 184, 'action_number': x})  # ActionType 176 sets dimmer level to 90% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 90,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 185, 'action_number': x})  # ActionType 185 sets dimmer level to 10% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 10,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 186, 'action_number': x})  # ActionType 186 sets dimmer level to 20% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 20,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 187, 'action_number': x})  # ActionType 187 sets dimmer level to 30% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 30,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 188, 'action_number': x})  # ActionType 188 sets dimmer level to 40% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 40,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 189, 'action_number': x})  # ActionType 189 sets dimmer level to 50% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 50,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 190, 'action_number': x})  # ActionType 190 sets dimmer level to 60% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 60,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 191, 'action_number': x})  # ActionType 191 sets dimmer level to 70% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 70,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 192, 'action_number': x})  # ActionType 192 sets dimmer level to 80% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 80,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 193, 'action_number': x})  # ActionType 193 sets dimmer level to 90% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 90,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode({'action_type': 194, 'action_number': x})  # ActionType 194 sets dimmer level to 1000% output number X.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_output_status', self.token)
+        self.assertEquals(response.get('status')[x].get('dimmer'), 100,
+                          'Should contain the correct dimmer level. Got: {0}'.format(response))
+
+    def test_thermostat_setpoint_action_type(self):
+        """ Testing changing the setpoint of the Testee's thermostat 0. """
+        url_params = urllib.urlencode(
+            {'action_type': 148, 'action_number': 0})  # ActionType 149 changes the set point of thermostat X to 16.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_thermostat_status', self.token)
+        self.assertEquals(response.get('status')[0].get('csetp'), 16, 'Should return true to indicate a successful API call. Got: {0}'.format(response))
+
+        url_params = urllib.urlencode(
+            {'action_type': 149, 'action_number': 0})  # ActionType 149 changes the set point of thermostat X to 22.5.
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        response = self.tools._api_testee('get_thermostat_status', self.token)
+        self.assertEquals(response.get('status')[0].get('csetp'), 22.5, 'Should return true to indicate a successful API call. Got: {0}'.format(response))
+
     def _set_group_actions_config(self, token):
         """
         Sets the standard 160 group actions configurations that will toggle output id=0

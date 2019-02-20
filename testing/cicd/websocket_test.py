@@ -41,6 +41,7 @@ class WebsocketTest(unittest.TestCase):
 
     @exception_handler
     def test_websocket_output_change(self):
+        """ Testing the websocket on the Testee for output_change event. """
 
         token = requests.get('https://{0}/login'.format('10.91.99.52'),
                              params={'username': 'openmotics',
@@ -72,7 +73,7 @@ class WebsocketTest(unittest.TestCase):
 
     @exception_handler
     def test_websocket_input_trigger(self):
-
+        """ Testing the websocket on the Testee for input_trigger event. """
         token = requests.get('https://{0}/login'.format('10.91.99.52'),
                              params={'username': 'openmotics',
                                      'password': '123456'},
@@ -102,6 +103,7 @@ class WebsocketTest(unittest.TestCase):
 
 
 class PassthroughClient(WebSocketClient):
+    """ PassthroughClient is a custom WebSocketClient. """
     def __init__(self, *args, **kwargs):
         self.callback = kwargs.pop('callback')
         WebSocketClient.__init__(self, *args, **kwargs)
@@ -125,4 +127,5 @@ class PassthroughClient(WebSocketClient):
 
 
 def _callback(data):
+    """ _callback will set the variable DATA when a message is received. """
     WebsocketTest.DATA = data
