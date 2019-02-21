@@ -97,8 +97,9 @@ class PluginController(object):
             plugin_path = os.path.join(PluginController.__get_plugin_root(), plugin_name)
             runner = PluginRunner(plugin_name, self.__runtime_path, plugin_path, logger)
             self.__runners[runner.name] = runner
+            return runner
         except Exception as exception:
-            self.log(plugin_name, '[Runner] Could not load/start plugin', exception)
+            self.log(plugin_name, '[Runner] Could not initialize plugin', exception)
 
     def __start_plugin_runner(self, runner, runner_name):
         """ Starts a single plugin runner """
@@ -176,7 +177,7 @@ class PluginController(object):
 
         :rtype: plugins.runner.PluginRunner
         """
-        self.__runners.get(name)
+        return self.__runners.get(name)
 
     def install_plugin(self, md5, package_data):
         """ Install a new plugin. """
@@ -217,6 +218,7 @@ class PluginController(object):
             runner.start()
             runner.stop()
             name, version = runner.name, runner.version
+            self.__logs.pop('new_pacakge', None)
 
             def parse_version(version_string):
                 """ Parse the version from a string "x.y.z" to a tuple(x, y, z). """
@@ -246,10 +248,11 @@ class PluginController(object):
             if retcode != 0:
                 raise Exception('The package could not be installed.')
 
-            self.__init_plugin_runner(name)
+            runner = self.__init_plugin_runner(name)
+            self.__start_plugin_runner(runner, name)
             self.__update_dependencies()
 
-            return {'msg': 'Plugin successfully installed'}
+            return 'Plugin successfully installed'
         finally:
             rmtree(tmp_dir)
 

@@ -18,7 +18,6 @@ The hardware_utils module contains various classes helping with Hardware and Sys
 import os
 import sys
 import subprocess
-import os
 
 
 class Hardware(object):
@@ -150,14 +149,13 @@ class System(object):
             context.use_privatekey_file(private_key_filename)
             context.use_certificate_file(certificate_filename)
             return SSL.Connection(context, sock)
-        else:
-            import ssl
-            return ssl.wrap_socket(sock,
-                                   keyfile=private_key_filename,
-                                   certfile=certificate_filename,
-                                   ssl_version=ssl.PROTOCOL_SSLv23,
-                                   do_handshake_on_connect=False,
-                                   suppress_ragged_eofs=False)
+        import ssl
+        return ssl.wrap_socket(sock,
+                               keyfile=private_key_filename,
+                               certfile=certificate_filename,
+                               ssl_version=ssl.PROTOCOL_SSLv23,
+                               do_handshake_on_connect=False,
+                               suppress_ragged_eofs=False)
 
     @staticmethod
     def setup_cherrypy_ssl(https_server, private_key_filename, certificate_filename):

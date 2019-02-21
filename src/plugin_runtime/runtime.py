@@ -58,12 +58,14 @@ class PluginRuntime:
         # Instanciate the plugin class
         plugin_class = get_plugin_class(plugin_dir)
         check_plugin(plugin_class)
-        self._plugin = plugin_class(self._webinterface, IO._log)
 
         # Set the name, version, interfaces
         self._name = plugin_class.name
         self._version = plugin_class.version
         self._interfaces = plugin_class.interfaces
+
+        # Initialze the plugin
+        self._plugin = plugin_class(self._webinterface, IO._log)
 
         # Set the receivers
         receiver_mapping = {'input_status': self._input_status_receivers,
@@ -128,47 +130,56 @@ class PluginRuntime:
                 continue
 
             action = command['action']
-            ret = None
-            if action == 'start':
-                ret = self._handle_start()
-            elif action == 'stop':
-                ret = self._handle_stop()
-            elif action == 'input_status':
-                ret = self._handle_input_status(command['status'])
-            elif action == 'output_status':
-                ret = self._handle_output_status(command['status'])
-            elif action == 'shutter_status':
-                ret = self._handle_shutter_status(command['status'])
-            elif action == 'process_event':
-                ret = self._handle_process_event(command['code'])
-            elif action == 'get_metric_definitions':
-                ret = self._handle_get_metric_definitions()
-            elif action == 'collect_metrics':
-                ret = self._handle_collect_metrics(command['name'])
-            elif action == 'distribute_metric':
-                ret = self._handle_distribute_metric(command['name'], command['metric'])
-            elif action == 'request':
-                ret = self._handle_request(command['method'], command['args'], command['kwargs'])
-            elif action == 'remove_callback':
-                ret = self._handle_remove_callback()
-            else:
-                IO._log('Unknown action: {0}'.format(action))
-
             response = {'cid': command['cid'], 'action': action}
-            if ret is not None:
-                response.update(ret)
+            try:
+                ret = None
+                if action == 'start':
+                    ret = self._handle_start()
+                elif action == 'stop':
+                    ret = self._handle_stop()
+                elif action == 'input_status':
+                    ret = self._handle_input_status(command['status'])
+                elif action == 'output_status':
+                    ret = self._handle_output_status(command['status'])
+                elif action == 'shutter_status':
+                    ret = self._handle_shutter_status(command['status'])
+                elif action == 'process_event':
+                    ret = self._handle_process_event(command['code'])
+                elif action == 'get_metric_definitions':
+                    ret = self._handle_get_metric_definitions()
+                elif action == 'collect_metrics':
+                    ret = self._handle_collect_metrics(command['name'])
+                elif action == 'distribute_metric':
+                    ret = self._handle_distribute_metric(command['name'], command['metric'])
+                elif action == 'request':
+                    ret = self._handle_request(command['method'], command['args'], command['kwargs'])
+                elif action == 'remove_callback':
+                    ret = self._handle_remove_callback()
+                else:
+                    raise RuntimeError('Unknown action: {0}'.format(action))
+
+                if ret is not None:
+                    response.update(ret)
+            except Exception as exception:
+                response['_exception'] = str(exception)
             IO._write(response)
 
     def _handle_start(self):
-        self._init_plugin()
-        self._start_background_tasks()
-        return {'name': self._name,
-                'version': self._version,
-                'receivers': self._receivers,
-                'exposes': self._exposes,
-                'interfaces': self._interfaces,
-                'metric_collectors': self._metric_collectors,
-                'metric_receivers': self._metric_receivers}
+        """ Handles the start command. Cover exceptions manually to make sure as much metadata is returned as possible. """
+        data = {}
+        try:
+            self._init_plugin()
+            self._start_background_tasks()
+        except Exception as exception:
+            data['exception'] = str(exception)
+        data.update({'name': self._name,
+                     'version': self._version,
+                     'receivers': self._receivers,
+                     'exposes': self._exposes,
+                     'interfaces': self._interfaces,
+                     'metric_collectors': self._metric_collectors,
+                     'metric_receivers': self._metric_receivers})
+        return data
 
     def _handle_stop(self):
         def delayed_stop():

@@ -53,6 +53,8 @@ class PluginRunner:
         if self._running:
             raise Exception('PluginRunner is already running')
 
+        self.logger('[Runner] Starting')
+
         python_executable = sys.executable
         if python_executable is None or len(python_executable) == 0:
             python_executable = '/usr/bin/python'
@@ -80,6 +82,10 @@ class PluginRunner:
         self._exposes = start_out['exposes']
         self._metric_collectors = start_out['metric_collectors']
         self._metric_receivers = start_out['metric_receivers']
+
+        exception = start_out.get('exception')
+        if exception is not None:
+            raise RuntimeError(exception)
 
         self._async_command_queue = Queue(1000)
         self._async_command_thread = Thread(target=self._perform_async_commands,
@@ -119,9 +125,8 @@ class PluginRunner:
         return self._running
 
     def stop(self):
-        if self._running:
+        if self._process_running:
             self._running = False
-            self._process_running = False
 
             self.logger('[Runner] Sending stop command')
             try:
@@ -129,6 +134,8 @@ class PluginRunner:
             except Exception as exception:
                 self.logger('[Runner] Exception during stopping plugin: {0}'.format(exception))
             time.sleep(0.1)
+
+            self._process_running = False
 
             if self._proc.poll() is None:
                 self.logger('[Runner] Terminating process')
@@ -144,7 +151,6 @@ class PluginRunner:
                         self._proc.kill()
                     except Exception as exception:
                         self.logger('[Runner] Exception during killing plugin: {0}'.format(exception))
-
 
     def process_input_status(self, status):
         self._do_async('input_status', {'status': status}, should_filter=True)
@@ -224,7 +230,7 @@ class PluginRunner:
                         if response['cid'] == 0:
                             self._handle_async_response(response)
                         elif response['cid'] == self._cid:
-                            self._handle_response(response)
+                            self._response_queue.put(response)
                         else:
                             self.logger('[Runner] Received message with unknown cid: {0}'.format(response))
 
@@ -233,9 +239,6 @@ class PluginRunner:
             self.logger(response['logs'])
         else:
             self.logger('[Runner] Unkown async message: {0}'.format(response))
-
-    def _handle_response(self, response):
-        self._response_queue.put(response)
 
     def _do_async(self, action, fields, should_filter=False):
         if (should_filter and action not in self._receivers) or not self._process_running:
@@ -276,6 +279,9 @@ class PluginRunner:
                 response = self._response_queue.get(block=True, timeout=timeout)
                 while response['cid'] != self._cid:
                     response = self._response_queue.get(block=False)
+                exception = response.get('_exception')
+                if exception is not None:
+                    raise RuntimeError(exception)
                 return response
             except Empty:
                 self.logger('[Runner] No response within {0}s (action={1}, fields={2})'.format(timeout, action, fields))

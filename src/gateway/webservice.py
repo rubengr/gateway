@@ -2327,7 +2327,7 @@ class WebInterface(object):
         :param package_data: a tgz file containing the content of the plugin package.
         :type package_data: multipart/form-data encoded byte string.
         """
-        return self._plugin_controller.install_plugin(md5, package_data.file.read())
+        return {'msg': self._plugin_controller.install_plugin(md5, package_data.file.read())}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def remove_plugin(self, name):
@@ -2345,7 +2345,7 @@ class WebInterface(object):
         Stops a plugin
         """
         running = self._plugin_controller.stop_plugin(name)
-        return {'state': 'RUNNING' if running else 'STOPPED'}
+        return {'status': 'RUNNING' if running else 'STOPPED'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def start_plugin(self, name):
@@ -2353,7 +2353,7 @@ class WebInterface(object):
         Starts a plugin
         """
         running = self._plugin_controller.start_plugin(name)
-        return {'state': 'RUNNING' if running else 'STOPPED'}
+        return {'status': 'RUNNING' if running else 'STOPPED'}
 
     @openmotics_api(auth=True, check=types(settings='json'), plugin_exposed=False)
     def get_settings(self, settings):
