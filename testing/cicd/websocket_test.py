@@ -43,11 +43,11 @@ class WebsocketTest(unittest.TestCase):
     def test_websocket_output_change(self):
         """ Testing the websocket on the Testee for output_change event. """
 
-        token = requests.get('https://{0}/login'.format('10.91.99.52'),
+        token = requests.get('https://{0}/login'.format(self.tools.testee_ip),
                              params={'username': 'openmotics',
                                      'password': '123456'},
                              verify=False).json()['token']
-        socket = PassthroughClient('wss://{0}/ws_events'.format('10.91.99.52'),
+        socket = PassthroughClient('wss://{0}/ws_events'.format(self.tools.testee_ip),
                                    protocols=['authorization.bearer.{0}'.format(
                                        base64.b64encode(token.encode('ascii')).decode('utf-8').replace('=', ''))], callback=_callback)
         socket.connect()
@@ -74,11 +74,11 @@ class WebsocketTest(unittest.TestCase):
     @exception_handler
     def test_websocket_input_trigger(self):
         """ Testing the websocket on the Testee for input_trigger event. """
-        token = requests.get('https://{0}/login'.format('10.91.99.52'),
+        token = requests.get('https://{0}/login'.format(self.tools.testee_ip),
                              params={'username': 'openmotics',
                                      'password': '123456'},
                              verify=False).json()['token']
-        socket = PassthroughClient('wss://{0}/ws_events'.format('10.91.99.52'),
+        socket = PassthroughClient('wss://{0}/ws_events'.format(self.tools.testee_ip),
                                    protocols=['authorization.bearer.{0}'.format(
                                        base64.b64encode(token.encode('ascii')).decode('utf-8').replace('=', ''))], callback=_callback)
         socket.connect()
