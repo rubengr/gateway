@@ -254,6 +254,7 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_toggles_output(self):
         """ Testing toggling one output. """
+        self._set_default_output_config()
         time.sleep(0.3)
         output_to_toggle = randint(0, 7)
         config = {'name': 'input_to',
@@ -282,6 +283,7 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_turn_output_on_off(self):
         """ Testing turning one output on and off. """
+        self._set_default_output_config()
         time.sleep(0.3)
         output_to_toggle = randint(0, 7)
         config = {'name': 'input_to',
@@ -321,6 +323,7 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_toggles_all_outputs(self):
         """ Testing toggling all outputs. """
+        self._set_default_output_config()
         time.sleep(0.3)
         input_number = randint(0, 7)
         config = {'name': 'togglerO',
@@ -356,6 +359,7 @@ class ActionsTest(unittest.TestCase):
     def test_turn_all_outputs_on_off(self):
         """ Testing turning all outputs on and off. """
         output_to_toggle = randint(0, 7)
+        self._set_default_output_config()
         config = {'name': 'turnallO',
                   'basic_actions': '172,255',
                   'invert': 255,
@@ -397,7 +401,8 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_toggles_all_outputs_floor(self):
         """ Testing toggling all outputs by floor number. """
-        self._set_input_room_config(self.token)
+        self._set_input_room_config()
+        self._set_default_output_config()
         time.sleep(0.3)
 
         input_number = randint(0, 7)
@@ -434,7 +439,9 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_turn_all_outputs_on_off_floor(self):
         """ Testing turning all outputs on and off by floor number. """
-        self._set_input_room_config(self.token)
+        self._set_input_room_config()
+        self._set_default_output_config()
+
         time.sleep(0.3)
         input_number = randint(0, 7)
         config = {'name': 'turnerfO',
@@ -481,6 +488,8 @@ class ActionsTest(unittest.TestCase):
     def test_turn_all_outputs_off(self):
         """ Testing turning all outputs off. """
         time.sleep(0.3)
+
+        self._set_default_output_config()
 
         input_number = randint(0, 7)
         config = {'name': 'turnoffO',
@@ -1122,6 +1131,8 @@ class ActionsTest(unittest.TestCase):
     def test_do_basic_action_output_dimmer_level(self):
         """ Testing do basic action API call for changing dimmer level without visual validation for now. """
         # TODO: Update test for visual validation for every dimmer level
+        self._set_default_output_config()
+
         x = randint(0, 7)  # Get a random output number
         self.tools.clicker_releaser(x, self.token, False)  # turn output off before starting.
 
@@ -1407,25 +1418,7 @@ class ActionsTest(unittest.TestCase):
         self.assertTrue(self._check_if_event_is_captured(6, time.time(), 1), 'Output 6 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
         self.assertTrue(self._check_if_event_is_captured(7, time.time(), 0), 'Output 7 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
 
-        for i in xrange(8):
-            config = {"room": 5,
-                      "can_led_4_function": "UNKNOWN",
-                      "floor": 3,
-                      "can_led_1_id": 255,
-                      "can_led_1_function": "UNKNOWN",
-                      "timer": 65535,
-                      "can_led_4_id": 255,
-                      "can_led_3_id": 255,
-                      "can_led_2_function": "UNKNOWN",
-                      "id": i,
-                      "module_type": "O",
-                      "can_led_3_function": "UNKNOWN",
-                      "type": 255,  # configured as light
-                      "can_led_2_id": 255,
-                      "name": "Out{0}".format(i)
-                      }  # this will set relay, light, relay...etc
-            url_params = urllib.urlencode({'config': json.dumps(config)})
-            self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        self._set_default_output_config()
 
         url_params = urllib.urlencode(
             {'action_type': 173, 'action_number': 3})  # Turning all outputs off after setting the default settings back.
@@ -1451,11 +1444,9 @@ class ActionsTest(unittest.TestCase):
 
         return self.tools._api_testee('set_group_action_configurations?{0}'.format(url_params), token), config
 
-    def _set_input_room_config(self, token):
+    def _set_input_room_config(self):
         """
         Sets the standard input configuration with the relevant floor number and room number
-        :param token: the authorization token
-        :type token: str
 
         :return: the response from setting room configurations.
         :rtype: request.Response
@@ -1472,7 +1463,7 @@ class ActionsTest(unittest.TestCase):
             config.append(one_room_config)
         url_params = urllib.urlencode({'config': json.dumps(config)})
 
-        return self.tools._api_testee('set_room_configurations?{0}'.format(url_params), token)
+        return self.tools._api_testee('set_room_configurations?{0}'.format(url_params), self.token)
 
     def _check_if_event_is_captured(self, toggled_output, start, value):
         """
@@ -1495,3 +1486,24 @@ class ActionsTest(unittest.TestCase):
                 continue
             return False
         return True
+
+    def _set_default_output_config(self):
+        for i in xrange(8):
+            config = {"room": 5,
+                      "can_led_4_function": "UNKNOWN",
+                      "floor": 3,
+                      "can_led_1_id": 255,
+                      "can_led_1_function": "UNKNOWN",
+                      "timer": 65535,
+                      "can_led_4_id": 255,
+                      "can_led_3_id": 255,
+                      "can_led_2_function": "UNKNOWN",
+                      "id": i,
+                      "module_type": "O",
+                      "can_led_3_function": "UNKNOWN",
+                      "type": 255,  # configured as light
+                      "can_led_2_id": 255,
+                      "name": "Out{0}".format(i)
+                      }
+            url_params = urllib.urlencode({'config': json.dumps(config)})
+            self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
