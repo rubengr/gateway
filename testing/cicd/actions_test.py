@@ -44,6 +44,7 @@ class ActionsTest(unittest.TestCase):
         cls.token = cls.tools._get_new_token('openmotics', '123456')
 
     def setUp(self):
+        self.token = self.tools._get_new_token('openmotics', '123456')
         if not self.tools.discovery_success:
             self.tools.discovery_success = self.tools._assert_discovered(self.token, self.webinterface)
             if not self.tools.discovery_success:
@@ -1118,14 +1119,15 @@ class ActionsTest(unittest.TestCase):
         """ Testing changing the setpoint of the Testee's thermostat 0. """
         url_params = urllib.urlencode(
             {'action_type': 148, 'action_number': 0})  # ActionType 148 changes the set point of thermostat X to 16.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        response = self.tools._api_testee('get_thermostat_status', self.token)
+        token = self.tools._get_new_token('openmotics', '123456')
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), token)
+        response = self.tools._api_testee('get_thermostat_status', token)
         self.assertEquals(response.get('status')[0].get('csetp'), 16, 'Should contain the expected set point. Got: {0}'.format(response))
 
         url_params = urllib.urlencode(
             {'action_type': 149, 'action_number': 0})  # ActionType 149 changes the set point of thermostat X to 22.5.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        response = self.tools._api_testee('get_thermostat_status', self.token)
+        self.tools._api_testee('do_basic_action?{0}'.format(url_params), token)
+        response = self.tools._api_testee('get_thermostat_status', token)
         self.assertEquals(response.get('status')[0].get('csetp'), 22.5, 'Should contain the expected set point. Got: {0}'.format(response))
 
     @exception_handler

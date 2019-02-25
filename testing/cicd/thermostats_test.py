@@ -39,6 +39,7 @@ class ThermostatsTest(unittest.TestCase):
         cls.token = cls.tools._get_new_token('openmotics', '123456')
 
     def setUp(self):
+        self.token = self.tools._get_new_token('openmotics', '123456')
         if not self.tools.discovery_success:
             self.tools.discovery_success = self.tools._assert_discovered(self.token, self.webinterface)
             if not self.tools.discovery_success:

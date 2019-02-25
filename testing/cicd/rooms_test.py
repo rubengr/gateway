@@ -40,6 +40,7 @@ class RoomsTest(unittest.TestCase):
         cls.token = cls.tools._get_new_token('openmotics', '123456')
 
     def setUp(self):
+        self.token = self.tools._get_new_token('openmotics', '123456')
         if not self.tools.discovery_success:
             self.tools.discovery_success = self.tools._assert_discovered(self.token, self.webinterface)
             if not self.tools.discovery_success:
@@ -51,7 +52,8 @@ class RoomsTest(unittest.TestCase):
     def test_set_output_configurations_rooms_floors(self):
         """ Testing setting up outputs floor. """
         expected_to_be_inserted_config = self._set_room_floor_configuration(room_number=self.ROOM_NUMBER)
-        response_json = self.tools._api_testee('get_output_configurations', self.token)
+        token = self.tools._get_new_token('openmotics', '123456')
+        response_json = self.tools._api_testee('get_output_configurations', token)
         response_config = response_json.get('config')
         self.assertEquals(response_config, expected_to_be_inserted_config, 'Expected the output configuration to be updated. Got: {0} {1}'.format(response_config, expected_to_be_inserted_config))
 
@@ -175,8 +177,9 @@ class RoomsTest(unittest.TestCase):
                       'timer': 65535, 'can_led_4_id': 255, 'can_led_3_id': 255, 'can_led_2_function': 'UNKNOWN', 'id': i, 'module_type': 'O',
                       'can_led_3_function': 'UNKNOWN', 'type': 255, 'can_led_2_id': 255, 'name': 'Out' + str(i)}
             expected_to_be_inserted_config.append(config)
-            url_params = urllib.urlencode({'config': json.dumps(config)})
-            self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        url_params = urllib.urlencode({'config': json.dumps(expected_to_be_inserted_config)})
+        token = self.tools._get_new_token('openmotics', '123456')
+        self.tools._api_testee('set_output_configurations?{0}'.format(url_params), token)
         return expected_to_be_inserted_config
 
     def _check_if_event_is_captured(self, toggled_output, value):
