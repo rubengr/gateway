@@ -317,7 +317,7 @@ class IoTest(unittest.TestCase):
 
             output_configurations.append(one_output_configuration)
         url_params = urllib.urlencode({'config': json.dumps(output_configurations)})
-        response_json = self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        response_json = self.tools._api_testee('set_output_configurations?{0}'.format(url_params), self.token)
         self.assertTrue(response_json.get('success'), 'Should set the output configuration and return success: True. Got: {0}'.format(response_json))
 
     @exception_handler
