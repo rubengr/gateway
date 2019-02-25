@@ -34,6 +34,31 @@ from bus.dbus_events import DBusEvents
 LOGGER = logging.getLogger("openmotics")
 
 
+class Event(object):
+    """
+    Event object
+    """
+
+    class Types(object):
+        INPUT_TRIGGER = 'INPUT_TRIGGER'
+        OUTPUT_CHANGE = 'OUTPUT_CHANGE'
+        SHUTTER_CHANGE = 'SHUTTER_CHANGE'
+        THERMOSTAT_CHANGE = 'THERMOSTAT_CHANGE'
+        THERMOSTAT_GROUP_CHANGE = 'THERMOSTAT_GROUP_CHANGE'
+        ACTION = 'ACTION'
+        PING = 'PING'
+        PONG = 'PONG'
+
+    def __init__(self, event_type, data):
+        self.type = event_type
+        self.data = data
+
+    def serialize(self):
+        return {'type': self.type,
+                'data': self.data,
+                '_version': 1.0}  # Add version so that event processing code can handle multiple formats
+
+
 class Observer(object):
     """
     The Observer gets various (change) events and will also monitor certain datasets to manually detect changes
@@ -178,9 +203,9 @@ class Observer(object):
         for callback in self._master_subscriptions[Observer.MasterEvents.INPUT_TRIGGER]:
             callback(data)
         for callback in self._event_subscriptions:
-            callback({'type': 'INPUT_TRIGGER',
-                      'data': {'data': {'id': data['input']},
-                               'location': {}}})
+            callback(Event(event_type=Event.Types.INPUT_TRIGGER,
+                           data={'id': data['input'],
+                                 'location': {}}))
         # Update status tracker
         self._input_status.add_data((data['input'], data['output']))
 
@@ -203,11 +228,11 @@ class Observer(object):
         """ Executed by the Output Status tracker when an output changed state """
         self._dbus_service.send_event(DBusEvents.OUTPUT_CHANGE, {'id': output_id})
         for callback in self._event_subscriptions:
-            callback({'type': 'OUTPUT_CHANGE',
-                      'data': {'data': {'id': output_id,
-                                        'status': {'on': status['on'],
-                                                   'value': status['value']}},
-                               'location': {'room_id': self._output_config[output_id]['room']}}})
+            callback(Event(event_type=Event.Types.OUTPUT_CHANGE,
+                           data={'id': output_id,
+                                 'status': {'on': status['on'],
+                                            'value': status['value']},
+                                 'location': {'room_id': self._output_config[output_id]['room']}}))
 
     def _refresh_outputs(self):
         """ Refreshes the Output Status tracker """
@@ -233,10 +258,10 @@ class Observer(object):
     def _shutter_changed(self, shutter_id, shutter_data, shutter_state):
         """ Executed by the Shutter Status tracker when a shutter changed state """
         for callback in self._event_subscriptions:
-            callback({'type': 'SHUTTER_CHANGE',
-                      'data': {'data': {'id': shutter_id,
-                                        'status': {'state': shutter_state}},
-                               'location': {'room_id': shutter_data['room']}}})
+            callback(Event(event_type=Event.Types.SHUTTER_CHANGE,
+                           data={'id': shutter_id,
+                                 'status': {'state': shutter_state},
+                                 'location': {'room_id': shutter_data['room']}}))
 
     def _refresh_shutters(self):
         """ Refreshes the Shutter status tracker """
@@ -263,23 +288,23 @@ class Observer(object):
         self._dbus_service.send_event(DBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
         location = {'room_id': self._thermostats_config[thermostat_id]['room']}
         for callback in self._event_subscriptions:
-            callback({'type': 'THERMOSTAT_CHANGE',
-                      'data': {'data': {'id': thermostat_id,
-                                        'status': {'preset': status['preset'],
-                                                   'current_setpoint': status['current_setpoint'],
-                                                   'actual_temperature': status['actual_temperature'],
-                                                   'output_0': status['output_0'],
-                                                   'output_1': status['output_1']}},
-                               'location': location}})
+            callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
+                           data={'id': thermostat_id,
+                                 'status': {'preset': status['preset'],
+                                            'current_setpoint': status['current_setpoint'],
+                                            'actual_temperature': status['actual_temperature'],
+                                            'output_0': status['output_0'],
+                                            'output_1': status['output_1']},
+                                 'location': location}))
 
     def _thermostat_group_changed(self, status):
         self._dbus_service.send_event(DBusEvents.THERMOSTAT_CHANGE, {'id': None})
         for callback in self._event_subscriptions:
-            callback({'type': 'THERMOSTAT_GROUP_CHANGE',
-                      'data': {'data': {'id': 0,
-                                        'status': {'state': status['state'],
-                                                   'mode': status['mode']}},
-                               'location': {}}})
+            callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
+                           data={'id': 0,
+                                 'status': {'state': status['state'],
+                                            'mode': status['mode']},
+                                 'location': {}}))
 
     def _refresh_thermostats(self):
         """
