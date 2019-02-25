@@ -450,11 +450,11 @@ class WebInterface(object):
                 if receiver_info is None:
                     continue
                 try:
-                    if event['type'] not in receiver_info['subscribed_types']:
+                    if event.type not in receiver_info['subscribed_types']:
                         continue
                     if cherrypy.request.remote.ip != '127.0.0.1' and not self._user_controller.check_token(receiver_info['token']):
                         raise cherrypy.HTTPError(401, 'invalid_token')
-                    receiver_info['socket'].send(msgpack.dumps(event), binary=True)
+                    receiver_info['socket'].send(msgpack.dumps(event.serialize()), binary=True)
                 except cherrypy.HTTPError as ex:  # As might be caught from the `check_token` function
                     receiver_info['socket'].close(ex.code, ex.message)
                 except Exception as ex:

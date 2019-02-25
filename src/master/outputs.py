@@ -84,5 +84,5 @@ class OutputStatus(object):
 
     def _report_change(self, output_id, status, dimmer):
         if self._on_output_change is not None:
-            self._on_output_change(output_id, {'on': status == 1,
+            self._on_output_change(output_id, {'on': bool(status),
                                                'value': dimmer})
