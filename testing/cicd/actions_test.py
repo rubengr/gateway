@@ -1101,7 +1101,8 @@ class ActionsTest(unittest.TestCase):
         x = randint(0, 7)  # Get a random input number
         url_params = urllib.urlencode(
             {'action_type': 65, 'action_number': x})  # ActionType 65 flashes output number X.
-        response = self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        token = self.tools._get_new_token('openmotics', '123456')
+        response = self.tools._api_testee('do_basic_action?{0}'.format(url_params), token)
         self.assertTrue(response.get('success'), 'Should return true to indicate a successful API call. Got: {0}'.format(response))
 
     @exception_handler
@@ -1111,7 +1112,8 @@ class ActionsTest(unittest.TestCase):
         x = randint(0, 7)  # Get a random input number
         url_params = urllib.urlencode(
             {'action_type': 66, 'action_number': x})  # ActionType 66 flashes input number X.
-        response = self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
+        token = self.tools._get_new_token('openmotics', '123456')
+        response = self.tools._api_testee('do_basic_action?{0}'.format(url_params), token)
         self.assertTrue(response.get('success'), 'Should return true to indicate a successful API call. Got: {0}'.format(response))
 
     @exception_handler
