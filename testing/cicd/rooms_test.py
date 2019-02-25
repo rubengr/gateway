@@ -107,7 +107,7 @@ class RoomsTest(unittest.TestCase):
 
         self.tools._api_testee('set_all_lights_off', self.token)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, time.time(), 0), 'Untoggled outputs must show input releases. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self._check_if_event_is_captured(i, 0), 'Untoggled outputs must show input releases. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_set_all_lights_off_force_checked(self):
@@ -135,7 +135,7 @@ class RoomsTest(unittest.TestCase):
         self.tools._api_testee('set_all_lights_floor_off?{0}'.format(url_params), self.token)
 
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, time.time(), 0), 'Untoggled outputs must show input releases. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self._check_if_event_is_captured(i, 0), 'Untoggled outputs must show input releases. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_set_all_lights_floor_authorization(self):
@@ -165,7 +165,7 @@ class RoomsTest(unittest.TestCase):
         url_params = urllib.urlencode({'floor': self.FLOOR_NUMBER})
         self.tools._api_testee('set_all_lights_floor_on?{0}'.format(url_params), self.token)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Toggled outputs must show input presses on the Tester. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self._check_if_event_is_captured(i, 1), 'Toggled outputs must show input presses on the Tester. Got: {0}'.format(self.tools.input_status))
 
     def _set_room_floor_configuration(self, room_number):
         """ Setting room floor and room configurations: Used to eliminate dependencies between tests. """
@@ -179,7 +179,7 @@ class RoomsTest(unittest.TestCase):
             self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
         return expected_to_be_inserted_config
 
-    def _check_if_event_is_captured(self, toggled_output, start, value):
+    def _check_if_event_is_captured(self, toggled_output, value):
         """
         Checks if the toggled output has turned an input on.
         :param toggled_output: the id of the toggled output
@@ -194,6 +194,7 @@ class RoomsTest(unittest.TestCase):
         :return: if the the toggled output has turned an input on
         :rtype: bool
         """
+        start = time.time()
         while self.tools.input_status.get(str(toggled_output)) is not str(value):
             if time.time() - start < self.tools.TIMEOUT:
                 time.sleep(0.3)

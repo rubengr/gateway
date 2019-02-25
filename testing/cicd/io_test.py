@@ -21,9 +21,10 @@ import datetime
 import urllib
 import simplejson as json
 import logging
+import toolbox
 from pytz import timezone
 from toolbox import exception_handler
-import toolbox
+from random import randint
 
 LOGGER = logging.getLogger('openmotics')
 
@@ -56,20 +57,20 @@ class IoTest(unittest.TestCase):
         self.assertTrue(bool(config), 'Should not be empty and should have the output configurations of the testee. But got {0}'.format(config))
         for one in config:
             self.tools.clicker_releaser(one['id'], self.token, True)
-            result = self._check_if_event_is_captured(one['id'], time.time(), 1)
+            result = self._check_if_event_is_captured(one['id'], 1)
             self.assertTrue(result, 'Should confirm that the Tester\'s input saw a press. Got: {0}'.format(result))
 
             self.tools.clicker_releaser(one['id'], self.token, False)
-            result = self._check_if_event_is_captured(one['id'], time.time(), 0)
+            result = self._check_if_event_is_captured(one['id'], 0)
             self.assertTrue(result, 'Should confirm that the Tester\'s input saw a release. Got: {0}'.format(result))
 
     @exception_handler
     def test_set_input_configuration(self):
         """ Testing configuring and linking inputs to outputs; action: output_id. """
         initial_config = []
-        for i in xrange(self.INPUT_COUNT):
-            config = {'name': 'input'+str(i), 'basic_actions': '', 'invert': 255, 'module_type': 'I', 'can': '',
-                      'action': i, 'id': i, 'room': self.ROOM_NUMBER}
+        for input_number in xrange(self.INPUT_COUNT):
+            config = {'name': 'input'+str(input_number), 'basic_actions': '', 'invert': 255, 'module_type': 'I', 'can': '',
+                      'action': input_number, 'id': input_number, 'room': self.ROOM_NUMBER}
             initial_config.append(config)
             url_params = urllib.urlencode({'config': json.dumps(config)})
             self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
@@ -143,10 +144,10 @@ class IoTest(unittest.TestCase):
         for one in config:
             for _ in xrange(30):
                 self.tools.clicker_releaser(one['id'], self.token, True)
-                self.assertTrue(self._check_if_event_is_captured(one['id'], time.time(), 1), 'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
+                self.assertTrue(self._check_if_event_is_captured(one['id'], 1), 'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
 
                 self.tools.clicker_releaser(one['id'], self.token, False)
-                self.assertTrue(self._check_if_event_is_captured(one['id'], time.time(), 0), 'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
+                self.assertTrue(self._check_if_event_is_captured(one['id'], 0), 'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_output_stress_toggling_authorization(self):
@@ -293,14 +294,57 @@ class IoTest(unittest.TestCase):
         url_params = urllib.urlencode({'username': 'openmotics', 'password': '123456', 'accept_terms': True})
         self.tools.token = self.tools._api_testee('login?{0}'.format(url_params)).get('token')
 
-    def _check_if_event_is_captured(self, toggled_output, start, value):
+    @exception_handler
+    def test_set_output_configuration(self):
+        output_configurations = []
+        for i in xrange(8):
+            one_output_configuration = {"room": 5,
+                                        "can_led_4_function": "UNKNOWN",
+                                        "floor": 3,
+                                        "can_led_1_id": 255,
+                                        "can_led_1_function": "UNKNOWN",
+                                        "timer": 65535,
+                                        "can_led_4_id": 255,
+                                        "can_led_3_id": 255,
+                                        "can_led_2_function": "UNKNOWN",
+                                        "id": i,
+                                        "module_type": "O",
+                                        "can_led_3_function": "UNKNOWN",
+                                        "type": 255,  # configured as light
+                                        "can_led_2_id": 255,
+                                        "name": "Out{0}".format(i)
+                                        }
+
+            output_configurations.append(one_output_configuration)
+        url_params = urllib.urlencode({'config': json.dumps(output_configurations)})
+        response_json = self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        self.assertTrue(response_json.get('success'), 'Should set the output configuration and return success: True. Got: {0}'.format(response_json))
+
+    @exception_handler
+    def test_get_output_status(self):
+
+        output_number = randint(0, 7)
+        token = self.tools._get_new_token('openmotics', '123456')
+        output_statuses = self.tools._api_testee('get_output_status', token).get('status')
+        self.assertTrue(output_statuses[output_number].get('status') == 0, 'Should be off by default. Got: {0}'.format(output_statuses))
+
+        self.tools.clicker_releaser(output_number, token, True)
+        self.assertTrue(self._check_if_event_is_captured(output_number, 1), 'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
+
+        output_statuses = self.tools._api_testee('get_output_status', token).get('status')
+        self.assertTrue(output_statuses[output_number].get('status') == 1, 'Should be off by default. Got: {0}'.format(output_statuses))
+
+        self.tools.clicker_releaser(output_number, token, False)
+        self.assertTrue(self._check_if_event_is_captured(output_number, 0), 'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
+
+        output_statuses = self.tools._api_testee('get_output_status', token).get('status')
+        self.assertTrue(output_statuses[output_number].get('status') == 0, 'Should be off by default. Got: {0}'.format(output_statuses))
+
+    def _check_if_event_is_captured(self, toggled_output, value):
         """
         Checks if the toggled output has turned an input on.
         :param toggled_output: the id of the toggled output
         :type toggled_output: int
-
-        :param start: the time from which counting will start
-        :type start: float
 
         :param value: the expected is_on value of the input.
         :type value: int
@@ -308,6 +352,7 @@ class IoTest(unittest.TestCase):
         :return: if the the toggled output has turned an input on
         :rtype: bool
         """
+        start = time.time()
         while self.tools.input_status.get(str(toggled_output)) is not str(value):
             if time.time() - start < self.tools.TIMEOUT:
                 time.sleep(0.3)

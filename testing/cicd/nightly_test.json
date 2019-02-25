@@ -27,6 +27,8 @@
       "io_test.test_factory_reset_and_reconfigure_use_case",
       "io_test.test_toggle_all_outputs_testee",
       "io_test.test_get_modules",
+      "io_test.test_set_output_configuration",
+      "io_test.test_get_output_status",
 
       "actions_test.test_do_group_action_on_off",
       "actions_test.test_do_group_action_on_off_authorization",
