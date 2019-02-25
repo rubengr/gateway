@@ -1,3 +1,20 @@
+# Copyright (C) 2019 OpenMotics BVBA
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+""""
+The actions_test contains tests related to action types and action numbers.
+"""
 import unittest
 import time
 import urllib
@@ -7,14 +24,6 @@ from random import randint
 from toolbox import exception_handler
 
 LOGGER = logging.getLogger('openmotics')
-#                                            _   _
-#                                           | | (_)
-#    ___  _ __   ___ _ __    _ __ ___   ___ | |_ _  ___ ___
-#   / _ \| '_ \ / _ \ '_ \  | '_ ` _ \ / _ \| __| |/ __/ __|
-#  | (_) | |_) |  __/ | | | | | | | | | (_) | |_| | (__\__ \
-#   \___/| .__/ \___|_| |_| |_| |_| |_|\___/ \__|_|\___|___/
-#        | |
-#        |_|
 
 
 class ActionsTest(unittest.TestCase):
@@ -214,6 +223,7 @@ class ActionsTest(unittest.TestCase):
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
         self.assertTrue(158 > end - start > 148, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+        self.assertEquals(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"], 150, "{0} not 150".format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_get_input_configuration_authorization(self):
@@ -620,7 +630,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(460 > end - start > 440, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+        self.assertTrue(460 > end - start > 440, 'Should toggle off after around 7m30s. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_motion_sensor_timer_15m(self):
@@ -651,7 +661,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(910 > end - start > 890, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+        self.assertTrue(910 > end - start > 890, 'Should toggle off after around 15m. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_motion_sensor_timer_25m(self):
@@ -683,7 +693,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(1510 > end - start > 1490, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+        self.assertTrue(1510 > end - start > 1490, 'Should toggle off after around 25m. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_motion_sensor_timer_37m(self):
@@ -714,7 +724,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(2230 > end - start > 2210, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+        self.assertTrue(2230 > end - start > 2210, 'Should toggle off after around 37m. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_motion_sensor_timer_52m(self):
@@ -745,7 +755,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(3130 > end - start > 3110, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
+        self.assertTrue(3130 > end - start > 3110, 'Should toggle off after around 52m. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_time_no_overrule_2m30s(self):
@@ -865,7 +875,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(460 > end - start > 440, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(460 > end - start > 440, 'Should still turn off after 7m30s since it first turned on. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_time_no_overrule_15m(self):
@@ -925,7 +935,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(910 > end - start > 890, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(910 > end - start > 890, 'Should still turn off after 15m since it first turned on. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_time_no_overrule_25(self):
@@ -985,7 +995,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(1510 > end - start > 1490, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(1510 > end - start > 1490, 'Should still turn off after 25m since it first turned on. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_time_no_overrule_37m(self):
@@ -1045,7 +1055,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(2230 > end - start > 2210, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(2230 > end - start > 2210, 'Should still turn off after 37m since it first turned on. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_time_no_overrule_52m(self):
@@ -1105,7 +1115,7 @@ class ActionsTest(unittest.TestCase):
 
         end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(3130 > end - start > 3110, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(3130 > end - start > 3110, 'Should still turn off after 52m since it first turned on. Got: {0}'.format(end - start))
 
     @exception_handler
     def test_do_basic_action_flash_led_output(self):
@@ -1126,170 +1136,6 @@ class ActionsTest(unittest.TestCase):
             {'action_type': 66, 'action_number': x})  # ActionType 66 flashes input number X.
         response = self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
         self.assertTrue(response.get('success'), 'Should return true to indicate a successful API call. Got: {0}'.format(response))
-
-    @exception_handler
-    def test_do_basic_action_output_dimmer_level(self):
-        """ Testing do basic action API call for changing dimmer level without visual validation for now. """
-        # TODO: Update test for visual validation for every dimmer level
-        self._set_default_output_config()
-
-        x = randint(0, 7)  # Get a random output number
-        self.tools.clicker_releaser(x, self.token, False)  # turn output off before starting.
-
-        url_params = urllib.urlencode({'action_type': 176, 'action_number': x})  # ActionType 176 sets dimmer level to 10% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 10,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        url_params = urllib.urlencode({'action_type': 177, 'action_number': x})  # ActionType 176 sets dimmer level to 20% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 20,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        url_params = urllib.urlencode({'action_type': 178, 'action_number': x})  # ActionType 176 sets dimmer level to 30% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 30,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        url_params = urllib.urlencode({'action_type': 179, 'action_number': x})  # ActionType 176 sets dimmer level to 40% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 40,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        url_params = urllib.urlencode({'action_type': 180, 'action_number': x})  # ActionType 176 sets dimmer level to 50% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 50,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        url_params = urllib.urlencode({'action_type': 181, 'action_number': x})  # ActionType 176 sets dimmer level to 60% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 60,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        url_params = urllib.urlencode({'action_type': 182, 'action_number': x})  # ActionType 176 sets dimmer level to 70% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 70,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        url_params = urllib.urlencode({'action_type': 183, 'action_number': x})  # ActionType 176 sets dimmer level to 80% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 80,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        url_params = urllib.urlencode({'action_type': 184, 'action_number': x})  # ActionType 176 sets dimmer level to 90% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 90,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 185, 'action_number': x})  # ActionType 185 sets dimmer level to 10% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 10,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response.get('status')[x]))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 186, 'action_number': x})  # ActionType 186 sets dimmer level to 20% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 20,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 187, 'action_number': x})  # ActionType 187 sets dimmer level to 30% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 30,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 188, 'action_number': x})  # ActionType 188 sets dimmer level to 40% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 40,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 189, 'action_number': x})  # ActionType 189 sets dimmer level to 50% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 50,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 190, 'action_number': x})  # ActionType 190 sets dimmer level to 60% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 60,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 191, 'action_number': x})  # ActionType 191 sets dimmer level to 70% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 70,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 192, 'action_number': x})  # ActionType 192 sets dimmer level to 80% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 80,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 193, 'action_number': x})  # ActionType 193 sets dimmer level to 90% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 90,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off before starting toggling.
-
-        url_params = urllib.urlencode({'action_type': 194, 'action_number': x})  # ActionType 194 actually sets dimmer level to 97% output number X.
-        self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        time.sleep(0.5)
-        response = self.tools._api_testee('get_output_status', self.token)
-        self.assertEquals(response.get('status')[x].get('dimmer'), 97,
-                          'Should contain the correct dimmer level. Got: {0}'.format(response.get('status')[x]))
-
-        self.tools.clicker_releaser(x, self.token, False)  # turn output back off after finishing.
 
     def test_thermostat_setpoint_action_type(self):
         """ Testing changing the setpoint of the Testee's thermostat 0. """
