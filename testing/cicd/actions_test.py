@@ -214,16 +214,13 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
 
-        start = time.time()
         time.sleep(0.3)
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(158 > end - start > 148, 'Should toggle off after around 2m30s. Got: {0}'.format(end - start))
-        self.assertEquals(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"], 150, "{0} not 150".format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
+        self.assertTrue(152 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 148, 'Should toggle off after around 2m30s. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_get_input_configuration_authorization(self):
@@ -622,15 +619,13 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
 
-        start = time.time()
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(300)
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(460 > end - start > 440, 'Should toggle off after around 7m30s. Got: {0}'.format(end - start))
+        self.assertTrue(460 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 440, 'Should toggle off after around 7m30s. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_motion_sensor_timer_15m(self):
@@ -653,15 +648,13 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
 
-        start = time.time()
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(780)
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(910 > end - start > 890, 'Should toggle off after around 15m. Got: {0}'.format(end - start))
+        self.assertTrue(910 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 890, 'Should toggle off after around 15m. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_motion_sensor_timer_25m(self):
@@ -684,16 +677,13 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
 
-        start = time.time()
-
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(1380)
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(1510 > end - start > 1490, 'Should toggle off after around 25m. Got: {0}'.format(end - start))
+        self.assertTrue(1510 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 1490, 'Should toggle off after around 25m. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_motion_sensor_timer_37m(self):
@@ -716,15 +706,13 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
 
-        start = time.time()
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(2100)
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(2230 > end - start > 2210, 'Should toggle off after around 37m. Got: {0}'.format(end - start))
+        self.assertTrue(2230 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 2210, 'Should toggle off after around 37m. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_motion_sensor_timer_52m(self):
@@ -747,15 +735,13 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
 
-        start = time.time()
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(3000)
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(3130 > end - start > 3110, 'Should toggle off after around 52m. Got: {0}'.format(end - start))
+        self.assertTrue(3130 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 3110, 'Should toggle off after around 52m. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_time_no_overrule_2m30s(self):
@@ -797,10 +783,6 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
 
-        start = time.time()
-
-        while time.time() - start < 100:
-            continue
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
@@ -813,9 +795,8 @@ class ActionsTest(unittest.TestCase):
 
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(158 > end - start > 148, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(158 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 148, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_time_no_overrule_7m30s(self):
@@ -860,7 +841,7 @@ class ActionsTest(unittest.TestCase):
         start = time.time()
 
         while time.time() - start < 360:
-            continue
+            time.sleep(1)
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
@@ -873,9 +854,8 @@ class ActionsTest(unittest.TestCase):
 
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(460 > end - start > 440, 'Should still turn off after 7m30s since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(460 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 440, 'Should still turn off after 7m30s since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_time_no_overrule_15m(self):
@@ -920,7 +900,7 @@ class ActionsTest(unittest.TestCase):
         start = time.time()
 
         while time.time() - start < 780:
-            continue
+            time.sleep(1)
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
@@ -933,9 +913,8 @@ class ActionsTest(unittest.TestCase):
 
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(910 > end - start > 890, 'Should still turn off after 15m since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(910 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 890, 'Should still turn off after 15m since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_time_no_overrule_25(self):
@@ -980,7 +959,7 @@ class ActionsTest(unittest.TestCase):
         start = time.time()
 
         while time.time() - start < 1380:
-            continue
+            time.sleep(1)
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
@@ -993,9 +972,8 @@ class ActionsTest(unittest.TestCase):
 
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(1510 > end - start > 1490, 'Should still turn off after 25m since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(1510 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 1490, 'Should still turn off after 25m since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_time_no_overrule_37m(self):
@@ -1040,7 +1018,7 @@ class ActionsTest(unittest.TestCase):
         start = time.time()
 
         while time.time() - start < 2100:
-            continue
+            time.sleep(1)
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
@@ -1053,9 +1031,8 @@ class ActionsTest(unittest.TestCase):
 
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(2230 > end - start > 2210, 'Should still turn off after 37m since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(2230 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 2210, 'Should still turn off after 37m since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_time_no_overrule_52m(self):
@@ -1100,7 +1077,7 @@ class ActionsTest(unittest.TestCase):
         start = time.time()
 
         while time.time() - start < 3000:
-            continue
+            time.sleep(1)
         self.assertTrue(self._check_if_event_is_captured(i, time.time(), 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
@@ -1113,9 +1090,8 @@ class ActionsTest(unittest.TestCase):
 
         result = self._check_if_event_is_captured(i, time.time(), 0)
 
-        end = time.time()
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
-        self.assertTrue(3130 > end - start > 3110, 'Should still turn off after 52m since it first turned on. Got: {0}'.format(end - start))
+        self.assertTrue(3130 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 3110, 'Should still turn off after 52m since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
 
     @exception_handler
     def test_do_basic_action_flash_led_output(self):
@@ -1328,9 +1304,9 @@ class ActionsTest(unittest.TestCase):
         """
         while self.tools.input_status.get(str(toggled_output)) is not str(value):
             if time.time() - start < self.tools.TIMEOUT:
-                time.sleep(0.3)
-                continue
-            return False
+                time.sleep(1)
+            else:
+                return False
         return True
 
     def _set_default_output_config(self):

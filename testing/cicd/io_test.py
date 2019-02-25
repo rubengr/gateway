@@ -1,3 +1,20 @@
+# Copyright (C) 2019 OpenMotics BVBA
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+""""
+The io_test contains tests related to input and output configurations.
+"""
 import unittest
 import time
 import datetime
@@ -9,14 +26,6 @@ from toolbox import exception_handler
 import toolbox
 
 LOGGER = logging.getLogger('openmotics')
-#                                            _   _
-#                                           | | (_)
-#    ___  _ __   ___ _ __    _ __ ___   ___ | |_ _  ___ ___
-#   / _ \| '_ \ / _ \ '_ \  | '_ ` _ \ / _ \| __| |/ __/ __|
-#  | (_) | |_) |  __/ | | | | | | | | | (_) | |_| | (__\__ \
-#   \___/| .__/ \___|_| |_| |_| |_| |_|\___/ \__|_|\___|___/
-#        | |
-#        |_|
 
 
 class IoTest(unittest.TestCase):
@@ -302,6 +311,6 @@ class IoTest(unittest.TestCase):
         while self.tools.input_status.get(str(toggled_output)) is not str(value):
             if time.time() - start < self.tools.TIMEOUT:
                 time.sleep(0.3)
-                continue
-            return False
+            else:
+                return False
         return True

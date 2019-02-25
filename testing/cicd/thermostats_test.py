@@ -166,12 +166,10 @@ class ThermostatsTest(unittest.TestCase):
             if response_json != "invalid_token":
                 if response_json.get('success') is False:
                     time.sleep(0.3)
-                    continue
                 elif response_json.get('success') is True:
                     break
             else:
                 time.sleep(0.3)
-                continue
 
         self.assertTrue(response_json.get('automatic', False) is True and response_json.get('setpoint', 99) == 0 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set after resetting the master. Got: {0}".format(response_json))
 
@@ -186,12 +184,10 @@ class ThermostatsTest(unittest.TestCase):
             if response_json != "invalid_token":
                 if response_json.get('success') is False:
                     time.sleep(0.3)
-                    continue
                 elif response_json.get('success') is True:
                     break
             else:
                 time.sleep(0.3)
-                continue
         self.assertTrue(response_json.get('automatic', False) is True and response_json.get('setpoint', 99) == 0 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set after a full power cycle. Got: {0}".format(response_json))
 
         # Testing the mode persistence after reset
@@ -213,12 +209,10 @@ class ThermostatsTest(unittest.TestCase):
             if response_json != "invalid_token":
                 if response_json.get('success') is False:
                     time.sleep(0.3)
-                    continue
                 elif response_json.get('success') is True:
                     break
             else:
                 time.sleep(0.3)
-                continue
 
         self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after resetting the master. Got: {0}".format(response_json))
 
@@ -233,12 +227,10 @@ class ThermostatsTest(unittest.TestCase):
             if response_json != "invalid_token":
                 if response_json.get('success') is False:
                     time.sleep(0.3)
-                    continue
                 elif response_json.get('success') is True:
                     break
             else:
                 time.sleep(0.3)
-                continue
 
         self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after a full power cycle. Got: {0}".format(response_json))
 
@@ -255,12 +247,10 @@ class ThermostatsTest(unittest.TestCase):
             if response_json != "invalid_token":
                 if response_json.get('success') is False:
                     time.sleep(0.3)
-                    continue
                 elif response_json.get('success') is True:
                     break
             else:
                 time.sleep(0.3)
-                continue
 
         self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after resetting the master. Got: {0}".format(response_json))
 
@@ -275,11 +265,9 @@ class ThermostatsTest(unittest.TestCase):
             if response_json != "invalid_token":
                 if response_json.get('success') is False:
                     time.sleep(0.3)
-                    continue
                 elif response_json.get('success') is True:
                     break
             else:
                 time.sleep(0.3)
-                continue
 
         self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after a full power cycle. Got: {0}".format(response_json))

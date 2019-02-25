@@ -197,6 +197,6 @@ class RoomsTest(unittest.TestCase):
         while self.tools.input_status.get(str(toggled_output)) is not str(value):
             if time.time() - start < self.tools.TIMEOUT:
                 time.sleep(0.3)
-                continue
-            return False
+            else:
+                return False
         return True

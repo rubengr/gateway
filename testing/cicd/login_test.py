@@ -100,7 +100,7 @@ class LoginTest(unittest.TestCase):
         self.tools.enter_testee_authorized_mode(self.webinterface)
         start = time.time()
         while self.tools._api_testee('get_usernames', expected_failure=True).get('success', False) is not False and time.time() - start <= self.tools.TIMEOUT:
-            continue
+            time.sleep(1)
         end = time.time()
         self.assertTrue(65 >= end - start >= 55, 'Should leave authorized mode after a minute.')
 
