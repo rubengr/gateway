@@ -58,6 +58,11 @@ class Event(object):
                 'data': self.data,
                 '_version': 1.0}  # Add version so that event processing code can handle multiple formats
 
+    @staticmethod
+    def deserialize(data):
+        return Event(event_type=data['type'],
+                     data=data['data'])
+
 
 class Observer(object):
     """
