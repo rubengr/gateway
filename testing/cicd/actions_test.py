@@ -252,7 +252,8 @@ class ActionsTest(unittest.TestCase):
                   'id': input_number,
                   'room': 255}
         url_params = urllib.urlencode({'config': json.dumps(config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+        token = self.tools._get_new_token('openmotics', '123456')
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), token)
         self.webinterface.set_output(id=input_number, is_on=True)
         self.assertTrue(self._check_if_event_is_captured(0, 1), 'Should execute a group action to toggle on output 0.')
 
