@@ -16,7 +16,10 @@
     "actions_test.test_turn_all_outputs_on_off_floor",
     "actions_test.test_turn_all_outputs_off",
     "actions_test.test_execute_group_actions_after_xtime",
-    "actions_test.test_turn_only_lights_off"
+    "actions_test.test_turn_only_lights_off",
+
+    "websocket_test.test_websocket_output_change",
+    "websocket_test.test_websocket_input_trigger"
   ]
 
 }
