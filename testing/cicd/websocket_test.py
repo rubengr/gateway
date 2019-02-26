@@ -65,8 +65,9 @@ class WebsocketTest(unittest.TestCase):
         time.sleep(0.5)
         self.assertTrue(bool(WebsocketTest.DATA), ' Should not be None. Got: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
-        self.assertTrue(WebsocketTest.DATA['data']['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['data']['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        LOGGER.info(WebsocketTest.DATA)
+        self.assertTrue(WebsocketTest.DATA['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
         self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
         time.sleep(0.5)
@@ -76,8 +77,8 @@ class WebsocketTest(unittest.TestCase):
         time.sleep(0.5)
         self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
-        self.assertTrue(not WebsocketTest.DATA['data']['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['data']['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertTrue(not WebsocketTest.DATA['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
         self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
     @exception_handler
@@ -97,7 +98,7 @@ class WebsocketTest(unittest.TestCase):
         self.webinterface.set_output(id=4, is_on=False)
         self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
-        self.assertEquals(WebsocketTest.DATA['data']['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
         self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
         time.sleep(0.5)
@@ -107,7 +108,7 @@ class WebsocketTest(unittest.TestCase):
         self.webinterface.set_output(id=4, is_on=False)
         self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
-        self.assertEquals(WebsocketTest.DATA['data']['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEquals(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
         self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
 
