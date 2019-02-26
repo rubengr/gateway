@@ -15,28 +15,31 @@
 """ Includes the WebService class """
 
 
-import threading
-import random
-import subprocess
-import os
-import sys
-import time
-import requests
-import logging
+import base64
 import cherrypy
 import constants
+import logging
 import msgpack
-import base64
+import os
+import random
+import requests
+import subprocess
+import sys
+import threading
+import time
 import uuid
-from decorator import decorator
+
 from cherrypy.lib.static import serve_file
+from decorator import decorator
 from ws4py import WS_VERSION
-from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
+from ws4py.websocket import WebSocket
+
 from bus.dbus_events import DBusEvents
+from gateway.observer import Event
 from master.master_communicator import InMaintenanceModeException
-from serial_utils import CommunicationTimedOutException
 from platform_utils import System
+from serial_utils import CommunicationTimedOutException
 
 try:
     import json
@@ -358,18 +361,23 @@ class EventsSocket(OMSocket):
         cherrypy.engine.publish('remove-events-receiver', client_id)
 
     def received_message(self, message):
-        allowed_types = ['OUTPUT_CHANGE', 'THERMOSTAT_CHANGE', 'SHUTTER_CHANGE', 'INPUT_TRIGGER']
+        allowed_types = [Event.Types.OUTPUT_CHANGE,
+                         Event.Types.THERMOSTAT_CHANGE,
+                         Event.Types.THERMOSTAT_GROUP_CHANGE,
+                         Event.Types.SHUTTER_CHANGE,
+                         Event.Types.INPUT_TRIGGER]
         try:
             data = msgpack.loads(message.data)
-            if data.get('type') == 'ACTION':
-                if data['data']['action'] == 'set_subscription':
-                    subscribed_types = [stype for stype in data['data']['types'] if stype in allowed_types]
+            event = Event.deserialize(data)
+            if event.type == Event.Types.ACTION:
+                if event.data['action'] == 'set_subscription':
+                    subscribed_types = [stype for stype in event.data['types'] if stype in allowed_types]
                     cherrypy.engine.publish('update-events-receiver',
                                             self.metadata['client_id'],
                                             {'subscribed_types': subscribed_types})
-            elif data.get('type') == 'PING':
-                self.send(msgpack.dumps({'type': 'PONG',
-                                         'data': time.time()}), binary=True)
+            elif event.type == Event.Types.PING:
+                self.send(msgpack.dumps(Event(event_type=Event.Types.PONG,
+                                              data=None).serialize()), binary=True)
         except Exception as ex:
             LOGGER.exception('Error receiving message: {0}'.format(ex))
             # pass  # Ignore malformed data processing; in that case there's nothing that will happen
@@ -450,11 +458,11 @@ class WebInterface(object):
                 if receiver_info is None:
                     continue
                 try:
-                    if event['type'] not in receiver_info['subscribed_types']:
+                    if event.type not in receiver_info['subscribed_types']:
                         continue
                     if cherrypy.request.remote.ip != '127.0.0.1' and not self._user_controller.check_token(receiver_info['token']):
                         raise cherrypy.HTTPError(401, 'invalid_token')
-                    receiver_info['socket'].send(msgpack.dumps(event), binary=True)
+                    receiver_info['socket'].send(msgpack.dumps(event.serialize()), binary=True)
                 except cherrypy.HTTPError as ex:  # As might be caught from the `check_token` function
                     receiver_info['socket'].close(ex.code, ex.message)
                 except Exception as ex:

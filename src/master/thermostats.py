@@ -23,13 +23,14 @@ from threading import Lock
 class ThermostatStatus(object):
     """ Contains a cached version of the current thermostats of the controller. """
 
-    def __init__(self, on_thermostat_change=None):
+    def __init__(self, on_thermostat_change=None, on_thermostat_group_change=None):
         """
         Create a status object using a list of thermostats (can be None),
         and a refresh period: the refresh has to be invoked explicitly.
         """
         self._thermostats = {}
         self._on_thermostat_change = on_thermostat_change
+        self._on_thermostat_group_change = on_thermostat_group_change
         self._merge_lock = Lock()
 
     def full_update(self, thermostats):
@@ -55,10 +56,12 @@ class ThermostatStatus(object):
                      'output1': 0}]}
         """
         with self._merge_lock:
+            new_status = {t['id']: t for t in thermostats['status']}
             if len(self._thermostats) == 0:
-                self._report_change(None)
+                self._report_group_change(thermostats_on=thermostats['thermostats_on'],
+                                          cooling=thermostats['cooling'])
                 for i in xrange(0, 32):
-                    self._report_change(i)
+                    self._report_change(i, new_status.get(i))
             else:
                 change = False
                 for key in self._thermostats:
@@ -67,9 +70,9 @@ class ThermostatStatus(object):
                     if thermostats[key] != self._thermostats[key]:
                         change = True
                 if change:
-                    self._report_change(None)
+                    self._report_group_change(thermostats_on=thermostats['thermostats_on'],
+                                              cooling=thermostats['cooling'])
                 old_status = {t['id']: t for t in self._thermostats['status']}
-                new_status = {t['id']: t for t in thermostats['status']}
                 for thermostat_id in xrange(0, 32):
                     change = False
                     if (thermostat_id in old_status) != (thermostat_id in new_status):
@@ -80,13 +83,32 @@ class ThermostatStatus(object):
                                 change = True
                                 break
                     if change:
-                        self._report_change(thermostat_id)
+                        self._report_change(thermostat_id, new_status.get(thermostat_id))
             self._thermostats = thermostats
 
     def get_thermostats(self):
         """ Return the list of Outputs. """
         return self._thermostats
 
-    def _report_change(self, thermostat_id):
-        if self._on_thermostat_change is not None:
-            self._on_thermostat_change(thermostat_id)
+    def _report_change(self, thermostat_id, status):
+        if self._on_thermostat_change is not None and status is not None:
+            self._on_thermostat_change(thermostat_id, {'preset': ThermostatStatus._serialize_preset(status['setpoint']),
+                                                       'current_setpoint': status['csetp'],
+                                                       'actual_temperature': status['act'],
+                                                       'output_0': status['output0'],
+                                                       'output_1': status['output1']})
+
+    def _report_group_change(self, thermostats_on, cooling):
+        if self._on_thermostat_group_change is not None:
+            self._on_thermostat_group_change({'state': 'ON' if thermostats_on else 'OFF',
+                                              'mode': 'COOLING' if cooling else 'HEATING'})
+
+    @staticmethod
+    def _serialize_preset(setpoint):
+        if setpoint == 3:
+            return 'AWAY'
+        if setpoint == 4:
+            return 'VACATION'
+        if setpoint == 5:
+            return 'PARTY'
+        return 'AUTO'
