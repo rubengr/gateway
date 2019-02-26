@@ -199,17 +199,7 @@ class ActionsTest(unittest.TestCase):
         """ Testing the setting up of a virtual motion sensor and validating the timer setting ( short = 2m30s ) """
         i = randint(0, 7)
 
-        modified_config = {'name': 'MotionS',
-                           'basic_actions': '195,{0}'.format(i),
-                           'invert': 255,
-                           'module_type': 'I',
-                           'can': '',
-                           'action': 240,
-                           'id': i,
-                           'room': 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+        self._set_input_advanced_configuration('MotionS', i, 195)
 
         self.webinterface.set_output(id=i, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -266,16 +256,8 @@ class ActionsTest(unittest.TestCase):
         self._set_default_output_config()
         time.sleep(0.3)
         output_to_toggle = randint(0, 7)
-        config = {'name': 'input_to',
-                  'basic_actions': '162,{0}'.format(output_to_toggle),
-                  'invert': 255,
-                  'module_type': 'I',
-                  'can': '',
-                  'action': 240,
-                  'id': output_to_toggle,
-                  'room': 255}
-        url_params = urllib.urlencode({'config': json.dumps(config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        self._set_input_advanced_configuration('togglINP', output_to_toggle, 162)
 
         self.webinterface.set_output(id=output_to_toggle, is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
         self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -295,16 +277,8 @@ class ActionsTest(unittest.TestCase):
         self._set_default_output_config()
         time.sleep(0.3)
         output_to_toggle = randint(0, 7)
-        config = {'name': 'input_to',
-                  'basic_actions': '161,{0}'.format(output_to_toggle),
-                  'invert': 255,
-                  'module_type': 'I',
-                  'can': '',
-                  'action': 240,
-                  'id': output_to_toggle,
-                  'room': 255}
-        url_params = urllib.urlencode({'config': json.dumps(config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+
+        self._set_input_advanced_configuration('onoffINP', output_to_toggle, 161)
 
         self.webinterface.set_output(id=output_to_toggle, is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
         self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -312,16 +286,7 @@ class ActionsTest(unittest.TestCase):
         self.webinterface.set_output(id=output_to_toggle, is_on=False)
         self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 1), 'Even if the Tester\'s output is off, the Testee\'s input should keep seeing a press. Got: {0}'.format(self.tools.input_status))
 
-        config = {'name': 'input_to',
-                  'basic_actions': '160,{0}'.format(output_to_toggle),
-                  'invert': 255,
-                  'module_type': 'I',
-                  'can': '',
-                  'action': 240,
-                  'id': output_to_toggle,
-                  'room': 255}
-        url_params = urllib.urlencode({'config': json.dumps(config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+        self._set_input_advanced_configuration('onoffINP', output_to_toggle, 160)
 
         self.webinterface.set_output(id=output_to_toggle, is_on=True)
         self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 0), 'The Tester\'s input module should see a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -605,17 +570,7 @@ class ActionsTest(unittest.TestCase):
         """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 7m30s """
         input_output_number = randint(0, 7)
 
-        modified_config = {'name': 'MotionS',
-                           'basic_actions': '196,{0}'.format(input_output_number),
-                           'invert': 255,
-                           'module_type': 'I',
-                           'can': '',
-                           'action': 240,
-                           'id': input_output_number,
-                           'room': 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+        self._set_input_advanced_configuration('timed196', input_output_number, 196)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -634,17 +589,7 @@ class ActionsTest(unittest.TestCase):
         """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 15m """
         input_output_number = randint(0, 7)
 
-        modified_config = {'name': 'MotionS',
-                           'basic_actions': '197,{0}'.format(input_output_number),
-                           'invert': 255,
-                           'module_type': 'I',
-                           'can': '',
-                           'action': 240,
-                           'id': input_output_number,
-                           'room': 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+        self._set_input_advanced_configuration('timed197', input_output_number, 197)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -663,17 +608,7 @@ class ActionsTest(unittest.TestCase):
         """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 25m """
         input_output_number = randint(0, 7)
 
-        modified_config = {'name': 'MotionS',
-                           'basic_actions': '198,{0}'.format(input_output_number),
-                           'invert': 255,
-                           'module_type': 'I',
-                           'can': '',
-                           'action': 240,
-                           'id': input_output_number,
-                           'room': 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+        self._set_input_advanced_configuration('timed198', input_output_number, 198)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -692,17 +627,7 @@ class ActionsTest(unittest.TestCase):
         """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 37m """
         input_output_number = randint(0, 7)
 
-        modified_config = {'name': 'MotionS',
-                           'basic_actions': '199,{0}'.format(input_output_number),
-                           'invert': 255,
-                           'module_type': 'I',
-                           'can': '',
-                           'action': 240,
-                           'id': input_output_number,
-                           'room': 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+        self._set_input_advanced_configuration('timed199', input_output_number, 199)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -721,17 +646,7 @@ class ActionsTest(unittest.TestCase):
         """ Testing the setting up of a simulated motion sensor and validating the timer setting for toggling an output for 52m """
         input_output_number = randint(0, 7)
 
-        modified_config = {'name': 'MotionS',
-                           'basic_actions': '200,{0}'.format(input_output_number),
-                           'invert': 255,
-                           'module_type': 'I',
-                           'can': '',
-                           'action': 240,
-                           'id': input_output_number,
-                           'room': 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
+        self._set_input_advanced_configuration('timed200', input_output_number, 200)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -750,36 +665,9 @@ class ActionsTest(unittest.TestCase):
         """ Testing the execution of an action (toggling output for 2m30s) without that does not overrule the timer """
         input_output_number = randint(0, 7)
 
-        modified_output_config = {"room": 5,
-                                  "can_led_4_function": "UNKNOWN",
-                                  "floor": 3,
-                                  "can_led_1_id": 255,
-                                  "can_led_1_function": "UNKNOWN",
-                                  "timer": 30,
-                                  "can_led_4_id": 255,
-                                  "can_led_3_id": 255,
-                                  "can_led_2_function": "UNKNOWN",
-                                  "id": input_output_number,
-                                  "module_type": "O",
-                                  "can_led_3_function": "UNKNOWN",
-                                  "type": 255,
-                                  "can_led_2_id": 255,
-                                  "name": "Out{0}".format(input_output_number)}
+        self._set_input_advanced_configuration('timed201', input_output_number, 201)
 
-        modified_input_config = {"name": "timed201",
-                                 "basic_actions": "201,{0}".format(input_output_number),
-                                 "invert": 255,
-                                 "module_type": "I",
-                                 "can": "",
-                                 "action": 240,
-                                 "id": input_output_number,
-                                 "room": 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
-        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        self._set_output_advanced_config(input_output_number)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -805,36 +693,9 @@ class ActionsTest(unittest.TestCase):
         """ Testing the execution of an action (toggling output for 7m30s) without that does not overrule the timer """
         input_output_number = randint(0, 7)
 
-        modified_output_config = {"room": 5,
-                                  "can_led_4_function": "UNKNOWN",
-                                  "floor": 3,
-                                  "can_led_1_id": 255,
-                                  "can_led_1_function": "UNKNOWN",
-                                  "timer": 30,
-                                  "can_led_4_id": 255,
-                                  "can_led_3_id": 255,
-                                  "can_led_2_function": "UNKNOWN",
-                                  "id": input_output_number,
-                                  "module_type": "O",
-                                  "can_led_3_function": "UNKNOWN",
-                                  "type": 255,
-                                  "can_led_2_id": 255,
-                                  "name": "Out{0}".format(input_output_number)}
+        self._set_input_advanced_configuration('timed202', input_output_number, 202)
 
-        modified_input_config = {"name": "timed202",
-                                 "basic_actions": "202,{0}".format(input_output_number),
-                                 "invert": 255,
-                                 "module_type": "I",
-                                 "can": "",
-                                 "action": 240,
-                                 "id": input_output_number,
-                                 "room": 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
-        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        self._set_output_advanced_config(input_output_number)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -864,36 +725,9 @@ class ActionsTest(unittest.TestCase):
         """ Testing the execution of an action (toggling output for 15m) without that does not overrule the timer """
         input_output_number = randint(0, 7)
 
-        modified_output_config = {"room": 5,
-                                  "can_led_4_function": "UNKNOWN",
-                                  "floor": 3,
-                                  "can_led_1_id": 255,
-                                  "can_led_1_function": "UNKNOWN",
-                                  "timer": 30,
-                                  "can_led_4_id": 255,
-                                  "can_led_3_id": 255,
-                                  "can_led_2_function": "UNKNOWN",
-                                  "id": input_output_number,
-                                  "module_type": "O",
-                                  "can_led_3_function": "UNKNOWN",
-                                  "type": 255,
-                                  "can_led_2_id": 255,
-                                  "name": "Out{0}".format(input_output_number)}
+        self._set_input_advanced_configuration('timed203', input_output_number, 203)
 
-        modified_input_config = {"name": "timed203",
-                                 "basic_actions": "203,{0}".format(input_output_number),
-                                 "invert": 255,
-                                 "module_type": "I",
-                                 "can": "",
-                                 "action": 240,
-                                 "id": input_output_number,
-                                 "room": 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
-        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        self._set_output_advanced_config(input_output_number)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -923,36 +757,9 @@ class ActionsTest(unittest.TestCase):
         """ Testing the execution of an action (toggling output for 25m) without that does not overrule the timer """
         input_output_number = randint(0, 7)
 
-        modified_output_config = {"room": 5,
-                                  "can_led_4_function": "UNKNOWN",
-                                  "floor": 3,
-                                  "can_led_1_id": 255,
-                                  "can_led_1_function": "UNKNOWN",
-                                  "timer": 30,
-                                  "can_led_4_id": 255,
-                                  "can_led_3_id": 255,
-                                  "can_led_2_function": "UNKNOWN",
-                                  "id": input_output_number,
-                                  "module_type": "O",
-                                  "can_led_3_function": "UNKNOWN",
-                                  "type": 255,
-                                  "can_led_2_id": 255,
-                                  "name": "Out{0}".format(input_output_number+1)}
+        self._set_input_advanced_configuration('timed204', input_output_number, 204)
 
-        modified_input_config = {"name": "timed204",
-                                 "basic_actions": "204,{0}".format(input_output_number),
-                                 "invert": 255,
-                                 "module_type": "I",
-                                 "can": "",
-                                 "action": 240,
-                                 "id": input_output_number,
-                                 "room": 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
-        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        self._set_output_advanced_config(input_output_number)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -982,36 +789,9 @@ class ActionsTest(unittest.TestCase):
         """ Testing the execution of an action (toggling output for 37m) without that does not overrule the timer """
         input_output_number = randint(0, 7)
 
-        modified_output_config = {"room": 5,
-                                  "can_led_4_function": "UNKNOWN",
-                                  "floor": 3,
-                                  "can_led_1_id": 255,
-                                  "can_led_1_function": "UNKNOWN",
-                                  "timer": 30,
-                                  "can_led_4_id": 255,
-                                  "can_led_3_id": 255,
-                                  "can_led_2_function": "UNKNOWN",
-                                  "id": input_output_number,
-                                  "module_type": "O",
-                                  "can_led_3_function": "UNKNOWN",
-                                  "type": 255,
-                                  "can_led_2_id": 255,
-                                  "name": "Out{0}".format(input_output_number)}
+        self._set_output_advanced_config(input_output_number)
 
-        modified_input_config = {"name": "timed205",
-                                 "basic_actions": "205,{0}".format(input_output_number),
-                                 "invert": 255,
-                                 "module_type": "I",
-                                 "can": "",
-                                 "action": 240,
-                                 "id": input_output_number,
-                                 "room": 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
-        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        self._set_input_advanced_configuration('timed205', input_output_number, 205)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -1041,36 +821,9 @@ class ActionsTest(unittest.TestCase):
         """ Testing the execution of an action (toggling output for 52m) without that does not overrule the timer """
         input_output_number = randint(0, 7)
 
-        modified_output_config = {"room": 5,
-                                  "can_led_4_function": "UNKNOWN",
-                                  "floor": 3,
-                                  "can_led_1_id": 255,
-                                  "can_led_1_function": "UNKNOWN",
-                                  "timer": 30,
-                                  "can_led_4_id": 255,
-                                  "can_led_3_id": 255,
-                                  "can_led_2_function": "UNKNOWN",
-                                  "id": input_output_number,
-                                  "module_type": "O",
-                                  "can_led_3_function": "UNKNOWN",
-                                  "type": 255,
-                                  "can_led_2_id": 255,
-                                  "name": "Out{0}".format(input_output_number)}
+        self._set_output_advanced_config(input_output_number)
 
-        modified_input_config = {"name": "timed206",
-                                 "basic_actions": "206,{0}".format(input_output_number),
-                                 "invert": 255,
-                                 "module_type": "I",
-                                 "can": "",
-                                 "action": 240,
-                                 "id": input_output_number,
-                                 "room": 255}
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
-        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
-
-        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
-        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        self._set_input_advanced_configuration('timed206', input_output_number, 206)
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -1189,25 +942,7 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_turn_only_lights_off(self):
         """ Testing turning only lights off. """
-        for i in xrange(8):
-            config = {"room": 5,
-                      "can_led_4_function": "UNKNOWN",
-                      "floor": 3,
-                      "can_led_1_id": 255,
-                      "can_led_1_function": "UNKNOWN",
-                      "timer": 65535,
-                      "can_led_4_id": 255,
-                      "can_led_3_id": 255,
-                      "can_led_2_function": "UNKNOWN",
-                      "id": i,
-                      "module_type": "O",
-                      "can_led_3_function": "UNKNOWN",
-                      "type": 255,  # configured as light
-                      "can_led_2_id": 255,
-                      "name": "Out{0}".format(i)
-                      }  # this will set relay, light, relay...etc
-            url_params = urllib.urlencode({'config': json.dumps(config)})
-            self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+        self._set_default_output_config()
 
         url_params = urllib.urlencode(
             {'action_type': 172, 'action_number': 3})  # ActionType 172 will turn all lights on a specific floor.
@@ -1334,5 +1069,41 @@ class ActionsTest(unittest.TestCase):
                       "can_led_2_id": 255,
                       "name": "Out{0}".format(i)
                       }
+            token = self.tools._get_new_token('openmotics', '123456')
             url_params = urllib.urlencode({'config': json.dumps(config)})
-            self.tools._api_testee('set_output_configuration?{0}'.format(url_params), self.token)
+            self.tools._api_testee('set_output_configuration?{0}'.format(url_params), token)
+
+    def _set_output_advanced_config(self, input_output_number):
+        modified_output_config = {"room": 5,
+                                  "can_led_4_function": "UNKNOWN",
+                                  "floor": 3,
+                                  "can_led_1_id": 255,
+                                  "can_led_1_function": "UNKNOWN",
+                                  "timer": 30,
+                                  "can_led_4_id": 255,
+                                  "can_led_3_id": 255,
+                                  "can_led_2_function": "UNKNOWN",
+                                  "id": input_output_number,
+                                  "module_type": "O",
+                                  "can_led_3_function": "UNKNOWN",
+                                  "type": 255,
+                                  "can_led_2_id": 255,
+                                  "name": "Out{0}".format(input_output_number)}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_output_config)})
+        token = self.tools._get_new_token('openmotics', '123456')
+        self.tools._api_testee('set_output_configuration?{0}'.format(url_params), token)
+
+    def _set_input_advanced_configuration(self, input_name, input_output_number, action_type):
+        modified_input_config = {"name": "{0}".format(input_name),
+                                 "basic_actions": "{0},{1}".format(action_type, input_output_number),
+                                 "invert": 255,
+                                 "module_type": "I",
+                                 "can": "",
+                                 "action": 240,
+                                 "id": input_output_number,
+                                 "room": 255}
+
+        url_params = urllib.urlencode({'config': json.dumps(modified_input_config)})
+        token = self.tools._get_new_token('openmotics', '123456')
+        self.tools._api_testee('set_input_configuration?{0}'.format(url_params), token)
