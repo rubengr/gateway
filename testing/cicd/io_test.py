@@ -333,7 +333,7 @@ class IoTest(unittest.TestCase):
         self.assertTrue(self._check_if_event_is_captured(output_number, 1), 'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
 
         output_statuses = self.tools._api_testee('get_output_status', token).get('status')
-        self.assertTrue(output_statuses[output_number].get('status') == 1, 'Should be off by default. Got: {0}'.format(output_statuses))
+        self.assertTrue(output_statuses[output_number].get('status') == 1, 'Should return status with value 1 after turning on the output.. Got: {0}'.format(output_statuses[output_number]))
 
         self.tools.clicker_releaser(output_number, token, False)
         self.assertTrue(self._check_if_event_is_captured(output_number, 0), 'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
