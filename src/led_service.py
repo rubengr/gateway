@@ -55,6 +55,7 @@ class LedController(object):
         self._input_button = input_button
         self._input_button_pressed_since = None
         self._input_button_released = True
+        self.ticks = 0
 
         self._network_enabled = False
         self._network_activity = False
@@ -219,13 +220,15 @@ class LedController(object):
                     self._authorized_mode = False
             else:
                 if button_pressed:
+                    self.ticks += 0.250
                     self._input_button_released = False
                     if self._input_button_pressed_since is None:
                         self._input_button_pressed_since = time.time()
-                    if time.time() > self._input_button_pressed_since + 5:
+                    if self.ticks >= 4.500:  # After 4.500 seconds + time to execute the code it should be pressed between 5.8 and 6.5 seconds.
                         self._authorized_mode = True
                         self._authorized_timeout = time.time() + 60
                         self._input_button_pressed_since = None
+                        self.ticks = 0
                 else:
                     self._input_button_pressed_since = None
         except Exception as exception:
