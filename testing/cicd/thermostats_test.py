@@ -42,6 +42,7 @@ class ThermostatsTest(unittest.TestCase):
         cls.token = cls.tools.get_new_token('openmotics', '123456')
 
     def setUp(self):
+        self.tools.configure_thermostat(0, self.NIGHT_TEMP_INIT, self.DAY_BLOCK1_INIT, self.DAY_BLOCK2_INIT)  # Configuring thermostat 0
         self.token = self.tools.get_new_token('openmotics', '123456')
         if not self.tools.discovery_success:
             self.tools.discovery_success = self.tools.assert_discovered(self.token, self.webinterface)
@@ -49,6 +50,9 @@ class ThermostatsTest(unittest.TestCase):
                 LOGGER.error('Skipped: %s due to discovery failure.', self.id())
                 self.skipTest('Failed to discover modules.')
         LOGGER.info('Running: %s', self.id())
+
+    def tearDown(self):
+        self.tools.configure_thermostat(0)  # Unconfiguring thermostat 0 after finishing
 
     @exception_handler
     def test_thermostat_config_after_reset(self):
@@ -60,92 +64,6 @@ class ThermostatsTest(unittest.TestCase):
         sensor_31_config = {'sensor_id': 31, 'temperature': 1, 'humidity': None, 'brightness': None}
         url_params = urllib.urlencode(sensor_31_config)
         self.tools.api_testee('set_virtual_sensor?{0}'.format(url_params), self.token, expected_failure=False)
-
-        thermostat_config = {
-            "auto_wed": [
-                self.NIGHT_TEMP_INIT + 3,
-                "08:00",
-                "10:00",
-                self.DAY_BLOCK1_INIT + 3,
-                "16:00",
-                "20:00",
-                self.DAY_BLOCK2_INIT + 3
-            ],
-            "auto_mon": [
-                self.NIGHT_TEMP_INIT,
-                "08:00",
-                "10:00",
-                self.DAY_BLOCK1_INIT,
-                "16:00",
-                "20:00",
-                self.DAY_BLOCK2_INIT
-            ],
-            "output0": 0,
-            "output1": 255,
-            "permanent_manual": False,
-            "id": 0,
-            "auto_sat": [
-                self.NIGHT_TEMP_INIT + 7.5,
-                "08:00",
-                "10:00",
-                self.DAY_BLOCK1_INIT + 7.5,
-                "16:00",
-                "20:00",
-                self.DAY_BLOCK2_INIT + 7.5
-            ],
-            "name": "HT0",
-            "sensor": 31,
-            "auto_sun": [
-                self.NIGHT_TEMP_INIT + 9,
-                "08:00",
-                "10:00",
-                self.DAY_BLOCK1_INIT + 9,
-                "16:00",
-                "20:00",
-                self.DAY_BLOCK2_INIT + 9
-            ],
-            "auto_thu": [
-                self.NIGHT_TEMP_INIT + 4.5,
-                "08:00",
-                "10:00",
-                self.DAY_BLOCK1_INIT + 4.5,
-                "16:00",
-                "20:00",
-                self.DAY_BLOCK2_INIT + 4.5
-            ],
-            "pid_int": 255,
-            "auto_tue": [
-                self.NIGHT_TEMP_INIT + 1.5,
-                "08:00",
-                "10:00",
-                self.DAY_BLOCK1_INIT + 1.5,
-                "16:00",
-                "20:00",
-                self.DAY_BLOCK2_INIT + 1.5
-            ],
-            "setp0": self.NIGHT_TEMP_INIT + 10.5,  # Auto night
-            "setp5": self.NIGHT_TEMP_INIT + 15,  # Party
-            "setp4": self.NIGHT_TEMP_INIT + 13.5,  # Vacation
-            "pid_p": 255,
-            "setp1": self.DAY_BLOCK1_INIT + 10.5,  # Auto day block 1
-            "room": 255,
-            "setp3": self.NIGHT_TEMP_INIT + 12,  # Away
-            "setp2": self.DAY_BLOCK2_INIT + 10.5,  # Auto day block 2
-            "auto_fri": [
-                self.NIGHT_TEMP_INIT + 6,
-                "08:00",
-                "10:00",
-                self.DAY_BLOCK1_INIT + 6,
-                "16:00",
-                "20:00",
-                self.DAY_BLOCK2_INIT + 6
-            ],
-            "pid_d": 255,
-            "pid_i": 255
-        }
-
-        url_params = urllib.urlencode({'config': json.dumps(thermostat_config)})
-        self.tools.api_testee('set_thermostat_configuration?{0}'.format(url_params), self.token, expected_failure=False)
 
         thermostat_auto_config = {'thermostat_on': True, 'automatic': True, 'setpoint': 0, 'cooling_mode': False,
                                   'cooling_on': True}
