@@ -12,15 +12,16 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-""""
-The websocket_test contains tests related to websocket.
+"""
+The websocket_test.py file contains tests related to websocket and other private methods
+that the tests will use.
 """
 import unittest
 import base64
 import logging
+import time
 import msgpack
 import requests
-import time
 from ws4py.client.threadedclient import WebSocketClient
 from toolbox import exception_handler
 
@@ -28,6 +29,9 @@ LOGGER = logging.getLogger('openmotics')
 
 
 class WebsocketTest(unittest.TestCase):
+    """
+    The WebsocketTest is a test case for websocket.
+    """
     webinterface = None
     tools = None
     token = ''
@@ -37,16 +41,16 @@ class WebsocketTest(unittest.TestCase):
     def setUpClass(cls):
         if not cls.tools.healthy_status:
             raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        cls.token = cls.tools._get_new_token('openmotics', '123456')
+        cls.token = cls.tools.get_new_token('openmotics', '123456')
 
     def setUp(self):
-        self.token = self.tools._get_new_token('openmotics', '123456')
+        self.token = self.tools.get_new_token('openmotics', '123456')
         if not self.tools.discovery_success:
-            self.tools.discovery_success = self.tools._assert_discovered(self.token, self.webinterface)
+            self.tools.discovery_success = self.tools.assert_discovered(self.token, self.webinterface)
             if not self.tools.discovery_success:
-                LOGGER.error('Skipped: {} due to discovery failure.'.format(self.id()))
+                LOGGER.error('Skipped: %s due to discovery failure.', self.id())
                 self.skipTest('Failed to discover modules.')
-        LOGGER.info('Running: {}'.format(self.id()))
+        LOGGER.info('Running: %s', self.id())
 
     @exception_handler
     def test_websocket_output_change(self):
@@ -62,27 +66,27 @@ class WebsocketTest(unittest.TestCase):
         socket.connect()
 
         self.tools.clicker_releaser(3, token, True)
-        self.tools._check_if_event_is_captured(3, 1)
+        self.tools.check_if_event_is_captured(3, 1)
         time.sleep(0.5)
         self.assertTrue(bool(WebsocketTest.DATA), ' Should not be None. Got: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
         LOGGER.info(WebsocketTest.DATA)
         self.assertTrue(WebsocketTest.DATA['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
         time.sleep(0.5)
 
         self.tools.clicker_releaser(3, token, False)
 
-        self.tools._check_if_event_is_captured(3, 0)
+        self.tools.check_if_event_is_captured(3, 0)
 
         time.sleep(0.5)
         self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
         self.assertTrue(not WebsocketTest.DATA['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
     @exception_handler
     def test_websocket_input_trigger(self):
@@ -101,8 +105,8 @@ class WebsocketTest(unittest.TestCase):
         self.webinterface.set_output(id=4, is_on=False)
         self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
-        self.assertEquals(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
         time.sleep(0.5)
 
@@ -111,8 +115,8 @@ class WebsocketTest(unittest.TestCase):
         self.webinterface.set_output(id=4, is_on=False)
         self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
-        self.assertEquals(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEquals(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
 
 class PassthroughClient(WebSocketClient):
