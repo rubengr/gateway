@@ -62,6 +62,7 @@ class WebsocketTest(unittest.TestCase):
         socket.connect()
 
         self.tools.clicker_releaser(3, token, True)
+        self.tools._check_if_event_is_captured(3, 1)
         time.sleep(0.5)
         self.assertTrue(bool(WebsocketTest.DATA), ' Should not be None. Got: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
@@ -73,6 +74,8 @@ class WebsocketTest(unittest.TestCase):
         time.sleep(0.5)
 
         self.tools.clicker_releaser(3, token, False)
+
+        self.tools._check_if_event_is_captured(3, 0)
 
         time.sleep(0.5)
         self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))

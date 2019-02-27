@@ -58,11 +58,11 @@ class IoTest(unittest.TestCase):
         self.assertTrue(bool(config), 'Should not be empty and should have the output configurations of the testee. But got {0}'.format(config))
         for one in config:
             self.tools.clicker_releaser(one['id'], self.token, True)
-            result = self._check_if_event_is_captured(one['id'], 1)
+            result = self.tools._check_if_event_is_captured(one['id'], 1)
             self.assertTrue(result, 'Should confirm that the Tester\'s input saw a press. Got: {0}'.format(result))
 
             self.tools.clicker_releaser(one['id'], self.token, False)
-            result = self._check_if_event_is_captured(one['id'], 0)
+            result = self.tools._check_if_event_is_captured(one['id'], 0)
             self.assertTrue(result, 'Should confirm that the Tester\'s input saw a release. Got: {0}'.format(result))
 
     @exception_handler
@@ -145,10 +145,10 @@ class IoTest(unittest.TestCase):
         for one in config:
             for _ in xrange(30):
                 self.tools.clicker_releaser(one['id'], self.token, True)
-                self.assertTrue(self._check_if_event_is_captured(one['id'], 1), 'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
+                self.assertTrue(self.tools._check_if_event_is_captured(one['id'], 1), 'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
 
                 self.tools.clicker_releaser(one['id'], self.token, False)
-                self.assertTrue(self._check_if_event_is_captured(one['id'], 0), 'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
+                self.assertTrue(self.tools._check_if_event_is_captured(one['id'], 0), 'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_output_stress_toggling_authorization(self):
@@ -330,33 +330,13 @@ class IoTest(unittest.TestCase):
         self.assertTrue(output_statuses[output_number].get('status') == 0, 'Should be off by default. Got: {0}'.format(output_statuses))
 
         self.tools.clicker_releaser(output_number, token, True)
-        self.assertTrue(self._check_if_event_is_captured(output_number, 1), 'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_number, 1), 'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
 
         output_statuses = self.tools._api_testee('get_output_status', token).get('status')
         self.assertTrue(output_statuses[output_number].get('status') == 1, 'Should return status with value 1 after turning on the output.. Got: {0}'.format(output_statuses[output_number]))
 
         self.tools.clicker_releaser(output_number, token, False)
-        self.assertTrue(self._check_if_event_is_captured(output_number, 0), 'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_number, 0), 'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
 
         output_statuses = self.tools._api_testee('get_output_status', token).get('status')
         self.assertTrue(output_statuses[output_number].get('status') == 0, 'Should be off by default. Got: {0}'.format(output_statuses))
-
-    def _check_if_event_is_captured(self, toggled_output, value):
-        """
-        Checks if the toggled output has turned an input on.
-        :param toggled_output: the id of the toggled output
-        :type toggled_output: int
-
-        :param value: the expected is_on value of the input.
-        :type value: int
-
-        :return: if the the toggled output has turned an input on
-        :rtype: bool
-        """
-        start = time.time()
-        while self.tools.input_status.get(str(toggled_output)) is not str(value):
-            if time.time() - start < self.tools.TIMEOUT:
-                time.sleep(0.3)
-            else:
-                return False
-        return True

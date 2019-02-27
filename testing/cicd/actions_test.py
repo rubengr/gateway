@@ -108,9 +108,9 @@ class ActionsTest(unittest.TestCase):
         url_params = urllib.urlencode({'group_action_id': i})
         self.tools._api_testee('do_group_action?{0}'.format(url_params), self.token)
 
-        self.assertTrue(self._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, 1), 'Should return true after calling do_group_action API. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, 1), 'Should return true after calling do_group_action API. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, 0), 'Should untoggled output 0 after a moment and must show input releases. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, 0), 'Should untoggled output 0 after a moment and must show input releases. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_set_group_action_configuration_authorization(self):
@@ -157,9 +157,9 @@ class ActionsTest(unittest.TestCase):
             json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False))
             time.sleep(0.5)
             json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True))
-        self.assertTrue(self._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, 1), 'Should execute startup action and turn output 0 on, Tester\'s input will see a press')
+        self.assertTrue(self.tools._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, 1), 'Should execute startup action and turn output 0 on, Tester\'s input will see a press')
 
-        self.assertTrue(self._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, 0), 'Should execute startup action and turn output 0 off, Tester\'s input will see a press')
+        self.assertTrue(self.tools._check_if_event_is_captured(self.GROUP_ACTION_TARGET_ID, 0), 'Should execute startup action and turn output 0 off, Tester\'s input will see a press')
 
         self.tools.token = self.tools._get_new_token('openmotics', '123456')
 
@@ -176,12 +176,12 @@ class ActionsTest(unittest.TestCase):
         url_params = urllib.urlencode(
             {'action_type': 165, 'action_number': i})  # ActionType 165 turns on an output.
         self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
-        self.assertTrue(self._check_if_event_is_captured(i, 1), 'Should have toggled the tester\'s input. Got {0}, expected output ID to toggle: {1}'.format(self.tools.input_status, i))
+        self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'Should have toggled the tester\'s input. Got {0}, expected output ID to toggle: {1}'.format(self.tools.input_status, i))
 
         url_params = urllib.urlencode({'action_type': 160, 'action_number': i})  # ActionType 160 turns off an output.
         self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
 
-        self.assertTrue(self._check_if_event_is_captured(i, 0), 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(self.tools.input_status, i))
+        self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(self.tools.input_status, i))
         self.tools._api_testee('get_output_status', self.token)
 
     @exception_handler
@@ -206,9 +206,9 @@ class ActionsTest(unittest.TestCase):
         self.webinterface.set_output(id=i, is_on=False)  # Sensor stops detecting movement
 
         time.sleep(0.3)
-        self.assertTrue(self._check_if_event_is_captured(i, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
-        result = self._check_if_event_is_captured(i, 0)
+        result = self.tools._check_if_event_is_captured(i, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, i))
         self.assertTrue(152 > self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"] > 148, 'Should toggle off after around 2m30s. Got: {0}'.format(self.tools.input_record.get(str(i))["0"] - self.tools.input_record.get(str(i))["1"]))
@@ -245,10 +245,10 @@ class ActionsTest(unittest.TestCase):
         token = self.tools._get_new_token('openmotics', '123456')
         self.tools._api_testee('set_input_configuration?{0}'.format(url_params), token)
         self.webinterface.set_output(id=input_number, is_on=True)
-        self.assertTrue(self._check_if_event_is_captured(0, 1), 'Should execute a group action to toggle on output 0.')
+        self.assertTrue(self.tools._check_if_event_is_captured(0, 1), 'Should execute a group action to toggle on output 0.')
 
         self.webinterface.set_output(id=input_number, is_on=False)
-        self.assertTrue(self._check_if_event_is_captured(0, 0), 'Should execute a group action to toggle off output 0 after a while.')
+        self.assertTrue(self.tools._check_if_event_is_captured(0, 0), 'Should execute a group action to toggle off output 0 after a while.')
 
     @exception_handler
     def test_toggles_output(self):
@@ -260,16 +260,16 @@ class ActionsTest(unittest.TestCase):
         self._set_input_advanced_configuration('togglINP', output_to_toggle, 162)
 
         self.webinterface.set_output(id=output_to_toggle, is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
-        self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_to_toggle, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
         self.webinterface.set_output(id=output_to_toggle, is_on=False)
-        self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 1), 'The Tester\'s input module should keep seeing a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_to_toggle, 1), 'The Tester\'s input module should keep seeing a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
         self.webinterface.set_output(id=output_to_toggle, is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
-        self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 0), 'The Tester\'s input module should see a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_to_toggle, 0), 'The Tester\'s input module should see a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
         self.webinterface.set_output(id=output_to_toggle, is_on=False)
-        self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 0), 'The Tester\'s input module should keep seeing a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_to_toggle, 0), 'The Tester\'s input module should keep seeing a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_turn_output_on_off(self):
@@ -281,18 +281,18 @@ class ActionsTest(unittest.TestCase):
         self._set_input_advanced_configuration('onoffINP', output_to_toggle, 161)
 
         self.webinterface.set_output(id=output_to_toggle, is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
-        self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_to_toggle, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
         self.webinterface.set_output(id=output_to_toggle, is_on=False)
-        self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 1), 'Even if the Tester\'s output is off, the Testee\'s input should keep seeing a press. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_to_toggle, 1), 'Even if the Tester\'s output is off, the Testee\'s input should keep seeing a press. Got: {0}'.format(self.tools.input_status))
 
         self._set_input_advanced_configuration('onoffINP', output_to_toggle, 160)
 
         self.webinterface.set_output(id=output_to_toggle, is_on=True)
-        self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 0), 'The Tester\'s input module should see a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_to_toggle, 0), 'The Tester\'s input module should see a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
         self.webinterface.set_output(id=output_to_toggle, is_on=False)
-        self.assertTrue(self._check_if_event_is_captured(output_to_toggle, 0), 'The Tester\'s input module should keep seeing a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(output_to_toggle, 0), 'The Tester\'s input module should keep seeing a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_toggles_all_outputs(self):
@@ -313,21 +313,21 @@ class ActionsTest(unittest.TestCase):
 
         self.webinterface.set_output(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
         self.webinterface.set_output(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing a press since its a toggle action toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing a press since its a toggle action toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         time.sleep(0.3)
         self.webinterface.set_output(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         time.sleep(0.3)
         self.webinterface.set_output(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep see seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep see seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_turn_all_outputs_on_off(self):
@@ -347,11 +347,11 @@ class ActionsTest(unittest.TestCase):
 
         self.webinterface.set_output(id=output_to_toggle, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
         self.webinterface.set_output(id=output_to_toggle, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         config = {'name': 'turnallO',
                   'basic_actions': '171,255',
@@ -366,11 +366,11 @@ class ActionsTest(unittest.TestCase):
 
         self.webinterface.set_output(id=output_to_toggle, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
         self.webinterface.set_output(id=output_to_toggle, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_toggles_all_outputs_floor(self):
@@ -393,22 +393,22 @@ class ActionsTest(unittest.TestCase):
 
         self.webinterface.set_output(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
         self.webinterface.set_output(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
         self.webinterface.set_output(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
         self.webinterface.set_output(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_turn_all_outputs_on_off_floor(self):
@@ -431,12 +431,12 @@ class ActionsTest(unittest.TestCase):
 
         self.webinterface.set_output(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
         self.webinterface.set_output(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         config = {'name': 'turnerfO',
                   'basic_actions': '171,{}'.format(self.FLOOR_NUMBER),
@@ -451,12 +451,12 @@ class ActionsTest(unittest.TestCase):
 
         self.webinterface.set_output(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
         self.webinterface.set_output(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_turn_all_outputs_off(self):
@@ -479,12 +479,12 @@ class ActionsTest(unittest.TestCase):
 
         self.webinterface.set_output(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
         self.webinterface.set_output(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 1), 'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         config = {'name': 'turnoffO',
                   'basic_actions': '164,0',
@@ -499,12 +499,12 @@ class ActionsTest(unittest.TestCase):
 
         self.webinterface.set_output(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
         self.webinterface.set_output(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+            self.assertTrue(self.tools._check_if_event_is_captured(i, 0), 'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_execute_group_actions_after_xtime(self):
@@ -543,27 +543,27 @@ class ActionsTest(unittest.TestCase):
         self.tools._api_testee('set_input_configuration?{0}'.format(url_params), self.token)
 
         self.webinterface.set_output(id=self.GROUP_ACTION_TARGET_ID, is_on=True)
-        self.assertTrue(self._check_if_event_is_captured(1, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(1, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(2, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(2, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(3, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(3, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(4, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(4, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(5, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(5, 1), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         self.webinterface.set_output(id=self.GROUP_ACTION_TARGET_ID, is_on=False)
 
-        self.assertTrue(self._check_if_event_is_captured(1, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(1, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(2, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(2, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(3, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(3, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(4, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(4, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(5, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(5, 0), 'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_motion_sensor_timer_7m30s(self):
@@ -576,10 +576,10 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(300)
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(460 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 440, 'Should toggle off after around 7m30s. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -595,10 +595,10 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(780)
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(910 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 890, 'Should toggle off after around 15m. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -614,10 +614,10 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(1380)
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(1510 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 1490, 'Should toggle off after around 25m. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -633,10 +633,10 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(2100)
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(2230 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 2210, 'Should toggle off after around 37m. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -652,10 +652,10 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         time.sleep(3000)
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(3130 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 3110, 'Should toggle off after around 52m. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -673,7 +673,7 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -683,7 +683,7 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(158 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 148, 'Should still turn off after 2m30s since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -705,7 +705,7 @@ class ActionsTest(unittest.TestCase):
 
         while time.time() - start < 360:
             time.sleep(1)
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -715,7 +715,7 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(460 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 440, 'Should still turn off after 7m30s since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -737,7 +737,7 @@ class ActionsTest(unittest.TestCase):
 
         while time.time() - start < 780:
             time.sleep(1)
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -747,7 +747,7 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(910 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 890, 'Should still turn off after 15m since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -769,7 +769,7 @@ class ActionsTest(unittest.TestCase):
 
         while time.time() - start < 1380:
             time.sleep(1)
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -779,7 +779,7 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(1510 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 1490, 'Should still turn off after 25m since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -801,7 +801,7 @@ class ActionsTest(unittest.TestCase):
 
         while time.time() - start < 2100:
             time.sleep(1)
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -811,7 +811,7 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(2230 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 2210, 'Should still turn off after 37m since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -833,7 +833,7 @@ class ActionsTest(unittest.TestCase):
 
         while time.time() - start < 3000:
             time.sleep(1)
-        self.assertTrue(self._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
+        self.assertTrue(self.tools._check_if_event_is_captured(input_output_number, 1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
         self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
@@ -843,7 +843,7 @@ class ActionsTest(unittest.TestCase):
         time.sleep(0.2)
         self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        result = self._check_if_event_is_captured(input_output_number, 0)
+        result = self.tools._check_if_event_is_captured(input_output_number, 0)
 
         self.assertTrue(result, 'Should have unpressed the tester\'s input. Got {0}, expected output ID to untoggle: {1}'.format(result, input_output_number))
         self.assertTrue(3130 > self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"] > 3110, 'Should still turn off after 52m since it first turned on. Got: {0}'.format(self.tools.input_record.get(str(input_output_number))["0"] - self.tools.input_record.get(str(input_output_number))["1"]))
@@ -972,17 +972,17 @@ class ActionsTest(unittest.TestCase):
             {'action_type': 163, 'action_number': randint(0, 239)})  # ActionType 172 will turn all lights on a specific floor, X value here doesn't matter.
         self.tools._api_testee('do_basic_action?{0}'.format(url_params), self.token)
 
-        self.assertTrue(self._check_if_event_is_captured(0, 1), 'Output 0 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
-        self.assertTrue(self._check_if_event_is_captured(1, 0), 'Output 1 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(0, 1), 'Output 0 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(1, 0), 'Output 1 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(2, 1), 'Output 2 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
-        self.assertTrue(self._check_if_event_is_captured(3, 0), 'Output 3 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(2, 1), 'Output 2 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(3, 0), 'Output 3 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(4, 1), 'Output 4 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
-        self.assertTrue(self._check_if_event_is_captured(5, 0), 'Output 5 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(4, 1), 'Output 4 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(5, 0), 'Output 5 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
 
-        self.assertTrue(self._check_if_event_is_captured(6, 1), 'Output 6 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
-        self.assertTrue(self._check_if_event_is_captured(7, 0), 'Output 7 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(6, 1), 'Output 6 should stay on since its a relay. Got: {0}'.format(self.tools.input_status))
+        self.assertTrue(self.tools._check_if_event_is_captured(7, 0), 'Output 7 should turn off since its a light. Got: {0}'.format(self.tools.input_status))
 
         self._set_default_output_config()
 
@@ -1030,26 +1030,6 @@ class ActionsTest(unittest.TestCase):
         url_params = urllib.urlencode({'config': json.dumps(config)})
 
         return self.tools._api_testee('set_room_configurations?{0}'.format(url_params), self.token)
-
-    def _check_if_event_is_captured(self, toggled_output, value):
-        """
-        Checks if the toggled output has turned an input on.
-        :param toggled_output: the id of the toggled output
-        :type toggled_output: int
-
-        :param value: the expected is_on value of the input.
-        :type value: int
-
-        :return: if the the toggled output has turned an input on
-        :rtype: bool
-        """
-        start = time.time()
-        while self.tools.input_status.get(str(toggled_output)) is not str(value):
-            if time.time() - start < self.tools.TIMEOUT:
-                time.sleep(1)
-            else:
-                return False
-        return True
 
     def _set_default_output_config(self):
         for i in xrange(8):
