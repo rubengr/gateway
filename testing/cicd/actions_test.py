@@ -1067,6 +1067,8 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_thermostat_setpoint_action_type(self):
         """ Testing changing the setpoint of the Testee's thermostat 0. """
+        self.tools.configure_thermostat(0, 10, 10.5, 11)
+
         url_params = urllib.urlencode(
             {'action_type': 148, 'action_number': 0})  # ActionType 148 changes the set point of thermostat X to 16.
         token = self.tools.get_new_token('openmotics', '123456')
@@ -1082,9 +1084,13 @@ class ActionsTest(unittest.TestCase):
         self.assertEqual(response.get('status')[0].get('csetp'), 22.5,
                          'Should contain the expected set point. Got: {0}'.format(response))
 
+        self.tools.unconfigure_thermostat(0)
+
     @exception_handler
     def test_thermostat_increase_setpoint_action_type(self):
         """ Testing increasing the setpoint of the Testee's thermostat 0. """
+        self.tools.configure_thermostat(0, 10, 10.5, 11)
+
         url_params = urllib.urlencode(
             {'action_type': 148, 'action_number': 0})  # ActionType 148 changes the set point of thermostat X to 16.
         self.tools.api_testee('do_basic_action?{0}'.format(url_params), self.token)
@@ -1109,9 +1115,13 @@ class ActionsTest(unittest.TestCase):
         self.assertEqual(response.get('status')[0].get('csetp'), 17.5,
                          'Should contain the expected increased set point. Got: {0}'.format(response))
 
+        self.tools.unconfigure_thermostat(0)
+
     @exception_handler
     def test_thermostat_decrease_setpoint_action_type(self):
         """ Testing decreasing the setpoint of the Testee's thermostat 0. """
+        self.tools.configure_thermostat(0, 10, 10.5, 11)
+
         url_params = urllib.urlencode(
             {'action_type': 149, 'action_number': 0})  # ActionType 148 changes the set point of thermostat X to 22.5.
         self.tools.api_testee('do_basic_action?{0}'.format(url_params), self.token)
@@ -1135,6 +1145,8 @@ class ActionsTest(unittest.TestCase):
         response = self.tools.api_testee('get_thermostat_status', self.token)
         self.assertEqual(response.get('status')[0].get('csetp'), 21,
                          'Should contain the expected decreased set point. Got: {0}'.format(response))
+
+        self.tools.unconfigure_thermostat(0)
 
     @exception_handler
     def test_turn_only_lights_off(self):

@@ -106,7 +106,7 @@ class WebsocketTest(unittest.TestCase):
         self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
         self.assertEqual(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEqual(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['type'], 'INPUT_TRIGGER', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
         time.sleep(0.5)
 
@@ -116,7 +116,7 @@ class WebsocketTest(unittest.TestCase):
         self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
         time.sleep(1)
         self.assertEqual(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEqual(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+        self.assertEqual(WebsocketTest.DATA['type'], 'INPUT_TRIGGER', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
 
 class PassthroughClient(WebSocketClient):

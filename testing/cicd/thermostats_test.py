@@ -52,7 +52,7 @@ class ThermostatsTest(unittest.TestCase):
         LOGGER.info('Running: %s', self.id())
 
     def tearDown(self):
-        self.tools.configure_thermostat(0)  # Unconfiguring thermostat 0 after finishing
+        self.tools.unconfigure_thermostat(0)  # Unconfiguring thermostat 0 after finishing
 
     @exception_handler
     def test_thermostat_config_after_reset(self):

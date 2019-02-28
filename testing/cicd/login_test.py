@@ -260,8 +260,8 @@ class LoginTest(unittest.TestCase):
         entered_authorized_mode = self.tools.enter_testee_authorized_mode(self.webinterface)
         end = time.time()
         self.assertEqual(entered_authorized_mode, True,
-                         'Should enter authorized mode within 4 seconds. Got{0}'.format(entered_authorized_mode))
-        self.assertTrue(6 > end - start > 3)
+                         'Should enter authorized mode within 6 seconds. Got{0}'.format(entered_authorized_mode))
+        self.assertTrue(7 > end - start > 5.8)
         self.tools.exit_testee_authorized_mode(self.webinterface)
 
     @exception_handler
