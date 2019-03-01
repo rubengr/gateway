@@ -41,10 +41,10 @@ class WebsocketTest(unittest.TestCase):
     def setUpClass(cls):
         if not cls.tools.healthy_status:
             raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        cls.token = cls.tools.get_new_token('openmotics', '123456')
+        cls.token = cls.tools.get_new_token(cls.tools.username, cls.tools.password)
 
     def setUp(self):
-        self.token = self.tools.get_new_token('openmotics', '123456')
+        self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
         if not self.tools.discovery_success:
             self.tools.discovery_success = self.tools.assert_discovered(self.token, self.webinterface)
             if not self.tools.discovery_success:
@@ -55,74 +55,84 @@ class WebsocketTest(unittest.TestCase):
     @exception_handler
     def test_websocket_output_change(self):
         """ Testing the websocket on the Testee for output_change event. """
+        callback_data = {'data': None}
+
+        def _callback(data):
+            """ _callback will set the variable DATA when a message is received. """
+            callback_data['data'] = data
 
         token = requests.get('https://{0}/login'.format(self.tools.testee_ip),
                              params={'username': 'openmotics',
                                      'password': '123456'},
                              verify=False).json()['token']
         socket = PassthroughClient('wss://{0}/ws_events'.format(self.tools.testee_ip),
-                                   protocols=['authorization.bearer.{0}'.format(
-                                       base64.b64encode(token.encode('ascii')).decode('utf-8').replace('=', ''))], callback=_callback)
+                                   protocols=['authorization.bearer.{0}'.format(base64.b64encode(token.encode('ascii')).decode('utf-8').replace('=', ''))], event_name='OUTPUT_CHANGE', callback=_callback)
         socket.connect()
 
         self.tools.clicker_releaser(3, token, True)
         self.tools.check_if_event_is_captured(3, 1)
         time.sleep(0.5)
-        self.assertTrue(bool(WebsocketTest.DATA), ' Should not be None. Got: {0}'.format(WebsocketTest.DATA))
-        time.sleep(1)
-        LOGGER.info(WebsocketTest.DATA)
-        self.assertTrue(WebsocketTest.DATA['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEqual(WebsocketTest.DATA['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEqual(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
 
-        time.sleep(0.5)
+        self.assertTrue(bool(callback_data['data']), 'Websocket returned an empty response!')
+        self.assertTrue(callback_data['data']['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(callback_data['data']))
+        self.assertEqual(callback_data['data']['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
+        self.assertEqual(callback_data['data']['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(callback_data['data']))
 
         self.tools.clicker_releaser(3, token, False)
-
         self.tools.check_if_event_is_captured(3, 0)
-
         time.sleep(0.5)
-        self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
+
+        self.assertTrue(bool(callback_data['data']), 'Websocket returned an empty response!')
+        self.assertFalse(callback_data['data']['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(callback_data['data']))
+        self.assertEqual(callback_data['data']['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
+        self.assertEqual(callback_data['data']['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(callback_data['data']))
         time.sleep(1)
-        self.assertTrue(not WebsocketTest.DATA['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEqual(WebsocketTest.DATA['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEqual(WebsocketTest.DATA['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+
+        socket.close(200, 'Test output_change terminated')
 
     @exception_handler
     def test_websocket_input_trigger(self):
         """ Testing the websocket on the Testee for input_trigger event. """
+        callback_data = {'data': None}
+
+        def _callback(data):
+            """ _callback will set the variable DATA when a message is received. """
+            callback_data['data'] = data
+
         token = requests.get('https://{0}/login'.format(self.tools.testee_ip),
                              params={'username': 'openmotics',
                                      'password': '123456'},
                              verify=False).json()['token']
         socket = PassthroughClient('wss://{0}/ws_events'.format(self.tools.testee_ip),
-                                   protocols=['authorization.bearer.{0}'.format(
-                                       base64.b64encode(token.encode('ascii')).decode('utf-8').replace('=', ''))], callback=_callback)
+                                   protocols=['authorization.bearer.{0}'.format(base64.b64encode(token.encode('ascii')).decode('utf-8').replace('=', ''))], event_name='INPUT_TRIGGER', callback=_callback)
         socket.connect()
 
         self.webinterface.set_output(id=4, is_on=True)
         time.sleep(0.5)
         self.webinterface.set_output(id=4, is_on=False)
-        self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
-        time.sleep(1)
-        self.assertEqual(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEqual(WebsocketTest.DATA['type'], 'INPUT_TRIGGER', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+
+        self.assertTrue(bool(callback_data['data']), 'Websocket returned an empty response!')
+        self.assertEqual(callback_data['data']['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
+        self.assertEqual(callback_data['data']['type'], 'INPUT_TRIGGER', 'Should contain the correct event type. Got: {0}'.format(callback_data['data']))
 
         time.sleep(0.5)
 
         self.webinterface.set_output(id=4, is_on=True)
         time.sleep(0.5)
         self.webinterface.set_output(id=4, is_on=False)
-        self.assertTrue(bool(WebsocketTest.DATA), ' Got something else: {0}'.format(WebsocketTest.DATA))
-        time.sleep(1)
-        self.assertEqual(WebsocketTest.DATA['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(WebsocketTest.DATA))
-        self.assertEqual(WebsocketTest.DATA['type'], 'INPUT_TRIGGER', 'Should contain the correct event type. Got: {0}'.format(WebsocketTest.DATA))
+
+        self.assertTrue(bool(callback_data['data']), 'Websocket returned an empty response!')
+        self.assertEqual(callback_data['data']['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
+        self.assertEqual(callback_data['data']['type'], 'INPUT_TRIGGER', 'Should contain the correct event type. Got: {0}'.format(callback_data['data']))
+
+        socket.close(200, 'Test input_trigger terminated')
 
 
 class PassthroughClient(WebSocketClient):
     """ PassthroughClient is a custom WebSocketClient. """
     def __init__(self, *args, **kwargs):
         self.callback = kwargs.pop('callback')
+        self.event = kwargs.pop('event_name')
         WebSocketClient.__init__(self, *args, **kwargs)
 
     def opened(self):
@@ -130,7 +140,7 @@ class PassthroughClient(WebSocketClient):
             msgpack.dumps(
                 {'type': 'ACTION',
                  'data': {'action': 'set_subscription',
-                          'types': ['OUTPUT_CHANGE', 'INPUT_TRIGGER']}}
+                          'types': [self.event]}}
             ),
             binary=True
         )
@@ -141,8 +151,3 @@ class PassthroughClient(WebSocketClient):
             self.callback(data)
         except Exception:
             pass
-
-
-def _callback(data):
-    """ _callback will set the variable DATA when a message is received. """
-    WebsocketTest.DATA = data

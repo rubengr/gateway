@@ -17,7 +17,6 @@ The thermostats_test.py file contains thermostat configuration test.
 """
 import unittest
 import time
-import urllib
 import logging
 import simplejson as json
 from toolbox import exception_handler
@@ -39,11 +38,11 @@ class ThermostatsTest(unittest.TestCase):
     def setUpClass(cls):
         if not cls.tools.healthy_status:
             raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        cls.token = cls.tools.get_new_token('openmotics', '123456')
+        cls.token = cls.tools.get_new_token(cls.tools.username, cls.tools.password)
 
     def setUp(self):
         self.tools.configure_thermostat(0, self.NIGHT_TEMP_INIT, self.DAY_BLOCK1_INIT, self.DAY_BLOCK2_INIT)  # Configuring thermostat 0
-        self.token = self.tools.get_new_token('openmotics', '123456')
+        self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
         if not self.tools.discovery_success:
             self.tools.discovery_success = self.tools.assert_discovered(self.token, self.webinterface)
             if not self.tools.discovery_success:
@@ -58,83 +57,50 @@ class ThermostatsTest(unittest.TestCase):
     def test_thermostat_config_after_reset(self):
         """ Testing whether or not the thermostat configuration will be kept after resetting and power cycle. """
         sensor_config = {'id': 31, 'name': 'v_sensor', 'virtual': True, 'room': 255}
-        url_params = urllib.urlencode({'config': json.dumps(sensor_config)})
-        self.tools.api_testee('set_sensor_configuration?{0}'.format(url_params), self.token, expected_failure=False)
+        params = {'config': json.dumps(sensor_config)}
+        self.tools.api_testee(api='set_sensor_configuration', params=params, token=self.token, expected_failure=False)
 
         sensor_31_config = {'sensor_id': 31, 'temperature': 1, 'humidity': None, 'brightness': None}
-        url_params = urllib.urlencode(sensor_31_config)
-        self.tools.api_testee('set_virtual_sensor?{0}'.format(url_params), self.token, expected_failure=False)
+        self.tools.api_testee(api='set_virtual_sensor', params=sensor_31_config, token=self.token, expected_failure=False)
 
-        thermostat_auto_config = {'thermostat_on': True, 'automatic': True, 'setpoint': 0, 'cooling_mode': False,
-                                  'cooling_on': True}
-        url_params = urllib.urlencode(thermostat_auto_config)
-        self.tools.api_testee('set_thermostat_mode?{0}'.format(url_params), self.token, expected_failure=False)
+        thermostat_auto_config = {'thermostat_on': True, 'automatic': True, 'setpoint': 0, 'cooling_mode': False, 'cooling_on': True}
+        self.tools.api_testee(api='set_thermostat_mode', params=thermostat_auto_config, token=self.token, expected_failure=False)
 
         setpoint_config = {'thermostat': 0, 'temperature': 9}
-        url_params = urllib.urlencode(setpoint_config)
-        self.tools.api_testee('set_current_setpoint?{0}'.format(url_params), self.token, expected_failure=False)
+        self.tools.api_testee(api='set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
 
-        response_json = self.tools.api_testee('get_thermostat_status', self.token, expected_failure=False)
+        response_json = self.tools.api_testee(api='get_thermostat_status', token=self.token, expected_failure=False)
 
         self.assertTrue(response_json.get('automatic', False) is True and response_json.get('setpoint', 99) == 0 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set. Got: {0}".format(response_json))
 
-        response_json = self.tools.api_testee('reset_master', self.token, expected_failure=False)
+        response_json = self.tools.api_testee(api='reset_master', token=self.token, expected_failure=False)
         self.assertTrue(response_json.get('status', 'Failed') == 'OK', "Should successfully reset the master. Got: {0}".format(response_json))
 
-        start = time.time()
-        while time.time() - start < self.tools.TIMEOUT:
-            new_token = self.tools.get_new_token('openmotics', '123456')
-            response_json = self.tools.api_testee('get_thermostat_status', new_token, expected_failure=True)
-            if response_json != "invalid_token":
-                if response_json.get('success') is False:
-                    time.sleep(0.3)
-                elif response_json.get('success') is True:
-                    break
-            else:
-                time.sleep(0.3)
+        response_json = self._get_new_thermostat_status(timeout=120)
 
-        self.assertTrue(response_json.get('automatic', False) is True and response_json.get('setpoint', 99) == 0 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set after resetting the master. Got: {0}".format(response_json))
+        self.assertTrue(response_json.get('automatic', False) is True and response_json.get('setpoint', 99) == 0 and response_json.get('status')[0].get('csetp') == 9,
+                        "Should return a thermostat status according to the thermostat auto config that has been set after resetting the master. Got: {0}".format(response_json))
 
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
         time.sleep(0.5)
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
 
-        start = time.time()
-        while time.time() - start < self.tools.TIMEOUT:
-            new_token = self.tools.get_new_token('openmotics', '123456')
-            response_json = self.tools.api_testee('get_thermostat_status', new_token, expected_failure=True)
-            if response_json != "invalid_token":
-                if response_json.get('success') is False:
-                    time.sleep(0.3)
-                elif response_json.get('success') is True:
-                    break
-            else:
-                time.sleep(0.3)
+        response_json = self._get_new_thermostat_status(timeout=120)
         self.assertTrue(response_json.get('automatic', False) is True and response_json.get('setpoint', 99) == 0 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set after a full power cycle. Got: {0}".format(response_json))
 
         # Testing the mode persistence after reset
 
         thermostat_auto_config = {'thermostat_on': True, 'automatic': False, 'setpoint': 5, 'cooling_mode': False, 'cooling_on': True}
-        url_params = urllib.urlencode(thermostat_auto_config)
-        self.tools.api_testee('set_thermostat_mode?{0}'.format(url_params), new_token, expected_failure=False)
+        new_token = self.tools._get_new_token(self.tools.username, self.tools.password)['token']
+        self.tools.api_testee(api='set_thermostat_mode', params=thermostat_auto_config, token=new_token, expected_failure=False)
 
-        response_json = self.tools.api_testee('get_thermostat_status', new_token, expected_failure=False)
+        response_json = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=False)
 
         self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config. Got: {0}".format(response_json))
 
-        self.tools.api_testee('reset_master', new_token, expected_failure=False)
+        self.tools.api_testee(api='reset_master', token=new_token, expected_failure=False)
 
-        start = time.time()
-        while time.time() - start < self.tools.TIMEOUT:
-            new_token = self.tools.get_new_token('openmotics', '123456')
-            response_json = self.tools.api_testee('get_thermostat_status', new_token, expected_failure=True)
-            if response_json != "invalid_token":
-                if response_json.get('success') is False:
-                    time.sleep(0.3)
-                elif response_json.get('success') is True:
-                    break
-            else:
-                time.sleep(0.3)
+        response_json = self._get_new_thermostat_status(timeout=120)
 
         self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after resetting the master. Got: {0}".format(response_json))
 
@@ -142,37 +108,16 @@ class ThermostatsTest(unittest.TestCase):
         time.sleep(0.5)
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
 
-        start = time.time()
-        while time.time() - start < self.tools.TIMEOUT:
-            new_token = self.tools.get_new_token('openmotics', '123456')
-            response_json = self.tools.api_testee('get_thermostat_status', new_token, expected_failure=True)
-            if response_json != "invalid_token":
-                if response_json.get('success') is False:
-                    time.sleep(0.3)
-                elif response_json.get('success') is True:
-                    break
-            else:
-                time.sleep(0.3)
+        response_json = self._get_new_thermostat_status(timeout=120)
 
         self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after a full power cycle. Got: {0}".format(response_json))
 
         setpoint_config = {'thermostat': 0, 'temperature': 9}
-        url_params = urllib.urlencode(setpoint_config)
-        self.tools.api_testee('set_current_setpoint?{0}'.format(url_params), self.token, expected_failure=False)
+        self.tools.api_testee(api='set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
 
-        self.tools.api_testee('reset_master', new_token, expected_failure=False)
+        self.tools.api_testee(api='reset_master', token=new_token, expected_failure=False)
 
-        start = time.time()
-        while time.time() - start < self.tools.TIMEOUT:
-            new_token = self.tools.get_new_token('openmotics', '123456')
-            response_json = self.tools.api_testee('get_thermostat_status', new_token, expected_failure=True)
-            if response_json != "invalid_token":
-                if response_json.get('success') is False:
-                    time.sleep(0.3)
-                elif response_json.get('success') is True:
-                    break
-            else:
-                time.sleep(0.3)
+        response_json = self._get_new_thermostat_status(timeout=120)
 
         self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after resetting the master. Got: {0}".format(response_json))
 
@@ -180,16 +125,19 @@ class ThermostatsTest(unittest.TestCase):
         time.sleep(0.5)
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
 
+        response_json = self._get_new_thermostat_status(timeout=120)
+
+        self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after a full power cycle. Got: {0}".format(response_json))
+
+    def _get_new_thermostat_status(self, timeout):
         start = time.time()
-        while time.time() - start < self.tools.TIMEOUT:
-            new_token = self.tools.get_new_token('openmotics', '123456')
-            response_json = self.tools.api_testee('get_thermostat_status', new_token, expected_failure=True)
+        while time.time() - start < timeout:
+            new_token = self.tools.get_new_token(self.tools.username, self.tools.password)
+            response_json = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=True)
             if response_json != "invalid_token":
                 if response_json.get('success') is False:
                     time.sleep(0.3)
                 elif response_json.get('success') is True:
-                    break
+                    return response_json
             else:
                 time.sleep(0.3)
-
-        self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after a full power cycle. Got: {0}".format(response_json))

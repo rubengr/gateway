@@ -23,8 +23,6 @@
     "actions_test.test_set_group_action_configurations",
     "actions_test.test_set_startup_action_configuration",
     "actions_test.test_do_basic_action",
-    "actions_test.test_do_basic_action_flash_led_output",
-    "actions_test.test_do_basic_action_flash_led_input",
     "actions_test.test_thermostat_setpoint_action_type",
     "actions_test.test_thermostat_increase_setpoint_action_type",
     "actions_test.test_thermostat_decrease_setpoint_action_type",
