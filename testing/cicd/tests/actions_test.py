@@ -321,36 +321,36 @@ class ActionsTest(unittest.TestCase):
         """ Testing toggling all outputs. """
         self._set_default_output_config()
         time.sleep(0.3)
-        input_number = randint(0, 7)
+        configured_input_number = randint(0, 7)
         config = {'name': 'togglerO',
                   'basic_actions': '173,255',
                   'invert': 255,
                   'module_type': 'I',
                   'can': '',
                   'action': 240,
-                  'id': input_number,
+                  'id': configured_input_number,
                   'room': 255}
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=input_number, is_on=True)
+        self.webinterface.set_output(id=configured_input_number, is_on=True)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(input_number, 1),
                             'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
-        self.webinterface.set_output(id=input_number, is_on=False)
+        self.webinterface.set_output(id=configured_input_number, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(input_number, 1),
                             'The Tester\'s input module should keep seeing a press since its a toggle action toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         time.sleep(0.3)
-        self.webinterface.set_output(id=input_number, is_on=True)
+        self.webinterface.set_output(id=configured_input_number, is_on=True)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(input_number, 0),
                             'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         time.sleep(0.3)
-        self.webinterface.set_output(id=input_number, is_on=False)
+        self.webinterface.set_output(id=configured_input_number, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(input_number, 0),
                             'The Tester\'s input module should keep see seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -451,26 +451,26 @@ class ActionsTest(unittest.TestCase):
         self._set_default_output_config()
 
         time.sleep(0.3)
-        input_number = randint(0, 7)
+        configured_input_number = randint(0, 7)
         config = {'name': 'turnerfO',
                   'basic_actions': '172,{}'.format(self.FLOOR_NUMBER),
                   'invert': 255,
                   'module_type': 'I',
                   'can': '',
                   'action': 240,
-                  'id': input_number,
+                  'id': configured_input_number,
                   'room': 255}
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=input_number, is_on=True)
+        self.webinterface.set_output(id=configured_input_number, is_on=True)
         time.sleep(0.5)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(input_number, 1),
                             'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
-        self.webinterface.set_output(id=input_number, is_on=False)
+        self.webinterface.set_output(id=configured_input_number, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(input_number, 1),
                             'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -481,19 +481,19 @@ class ActionsTest(unittest.TestCase):
                   'module_type': 'I',
                   'can': '',
                   'action': 240,
-                  'id': input_number,
+                  'id': configured_input_number,
                   'room': 255}
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=input_number, is_on=True)
+        self.webinterface.set_output(id=configured_input_number, is_on=True)
         time.sleep(0.5)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(input_number, 0),
                             'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
-        self.webinterface.set_output(id=input_number, is_on=False)
+        self.webinterface.set_output(id=configured_input_number, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(input_number, 0),
                             'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
