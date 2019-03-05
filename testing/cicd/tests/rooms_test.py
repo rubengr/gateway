@@ -149,7 +149,7 @@ class RoomsTest(unittest.TestCase):
         self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token)
 
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self.tools.check_if_event_is_captured(i, 0),
+            self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=0),
                             'Untoggled outputs must show input releases. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
@@ -185,9 +185,8 @@ class RoomsTest(unittest.TestCase):
         params = {'floor': self.FLOOR_NUMBER}
         self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
         for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self.tools.check_if_event_is_captured(i, 1),
-                            'Toggled outputs must show input presses on the Tester. Got: {0}'.format(
-                                self.tools.input_status))
+            self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=1),
+                            'Toggled outputs must show input presses on the Tester. Got: {0}'.format(self.tools.input_status))
 
     def _set_room_floor_configuration(self, room_number):
         """ Setting room floor and room configurations: Used to eliminate dependencies between tests. """

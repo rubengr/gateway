@@ -63,11 +63,11 @@ class IoTest(unittest.TestCase):
                             config))
         for one in config:
             self.tools.clicker_releaser(one['id'], self.token, True)
-            result = self.tools.check_if_event_is_captured(one['id'], 1)
+            result = self.tools.check_if_event_is_captured(toggled_output=one['id'], value=1)
             self.assertTrue(result, 'Should confirm that the Tester\'s input saw a press. Got: {0}'.format(result))
 
             self.tools.clicker_releaser(one['id'], self.token, False)
-            result = self.tools.check_if_event_is_captured(one['id'], 0)
+            result = self.tools.check_if_event_is_captured(toggled_output=one['id'], value=0)
             self.assertTrue(result, 'Should confirm that the Tester\'s input saw a release. Got: {0}'.format(result))
 
     @exception_handler
@@ -153,11 +153,11 @@ class IoTest(unittest.TestCase):
         for one in config:
             for _ in xrange(30):
                 self.tools.clicker_releaser(one['id'], self.token, True)
-                self.assertTrue(self.tools.check_if_event_is_captured(one['id'], 1),
+                self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=one['id'], value=1),
                                 'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
 
                 self.tools.clicker_releaser(one['id'], self.token, False)
-                self.assertTrue(self.tools.check_if_event_is_captured(one['id'], 0),
+                self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=one['id'], value=0),
                                 'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
@@ -351,7 +351,7 @@ class IoTest(unittest.TestCase):
                         'Should be off by default. Got: {0}'.format(output_statuses))
 
         self.tools.clicker_releaser(output_number, token, True)
-        self.assertTrue(self.tools.check_if_event_is_captured(output_number, 1),
+        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_number, value=1),
                         'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
 
         output_statuses = self.tools.api_testee(api='get_output_status', token=token).get('status')
@@ -362,7 +362,7 @@ class IoTest(unittest.TestCase):
                         'Should return status with value 1 after turning on the output.. Got: {0}'.format(output_statuses[output_number]))
 
         self.tools.clicker_releaser(output_number, token, False)
-        self.assertTrue(self.tools.check_if_event_is_captured(output_number, 0),
+        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_number, value=0),
                         'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
 
         output_statuses = self.tools.api_testee(api='get_output_status', token=token).get('status')
