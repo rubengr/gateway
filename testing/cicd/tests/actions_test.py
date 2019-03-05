@@ -59,11 +59,11 @@ class ActionsTest(unittest.TestCase):
     def test_do_group_action_on_off(self):
         """ Testing the execution of all configured group actions on the testee. """
         self._set_group_actions_config()
-        response_json = self.tools.api_testee(api='get_group_action_configurations', token=self.token)
-        config = response_json.get('config')
+        response_dict = self.tools.api_testee(api='get_group_action_configurations', token=self.token)
+        config = response_dict.get('config')
         self.assertIsNotNone(config, 'Should return the config of the group actions.')
         self.assertTrue(bool(config),
-                        'The config should not be empty when returned from get group action configurations API. Got: {0}'.format(response_json))
+                        'The config should not be empty when returned from get group action configurations API. Got: {0}'.format(response_dict))
         configured_actions = []
         for one in config:
             if one.get('actions', '') != '':
@@ -79,25 +79,24 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_do_group_action_on_off_authorization(self):
         """ Testing do_group_action API auth verification. """
-        response_json = self.tools.api_testee(api='get_group_action_configurations', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not be able to return group action configurations without a valid token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_group_action_configurations', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not be able to return group action configurations without a valid token. Got: {0}'.format(response_dict))
 
-        response_json = self.tools.api_testee(api='get_output_status', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'The get_group_action_configurations API call should return \'invalid_token\' when called with an invalid token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_output_status', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'The get_group_action_configurations API call should return \'invalid_token\' when called with an invalid token. Got: {0}'.format(response_dict))
 
         invalid_group_action_id = 9999
         params = {'group_action_id': invalid_group_action_id}
-        response_json = self.tools.api_testee(api='do_group_action', params=params, token=self.token, expected_failure=True)
-        self.assertEqual(response_json.get('msg'),
+        response_dict = self.tools.api_testee(api='do_group_action', params=params, token=self.token, expected_failure=True)
+        self.assertEqual(response_dict.get('msg'),
                          'group_action_id not in [0, 160]: {0}'.format(invalid_group_action_id),
-                         'Should return an error message when calling do group action API with an invalid group action ID. Got: {0}'.format(response_json))
+                         'Should return an error message when calling do group action API with an invalid group action ID. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_set_group_action_configuration(self):
         """ Testing the setting up of one group action. """
-        time.sleep(0.5)
         i = randint(0, 159)
         one_group_action_config = {'id': i,
                                    'actions': self.GROUP_ACTION_CONFIG.format(0),
@@ -107,9 +106,9 @@ class ActionsTest(unittest.TestCase):
         self.tools.api_testee(api='set_group_action_configuration', params=params, token=self.token)
 
         params = {'id': i}
-        response_json = self.tools.api_testee(api='get_group_action_configuration', params=params, token=self.token)
-        self.assertEqual(response_json.get('config'), one_group_action_config,
-                         'The new config should be the same as the present group action config. Got: returned: {0} configured: {1}'.format(response_json.get('config'), one_group_action_config))
+        response_dict = self.tools.api_testee(api='get_group_action_configuration', params=params, token=self.token)
+        self.assertEqual(response_dict.get('config'), one_group_action_config,
+                         'The new config should be the same as the present group action config. Got: returned: {0} configured: {1}'.format(response_dict.get('config'), one_group_action_config))
 
         params = {'group_action_id': i}
         self.tools.api_testee(api='do_group_action', params=params, token=self.token)
@@ -123,26 +122,26 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_set_group_action_configuration_authorization(self):
         """ Testing the setting up of one group action auth verification. """
-        response_json = self.tools.api_testee(api='set_group_action_configuration', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should be True after setting the group action configuration. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_group_action_configuration', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should be True after setting the group action configuration. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_set_group_action_configurations(self):
         """ Testing the setting up of all configurable group actions ( all = 160 available group actions configurations ) """
         _, config = self._set_group_actions_config()
 
-        response_json = self.tools.api_testee(api='get_group_action_configurations', token=self.token)
-        self.assertEqual(response_json.get('config'), config)
+        response_dict = self.tools.api_testee(api='get_group_action_configurations', token=self.token)
+        self.assertEqual(response_dict.get('config'), config)
 
     @exception_handler
     def test_set_group_action_configurations_authorization(self):
         """ Testing set_group_action_configurations auth verification """
-        response_json = self.tools.api_testee(api='set_group_action_configurations', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='set_group_action_configurations', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
-        response_json = self.tools.api_testee(api='get_group_action_configurations', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='get_group_action_configurations', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler
     def test_set_startup_action_configuration(self):
@@ -152,20 +151,20 @@ class ActionsTest(unittest.TestCase):
 
         self.tools.api_testee(api='set_startup_action_configuration', params=params, token=self.token)
 
-        response_json = self.tools.api_testee(api='get_startup_action_configuration', token=self.token)
-        self.assertEqual(response_json.get('config'), config,
-                         'The new config should be the same as the present startup action config. Got{0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_startup_action_configuration', token=self.token)
+        self.assertEqual(response_dict.get('config'), config,
+                         'The new config should be the same as the present startup action config. Got{0}'.format(response_dict))
 
-        response_json = json.loads(self.webinterface.get_output_status())
+        response_dict = json.loads(self.webinterface.get_output_status())
 
-        status_list = response_json.get('status', [])
+        status_list = response_dict.get('status', [])
         self.assertTrue(bool(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
         if status_list[8].get('status') == 0:
-            json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True))
+            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
         else:
-            json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False))
+            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
             time.sleep(0.5)
-            json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True))
+            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=1),
                         'Should execute startup action and turn output 0 on, Tester\'s input will see a press')
 
@@ -177,8 +176,8 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_set_startup_action_configuration_authorization(self):
         """ Testing the setting up of the startup action configuration. """
-        response_json = self.tools.api_testee(api='set_startup_action_configuration', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='set_startup_action_configuration', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler
     def test_do_basic_action(self):
@@ -199,12 +198,12 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_do_basic_action_authorization(self):
         """ Testing do basic action API auth verification. """
-        response_json = self.tools.api_testee(api='do_basic_action', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='do_basic_action', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
         params = {'action_type': 165, 'action_number': 46}
-        response_json = self.tools.api_testee(api='do_basic_action', params=params, token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='do_basic_action', params=params, token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler
     def test_motion_sensor_timer_short(self):
@@ -231,11 +230,11 @@ class ActionsTest(unittest.TestCase):
         """ Testing if getting input configurations works without a valid authorization. """
         params = {'id': 3}
 
-        response_json = self.tools.api_testee(api='get_input_configuration', params=params, token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token', 'Expecting the response to be invalid_token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_input_configuration', params=params, token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token', 'Expecting the response to be invalid_token. Got: {0}'.format(response_dict))
 
-        response_json = self.tools.api_testee(api='get_input_configurations', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token', 'Expecting the response to be invalid_token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_input_configurations', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token', 'Expecting the response to be invalid_token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_execute_group_action(self):
@@ -1015,7 +1014,7 @@ class ActionsTest(unittest.TestCase):
     @exception_handler
     def test_thermostat_decrease_setpoint_action_type(self):
         """ Testing decreasing the setpoint of the Testee's thermostat 0. """
-        self.tools.configure_thermostat(0, 10, 10.5, 11)
+        self.tools.configure_thermostat(thermostat_number=0, night_temp=10, day_block1_temp=10.5, day_block2_temp=11)
 
         params = {'action_type': 149, 'action_number': 0}  # ActionType 149 changes the set point of thermostat X to 22.5.
         self.tools.api_testee(api='do_basic_action', params=params, token=self.token)
@@ -1045,7 +1044,7 @@ class ActionsTest(unittest.TestCase):
             self.fail('Setting standard thermostat set point has failed.')
         self.assertEqual(thermostat_status[0]['csetp'], 21, 'Current setpoint doesn\'t match the expected setpoint: {0} vs 21'.format(thermostat_status[0]['csetp']))
 
-        self.tools.unconfigure_thermostat(0)
+        self.tools.unconfigure_thermostat(thermostat_number=0)
 
     @exception_handler
     def test_turn_only_lights_off(self):

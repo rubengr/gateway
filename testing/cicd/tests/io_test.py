@@ -81,8 +81,8 @@ class IoTest(unittest.TestCase):
             initial_config.append(config)
             params = {'config': json.dumps(config)}
             self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
-        response_json = self.tools.api_testee(api='get_input_configurations', token=self.token)
-        response_config = response_json.get('config')
+        response_dict = self.tools.api_testee(api='get_input_configurations', token=self.token)
+        response_config = response_dict.get('config')
         self.assertEqual(response_config, initial_config, 'If the link is established, both configs should be the same')
 
     @exception_handler
@@ -90,38 +90,38 @@ class IoTest(unittest.TestCase):
         """ Testing discovery mode. """
         self.tools.api_testee(api='module_discover_start', token=self.token)
         time.sleep(0.3)
-        response_json = self.tools.api_testee(api='module_discover_status', token=self.token)
-        self.assertEqual(response_json.get('running'), True, 'Should be true to indicate discovery mode has started.')
+        response_dict = self.tools.api_testee(api='module_discover_status', token=self.token)
+        self.assertEqual(response_dict.get('running'), True, 'Should be true to indicate discovery mode has started.')
 
         self.tools.human_click(toolbox.DISCOVER_TESTEE_OUTPUT_ID, True, self.webinterface)
         self.tools.human_click(toolbox.DISCOVER_TESTEE_INPUT_ID, True, self.webinterface)
 
         self.tools.api_testee(api='module_discover_stop', token=self.token)
-        response_json = self.tools.api_testee(api='module_discover_status', token=self.token)
-        self.assertEqual(response_json.get('running'), False, 'Should be true to indicate discovery mode has stopped.')
+        response_dict = self.tools.api_testee(api='module_discover_status', token=self.token)
+        self.assertEqual(response_dict.get('running'), False, 'Should be true to indicate discovery mode has stopped.')
 
-        response_json = self.tools.api_testee(api='get_modules', token=self.token)
-        if response_json is None:
+        response_dict = self.tools.api_testee(api='get_modules', token=self.token)
+        if response_dict is None:
             self.tools.discovery_success = False
-        if len(response_json.get('outputs', [])) != 1 or len(response_json.get('inputs', [])) != 1:
+        if len(response_dict.get('outputs', [])) != 1 or len(response_dict.get('inputs', [])) != 1:
             self.tools.discovery_success = False
 
-        self.assertTrue(len(response_json.get('outputs', [])) == 1,
+        self.assertTrue(len(response_dict.get('outputs', [])) == 1,
                         'Should be true to indicate that the testee has only 1 output module.')
-        self.assertTrue(len(response_json.get('inputs', [])) == 1,
+        self.assertTrue(len(response_dict.get('inputs', [])) == 1,
                         'Should be true to indicate that the testee has only 1 input module.')
 
     @exception_handler
     def test_discovery_authorization(self):
         """ Testing discovery mode auth verification. """
-        response_json = self.tools.api_testee(api='module_discover_start', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='module_discover_start', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
-        response_json = self.tools.api_testee(api='module_discover_status', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='module_discover_status', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
-        response_json = self.tools.api_testee(api='module_discover_stop', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='module_discover_stop', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler
     def test_factory_reset_and_reconfigure_use_case(self):
@@ -146,8 +146,8 @@ class IoTest(unittest.TestCase):
     @exception_handler
     def test_output_stress_toggling(self):
         """ Testing stress toggling all outputs on the Testee. """
-        response_json = self.tools.api_testee(api='get_output_configurations', token=self.token)
-        config = response_json.get('config')
+        response_dict = self.tools.api_testee(api='get_output_configurations', token=self.token)
+        config = response_dict.get('config')
         self.assertTrue(bool(config),
                         'Should not be empty and should have the output configurations of the testee. Got: {0}'.format(config))
         for one in config:
@@ -163,142 +163,142 @@ class IoTest(unittest.TestCase):
     @exception_handler
     def test_output_stress_toggling_authorization(self):
         """ Testing stress toggling all outputs on the Testee auth verification. """
-        response_json = self.tools.api_testee(api='get_output_configuration', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='get_output_configuration', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
-        response_json = self.tools.api_testee(api='get_output_configurations', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='get_output_configurations', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
         params = {'id': 3, 'is_on': True}
-        response_json = self.tools.api_testee(api='set_output', params=params, token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='set_output', params=params, token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler
     def test_get_version(self):
         """ Testing getting the firmware and gateway versions. """
-        response_json = self.tools.api_testee(api='get_version', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='get_version', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
-        response_json = self.tools.api_testee(api='get_version', token=self.token)
-        self.assertTrue(response_json.get('gateway') is not None, 'Should be true and have the gateway\'s version.')
-        self.assertTrue(response_json.get('version') is not None, 'SShould be true and have the firmware version.')
+        response_dict = self.tools.api_testee(api='get_version', token=self.token)
+        self.assertTrue(response_dict.get('gateway') is not None, 'Should be true and have the gateway\'s version.')
+        self.assertTrue(response_dict.get('version') is not None, 'SShould be true and have the firmware version.')
 
     @exception_handler
     def test_get_modules(self):
         """ Testing getting the list of modules. """
-        response_json = self.tools.api_testee(api='get_modules', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='get_modules', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
-        response_json = self.tools.api_testee(api='get_modules', token=self.token)
-        self.assertTrue(len(response_json.get('outputs', [])) == 1,
+        response_dict = self.tools.api_testee(api='get_modules', token=self.token)
+        self.assertTrue(len(response_dict.get('outputs', [])) == 1,
                         'Should be true to indicate that the testee has only 1 output module.')
-        self.assertTrue(len(response_json.get('inputs', [])) == 1,
+        self.assertTrue(len(response_dict.get('inputs', [])) == 1,
                         'Should be true to indicate that the testee has only 1 input module.')
 
     @exception_handler
     def test_validate_master_status(self):
         """ Testing master's timezone. """
-        response_json = self.tools.api_testee(api='get_timezone', token=self.token)
-        self.assertEqual(response_json.get('timezone'), 'UTC',
-                         'Expected default timezone on the gateway to be UTC but got {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_timezone', token=self.token)
+        self.assertEqual(response_dict.get('timezone'), 'UTC',
+                         'Expected default timezone on the gateway to be UTC but got {0}'.format(response_dict))
 
         now = datetime.datetime.utcnow()
-        response_json = self.tools.api_testee(api='get_status', token=self.token)
-        self.assertEqual(response_json.get('time'), now.strftime('%H:%M'))
+        response_dict = self.tools.api_testee(api='get_status', token=self.token)
+        self.assertEqual(response_dict.get('time'), now.strftime('%H:%M'))
 
         params = {'timezone': 'America/Bahia'}
         self.tools.api_testee(api='set_timezone', params=params, token=self.token)
 
-        response_json = self.tools.api_testee(api='get_timezone', token=self.token)
-        self.assertNotEqual(response_json.get('timezone'), 'UTC', 'Timezone on the gateway should be updated')
-        self.assertEqual(response_json.get('timezone'), 'America/Bahia')
+        response_dict = self.tools.api_testee(api='get_timezone', token=self.token)
+        self.assertNotEqual(response_dict.get('timezone'), 'UTC', 'Timezone on the gateway should be updated')
+        self.assertEqual(response_dict.get('timezone'), 'America/Bahia')
 
         bahia_timezone = timezone('America/Bahia')
         now = datetime.datetime.now(bahia_timezone)
-        response_json = self.tools.api_testee(api='get_status', token=self.token)
-        self.assertEqual(response_json.get('time'), now.strftime('%H:%M'))
+        response_dict = self.tools.api_testee(api='get_status', token=self.token)
+        self.assertEqual(response_dict.get('time'), now.strftime('%H:%M'))
 
         params = {'timezone': 'UTC'}
         self.tools.api_testee(api='set_timezone', params=params, token=self.token)
 
-        response_json = self.tools.api_testee(api='get_timezone', token=self.token)
-        self.assertEqual(response_json.get('timezone'), 'UTC', 'Timezone on the gateway should be UTC again.')
-        self.assertNotEqual(response_json.get('timezone'), 'America/Bahia', 'Timezone on the gateway should be back to normal.')
+        response_dict = self.tools.api_testee(api='get_timezone', token=self.token)
+        self.assertEqual(response_dict.get('timezone'), 'UTC', 'Timezone on the gateway should be UTC again.')
+        self.assertNotEqual(response_dict.get('timezone'), 'America/Bahia', 'Timezone on the gateway should be back to normal.')
 
         now = datetime.datetime.utcnow()
-        response_json = self.tools.api_testee(api='get_status', token=self.token)
-        self.assertEqual(response_json.get('time'), now.strftime('%H:%M'))
+        response_dict = self.tools.api_testee(api='get_status', token=self.token)
+        self.assertEqual(response_dict.get('time'), now.strftime('%H:%M'))
 
     @exception_handler
     def test_validate_master_status_authorization(self):
         """ Testing master's timezone. """
-        response_json = self.tools.api_testee(api='get_timezone', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='get_timezone', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
-        response_json = self.tools.api_testee(api='set_timezone', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='set_timezone', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
-        response_json = self.tools.api_testee(api='get_status', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='get_status', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler
     def test_get_features(self):
         """ Testing whether or not the API call does return the features list. """
-        response_json = self.tools.api_testee(api='get_features', token=self.token)
-        self.assertTrue(bool(response_json.get('features')),
-                        'Should have the list of features after the API call. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_features', token=self.token)
+        self.assertTrue(bool(response_dict.get('features')),
+                        'Should have the list of features after the API call. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_get_features_authorization(self):
         """ Testing whether or not the API call does return the features list. """
-        response_json = self.tools.api_testee(api='get_features', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token')
+        response_dict = self.tools.api_testee(api='get_features', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler
     def test_indicate_authorization(self):
         """ Testing API call to indicate LEDs. Only verifying the API currently. """
-        response_json = self.tools.api_testee(api='indicate', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token', 'The indicate API call should return \'invalid_token\' when called with an invalid token.')
+        response_dict = self.tools.api_testee(api='indicate', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token', 'The indicate API call should return \'invalid_token\' when called with an invalid token.')
 
     @exception_handler
     def test_open_maintenance(self):
         """ Testing API call to open maintenance and get the port. """
-        response_json = self.tools.api_testee(api='open_maintenance', token=self.token)
-        self.assertTrue(bool(response_json.get('port')),
+        response_dict = self.tools.api_testee(api='open_maintenance', token=self.token)
+        self.assertTrue(bool(response_dict.get('port')),
                         'The open_maintenance API call should return the port of the maintenance socket.')
 
     @exception_handler
     def test_open_maintenance_authorization(self):
         """ Testing API call to open maintenance and get the port. """
-        response_json = self.tools.api_testee(api='open_maintenance', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
+        response_dict = self.tools.api_testee(api='open_maintenance', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
                          'The open_maintenance API call should return \'invalid_token\' when called with an invalid token.')
 
     def test_how_healthy_after_reboot(self):
         """ Testing how healthy the services are after power cycle. """
-        response_json = json.loads(self.webinterface.get_output_status())
-        status_list = response_json.get('status', [])
+        response_dict = json.loads(self.webinterface.get_output_status())
+        status_list = response_dict.get('status', [])
         self.assertTrue(bool(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
         if status_list[8].get('status') == 0:
-            json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True))
+            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
         else:
-            json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False))
+            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
             time.sleep(0.5)
-            json.loads(self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True))
+            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
 
-        response_json = self.tools.api_testee(api='health_check')
+        response_dict = self.tools.api_testee(api='health_check')
 
-        if response_json is None:
+        if response_dict is None:
             self.tools.healthy_status = False
             self.fail(
                 'Failed to report health check. Service openmotics might have crashed. Please run \'supervisorctl restart openmotics\' or see logs for more details.')
 
-        self.assertIsNotNone(response_json,
-                             'Should not be none and should have the response back from the API call. Got: {0}'.format(response_json))
-        self.assertTrue(response_json.get('health_version') > 0,
+        self.assertIsNotNone(response_dict,
+                             'Should not be none and should have the response back from the API call. Got: {0}'.format(response_dict))
+        self.assertTrue(response_dict.get('health_version') > 0,
                         'Should have a health_version int to indicate the health check API version.')
 
-        health = response_json.get('health', None)
+        health = response_dict.get('health', None)
         self.assertIsNotNone(health, 'Should not be none and should have health dict object. Got: {0}'.format(health))
         for one in health.values():
             if one.get('state') is False:
@@ -330,13 +330,13 @@ class IoTest(unittest.TestCase):
 
             output_configurations.append(one_output_configuration)
         params = {'config': json.dumps(output_configurations)}
-        response_json = self.tools.api_testee(api='set_output_configurations', params=params, token=self.token)
-        self.assertTrue(response_json.get('success'),
-                        'Should set the output configuration and return success: True. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_output_configurations', params=params, token=self.token)
+        self.assertTrue(response_dict.get('success'),
+                        'Should set the output configuration and return success: True. Got: {0}'.format(response_dict))
 
-        response_json = self.tools.api_testee(api='get_output_configurations', token=self.token)
-        self.assertEqual(output_configurations, response_json.get('config'),
-                         'The returned config should equal the configuration that has been set. Got: {0} vs {1}'.format(output_configurations, response_json.get('config')))
+        response_dict = self.tools.api_testee(api='get_output_configurations', token=self.token)
+        self.assertEqual(output_configurations, response_dict.get('config'),
+                         'The returned config should equal the configuration that has been set. Got: {0} vs {1}'.format(output_configurations, response_dict.get('config')))
 
     @exception_handler
     def test_get_output_status(self):

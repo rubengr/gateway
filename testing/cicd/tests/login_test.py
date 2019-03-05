@@ -56,7 +56,12 @@ class LoginTest(unittest.TestCase):
         self.tools.enter_testee_authorized_mode(self.webinterface)
         params = {'username': self.login, 'password': self.password}
         self.tools.api_testee(api='create_user', params=params)
+        response_dict = self.tools.api_testee(api='get_usernames')
+        self.assertTrue(self.login in response_dict.get('usernames'), 'The created user should exist in the list of usernames.')
         self.tools.exit_testee_authorized_mode(self.webinterface)
+
+        response_dict = self.tools.api_testee(api='get_usernames', expected_failure=True)
+        self.assertFalse(response_dict.get('success'), 'Should not be able to get usernames after leaving authorized mode.')
 
     @exception_handler
     def test_create_user_authorized_force_checked(self):
@@ -66,10 +71,13 @@ class LoginTest(unittest.TestCase):
 
         self.assertEqual(entered_authorized_mode, True,
                          'Should enter authorized mode within 6 seconds of pressing. Got{0}'.format(entered_authorized_mode))
-        self.assertTrue(6.5 >= time.time() - start >= 4.5,
+        self.assertTrue(7 >= time.time() - start >= 6,
                         'Should enter authorized mode within 6 seconds. Got: {0}'.format(time.time() - start))
         params = {'username': self.login, 'password': self.password}
         self.tools.api_testee(api='create_user', params=params)
+
+        response_dict = self.tools.api_testee(api='get_usernames')
+        self.assertTrue(self.login in response_dict.get('usernames'), 'The created user should exist in the list of usernames.')
 
         self.tools.exit_testee_authorized_mode(self.webinterface)
 
@@ -80,19 +88,27 @@ class LoginTest(unittest.TestCase):
         params = {'username': self.login, 'password': self.password}
         self.tools.api_testee(api='create_user', params=params)
         self.tools.exit_testee_authorized_mode(self.webinterface)
-        self._login_testee_user(self.login, self.password, True)
+        valid_token = self._login_testee_user(self.login, self.password, True).get('token')
+        self.assertIsNotNone(valid_token, 'Should return a token after successfully logging in. Got: {0}'.format(valid_token))
+
+        response_dict = self.tools.api_testee(api='get_features', token=valid_token)
+        self.assertTrue(response_dict.get('success'),
+                        'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_login_with_user_with_terms_force_checked(self):
         """ Testing login with accepted terms & conditions. """
         entered_authorized_mode = self.tools.enter_testee_authorized_mode(self.webinterface, 6)  # 6 is a forced timeout, 120 is default.
         self.assertEqual(entered_authorized_mode, True,
-                         'Should enter authorized mode within 6 seconds of pressing. {0}'.format(
-                             entered_authorized_mode))
+                         'Should enter authorized mode within 6 seconds of pressing. {0}'.format(entered_authorized_mode))
         params = {'username': self.login, 'password': self.password}
         self.tools.api_testee(api='create_user', params=params)
         self.tools.exit_testee_authorized_mode(self.webinterface)
-        self._login_testee_user(self.login, self.password, True)
+        valid_token = self._login_testee_user(self.login, self.password, True).get('token')
+
+        response_dict = self.tools.api_testee(api='get_features', token=valid_token)
+        self.assertTrue(response_dict.get('success'),
+                        'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_remove_user_authorized(self):
@@ -100,6 +116,10 @@ class LoginTest(unittest.TestCase):
         self.tools.enter_testee_authorized_mode(self.webinterface)
         params = {'username': self.login}
         self.tools.api_testee(api='remove_user', params=params)
+
+        response_dict = self.tools.api_testee(api='get_usernames', expected_failure=True)
+        self.assertFalse(self.login in response_dict.get('usernames'), 'The created user should exist in the list of usernames.')
+
         self.tools.exit_testee_authorized_mode(self.webinterface)
 
     @exception_handler
@@ -118,14 +138,13 @@ class LoginTest(unittest.TestCase):
         if self.tools.api_testee(api='get_usernames').get('success'):
             self.tools.exit_testee_authorized_mode(self.webinterface)
 
-        response_json = self._login_testee_user('admin', 'admin', True)
-        self.assertEqual(response_json.get('msg'), "invalid_credentials")
-        self.assertEqual(response_json.get('success'), False,
-                         'Should not login with a non existing user. Got: {0}'.format(response_json))
+        response_dict = self._login_testee_user('admin', 'admin', True)
+        self.assertEqual(response_dict.get('msg'), "invalid_credentials")
+        self.assertEqual(response_dict.get('success'), False, 'Should not login with a non existing user. Got: {0}'.format(response_dict))
 
         params = {'username': self.login, 'password': self.password}
-        response_json = self.tools.api_testee(api='create_user', params=params, expected_failure=True)
-        self.assertEqual(response_json.get('success'), False, 'Should not create a user without being in authorized mode. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='create_user', params=params, expected_failure=True)
+        self.assertEqual(response_dict.get('success'), False, 'Should not create a user without being in authorized mode. Got: {0}'.format(response_dict))
 
         self.tools.enter_testee_authorized_mode(self.webinterface, 6)
 
@@ -134,17 +153,15 @@ class LoginTest(unittest.TestCase):
 
         self.tools.exit_testee_authorized_mode(self.webinterface)
 
-        response_json = self._login_testee_user(self.login, self.password, False)
-        self.assertEqual(response_json.get('next_step'), 'accept_terms',
-                         'Should not login before accepting terms and conditions. Got: {0}'.format(response_json))
+        response_dict = self._login_testee_user(self.login, self.password, False)
+        self.assertEqual(response_dict.get('next_step'), 'accept_terms', 'Should not login before accepting terms and conditions. Got: {0}'.format(response_dict))
 
         self._login_testee_user(self.login, self.password, True)
 
         params = {'username': self.login}
-        response_json = self.tools.api_testee(api='remove_user', params=params, expected_failure=True)
+        response_dict = self.tools.api_testee(api='remove_user', params=params, expected_failure=True)
 
-        self.assertEqual(response_json.get('success'), False,
-                         'Should fail to delete the user without authorized mode being activated. Got: {0}'.format(response_json))
+        self.assertEqual(response_dict.get('success'), False, 'Should fail to delete the user without authorized mode being activated. Got: {0}'.format(response_dict))
         self.tools.enter_testee_authorized_mode(self.webinterface, 6)
 
         self.tools.api_testee(api='remove_user', params=params, expected_failure=True)
@@ -153,9 +170,8 @@ class LoginTest(unittest.TestCase):
         self.tools.api_testee(api='create_user', params=params)
         self.tools.exit_testee_authorized_mode(self.webinterface)
 
-        response_json = self._login_testee_user(self.login, self.password, True)
-        self.assertEqual(response_json.get('success'), False,
-                         'Should not be able to login with the old password. Got: {0}'.format(response_json))
+        response_dict = self._login_testee_user(self.login, self.password, True)
+        self.assertEqual(response_dict.get('success'), False, 'Should not be able to login with the old password. Got: {0}'.format(response_dict))
 
         self._login_testee_user(self.login, 'new_password', True)
 
@@ -166,64 +182,84 @@ class LoginTest(unittest.TestCase):
 
         params = {'username': self.login, 'password': self.password}
         self.tools.api_testee(api='create_user', params=params)
+        response_dict = self.tools.api_testee(api='get_usernames')
+        self.assertTrue(self.login in response_dict.get('usernames'), 'The created user should exist in the list of usernames.')
+
         self.tools.exit_testee_authorized_mode(self.webinterface)
 
-        self._login_testee_user(self.login, self.password, True)
+        valid_token = self._login_testee_user(self.login, self.password, True).get('token')
+        response_dict = self.tools.api_testee(api='get_features', token=valid_token)
+        self.assertTrue(response_dict.get('status'), 'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
 
         params = {'username': self.login}
         self.tools.enter_testee_authorized_mode(self.webinterface, 6)
 
         self.tools.api_testee(api='remove_user', params=params)
 
+        response_dict = self.tools.api_testee(api='get_usernames')
+        self.assertFalse(self.login in response_dict.get('usernames'), 'The created user should exist in the list of usernames.')
+
         params = {'username': self.login, 'password': 'new_password'}
         self.tools.api_testee(api='create_user', params=params)
         self.tools.exit_testee_authorized_mode(self.webinterface)
-        self._login_testee_user(self.login, 'new_password', True)
+        valid_token = self._login_testee_user(self.login, 'new_password', True).get('token')
+        response_dict = self.tools.api_testee(api='get_features', token=valid_token)
+        self.assertTrue(response_dict.get('status'),
+                        'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_token_validity_force_checked(self):
         """ Testing the validity of a returned token after a login and an invalid token. """
-        response_json = self._login_testee_user(self.tools.username, self.tools.password, True)
-        valid_token = response_json.get('token')
-        self.tools.api_testee(api='get_features', token=valid_token)
+        response_dict = self._login_testee_user(self.tools.username, self.tools.password, True)
+        valid_token = response_dict.get('token')
+        response_dict = self.tools.api_testee(api='get_features', token=valid_token)
+        self.assertTrue(response_dict.get('success'), 'Should return success after calling get_features with a valid token. Got: {0}'.format(response_dict))
 
-        response_json = self.tools.api_testee(api='get_features', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should return invalid_token when getting features with a wrong user token. Got{0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_features', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should return invalid_token when getting features with a wrong user token. Got{0}'.format(response_dict))
 
     @exception_handler
     def test_token_validity(self):
         """ Testing the validity of a returned token after a login and an invalid token quick. """
         login_response = self._login_testee_user(self.tools.username, self.tools.password, True)
-        self.tools.api_testee(api='get_features', token=login_response.get('token'))
-        response_json = self.tools.api_testee(api='get_features', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should return invalid_token when getting features with a wrong user token. Got{0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_features', token=login_response.get('token'))
+        self.assertTrue(response_dict.get('success'), 'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
+        response_dict = self.tools.api_testee(api='get_features', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should return invalid_token when getting features with a wrong user token. Got{0}'.format(response_dict))
 
     @exception_handler
     def test_logout_existing_user_force_checked(self):
         """ Testing logging out using a valid token from a valid user. """
-        response_json = self._login_testee_user(self.tools.username, self.tools.password, True)
-        valid_token = response_json.get('token')
+        response_dict = self._login_testee_user(self.tools.username, self.tools.password, True)
+        valid_token = response_dict.get('token')
 
-        response_json = self._logout_testee_user(valid_token + 'making_it_corrupt')
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not logout with an invalid token. Got: {0}'.format(response_json))
+        response_dict = self._logout_testee_user(valid_token + 'making_it_corrupt')
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not logout with an invalid token. Got: {0}'.format(response_dict))
 
-        response_json = self._logout_testee_user(valid_token)
-        self.assertEqual(response_json.get('status'), 'OK',
-                         'Should return a status OK message indicating a successful logout action. Got: {0}'.format(response_json))
+        response_dict = self._logout_testee_user(valid_token)
+        self.assertEqual(response_dict.get('status'), 'OK',
+                         'Should return a status OK message indicating a successful logout action. Got: {0}'.format(response_dict))
 
-        response_json = self._logout_testee_user(valid_token)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not logout again since the provided token has been invalidated. Got: {0}'.format(response_json))
+        response_dict = self._logout_testee_user(valid_token)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not logout again since the provided token has been invalidated. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_logout_existing_user(self):
         """ Testing logging out using a valid token from a valid user. """
-        response_json = self._login_testee_user(self.tools.username, self.tools.password, True)
-        valid_token = response_json.get('token')
+        response_dict = self._login_testee_user(self.tools.username, self.tools.password, True)
+        valid_token = response_dict.get('token')
+
+        response_dict = self.tools.api_testee(api='get_features', token=valid_token)
+        self.assertTrue(response_dict.get('status'), 'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
+
         self._logout_testee_user(valid_token)
+
+        response_dict = self.tools.api_testee(api='get_features', token=valid_token, expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_authorized_unauthorized_force_checked(self):
@@ -232,9 +268,8 @@ class LoginTest(unittest.TestCase):
         self.assertEqual(self.tools.api_testee(api='get_usernames').get('success'), True,
                          'Should be True after entering authorized mode and getting user names.')
         self.tools.exit_testee_authorized_mode(self.webinterface)
-        self.assertEqual(self.tools.api_testee(api='get_usernames', token=None, expected_failure=True).get('success'),
-                         False,
-                         'Should be False after attempting to get user names when not in authorized mode anymore.')
+        self.assertEqual(self.tools.api_testee(api='get_usernames', expected_failure=True).get('success'),
+                         False, 'Should be False after attempting to get user names when not in authorized mode anymore.')
 
     @exception_handler
     def test_enter_exit_authorized_mode_duration_force_checked(self):
@@ -251,6 +286,9 @@ class LoginTest(unittest.TestCase):
                          'Should enter authorized mode within 6 seconds. Got{0}'.format(entered_authorized_mode))
         self.assertTrue(7 > end - start > 5.8)
         self.tools.exit_testee_authorized_mode(self.webinterface)
+
+        self.assertEqual(self.tools.api_testee(api='get_usernames', expected_failure=True).get('success'),
+                         False, 'Should be False after attempting to get user names when not in authorized mode anymore.')
 
     @exception_handler
     def test_timed_presses_for_authorized_mode_entrance(self):
@@ -328,8 +366,8 @@ class LoginTest(unittest.TestCase):
         :rtype: dict
         """
         params = {'username': username, 'password': password, 'accept_terms': accept_terms}
-        response_json = self.tools.api_testee(api='login', params=params, expected_failure=True)
-        return response_json
+        response_dict = self.tools.api_testee(api='login', params=params, expected_failure=True)
+        return response_dict
 
     def _logout_testee_user(self, token):
         """
@@ -341,5 +379,5 @@ class LoginTest(unittest.TestCase):
         :rtype: dict
         """
         params = {'token': token}
-        response_json = self.tools.api_testee(api='logout', params=params, expected_failure=True)
-        return response_json
+        response_dict = self.tools.api_testee(api='logout', params=params, expected_failure=True)
+        return response_dict

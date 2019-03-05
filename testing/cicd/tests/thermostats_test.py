@@ -69,24 +69,24 @@ class ThermostatsTest(unittest.TestCase):
         setpoint_config = {'thermostat': 0, 'temperature': 9}
         self.tools.api_testee(api='set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
 
-        response_json = self.tools.api_testee(api='get_thermostat_status', token=self.token, expected_failure=False)
+        response_dict = self.tools.api_testee(api='get_thermostat_status', token=self.token, expected_failure=False)
 
-        self.assertTrue(response_json.get('automatic', False) is True and response_json.get('setpoint', 99) == 0 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set. Got: {0}".format(response_json))
+        self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set. Got: {0}".format(response_dict))
 
-        response_json = self.tools.api_testee(api='reset_master', token=self.token, expected_failure=False)
-        self.assertTrue(response_json.get('status', 'Failed') == 'OK', "Should successfully reset the master. Got: {0}".format(response_json))
+        response_dict = self.tools.api_testee(api='reset_master', token=self.token, expected_failure=False)
+        self.assertTrue(response_dict.get('status', 'Failed') == 'OK', "Should successfully reset the master. Got: {0}".format(response_dict))
 
-        response_json = self._get_new_thermostat_status(timeout=120)
+        response_dict = self._get_new_thermostat_status(timeout=120)
 
-        self.assertTrue(response_json.get('automatic', False) is True and response_json.get('setpoint', 99) == 0 and response_json.get('status')[0].get('csetp') == 9,
-                        "Should return a thermostat status according to the thermostat auto config that has been set after resetting the master. Got: {0}".format(response_json))
+        self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 9,
+                        "Should return a thermostat status according to the thermostat auto config that has been set after resetting the master. Got: {0}".format(response_dict))
 
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
         time.sleep(0.5)
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
 
-        response_json = self._get_new_thermostat_status(timeout=120)
-        self.assertTrue(response_json.get('automatic', False) is True and response_json.get('setpoint', 99) == 0 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set after a full power cycle. Got: {0}".format(response_json))
+        response_dict = self._get_new_thermostat_status(timeout=120)
+        self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set after a full power cycle. Got: {0}".format(response_dict))
 
         # Testing the mode persistence after reset
 
@@ -94,50 +94,50 @@ class ThermostatsTest(unittest.TestCase):
         new_token = self.tools._get_new_token(self.tools.username, self.tools.password)['token']
         self.tools.api_testee(api='set_thermostat_mode', params=thermostat_auto_config, token=new_token, expected_failure=False)
 
-        response_json = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=False)
+        response_dict = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=False)
 
-        self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config. Got: {0}".format(response_json))
+        self.assertTrue(response_dict.get('automatic', True) is False and response_dict.get('setpoint', 99) == 5 and response_dict.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config. Got: {0}".format(response_dict))
 
         self.tools.api_testee(api='reset_master', token=new_token, expected_failure=False)
 
-        response_json = self._get_new_thermostat_status(timeout=120)
+        response_dict = self._get_new_thermostat_status(timeout=120)
 
-        self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after resetting the master. Got: {0}".format(response_json))
+        self.assertTrue(response_dict.get('automatic', True) is False and response_dict.get('setpoint', 99) == 5 and response_dict.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after resetting the master. Got: {0}".format(response_dict))
 
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
         time.sleep(0.5)
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
 
-        response_json = self._get_new_thermostat_status(timeout=120)
+        response_dict = self._get_new_thermostat_status(timeout=120)
 
-        self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after a full power cycle. Got: {0}".format(response_json))
+        self.assertTrue(response_dict.get('automatic', True) is False and response_dict.get('setpoint', 99) == 5 and response_dict.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after a full power cycle. Got: {0}".format(response_dict))
 
         setpoint_config = {'thermostat': 0, 'temperature': 9}
         self.tools.api_testee(api='set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
 
         self.tools.api_testee(api='reset_master', token=new_token, expected_failure=False)
 
-        response_json = self._get_new_thermostat_status(timeout=120)
+        response_dict = self._get_new_thermostat_status(timeout=120)
 
-        self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after resetting the master. Got: {0}".format(response_json))
+        self.assertTrue(response_dict.get('automatic', True) is False and response_dict.get('setpoint', 99) == 5 and response_dict.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after resetting the master. Got: {0}".format(response_dict))
 
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
         time.sleep(0.5)
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
 
-        response_json = self._get_new_thermostat_status(timeout=120)
+        response_dict = self._get_new_thermostat_status(timeout=120)
 
-        self.assertTrue(response_json.get('automatic', True) is False and response_json.get('setpoint', 99) == 5 and response_json.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after a full power cycle. Got: {0}".format(response_json))
+        self.assertTrue(response_dict.get('automatic', True) is False and response_dict.get('setpoint', 99) == 5 and response_dict.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after a full power cycle. Got: {0}".format(response_dict))
 
     def _get_new_thermostat_status(self, timeout):
         start = time.time()
         while time.time() - start < timeout:
             new_token = self.tools.get_new_token(self.tools.username, self.tools.password)
-            response_json = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=True)
-            if response_json != "invalid_token":
-                if response_json.get('success') is False:
+            response_dict = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=True)
+            if response_dict != "invalid_token":
+                if response_dict.get('success') is False:
                     time.sleep(0.3)
-                elif response_json.get('success') is True:
-                    return response_json
+                elif response_dict.get('success') is True:
+                    return response_dict
             else:
                 time.sleep(0.3)

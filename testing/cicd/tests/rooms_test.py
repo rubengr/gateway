@@ -56,8 +56,8 @@ class RoomsTest(unittest.TestCase):
         """ Testing setting up outputs floor. """
         expected_to_be_inserted_config = self._set_room_floor_configuration(room_number=self.ROOM_NUMBER)
         token = self.tools.get_new_token(self.tools.username, self.tools.password)
-        response_json = self.tools.api_testee(api='get_output_configurations', token=token)
-        response_config = response_json.get('config')
+        response_dict = self.tools.api_testee(api='get_output_configurations', token=token)
+        response_config = response_dict.get('config')
         self.assertEqual(response_config, expected_to_be_inserted_config,
                          'Expected the output configuration to be updated. Got: {0} {1}'.format(response_config, expected_to_be_inserted_config))
 
@@ -72,19 +72,19 @@ class RoomsTest(unittest.TestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_room_configurations', params=params, token=self.token)
 
-        response_json = self.tools.api_testee(api='get_room_configurations', token=self.token)
-        self.assertEqual(response_json.get('config'), config)
+        response_dict = self.tools.api_testee(api='get_room_configurations', token=self.token)
+        self.assertEqual(response_dict.get('config'), config)
 
     @exception_handler
     def test_set_room_configurations_authorization(self):
         """ Testing setting up rooms auth validation. """
-        response_json = self.tools.api_testee(api='set_room_configurations', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not be able to call set_room_configurations API without a valid token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_room_configurations', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not be able to call set_room_configurations API without a valid token. Got: {0}'.format(response_dict))
 
-        response_json = self.tools.api_testee(api='get_room_configurations', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not be able to call get_room_configurations API without a valid token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_room_configurations', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not be able to call get_room_configurations API without a valid token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_set_room_configuration(self):
@@ -95,19 +95,19 @@ class RoomsTest(unittest.TestCase):
         self.tools.api_testee(api='set_room_configuration', params=params, token=self.token)
 
         params = {'id': i}
-        response_json = self.tools.api_testee(api='get_room_configuration', params=params, token=self.token)
-        self.assertEqual(response_json.get('config'), one_room_config)
+        response_dict = self.tools.api_testee(api='get_room_configuration', params=params, token=self.token)
+        self.assertEqual(response_dict.get('config'), one_room_config)
 
     @exception_handler
     def test_set_room_configuration_authorization(self):
         """ Testing setting up one room auth validation. """
-        response_json = self.tools.api_testee(api='set_room_configuration', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not be able to call set_room_configuration API without a valid token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_room_configuration', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not be able to call set_room_configuration API without a valid token. Got: {0}'.format(response_dict))
 
-        response_json = self.tools.api_testee(api='get_room_configuration', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not be able to call get_room_configuration API without a valid token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='get_room_configuration', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not be able to call get_room_configuration API without a valid token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_set_all_lights_off(self):
@@ -122,19 +122,19 @@ class RoomsTest(unittest.TestCase):
     @exception_handler
     def test_set_all_lights_off_force_checked(self):
         """ Testing turning all lights off auth validation. """
-        response_json = self.tools.api_testee(api='set_all_lights_off', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not be able to call set_all_lights_off API without a valid token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_all_lights_off', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not be able to call set_all_lights_off API without a valid token. Got: {0}'.format(response_dict))
 
         params = {'floor': 'floor_number'}
-        response_json = self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token, expected_failure=True)
-        self.assertEqual(response_json, 'invalid_parameters',
-                         'Should not be able to call set_all_lights_floor_off API without a valid parameter type. Got:{0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token, expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_parameters',
+                         'Should not be able to call set_all_lights_floor_off API without a valid parameter type. Got:{0}'.format(response_dict))
 
         params = {'floor': 600}
-        response_json = self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token, expected_failure=True)
-        self.assertEqual(response_json.get('success'), False,
-                         'Should not be able to call set_all_lights_floor_off API without a valid parameter value. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token, expected_failure=True)
+        self.assertEqual(response_dict.get('success'), False,
+                         'Should not be able to call set_all_lights_floor_off API without a valid parameter value. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_set_all_lights_floor_off(self):
@@ -155,13 +155,13 @@ class RoomsTest(unittest.TestCase):
     @exception_handler
     def test_set_all_lights_floor_authorization(self):
         """ Testing turning all lights off for a specific floor number auth validation. """
-        response_json = self.tools.api_testee(api='set_all_lights_floor_off', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not be able to call set_all_lights_floor_off API without a valid token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_all_lights_floor_off', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not be able to call set_all_lights_floor_off API without a valid token. Got: {0}'.format(response_dict))
 
-        response_json = self.tools.api_testee(api='set_all_lights_floor_on', token='some_token', expected_failure=True)
-        self.assertEqual(response_json, 'invalid_token',
-                         'Should not be able to call set_all_lights_floor_on API without a valid token. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_all_lights_floor_on', token='some_token', expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_token',
+                         'Should not be able to call set_all_lights_floor_on API without a valid token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_set_all_lights_floor_on(self):
@@ -173,14 +173,14 @@ class RoomsTest(unittest.TestCase):
         self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token)
 
         params = {'floor': 'floor_number'}
-        response_json = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
-        self.assertEqual(response_json, 'invalid_parameters',
-                         'Should not be able to call set_all_lights_floor_on API without a valid parameter type. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_parameters',
+                         'Should not be able to call set_all_lights_floor_on API without a valid parameter type. Got: {0}'.format(response_dict))
 
         params = {'floor': 600}
-        response_json = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
-        self.assertEqual(response_json.get('success'), False,
-                         'Should not be able to call set_all_lights_floor_on API without a valid parameter value. Got: {0}'.format(response_json))
+        response_dict = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
+        self.assertEqual(response_dict.get('success'), False,
+                         'Should not be able to call set_all_lights_floor_on API without a valid parameter value. Got: {0}'.format(response_dict))
 
         params = {'floor': self.FLOOR_NUMBER}
         self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
