@@ -259,7 +259,7 @@ class LoginTest(unittest.TestCase):
         self._logout_testee_user(valid_token)
 
         response_dict = self.tools.api_testee(api='get_features', token=valid_token, expected_failure=True)
-        self.assertEqual(response_dict, 'invalid_token. Got: {0}'.format(response_dict))
+        self.assertEqual(response_dict, 'invalid_token', 'Should return invalid_token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_authorized_unauthorized_force_checked(self):
