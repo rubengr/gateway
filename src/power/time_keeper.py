@@ -17,13 +17,13 @@
 """
 
 import logging
-LOGGER = logging.getLogger("openmotics")
-
 import time
 from datetime import datetime
 from threading import Thread
 
 import power.power_api as power_api
+LOGGER = logging.getLogger("openmotics")
+
 
 class TimeKeeper(object):
     """ The TimeKeeper keeps track of time and sets the day or night mode on the power modules. """
@@ -40,7 +40,7 @@ class TimeKeeper(object):
 
     def start(self):
         """ Start the background thread of the TimeKeeper. """
-        if self.__thread == None:
+        if self.__thread is None:
             LOGGER.info("Starting TimeKeeper")
             self.__stop = False
             self.__thread = Thread(target=self.__run, name="TimeKeeper thread")
@@ -51,7 +51,7 @@ class TimeKeeper(object):
 
     def stop(self):
         """ Stop the background thread in the TimeKeeper. """
-        if self.__thread != None:
+        if self.__thread is not None:
             self.__stop = True
         else:
             raise Exception("TimeKeeper thread not running.")
@@ -83,20 +83,21 @@ class TimeKeeper(object):
 
             self.__set_mode(version, module['address'], daynight)
 
-    def is_day_time(self, times, date):
+    @staticmethod
+    def is_day_time(times, date):
         """ Check if a date is in day time. """
-        if times == None:
+        if times is None:
             times = [0 for _ in range(14)]
         else:
             times = [int(t.replace(":", "")) for t in times.split(",")]
 
-        day_of_week = date.weekday() # 0 = Monday, 6 = Sunday
+        day_of_week = date.weekday()  # 0 = Monday, 6 = Sunday
         current_time = date.hour * 100 + date.minute
 
         start = times[day_of_week * 2]
         stop = times[day_of_week * 2 + 1]
 
-        return current_time >= start and current_time < stop
+        return stop > current_time >= start
 
     def __set_mode(self, version, address, bytes):
         """ Set the power modules mode. """

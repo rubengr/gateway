@@ -59,7 +59,7 @@ class Hardware(object):
                 return Hardware.BoardType.BB
             if '510716 kB' in mem_total:
                 return Hardware.BoardType.BBB
-        return None  # Unknown
+        return  # Unknown
 
     @staticmethod
     def get_i2c_device():
@@ -129,9 +129,9 @@ class System(object):
             elif operating_system['ID'] == 'debian':
                 return lines.split('\n')[1].strip().split(' ')[1]
             else:
-                return None
+                return
         except Exception:
-            return None
+            return
 
     @staticmethod
     def get_vpn_service():

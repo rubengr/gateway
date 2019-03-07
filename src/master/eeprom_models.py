@@ -19,7 +19,7 @@ Contains the EepromModels
 from eeprom_controller import EepromModel, EepromAddress, EepromId, EepromString, \
                               EepromWord, EepromByte, EepromActions, EepromTemp, EepromTime, \
                               EepromCSV, CompositeDataType, EepromSignedTemp, EepromIBool, \
-                              EepromEnum, EextByte, EextString, EextBool
+                              EepromEnum, EextByte, EextString
 
 
 def page_per_module(module_size, start_page, start_offset, field_size):

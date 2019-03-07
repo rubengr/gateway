@@ -89,7 +89,8 @@ class PowerCommunicator(object):
         (ret, self.__cid) = (self.__cid, (self.__cid % 255) + 1)
         return ret
 
-    def __log(self, action, data):
+    @staticmethod
+    def __log(action, data):
         if data is not None:
             LOGGER.info("%.3f %s power: %s" % (time.time(), action, printable(data)))
 

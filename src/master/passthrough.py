@@ -20,11 +20,11 @@ to communicate with the master.
 """
 
 import logging
-LOGGER = logging.getLogger("openmotics")
-
 import threading
 from master_communicator import InMaintenanceModeException
 from master_command import printable
+LOGGER = logging.getLogger("openmotics")
+
 
 class PassthroughService(object):
     """ The Passthrough service creates two threads: one for reading from and one for writing
@@ -53,7 +53,6 @@ class PassthroughService(object):
         self.__writer_thread.setName("Passthrough writer thread")
         self.__writer_thread.daemon = True
         self.__writer_thread.start()
-
 
     def __reader(self):
         """ Reads from the master and writes to the passthrough serial. """

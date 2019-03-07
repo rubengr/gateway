@@ -164,22 +164,21 @@ class Gateway(object):
             return json.loads(request.text)
         except Exception as ex:
             LOGGER.log('Exception during Gateway call: {0}'.format(ex))
-            return None
+            return
 
     def get_real_time_power(self):
         """ Get the real time power measurements. """
         data = self.do_call("get_realtime_power?token=None")
-        if data is None or data['success'] is False:
-            return None
-        else:
+        if data is not None or data['success']:
             del data['success']
             return data
+        return
 
     def get_pulse_counter_diff(self):
         """ Get the pulse counter differences. """
         data = self.do_call("get_pulse_counter_status?token=None")
         if data is None or data['success'] is False:
-            return None
+            return
         else:
             counters = data['counters']
 
@@ -202,7 +201,7 @@ class Gateway(object):
         """ Get the errors on the gateway. """
         data = self.do_call("get_errors?token=None")
         if data is None:
-            return None
+            return
         else:
             if data['errors'] is not None:
                 master_errors = sum([error[1] for error in data['errors']])
@@ -294,7 +293,7 @@ class VPNService(object):
         # If NTP date changes the time during a execution of a sub process this hangs forever.
         def popen_timeout(command, timeout):
             p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            for t in xrange(timeout):
+            for _ in xrange(timeout):
                 time.sleep(1)
                 if p.poll() is not None:
                     return p.communicate()
@@ -321,13 +320,13 @@ class VPNService(object):
                 with open(filename, 'r') as debug_file:
                     self._debug_data[timestamp] = json.load(debug_file)
             found_timestamps.append(timestamp)
-        for timestamp in self._debug_data.keys():
+        for timestamp in self._debug_data:
             if timestamp not in found_timestamps:
                 del self._debug_data[timestamp]
         return self._debug_data
 
     def _clean_debug_dumps(self):
-        for timestamp in self._debug_data.keys():
+        for timestamp in self._debug_data:
             filename = '/tmp/debug_{0}.json'.format(timestamp)
             try:
                 os.remove(filename)
@@ -402,7 +401,7 @@ class VPNService(object):
 
             # Events  # TODO: Replace this by websocket events in the future
             dirty_events = VPNService._unload_queue(self._eeprom_events)
-            if len(dirty_events) > 0:
+            if dirty_events:
                 call_data['events']['DIRTY_EEPROM'] = True
 
             # Collect data to be send to the Cloud

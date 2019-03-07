@@ -57,7 +57,7 @@ class ThermostatStatus(object):
         """
         with self._merge_lock:
             new_status = {t['id']: t for t in thermostats['status']}
-            if len(self._thermostats) == 0:
+            if not bool(self._thermostats):
                 self._report_group_change(thermostats_on=thermostats['thermostats_on'],
                                           cooling=thermostats['cooling'])
                 for i in xrange(0, 32):
