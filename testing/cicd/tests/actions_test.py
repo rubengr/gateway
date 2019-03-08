@@ -171,7 +171,8 @@ class ActionsTest(unittest.TestCase):
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=0),
                         'Should execute startup action and turn output 0 off, Tester\'s input will see a press')
 
-        self.tools.token = self.tools.get_new_token(self.tools.username, self.tools.password)
+        self.tools.token = self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
+        self.tools.configure_thermostat(thermostat_number=0, night_temp=10, day_block1_temp=10.5, day_block2_temp=11)
 
     @exception_handler
     def test_set_startup_action_configuration_authorization(self):
