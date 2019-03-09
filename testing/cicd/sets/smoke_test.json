@@ -1,7 +1,10 @@
 {
   "tests": [
-    "io_test.test_how_healthy_after_reboot",
     "login_test.test_create_user_authorized_force_checked",
+
+    "io_test.test_discovery",
+    "io_test.test_set_input_configuration",
+    "io_test.test_how_healthy_after_reboot",
 
     "rooms_test.test_set_output_configurations_rooms_floors",
     "rooms_test.test_set_all_lights_floor_on",
