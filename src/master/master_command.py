@@ -67,7 +67,7 @@ class MasterCommandSpec(object):
         encoded_fields = ""
         for field in self.input_fields:
             if Field.is_crc(field):
-                encoded_fields += self.__calc_crc(encoded_fields)
+                encoded_fields += MasterCommandSpec.__calc_crc(encoded_fields)
             else:
                 encoded_fields += field.encode(fields.get(field.name))
 

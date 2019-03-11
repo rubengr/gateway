@@ -212,7 +212,7 @@ class MasterCommunicator(object):
             self.__write_to_serial(inp)
             try:
                 result = consumer.get(timeout).fields
-                if cmd.output_has_crc() and not self.__check_crc(cmd, result):
+                if cmd.output_has_crc() and not MasterCommunicator.__check_crc(cmd, result):
                     raise CrcCheckFailedException()
                 else:
                     self.__last_success = time.time()
@@ -224,7 +224,8 @@ class MasterCommunicator(object):
                 self.__communication_stats['calls_timedout'] = self.__communication_stats['calls_timedout'][-50:]
                 raise
 
-    def __check_crc(self, cmd, result):
+    @staticmethod
+    def __check_crc(cmd, result):
         """ Calculate the CRC of the data for a certain master command.
 
         :param cmd: instance of MasterCommandSpec.
