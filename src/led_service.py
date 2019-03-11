@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -17,15 +17,10 @@ Service that drives the leds and checks the switch on the front panel of the gat
 This service allows other services to set the leds over dbus and check whether the
 gateway is in authorized mode.
 """
-
-import gobject
 import sys
 import fcntl
 import time
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import gobject
 from threading import Thread
 from ConfigParser import ConfigParser
 
@@ -116,7 +111,7 @@ class LedController(object):
         try:
             # Get i2c code
             code = 0
-            for led in self._i2c_led_config.keys():
+            for led in self._i2c_led_config:
                 if self._enabled_leds.get(led, False) is True:
                     code |= self._i2c_led_config[led]
             if self._authorized_mode:
@@ -137,7 +132,7 @@ class LedController(object):
         except Exception as exception:
             LOGGER.log('Error while writing to i2c: {0}'.format(exception))
 
-        for led in self._gpio_led_config.keys():
+        for led in self._gpio_led_config:
             on = self._enabled_leds.get(led, False)
             if self._previous_leds.get(led) != on:
                 self._previous_leds[led] = on
@@ -224,7 +219,7 @@ class LedController(object):
                     self._input_button_released = False
                     if self._input_button_pressed_since is None:
                         self._input_button_pressed_since = time.time()
-                    if self._ticks >= 4.5:  # After 4.5 seconds + time to execute the code it should be pressed between 5.8 and 6.5 seconds.
+                    if self._ticks > 5.75:  # After 5.75 seconds + time to execute the code it should be pressed between 5.8 and 6.5 seconds.
                         self._authorized_mode = True
                         self._authorized_timeout = time.time() + 60
                         self._input_button_pressed_since = None

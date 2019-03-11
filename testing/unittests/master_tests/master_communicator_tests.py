@@ -257,7 +257,7 @@ class MasterCommunicatorTest(unittest.TestCase):
         comm = MasterCommunicator(serial_mock, init_master=False)
         comm.enable_passthrough()
 
-        got_output = {"passed" : False}
+        got_output = {"passed": False}
 
         def callback(output):
             """ Callback that check if the correct result was returned for OL. """
@@ -267,6 +267,11 @@ class MasterCommunicatorTest(unittest.TestCase):
         comm.register_consumer(BackgroundConsumer(master_api.output_list(), 0, callback, True))
         comm.start()
 
+        start = time.time()
+        while time.time() - start < 10:
+            if not got_output["passed"]:
+                continue
+            break
         self.assertEquals(True, got_output["passed"])
         self.assertEquals("OL\x00\x01\x03\x0c\r\n", comm.get_passthrough_data())
 

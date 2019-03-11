@@ -6,4 +6,4 @@ dist: trusty
 notifications:
   email: false
 script:
-  - cd tests && ./run.sh
+  - cd testing/unittests && ./run.sh
