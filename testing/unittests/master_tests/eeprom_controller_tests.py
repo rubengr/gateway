@@ -1083,4 +1083,4 @@ class EepromIBoolTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='eeprom-controller-report'))
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

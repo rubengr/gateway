@@ -17,6 +17,7 @@ Tests for the scheduling module.
 """
 import os
 import unittest
+import xmlrunner
 import time
 import fakesleep
 from threading import Lock, Semaphore
@@ -199,4 +200,4 @@ class SchedulingControllerTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

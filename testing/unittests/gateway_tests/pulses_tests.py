@@ -19,6 +19,7 @@ Tests for the pulses module.
 """
 
 import unittest
+import xmlrunner
 import os
 
 from master.master_communicator import MasterCommunicator
@@ -91,7 +92,7 @@ class PulseCounterControllerTest(unittest.TestCase):
         action = master_api.pulse_list()
 
         in_fields = {}
-        out_fields = {'pv0': 0, 'pv1': 1, 'pv2': 2, 'pv3': 3, 'pv4': 4, 'pv5':5, 'pv6': 6, 'pv7': 7,
+        out_fields = {'pv0': 0, 'pv1': 1, 'pv2': 2, 'pv3': 3, 'pv4': 4, 'pv5': 5, 'pv6': 6, 'pv7': 7,
                       'pv8': 8, 'pv9': 9, 'pv10': 10, 'pv11': 11, 'pv12': 12, 'pv13': 13, 'pv14': 14,
                       'pv15': 15, 'pv16': 16, 'pv17': 17, 'pv18': 18, 'pv19': 19, 'pv20': 20, 'pv21': 21,
                       'pv22': 22, 'pv23': 23, 'crc': [67, 1, 20]}
@@ -191,5 +192,4 @@ class PulseCounterControllerTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

@@ -76,4 +76,4 @@ class OutputStatusTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='outputs-report'))
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='master-outputs-report'))

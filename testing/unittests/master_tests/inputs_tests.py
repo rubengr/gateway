@@ -67,4 +67,4 @@ class InputStatusTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='inputs-report'))
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

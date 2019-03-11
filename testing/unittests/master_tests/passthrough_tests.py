@@ -63,4 +63,4 @@ class PassthroughServiceTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='passthrough-report'))
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

@@ -19,15 +19,15 @@ Tests for plugins.base.
 """
 
 import unittest
-
+import xmlrunner
 import os
 import shutil
-
 import plugins
 
 BASE_PATH = os.path.dirname(plugins.__file__)
 
 from plugins.base import PluginConfigChecker, PluginException
+
 
 class PluginControllerTest(unittest.TestCase):
     """ Tests for the PluginController. """
@@ -227,6 +227,7 @@ class P2(OMPluginBase):
         except PluginException as exception:
             self.assertEquals("Plugin 'test' has no method named 'html_index'", str(exception))
 
+
 FULL_DESCR = [
     {'name' : 'hostname', 'type' : 'str', 'description': 'The hostname of the server.'},
     {'name' : 'port', 'type' : 'int', 'description': 'Port on the server.'},
@@ -244,6 +245,7 @@ FULL_DESCR = [
         {'value': 'Twitter', 'content' : [{'name' : 'followers', 'type' : 'int'}]}
     ]}
 ]
+
 
 class PluginConfigCheckerTest(unittest.TestCase):
     """ Tests for the PluginConfigChecker. """
@@ -581,9 +583,8 @@ class PluginConfigCheckerTest(unittest.TestCase):
             {'name' : 'log_outputs', 'type' : 'bool', 'description': 'Log the output data.'}
         ])
 
-        checker.check_config({'log_inputs' : True, 'log_outputs' : False})
+        checker.check_config({'log_inputs': True, 'log_outputs': False})
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

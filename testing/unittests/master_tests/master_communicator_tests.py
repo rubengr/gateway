@@ -268,7 +268,7 @@ class MasterCommunicatorTest(unittest.TestCase):
         comm.register_consumer(BackgroundConsumer(master_api.output_list(), 0, callback, True))
         comm.start()
 
-        MasterCommunicatorTest._wait_for_callback(True, got_output["passed"], 3)
+        MasterCommunicatorTest._wait_for_callback(True, got_output, 3)
         self.assertEquals(True, got_output["passed"])
         self.assertEquals("OL\x00\x01\x03\x0c\r\n", comm.get_passthrough_data())
 
@@ -322,11 +322,11 @@ class MasterCommunicatorTest(unittest.TestCase):
         self.assertRaises(CrcCheckFailedException, lambda: comm.do_command(action))
 
     @staticmethod
-    def _wait_for_callback(expected_result, actual_result, timeout):
+    def _wait_for_callback(expected_result, got_output, timeout):
         start = time.time()
-        while expected_result is not actual_result and time.time() - start < timeout:
-            time.sleep(1)
+        while expected_result is not got_output["passed"] and time.time() - start < timeout:
+            time.sleep(0.25)
 
 
 if __name__ == "__main__":
-    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='master-communicator-report'))
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

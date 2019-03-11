@@ -325,4 +325,4 @@ class MasterCommandSpecTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='master-command-report'))
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))
