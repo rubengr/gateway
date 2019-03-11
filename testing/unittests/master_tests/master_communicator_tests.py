@@ -17,6 +17,7 @@ Tests for MasterCommunicator module.
 """
 
 import unittest
+import xmlrunner
 import threading
 import time
 
@@ -232,7 +233,7 @@ class MasterCommunicatorTest(unittest.TestCase):
         comm = MasterCommunicator(serial_mock, init_master=False)
         comm.enable_passthrough()
 
-        got_output = {"phase" : 1}
+        got_output = {"phase": 1}
 
         def callback(output):
             """ Callback that check if the correct result was returned for OL. """
@@ -253,7 +254,7 @@ class MasterCommunicatorTest(unittest.TestCase):
 
     def test_background_consumer_passthrough(self):
         """ Test the background consumer with passing the data to the passthrough. """
-        serial_mock = SerialMock([ sout("OL\x00\x01"), sout("\x03\x0c\r\n") ])
+        serial_mock = SerialMock([sout("OL\x00\x01"), sout("\x03\x0c\r\n")])
         comm = MasterCommunicator(serial_mock, init_master=False)
         comm.enable_passthrough()
 
@@ -267,11 +268,7 @@ class MasterCommunicatorTest(unittest.TestCase):
         comm.register_consumer(BackgroundConsumer(master_api.output_list(), 0, callback, True))
         comm.start()
 
-        start = time.time()
-        while time.time() - start < 10:
-            if not got_output["passed"]:
-                continue
-            break
+        MasterCommunicatorTest._wait_for_callback(True, got_output["passed"], 3)
         self.assertEquals(True, got_output["passed"])
         self.assertEquals("OL\x00\x01\x03\x0c\r\n", comm.get_passthrough_data())
 
@@ -324,6 +321,12 @@ class MasterCommunicatorTest(unittest.TestCase):
 
         self.assertRaises(CrcCheckFailedException, lambda: comm.do_command(action))
 
+    @staticmethod
+    def _wait_for_callback(expected_result, actual_result, timeout):
+        start = time.time()
+        while expected_result is not actual_result and time.time() - start < timeout:
+            time.sleep(1)
+
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='master-communicator-report'))

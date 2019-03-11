@@ -43,7 +43,6 @@ class IoTest(unittest.TestCase):
     def setUpClass(cls):
         if not cls.tools.healthy_status:
             raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        cls.token = cls.tools.get_new_token(cls.tools.username, cls.tools.password)
 
     def setUp(self):
         self.token = self.tools.get_new_token(self.tools.username, self.tools.password)

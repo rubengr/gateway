@@ -39,7 +39,6 @@ class LoginTest(unittest.TestCase):
         i = randint(4, 36)
         cls.login = cls.tools.randomword(i)
         cls.password = cls.tools.randomword(i)
-        cls.token = cls.tools.get_new_token(cls.tools.username, cls.tools.password)
 
     def setUp(self):
         self.token = self.tools.get_new_token(self.tools.username, self.tools.password)

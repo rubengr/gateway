@@ -19,7 +19,7 @@ Tests for master_api module.
 """
 
 import unittest
-
+import xmlrunner
 from master.master_api import Svt
 
 class SvtTest(unittest.TestCase):
@@ -49,6 +49,6 @@ class SvtTest(unittest.TestCase):
             byte_value = chr(value)
             self.assertEquals(byte_value, Svt.from_byte(byte_value).get_byte())
 
+
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='master-api-report'))

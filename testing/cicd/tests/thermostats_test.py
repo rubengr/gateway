@@ -38,7 +38,6 @@ class ThermostatsTest(unittest.TestCase):
     def setUpClass(cls):
         if not cls.tools.healthy_status:
             raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        cls.token = cls.tools.get_new_token(cls.tools.username, cls.tools.password)
 
     def setUp(self):
         self.tools.configure_thermostat(0, self.NIGHT_TEMP_INIT, self.DAY_BLOCK1_INIT, self.DAY_BLOCK2_INIT)  # Configuring thermostat 0
@@ -60,7 +59,7 @@ class ThermostatsTest(unittest.TestCase):
         params = {'config': json.dumps(sensor_config)}
         self.tools.api_testee(api='set_sensor_configuration', params=params, token=self.token, expected_failure=False)
 
-        sensor_31_config = {'sensor_id': 31, 'temperature': 1, 'humidity': None, 'brightness': None}
+        sensor_31_config = {'sensor_id': 31, 'temperature': 1, 'humidity': 1, 'brightness': 1}
         self.tools.api_testee(api='set_virtual_sensor', params=sensor_31_config, token=self.token, expected_failure=False)
 
         thermostat_auto_config = {'thermostat_on': True, 'automatic': True, 'setpoint': 0, 'cooling_mode': False, 'cooling_on': True}

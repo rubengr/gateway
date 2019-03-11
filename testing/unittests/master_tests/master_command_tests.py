@@ -19,10 +19,12 @@ Tests for MasterCommand module.
 """
 
 import unittest
+import xmlrunner
 
 import master.master_api as master_api
 from master.master_command import MasterCommandSpec, Field, OutputFieldType, DimmerFieldType, \
                                   ErrorListFieldType
+
 
 class MasterCommandSpecTest(unittest.TestCase):
     """ Tests for :class`MasterCommandSpec` """
@@ -88,7 +90,6 @@ class MasterCommandSpecTest(unittest.TestCase):
             self.assertTrue(False)
         except ValueError:
             pass
-
 
     def test_encode_str_field(self):
         """ Test for Field.str.encode """
@@ -324,5 +325,4 @@ class MasterCommandSpecTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='master-command-report'))

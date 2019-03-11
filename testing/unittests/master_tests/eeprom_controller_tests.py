@@ -17,6 +17,7 @@ Tests for the eeprom_controller module.
 """
 
 import unittest
+import xmlrunner
 import os
 
 from master.eeprom_controller import EepromController, EepromFile, EepromModel, EepromAddress, \
@@ -1082,4 +1083,4 @@ class EepromIBoolTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='eeprom-controller-report'))
