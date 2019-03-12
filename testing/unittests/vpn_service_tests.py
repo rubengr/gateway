@@ -21,6 +21,7 @@ Tests for the vpn service.
 import time
 import threading
 import unittest
+import xmlrunner
 import os
 
 from vpn_service import BufferingDataCollector
@@ -28,23 +29,27 @@ from vpn_service import BufferingDataCollector
 import constants
 constants.get_buffer_file = lambda filename: "/tmp/%s.buffer" % filename
 
-import time
 
 def reset_time():
     time.time = lambda: 123456789.0
+
 
 def advance_time():
     now = time.time()
     time.time = lambda: now + 1
 
+
 reset_time()
 
+
 def gen():
-    accum = { 'i' : 0 }
+    accum = {'i': 0}
+
     def get_data():
         accum['i'] = accum['i'] + 1
         return [ [i, i+1] for i in range(accum['i'], accum['i'] + 4)]
     return get_data
+
 
 class BufferingDataCollectorTest(unittest.TestCase):
     """ Tests for BufferingDataCollector class """
@@ -169,4 +174,4 @@ class BufferingDataCollectorTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='gw-unit-reports'))

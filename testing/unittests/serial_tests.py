@@ -21,16 +21,20 @@ Contains the SerialMock.
 import time
 import threading
 import unittest
+import xmlrunner
 
 from serial_utils import printable
 
+
 def sin(data):
     """ Input for the SerialMock """
-    return ('i', data)
+    return 'i', data
+
 
 def sout(data):
     """ Output from the SerialMock """
-    return ('o', data)
+    return 'o', data
+
 
 class SerialMock(object):
     """ Mockup for :class`serial.Serial`.
@@ -152,6 +156,6 @@ class SerialMockTest(unittest.TestCase):
         serial_mock.read(1)
         self.assertEquals(1, phase['phase'])
 
+
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='gw-unit-reports'))

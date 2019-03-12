@@ -17,6 +17,7 @@ Tests for InputStatus.
 """
 
 import unittest
+import xmlrunner
 import time
 
 from master.inputs import InputStatus
@@ -66,4 +67,4 @@ class InputStatusTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))
