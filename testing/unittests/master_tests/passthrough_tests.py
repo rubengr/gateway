@@ -19,12 +19,14 @@ Tests for the passthrough module.
 """
 
 import unittest
+import xmlrunner
 import time
 
 from master.master_communicator import MasterCommunicator
 from master.passthrough import PassthroughService
 
 from serial_tests import SerialMock, sout, sin
+
 
 class PassthroughServiceTest(unittest.TestCase):
     """ Tests for :class`PassthroughService`. """
@@ -61,5 +63,4 @@ class PassthroughServiceTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

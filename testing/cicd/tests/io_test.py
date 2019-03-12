@@ -43,7 +43,6 @@ class IoTest(unittest.TestCase):
     def setUpClass(cls):
         if not cls.tools.healthy_status:
             raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        cls.token = cls.tools.get_new_token(cls.tools.username, cls.tools.password)
 
     def setUp(self):
         self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
@@ -261,11 +260,11 @@ class IoTest(unittest.TestCase):
         self.assertEqual(response_dict, 'invalid_token', 'The indicate API call should return \'invalid_token\' when called with an invalid token.')
 
     @exception_handler
+    @unittest.skip('currently skipped, full maintenance mode related set will be introduced.')
     def test_open_maintenance(self):
         """ Testing API call to open maintenance and get the port. """
         response_dict = self.tools.api_testee(api='open_maintenance', token=self.token)
-        self.assertTrue(bool(response_dict.get('port')),
-                        'The open_maintenance API call should return the port of the maintenance socket.')
+        self.assertTrue(bool(response_dict.get('port')), 'The open_maintenance API call should return the port of the maintenance socket.')
 
     @exception_handler
     def test_open_maintenance_authorization(self):

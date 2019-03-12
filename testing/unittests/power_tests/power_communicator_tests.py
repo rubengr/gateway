@@ -19,6 +19,7 @@ Tests for PowerCommunicator module.
 """
 
 import unittest
+import xmlrunner
 import os
 import time
 
@@ -28,6 +29,7 @@ from power.power_communicator import PowerCommunicator, InAddressModeException
 
 from serial_tests import SerialMock, sin, sout
 from serial_utils import CommunicationTimedOutException, RS485
+
 
 class PowerCommunicatorTest(unittest.TestCase):
     """ Tests for PowerCommunicator class """
@@ -237,5 +239,4 @@ class PowerCommunicatorTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

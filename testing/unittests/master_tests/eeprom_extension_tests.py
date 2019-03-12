@@ -17,6 +17,7 @@ Tests for the eeprom extensions module.
 """
 
 import unittest
+import xmlrunner
 import os
 
 from master.eeprom_extension import EepromExtension
@@ -58,4 +59,4 @@ class EepromExtensionTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

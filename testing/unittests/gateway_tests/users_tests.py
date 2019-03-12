@@ -19,6 +19,7 @@ Tests for the users module.
 """
 
 import unittest
+import xmlrunner
 import time
 import os
 from threading import Lock
@@ -163,5 +164,4 @@ class UserControllerTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+    unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

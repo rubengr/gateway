@@ -39,7 +39,6 @@ class LoginTest(unittest.TestCase):
         i = randint(4, 36)
         cls.login = cls.tools.randomword(i)
         cls.password = cls.tools.randomword(i)
-        cls.token = cls.tools.get_new_token(cls.tools.username, cls.tools.password)
 
     def setUp(self):
         self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
@@ -189,7 +188,7 @@ class LoginTest(unittest.TestCase):
 
         valid_token = self._login_testee_user(self.login, self.password, True).get('token')
         response_dict = self.tools.api_testee(api='get_features', token=valid_token)
-        self.assertTrue(response_dict.get('status'), 'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
+        self.assertTrue(response_dict.get('success'), 'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
 
         params = {'username': self.login}
         self.tools.enter_testee_authorized_mode(self.webinterface, 6)
@@ -204,7 +203,7 @@ class LoginTest(unittest.TestCase):
         self.tools.exit_testee_authorized_mode(self.webinterface)
         valid_token = self._login_testee_user(self.login, 'new_password', True).get('token')
         response_dict = self.tools.api_testee(api='get_features', token=valid_token)
-        self.assertTrue(response_dict.get('status'),
+        self.assertTrue(response_dict.get('success'),
                         'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
 
     @exception_handler
@@ -254,12 +253,12 @@ class LoginTest(unittest.TestCase):
         valid_token = response_dict.get('token')
 
         response_dict = self.tools.api_testee(api='get_features', token=valid_token)
-        self.assertTrue(response_dict.get('status'), 'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
+        self.assertTrue(response_dict.get('success'), 'Should return success: True after calling get_features with a valid token. Got: {0}'.format(response_dict))
 
         self._logout_testee_user(valid_token)
 
-        response_dict = self.tools.api_testee(api='get_features', token=valid_token, expected_failure=True)
-        self.assertEqual(response_dict, 'invalid_token. Got: {0}'.format(response_dict))
+        response_dict = self.tools.api_testee(api='get_features', token=valid_token, expected_failure=True)  # valid_token should be invalidated
+        self.assertEqual(response_dict, 'invalid_token', 'Should return invalid_token. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_authorized_unauthorized_force_checked(self):
