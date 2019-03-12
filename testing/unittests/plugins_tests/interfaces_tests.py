@@ -72,7 +72,7 @@ class CheckInterfacesTest(unittest.TestCase):
         try:
             check_interfaces(P3)
         except PluginException as exception:
-            self.assertEquals("Interface 'interface1' on plugin 'P3' is not a tuple of "
+            self.assertEquals("Interface '('interface1',)' on plugin 'P3' is not a tuple of "
                               "(name, version).", str(exception))
 
     def test_interface_not_found(self):
