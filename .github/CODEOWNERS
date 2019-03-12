@@ -1,1 +1,2 @@
-* @openmotics-ci
+*.py @openmotics-ci
+*.egg @openmotics-ci
