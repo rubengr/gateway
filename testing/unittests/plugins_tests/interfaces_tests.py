@@ -67,7 +67,7 @@ class CheckInterfacesTest(unittest.TestCase):
             """ Plugin with invalid interface. """
             name = "P3"
             version = "1.0"
-            interfaces = ["interface1"]
+            interfaces = [("interface1",)]
 
         try:
             check_interfaces(P3)
