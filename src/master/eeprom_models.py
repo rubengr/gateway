@@ -34,7 +34,7 @@ def page_per_module(module_size, start_page, start_offset, field_size):
 def per_module(module_size, func):
     """
     Returns a function that takes an id and returns an address. The id is split into the a
-    module id and offset id, these two iids are provided to func to calculate the address.
+    module id and offset id, these two ids are provided to func to calculate the address.
 
     :param module_size: Size of the module
     :param func: function that takes two ids (module id, offset id) and returns an address.

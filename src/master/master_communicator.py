@@ -19,8 +19,6 @@ Module to communicate with the master.
 """
 
 import logging
-LOGGER = logging.getLogger("openmotics")
-
 import time
 from threading import Thread, Lock, Event
 from Queue import Queue, Empty
@@ -28,6 +26,8 @@ from Queue import Queue, Empty
 import master_api
 from master_command import Field, printable
 from serial_utils import CommunicationTimedOutException
+
+LOGGER = logging.getLogger("openmotics")
 
 
 class MasterCommunicator(object):
@@ -193,6 +193,10 @@ class MasterCommunicator(object):
 
         :param cmd: specification of the command to execute
         :type cmd: :class`MasterCommand.MasterCommandSpec`
+        :param fields: an instance of one of the available fields
+        :type fields :class`MasterCommand.FieldX`
+        :param timeout: maximum allowed time before a CommunicationTimedOutException is raised
+        :type timeout: int
         :raises: :class`CommunicationTimedOutException` if master did not respond in time
         :raises: :class`InMaintenanceModeException` if master is in maintenance mode
         :returns: dict containing the output fields of the command

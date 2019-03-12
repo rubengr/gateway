@@ -61,7 +61,7 @@ class TimeKeeper(object):
         while not self.__stop:
             try:
                 self.__run_once()
-            except:
+            except Exception:
                 LOGGER.exception("Exception in TimeKeeper")
 
             time.sleep(self.__period)

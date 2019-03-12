@@ -463,8 +463,8 @@ class DimmerFieldType(object):
     def __init__(self):
         pass
 
-    @staticmethod
-    def encode(field_value):
+    @classmethod
+    def encode(cls, field_value):
         """ Encode a dimmer value. """
         if field_value <= 90:
             return chr(int(math.ceil(field_value * 6.0 / 10.0)))
@@ -478,8 +478,8 @@ class DimmerFieldType(object):
             return int(dimmer_value * 10.0 / 6.0)
         return int(90 + dimmer_value - 53)
 
-    @staticmethod
-    def get_min_decode_bytes():
+    @classmethod
+    def get_min_decode_bytes(cls):
         """ The dimmer type is always 1 byte. """
         return 1
 
@@ -489,13 +489,13 @@ class OutputFieldType(object):
     def __init__(self):
         pass
 
-    @staticmethod
-    def get_min_decode_bytes():
+    @classmethod
+    def get_min_decode_bytes(cls):
         """ Get the minimal amount of bytes required to start decoding. """
         return 1
 
-    @staticmethod
-    def decode(byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode a byte string. """
         bytes_required = 1 + (ord(byte_str[0]) * 2)
 
@@ -519,13 +519,13 @@ class ErrorListFieldType(object):
     def __init__(self):
         pass
 
-    @staticmethod
-    def get_min_decode_bytes():
+    @classmethod
+    def get_min_decode_bytes(cls):
         """ Get the minimal amount of bytes required to start decoding. """
         return 1
 
-    @staticmethod
-    def encode(field_value):
+    @classmethod
+    def encode(cls, field_value):
         """ Encode to byte string. """
         bytes = ""
         bytes += chr(len(field_value))
@@ -536,8 +536,8 @@ class ErrorListFieldType(object):
                                    chr(field[1] % 256))
         return bytes
 
-    @staticmethod
-    def decode(byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode a byte string. """
         nr_modules = ord(byte_str[0])
         bytes_required = 1 + (nr_modules * 4)

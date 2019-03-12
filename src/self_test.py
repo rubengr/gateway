@@ -34,7 +34,7 @@ def echo_plus_one(name, serial):
             if bool(data) and data[0] != '\x00':
                 print "Read '%s' from %s" % (data, name)
                 serial.write(chr((ord(data[0]) + 1) % 256))
-        except:
+        except Exception:
             traceback.print_exc()
 
 

@@ -156,7 +156,7 @@ class SerialRedirector(object):
                         continue
                     else:
                         break
-            except:
+            except Exception:
                 LOGGER.error('Exception in maintenance mode: %s\n', traceback.format_exc())
                 break
 
@@ -170,7 +170,7 @@ class SerialRedirector(object):
                 data = self.__gateway_api.get_maintenance_data()
                 if data:
                     self.__connection.sendall(data)
-            except:
+            except Exception:
                 LOGGER.error('Exception in maintenance mode: %s\n', traceback.format_exc())
                 break
 

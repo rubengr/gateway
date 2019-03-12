@@ -142,7 +142,7 @@ class SchedulingController(object):
 
         try:
             Schedule.timezone = gateway_api.get_timezone()
-        except:
+        except Exception:
             Schedule.timezone = 'UTC'
 
         self._load_schedule()
