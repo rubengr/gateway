@@ -101,7 +101,7 @@ class PowerCommunicator(object):
         :type data: string
         """
         if self.__verbose:
-            self.__log('writing to', data)
+            PowerCommunicator.__log('writing to', data)
         self.__serial.write(data)
         self.__serial_bytes_written += len(data)
 
@@ -319,7 +319,7 @@ class PowerCommunicator(object):
             raise CommunicationTimedOutException()
         finally:
             if self.__verbose:
-                self.__log('reading from', command)
+                PowerCommunicator.__log('reading from', command)
 
         return header, data
 

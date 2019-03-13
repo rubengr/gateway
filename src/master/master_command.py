@@ -371,13 +371,13 @@ class BytesFieldType(object):
         """ Get the minimal amount of bytes required to start decoding. """
         return self.length
 
-    @staticmethod
-    def encode(byte_arr):
+    @classmethod
+    def encode(cls, byte_arr):
         """ Generates a string of bytes from the byte array. """
         return ''.join([chr(x) for x in byte_arr])
 
-    @staticmethod
-    def decode(byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Generates an array of bytes. """
         return [ord(x) for x in byte_str]
 
