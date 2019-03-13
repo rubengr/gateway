@@ -40,6 +40,8 @@ class WebsocketTest(unittest.TestCase):
     def setUpClass(cls):
         if not cls.tools.healthy_status:
             raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
+        if not cls.tools.initialisation_success:
+            raise unittest.SkipTest('Unable to initialise the Testee. All tests are skipped.')
 
     def setUp(self):
         self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
@@ -66,25 +68,14 @@ class WebsocketTest(unittest.TestCase):
         socket.connect()
 
         self.tools.clicker_releaser(3, self.token, True)
-        input_triggered = self.tools.check_if_event_is_captured(toggled_output=3, value=1)
-        if not input_triggered:
-            self.fail('failed to validate state on the Testee\'s output.')
-        time.sleep(0.5)
 
-        self.assertTrue(len(callback_data['data']) == 1, 'Websocket returned an empty response!')
-        self.assertTrue(callback_data['data'][-1]['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(callback_data['data']))
-        self.assertEqual(callback_data['data'][-1]['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
-        self.assertEqual(callback_data['data'][-1]['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(callback_data['data']))
+        websocket_event_occurred = WebsocketTest._look_for_ws_event(callback_data, expected_id=3, expected_event='OUTPUT_CHANGE', expected_status=True)
+        self.assertTrue(websocket_event_occurred, 'Could not find data after turning on output! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
 
         self.tools.clicker_releaser(3, self.token, False)
-        self.tools.check_if_event_is_captured(toggled_output=3, value=0)
-        time.sleep(0.5)
 
-        self.assertTrue(len(callback_data['data']) == 2, 'Websocket returned an empty response!')
-        self.assertFalse(callback_data['data'][-1]['data']['status']['on'], 'Should contain the status of the output. Got: {0}'.format(callback_data['data']))
-        self.assertEqual(callback_data['data'][-1]['data']['id'], 3, 'Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
-        self.assertEqual(callback_data['data'][-1]['type'], 'OUTPUT_CHANGE', 'Should contain the correct event type. Got: {0}'.format(callback_data['data']))
-        time.sleep(1)
+        websocket_event_occurred = WebsocketTest._look_for_ws_event(callback_data, expected_id=3, expected_event='OUTPUT_CHANGE', expected_status=False)
+        self.assertTrue(websocket_event_occurred, 'Could not find data after turning off output! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
 
         callback_data.update({'data': []})
         socket.close(200, 'Test output_change terminated')
@@ -106,9 +97,8 @@ class WebsocketTest(unittest.TestCase):
         time.sleep(0.5)
         self.webinterface.set_output(id=4, is_on=False)
 
-        self.assertTrue(len(callback_data['data']) == 1, 'Websocket returned an empty response!')
-        self.assertEqual(callback_data['data'][-1]['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
-        self.assertEqual(callback_data['data'][-1]['type'], 'INPUT_TRIGGER', 'Should contain the correct event type. Got: {0}'.format(callback_data['data']))
+        websocket_event_occurred = WebsocketTest._look_for_ws_event(callback_data, expected_id=4, expected_event='INPUT_TRIGGER')
+        self.assertTrue(websocket_event_occurred, 'Could not find data! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
 
         time.sleep(0.5)
 
@@ -161,6 +151,22 @@ class WebsocketTest(unittest.TestCase):
 
             params = {'config': json.dumps(input_configuration)}
             self.tools.api_testee(api='set_input_configuration', params=params, token=token)
+
+    @staticmethod
+    def _look_for_ws_event(callback_data, expected_id, expected_event, expected_status=None, timeout=3):
+        start = time.time()
+
+        while time.time() - start < timeout:
+            for entry in callback_data['data']:
+                if expected_status is not None:
+                    if entry['data']['id'] == expected_id and entry['type'] == expected_event \
+                       and entry['data']['status']['on'] is expected_status:
+                        return True
+                else:
+                    if entry['data']['id'] == expected_id and entry['type'] == expected_event:
+                        return True
+            time.sleep(0.25)
+        return False
 
 
 class PassthroughClient(WebSocketClient):

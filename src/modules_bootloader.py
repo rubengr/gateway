@@ -15,24 +15,21 @@
 """
 Tool to bootload the slave modules (output, dimmer, input and temperature).
 """
+from platform_utils import System
+System.import_eggs()
 
 import argparse
 import os
 import sys
 import time
 import traceback
-from ConfigParser import ConfigParser
-from serial import Serial
-
-from platform_utils import System
-System.import_eggs()
-
+import intelhex
 import constants
 import master.master_api as master_api
+from ConfigParser import ConfigParser
+from serial import Serial
 from master.master_communicator import MasterCommunicator
 from master.eeprom_controller import EepromFile, EepromAddress
-
-import intelhex
 
 
 def create_bl_action(command, command_input):

@@ -17,11 +17,6 @@ Tool to bootload the power modules from the command line.
 
 @author: fryckbos
 """
-
-import sys
-import argparse
-from ConfigParser import ConfigParser
-
 from platform_utils import System
 System.import_eggs()
 
@@ -37,6 +32,9 @@ from power.power_controller import PowerController
 from power.power_api import bootloader_goto, bootloader_read_id, bootloader_write_code, \
                             bootloader_jump_application, bootloader_erase_code, get_version, \
                             POWER_API_8_PORTS, POWER_API_12_PORTS
+import sys
+import argparse
+from ConfigParser import ConfigParser
 
 
 class HexReader(object):
@@ -62,17 +60,17 @@ class HexReader(object):
             data1 = self.__ih[iaddress + 4*i + 1]
             data2 = self.__ih[iaddress + 4*i + 2]
 
-            if address == 0 and i == 0: # Set the start address to the bootloader: 0x400
+            if address == 0 and i == 0:  # Set the start address to the bootloader: 0x400
                 data1 = 4
 
             bytes.append(data0)
             bytes.append(data1)
             bytes.append(data2)
 
-            if not (address == 43904 and i >= 62): # Don't include the CRC bytes in the CRC
+            if not (address == 43904 and i >= 62):  # Don't include the CRC bytes in the CRC
                 self.__crc += data0 + data1 + data2
 
-        if address == 43904: # Add the CRC at the end of the program
+        if address == 43904:  # Add the CRC at the end of the program
             bytes[-1] = self.__crc % 256
             bytes[-2] = (self.__crc % (256 * 256)) / 256
             bytes[-3] = (self.__crc % (256 * 256 * 256)) / (256 * 256)
@@ -80,7 +78,8 @@ class HexReader(object):
 
         return bytes
 
-    def int_to_array_12(self, integer):
+    @staticmethod
+    def int_to_array_12(integer):
         """ Convert an integer to an array for the 12 port energy module. """
         return [integer % 256, (integer % 65536) / 256, (integer / 65536) % 256, (integer / 65536) / 256]
 
@@ -115,13 +114,12 @@ class HexReader(object):
         return self.__crc
 
 
-def bootload_8(paddr, hex_file, power_communicator, verbose=False):
+def bootload_8(paddr, hex_file, power_communicator):
     """ Bootload a 8 port power module.
 
     :param paddr: The address of a power module (integer).
     :param hex_file: The filename of the hex file to write.
     :param power_communicator: Communication with the power modules.
-    :param verbose: Show serial command on output if verbose is True.
     """
     reader = HexReader(hex_file)
 
@@ -149,13 +147,12 @@ def bootload_8(paddr, hex_file, power_communicator, verbose=False):
     power_communicator.do_command(paddr, bootloader_jump_application())
 
 
-def bootload_12(paddr, hex_file, power_communicator, verbose=False):
+def bootload_12(paddr, hex_file, power_communicator):
     """ Bootload a 12 port power module.
 
     :param paddr: The address of a power module (integer).
     :param hex_file: The filename of the hex file to write.
     :param power_communicator: Communication with the power modules.
-    :param verbose: Show serial command on output if verbose is True.
     """
     reader = HexReader(hex_file)
 
@@ -223,13 +220,13 @@ def main():
                     print "E%d - Version: %s" % (addr, version(addr, power_communicator))
                 if args.file:
                     if args.old and module['version'] == POWER_API_8_PORTS:
-                        bootload_8(addr, args.file, power_communicator, verbose=args.verbose)
+                        bootload_8(addr, args.file, power_communicator)
                     elif not args.old and module['version'] == POWER_API_12_PORTS:
-                        bootload_12(addr, args.file, power_communicator, verbose=args.verbose)
+                        bootload_12(addr, args.file, power_communicator)
 
         else:
             addr = args.address
-            modules = [module for module in power_modules.keys() if module['address'] == addr]
+            modules = [module for module in power_modules if module['address'] == addr]
             if len(modules) != 1:
                 print 'ERROR: Could not determine energy module version. Aborting'
                 sys.exit(1)
@@ -237,9 +234,9 @@ def main():
                 print "E%d - Version: %s" % (addr, version(addr, power_communicator))
             if args.file:
                 if args.old and module['version'] == POWER_API_8_PORTS:
-                    bootload_8(addr, args.file, power_communicator, verbose=args.verbose)
+                    bootload_8(addr, args.file, power_communicator)
                 elif not args.old and module['version'] == POWER_API_12_PORTS:
-                    bootload_12(addr, args.file, power_communicator, verbose=args.verbose)
+                    bootload_12(addr, args.file, power_communicator)
 
     else:
         parser.print_help()

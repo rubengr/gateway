@@ -35,6 +35,7 @@ CRC_TABLE = [0, 49, 98, 83, 196, 245, 166, 151, 185, 136, 219, 234, 125, 76, 31,
              240, 163, 146, 5, 52, 103, 86, 120, 73, 26, 43, 188, 141, 222, 239, 130, 179, 224, 209,
              70, 119, 36, 21, 59, 10, 89, 104, 255, 206, 157, 172]
 
+
 def crc7(to_send):
     """ Calculate the crc7 checksum of a string.
     :param to_send: input string
@@ -71,6 +72,7 @@ class PowerCommand(object):
         :param address: 1 byte, the address of the module
         :param cid: 1 byte, communication id
         :param data: data to send to the power module
+        :rtype: string
         """
         data = struct.pack(self.input_format, *data)
 
@@ -83,8 +85,8 @@ class PowerCommand(object):
         fields. --- Only used for testing !
 
         :param address: 1 byte, the address of the module
-        :param cid: dictionary with values for the fields
-        :type fields: dict
+        :param cid: 1 byte, communication id
+        :param data: data to send to the power module
         :rtype: string
         """
         data = struct.pack(self.output_format, *data)
