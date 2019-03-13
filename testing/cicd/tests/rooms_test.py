@@ -40,6 +40,8 @@ class RoomsTest(unittest.TestCase):
     def setUpClass(cls):
         if not cls.tools.healthy_status:
             raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
+        if not cls.tools.initialisation_success:
+            raise unittest.SkipTest('Unable to initialise the Testee. All tests are skipped.')
 
     def setUp(self):
         self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
@@ -141,7 +143,11 @@ class RoomsTest(unittest.TestCase):
         params = {'floor': self.FLOOR_NUMBER}
         self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token)
 
-        params = {'floor': self.FLOOR_NUMBER}
+        for i in xrange(self.INPUT_COUNT):
+            output_is_on = self.tools.check_if_event_is_captured(toggled_output=i, value=1)
+            if not output_is_on:
+                self.fail('failed to initialise state, output {0} should be on!'.format(i))
+
         self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token)
 
         for i in xrange(self.INPUT_COUNT):
@@ -159,6 +165,16 @@ class RoomsTest(unittest.TestCase):
         self.assertEqual(response_dict, 'invalid_token',
                          'Should not be able to call set_all_lights_floor_on API without a valid token. Got: {0}'.format(response_dict))
 
+        params = {'floor': 600}
+        response_dict = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
+        self.assertEqual(response_dict.get('success'), False,
+                         'Should not be able to call set_all_lights_floor_on API without a valid parameter value. Got: {0}'.format(response_dict))
+
+        params = {'floor': 'floor_number'}
+        response_dict = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
+        self.assertEqual(response_dict, 'invalid_parameters',
+                         'Should not be able to call set_all_lights_floor_on API without a valid parameter type. Got: {0}'.format(response_dict))
+
     @exception_handler
     def test_set_all_lights_floor_on(self):
         """ Testing turning all lights on for a specific floor number. """
@@ -167,17 +183,11 @@ class RoomsTest(unittest.TestCase):
         params = {'floor': self.FLOOR_NUMBER}
         self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token)
 
-        params = {'floor': 'floor_number'}
-        response_dict = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
-        self.assertEqual(response_dict, 'invalid_parameters',
-                         'Should not be able to call set_all_lights_floor_on API without a valid parameter type. Got: {0}'.format(response_dict))
+        for i in xrange(self.INPUT_COUNT):
+            output_is_off = self.tools.check_if_event_is_captured(toggled_output=i, value=0)
+            if not output_is_off:
+                self.fail('failed to initialise state, output {0} should be off!'.format(i))
 
-        params = {'floor': 600}
-        response_dict = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
-        self.assertEqual(response_dict.get('success'), False,
-                         'Should not be able to call set_all_lights_floor_on API without a valid parameter value. Got: {0}'.format(response_dict))
-
-        params = {'floor': self.FLOOR_NUMBER}
         self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token)
         for i in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=1),

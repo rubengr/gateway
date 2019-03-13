@@ -36,6 +36,8 @@ class LoginTest(unittest.TestCase):
     def setUpClass(cls):
         if not cls.tools.healthy_status:
             raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
+        if not cls.tools.initialisation_success:
+            raise unittest.SkipTest('Unable to initialise the Testee. All tests are skipped.')
         i = randint(4, 36)
         cls.login = cls.tools.randomword(i)
         cls.password = cls.tools.randomword(i)
