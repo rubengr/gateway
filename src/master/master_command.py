@@ -410,18 +410,18 @@ class SvtFieldType(object):
     def __init__(self):
         pass
 
-    @staticmethod
-    def encode(field_value):
+    @classmethod
+    def encode(cls, field_value):
         """ Encode an instance of the Svt class to a byte. """
         return field_value.get_byte()
 
-    @staticmethod
-    def get_min_decode_bytes():
+    @classmethod
+    def get_min_decode_bytes(cls):
         """ Get the minimal amount of bytes required to start decoding. """
         return 1
 
-    @staticmethod
-    def decode(byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode a svt byte string into a instance of the Svt class. """
         return master_api.Svt.from_byte(byte_str[0])
 
@@ -448,8 +448,8 @@ class VarStringFieldType(object):
         """ Get the minimal amount of bytes required to start decoding. """
         return self.total_data_length + 1
 
-    @staticmethod
-    def decode(byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode the data into a string (without padding) """
         length = ord(byte_str[0])
         return byte_str[1:1+length]
@@ -470,8 +470,8 @@ class DimmerFieldType(object):
             return chr(int(math.ceil(field_value * 6.0 / 10.0)))
         return chr(int(53 + field_value - 90))
 
-    @staticmethod
-    def decode(byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode a byte [0, 63] to an integer [0, 100]. """
         dimmer_value = ord(byte_str[0])
         if dimmer_value <= 54:

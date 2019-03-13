@@ -157,13 +157,13 @@ class WebsocketTest(unittest.TestCase):
         start = time.time()
 
         while time.time() - start < timeout:
-            for i in xrange(len(callback_data['data'])):
+            for entry in callback_data['data']:
                 if expected_status is not None:
-                    if callback_data['data'][i]['data']['id'] == expected_id and callback_data['data'][i]['type'] == expected_event \
-                       and callback_data['data'][i]['data']['status']['on'] is expected_status:
+                    if entry['data']['id'] == expected_id and entry['type'] == expected_event \
+                       and entry['data']['status']['on'] is expected_status:
                         return True
                 else:
-                    if callback_data['data'][i]['data']['id'] == expected_id and callback_data['data'][i]['type'] == expected_event:
+                    if entry['data']['id'] == expected_id and entry['type'] == expected_event:
                         return True
             time.sleep(0.25)
         return False
