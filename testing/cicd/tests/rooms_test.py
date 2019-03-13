@@ -168,7 +168,7 @@ class RoomsTest(unittest.TestCase):
         self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token)
 
         params = {'floor': 'floor_number'}
-        response_dict = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failre=True)
+        response_dict = self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token, expected_failure=True)
         self.assertEqual(response_dict, 'invalid_parameters',
                          'Should not be able to call set_all_lights_floor_on API without a valid parameter type. Got: {0}'.format(response_dict))
 
