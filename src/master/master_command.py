@@ -24,6 +24,7 @@ import math
 import master_api
 from serial_utils import printable
 
+
 class MasterCommandSpec(object):
     """ The input command to the master looks like this:
     'STR' [Action (2 bytes)] [cid] [fields] '\r\n'
@@ -69,16 +70,17 @@ class MasterCommandSpec(object):
         for field in self.input_fields:
             if Field.is_crc(field):
                 if extended_crc:
-                    crc = self.__calc_crc(self.action + encoded_fields)
+                    crc = MasterCommandSpec.__calc_crc(self.action + encoded_fields)
                 else:
-                    crc = self.__calc_crc(encoded_fields)
+                    crc = MasterCommandSpec.__calc_crc(encoded_fields)
                 encoded_fields += crc
             else:
                 encoded_fields += field.encode(fields.get(field.name))
 
         return start + encoded_fields + "\r\n"
 
-    def __calc_crc(self, encoded_string):
+    @staticmethod
+    def __calc_crc(encoded_string):
         """ Calculate the crc of an string. """
         crc = 0
         for byte in encoded_string:
@@ -113,7 +115,7 @@ class MasterCommandSpec(object):
         :type partial_result: None if no partial result yet
         :rtype: tuple of (bytes consumed(int), result(Result), done(bool))
         """
-        if partial_result == None:
+        if partial_result is None:
             from_pending = 0
             partial_result = Result()
         else:
@@ -137,19 +139,19 @@ class MasterCommandSpec(object):
                     return index
             else:
                 partial_result.pending_bytes += byte_str[index:]
-                return (len(byte_str) - from_pending, partial_result, False)
+                return len(byte_str) - from_pending, partial_result, False
 
         # Found beginning, start decoding
         index = 0
         for field in self.output_fields[partial_result.field_index:]:
             index = decode_field(index, byte_str, field, field.get_min_decode_bytes())
-            if type(index) != int:
+            if not isinstance(index, int):
                 # We ran out of bytes
                 return index
 
         partial_result.complete = True
         partial_result.actual_bytes = byte_str[:index]
-        return (index - from_pending, partial_result, True)
+        return index - from_pending, partial_result, True
 
     def output_has_crc(self):
         """ Check if the MasterCommandSpec output contains a crc field. """
@@ -162,6 +164,7 @@ class MasterCommandSpec(object):
     def __eq__(self, other):
         """ Only used for testing, equals by name. """
         return self.action == other.action and self.output_action == other.output_action
+
 
 class Result(object):
     """ Result of a communication with the master. Can be accessed as a dict,
@@ -242,8 +245,7 @@ class Field(object):
     @staticmethod
     def is_crc(field):
         """ Is the field a crc field ? """
-        return isinstance(field, Field) and field.name == 'crc' \
-                and isinstance(field.field_type, BytesFieldType) and field.field_type.length == 3
+        return isinstance(field, Field) and field.name == 'crc' and isinstance(field.field_type, BytesFieldType) and field.field_type.length == 3
 
     def __init__(self, name, field_type):
         """ Create a MasterComandField.
@@ -272,16 +274,18 @@ class Field(object):
         """ Decode a string of bytes. If there are not enough bytes, a
         :class`MoreBytesRequiredException` will be thrown.
 
-        :param bytes: array of types (string)
+        :param byte_str: array of types (string)
         :rtype: a string if done, otherwise the amount of bytes required to decode
         """
         return self.field_type.decode(byte_str)
+
 
 class NeedMoreBytesException(Exception):
     """ Throw in case a decode requires more bytes then provided. """
     def __init__(self, bytes_required):
         Exception.__init__(self)
         self.bytes_required = bytes_required
+
 
 class FieldType(object):
     """ Describes the type of a MasterCommandField.
@@ -319,8 +323,7 @@ class FieldType(object):
                 return str(chr(field_value / 256)) + str(chr(field_value % 256))
         elif self.python_type == str:
             if len(field_value) != self.length:
-                raise ValueError('String is not of the correct length: expected %d, got %d' %
-                                 (self.length, len(field_value)))
+                raise ValueError('String is not of the correct length: expected %d, got %d' % (self.length, len(field_value)))
             else:
                 return field_value
 
@@ -331,11 +334,10 @@ class FieldType(object):
     def decode(self, byte_str):
         """ Decode the bytes.
 
-        :param bytes: array of types (string)
+        :param byte_str: array of types (string)
         """
         if len(byte_str) != self.length:
-            raise ValueError('Byte array is not of the correct length: expected %d, got %d' %
-                                 (self.length, len(byte_str)))
+            raise ValueError('Byte array is not of the correct length: expected %d, got %d' % (self.length, len(byte_str)))
         else:
             if self.python_type == int and self.length == 1:
                 return ord(byte_str[0])
@@ -343,6 +345,7 @@ class FieldType(object):
                 return ord(byte_str[0]) * 256 + ord(byte_str[1])
             elif self.python_type == str:
                 return byte_str
+
 
 class PaddingFieldType(object):
     """ Empty field. """
@@ -360,10 +363,10 @@ class PaddingFieldType(object):
     def decode(self, byte_str):
         """ Only checks if byte_str size is correct, returns None """
         if len(byte_str) != self.length:
-            raise ValueError('Byte array is not of the correct length: expected %d, got %d' %
-                                 (self.length, len(byte_str)))
+            raise ValueError('Byte array is not of the correct length: expected %d, got %d' % (self.length, len(byte_str)))
         else:
             return ""
+
 
 class BytesFieldType(object):
     """ Type for an array of bytes. """
@@ -374,13 +377,16 @@ class BytesFieldType(object):
         """ Get the minimal amount of bytes required to start decoding. """
         return self.length
 
-    def encode(self, byte_arr):
+    @classmethod
+    def encode(cls, byte_arr):
         """ Generates a string of bytes from the byte array. """
         return ''.join([chr(x) for x in byte_arr])
 
-    def decode(self, byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Generates an array of bytes. """
         return [ord(x) for x in byte_str]
+
 
 class LiteralFieldType(object):
     """ Literal string field. """
@@ -398,10 +404,10 @@ class LiteralFieldType(object):
     def decode(self, byte_str):
         """ Checks if byte_str is the literal """
         if byte_str != self.literal:
-            raise ValueError('Byte array does not match literal: expected %s, got %s' %
-                                 (printable(self.literal), printable(byte_str)))
+            raise ValueError('Byte array does not match literal: expected %s, got %s' % (printable(self.literal), printable(byte_str)))
         else:
             return ""
+
 
 class SvtFieldType(object):
     """ The System Value Type is one byte. This types encodes and decodes into
@@ -410,15 +416,18 @@ class SvtFieldType(object):
     def __init__(self):
         pass
 
-    def encode(self, field_value):
+    @classmethod
+    def encode(cls, field_value):
         """ Encode an instance of the Svt class to a byte. """
         return field_value.get_byte()
 
-    def get_min_decode_bytes(self):
+    @classmethod
+    def get_min_decode_bytes(cls):
         """ Get the minimal amount of bytes required to start decoding. """
         return 1
 
-    def decode(self, byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode a svt byte string into a instance of the Svt class. """
         return master_api.Svt.from_byte(byte_str[0])
 
@@ -445,7 +454,8 @@ class VarStringFieldType(object):
         """ Get the minimal amount of bytes required to start decoding. """
         return self.total_data_length + 1
 
-    def decode(self, byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode the data into a string (without padding) """
         length = ord(byte_str[0])
         return byte_str[1:1+length]
@@ -459,35 +469,39 @@ class DimmerFieldType(object):
     def __init__(self):
         pass
 
-    def encode(self, field_value):
+    @classmethod
+    def encode(cls, field_value):
         """ Encode a dimmer value. """
         if field_value <= 90:
             return chr(int(math.ceil(field_value * 6.0 / 10.0)))
-        else:
-            return chr(int(53 + field_value - 90))
+        return chr(int(53 + field_value - 90))
 
-    def decode(self, byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode a byte [0, 63] to an integer [0, 100]. """
         dimmer_value = ord(byte_str[0])
         if dimmer_value <= 54:
             return int(dimmer_value * 10.0 / 6.0)
-        else:
-            return int(90 + dimmer_value - 53)
+        return int(90 + dimmer_value - 53)
 
-    def get_min_decode_bytes(self):
+    @classmethod
+    def get_min_decode_bytes(cls):
         """ The dimmer type is always 1 byte. """
         return 1
+
 
 class OutputFieldType(object):
     """ Field type for OL. """
     def __init__(self):
         pass
 
-    def get_min_decode_bytes(self):
+    @classmethod
+    def get_min_decode_bytes(cls):
         """ Get the minimal amount of bytes required to start decoding. """
         return 1
 
-    def decode(self, byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode a byte string. """
         bytes_required = 1 + (ord(byte_str[0]) * 2)
 
@@ -505,16 +519,19 @@ class OutputFieldType(object):
                 out.append((id, dimmer))
             return out
 
+
 class ErrorListFieldType(object):
     """ Field type for el. """
     def __init__(self):
         pass
 
-    def get_min_decode_bytes(self):
+    @classmethod
+    def get_min_decode_bytes(cls):
         """ Get the minimal amount of bytes required to start decoding. """
         return 1
 
-    def encode(self, field_value):
+    @classmethod
+    def encode(cls, field_value):
         """ Encode to byte string. """
         bytes = ""
         bytes += chr(len(field_value))
@@ -525,7 +542,8 @@ class ErrorListFieldType(object):
                                    chr(field[1] % 256))
         return bytes
 
-    def decode(self, byte_str):
+    @classmethod
+    def decode(cls, byte_str):
         """ Decode a byte string. """
         nr_modules = ord(byte_str[0])
         bytes_required = 1 + (nr_modules * 4)
@@ -533,8 +551,7 @@ class ErrorListFieldType(object):
         if len(byte_str) < bytes_required:
             raise NeedMoreBytesException(bytes_required)
         elif len(byte_str) > bytes_required:
-            raise ValueError("Got more bytes than required: expected %d, got %d",
-                             bytes_required, len(byte_str))
+            raise ValueError("Got more bytes than required: expected %d, got %d", bytes_required, len(byte_str))
         else:
             out = []
             for i in range(nr_modules):

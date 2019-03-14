@@ -20,6 +20,7 @@ Gives the watchdog a push every 10 seconds.
 
 import time
 
+
 def main():
     """ The main function. """
     watchdog = open('/dev/watchdog', 'w')
@@ -29,6 +30,7 @@ def main():
         watchdog.flush()
 
         time.sleep(10)
+
 
 if __name__ == '__main__':
     main()

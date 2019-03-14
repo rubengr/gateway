@@ -89,7 +89,8 @@ class PowerCommunicator(object):
         (ret, self.__cid) = (self.__cid, (self.__cid % 255) + 1)
         return ret
 
-    def __log(self, action, data):
+    @staticmethod
+    def __log(action, data):
         if data is not None:
             LOGGER.info("%.3f %s power: %s" % (time.time(), action, printable(data)))
 
@@ -100,7 +101,7 @@ class PowerCommunicator(object):
         :type data: string
         """
         if self.__verbose:
-            self.__log('writing to', data)
+            PowerCommunicator.__log('writing to', data)
         self.__serial.write(data)
         self.__serial_bytes_written += len(data)
 
@@ -318,7 +319,7 @@ class PowerCommunicator(object):
             raise CommunicationTimedOutException()
         finally:
             if self.__verbose:
-                self.__log('reading from', command)
+                PowerCommunicator.__log('reading from', command)
 
         return header, data
 

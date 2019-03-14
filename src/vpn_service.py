@@ -157,30 +157,26 @@ class Gateway(object):
         self.__last_pulse_counters = None
 
     def do_call(self, uri):
-        """ Do a call to the webservice, returns a dict parsed from the json returned by the
-        webserver. """
+        """ Do a call to the webservice, returns a dict parsed from the json returned by the webserver. """
         try:
             request = requests.get("http://" + self.__host + "/" + uri, timeout=15.0)
             return json.loads(request.text)
         except Exception as ex:
             LOGGER.log('Exception during Gateway call: {0}'.format(ex))
-            return None
+            return
 
     def get_real_time_power(self):
         """ Get the real time power measurements. """
         data = self.do_call("get_realtime_power?token=None")
-        if data is None or data['success'] is False:
-            return None
-        else:
+        if data is not None and data['success']:
             del data['success']
             return data
+        return
 
     def get_pulse_counter_diff(self):
         """ Get the pulse counter differences. """
         data = self.do_call("get_pulse_counter_status?token=None")
-        if data is None or data['success'] is False:
-            return None
-        else:
+        if data is not None and data['success']:
             counters = data['counters']
 
             if self.__last_pulse_counters is None:
@@ -191,6 +187,7 @@ class Gateway(object):
 
             self.__last_pulse_counters = counters
             return ret
+        return
 
     @staticmethod
     def __counter_diff(current, previous):
@@ -201,9 +198,7 @@ class Gateway(object):
     def get_errors(self):
         """ Get the errors on the gateway. """
         data = self.do_call("get_errors?token=None")
-        if data is None:
-            return None
-        else:
+        if data:
             if data['errors'] is not None:
                 master_errors = sum([error[1] for error in data['errors']])
             else:
@@ -212,6 +207,7 @@ class Gateway(object):
             return {'master_errors': master_errors,
                     'master_last_success': data['master_last_success'],
                     'power_last_success': data['power_last_success']}
+        return
 
     def get_local_ip_address(self):
         """ Get the local ip address. """
@@ -220,8 +216,7 @@ class Gateway(object):
 
 
 class DataCollector(object):
-    """ Defines a function to retrieve data, the period between two collections
-    """
+    """ Defines a function to retrieve data, the period between two collections """
 
     def __init__(self, fct, period=0):
         """
@@ -245,17 +240,15 @@ class DataCollector(object):
                     self.__last_collect = time.time()
                 return self.__function()
             else:
-                return None
+                return
         except Exception as ex:
             LOGGER.log('Error while collecting data: {0}'.format(ex))
             traceback.print_exc()
-            return None
+            return
 
 
 class VPNService(object):
-    """
-    The VPNService contains all logic to be able to send the heartbeat and check whether the VPN should be opened
-    """
+    """ The VPNService contains all logic to be able to send the heartbeat and check whether the VPN should be opened """
 
     def __init__(self):
         config = ConfigParser()
@@ -294,7 +287,7 @@ class VPNService(object):
         # If NTP date changes the time during a execution of a sub process this hangs forever.
         def popen_timeout(command, timeout):
             p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            for t in xrange(timeout):
+            for _ in xrange(timeout):
                 time.sleep(1)
                 if p.poll() is not None:
                     return p.communicate()
@@ -321,13 +314,13 @@ class VPNService(object):
                 with open(filename, 'r') as debug_file:
                     self._debug_data[timestamp] = json.load(debug_file)
             found_timestamps.append(timestamp)
-        for timestamp in self._debug_data.keys():
+        for timestamp in self._debug_data:
             if timestamp not in found_timestamps:
                 del self._debug_data[timestamp]
         return self._debug_data
 
     def _clean_debug_dumps(self):
-        for timestamp in self._debug_data.keys():
+        for timestamp in self._debug_data:
             filename = '/tmp/debug_{0}.json'.format(timestamp)
             try:
                 os.remove(filename)
@@ -341,7 +334,7 @@ class VPNService(object):
             return subprocess.check_output("ip r | grep '^default via' | awk '{ print $3; }'", shell=True)
         except Exception as ex:
             LOGGER.log("Error during get_gateway: {0}".format(ex))
-            return None
+            return
 
     def _check_state(self):
         return {'cloud_disabled': not self._cloud_enabled,
@@ -402,7 +395,7 @@ class VPNService(object):
 
             # Events  # TODO: Replace this by websocket events in the future
             dirty_events = VPNService._unload_queue(self._eeprom_events)
-            if len(dirty_events) > 0:
+            if dirty_events:
                 call_data['events']['DIRTY_EEPROM'] = True
 
             # Collect data to be send to the Cloud
