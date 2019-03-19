@@ -158,8 +158,12 @@ def check_result(command, result, success_code=0):
     if not check_bl_crc(command, result):
         raise Exception('CRC check failed on {0}'.format(command.action))
 
-    if result.get('error_code', None) != success_code:
-        raise Exception('{0} returned error code {1}'.format(command.action, result['error_code']))
+    returned_code = result.get('error_code')
+    if isinstance(success_code, list):
+        if returned_code not in success_code:
+            raise Exception('{0} returned error code {1}'.format(command.action, returned_code))
+    elif returned_code != success_code:
+        raise Exception('{0} returned error code {1}'.format(command.action, returned_code))
 
 
 def do_command(logger, master_communicator, action, retry=True, success_code=0):
@@ -174,7 +178,7 @@ def do_command(logger, master_communicator, action, retry=True, success_code=0):
     :param retry: If the master command should be retried
     :type retry: boole
     :param success_code: Expected success code
-    :type success_code: int
+    :type success_code: int or list
     """
     cmd = action[0]
     try:
@@ -229,7 +233,7 @@ def bootload(master_communicator, address, ihex, crc, blocks, logger):
                    create_bl_action(master_api.modules_goto_bootloader(),
                                     {'addr': address, 'sec': 5}),
                    retry=False,
-                   success_code=255)
+                   success_code=[255, 1])
     except Exception:
         logger('Module has no bootloader or is unavailable. Skipping...')
         return
