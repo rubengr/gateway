@@ -14,6 +14,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Tool to bootload the slave modules (output, dimmer, input and temperature).
+For more information, see:
+* https://wiki.openmotics.com/index.php/API_Reference_Guide
+* https://wiki.openmotics.com/index.php/Bootloader_Error_Codes
 """
 from platform_utils import System
 System.import_eggs()
@@ -103,8 +106,12 @@ def get_module_addresses(master_communicator, module_type):
 
     no_input_modules = ord(no_modules[base_address].bytes[0])
     for i in range(no_input_modules):
+        address = EepromAddress(2 + i, 252, 1)
+        is_can = eeprom_file.read([address])[address].bytes == 'C'
         address = EepromAddress(2 + i, 0, 4)
-        modules.append(eeprom_file.read([address])[address].bytes)
+        module = eeprom_file.read([address])[address].bytes
+        if not is_can or module[0] == 'C':
+            modules.append(module)
 
     no_output_modules = ord(no_modules[base_address].bytes[1])
     for i in range(no_output_modules):
@@ -154,8 +161,12 @@ def check_result(command, result, success_code=0):
     if not check_bl_crc(command, result):
         raise Exception('CRC check failed on {0}'.format(command.action))
 
-    if result.get('error_code', None) != success_code:
-        raise Exception('{0} returned error code {1}'.format(command.action, result['error_code']))
+    returned_code = result.get('error_code')
+    if isinstance(success_code, list):
+        if returned_code not in success_code:
+            raise Exception('{0} returned error code {1}'.format(command.action, returned_code))
+    elif returned_code != success_code:
+        raise Exception('{0} returned error code {1}'.format(command.action, returned_code))
 
 
 def do_command(logger, master_communicator, action, retry=True, success_code=0):
@@ -170,7 +181,7 @@ def do_command(logger, master_communicator, action, retry=True, success_code=0):
     :param retry: If the master command should be retried
     :type retry: boole
     :param success_code: Expected success code
-    :type success_code: int
+    :type success_code: int or list
     """
     cmd = action[0]
     try:
@@ -178,7 +189,10 @@ def do_command(logger, master_communicator, action, retry=True, success_code=0):
         check_result(cmd, result, success_code)
         return result
     except Exception as exception:
-        logger('Got exception while executing command: {0}'.format(exception))
+        error_message = str(exception)
+        if error_message == '':
+            error_message = exception.__class__.__name__
+        logger('Got exception while executing command: {0}'.format(error_message))
         if retry:
             logger('Retrying...')
             result = master_communicator.do_command(*action)
@@ -204,15 +218,16 @@ def bootload(master_communicator, address, ihex, crc, blocks, logger):
     :param logger: Logger
     """
     logger('Checking the version')
-    result = do_command(logger,
-                        master_communicator,
-                        create_bl_action(master_api.modules_get_version(),
-                                         {"addr": address}),
-                        success_code=255)
-
-    if result['f1'] < 3 or (result['f1'] == 3 and result['f2'] < 1):
-        logger('No bootloader available (v {0}.{1}.{2})'.format(result['f1'], result['f2'], result['f3']))
-        return
+    try:
+        result = do_command(logger,
+                            master_communicator,
+                            create_bl_action(master_api.modules_get_version(),
+                                             {'addr': address}),
+                            retry=False,
+                            success_code=255)
+        logger('Current version: v{0}.{1}.{2}'.format(result['f1'], result['f2'], result['f3']))
+    except Exception:
+        logger('Version call not (yet) implemented or module unavailable')
 
     logger('Going to bootloader')
     try:
@@ -220,9 +235,11 @@ def bootload(master_communicator, address, ihex, crc, blocks, logger):
                    master_communicator,
                    create_bl_action(master_api.modules_goto_bootloader(),
                                     {'addr': address, 'sec': 5}),
-                   retry=False)
+                   retry=False,
+                   success_code=[255, 1])
     except Exception:
-        print 'No response on goto bootloader: OK'
+        logger('Module has no bootloader or is unavailable. Skipping...')
+        return
 
     time.sleep(1)
 
@@ -269,14 +286,13 @@ def bootload(master_communicator, address, ihex, crc, blocks, logger):
 
     time.sleep(2)
 
-    logger('Verifying firmware')
-    do_command(logger,
-               master_communicator,
-               create_bl_action(master_api.modules_get_version(),
-                                {'addr': address}),
-               success_code=255)
-
-    logger('New version: v {0}.{1}.{2}'.format(result['f1'], result['f2'], result['f3']))
+    logger('Checking the version')
+    result = do_command(logger,
+                        master_communicator,
+                        create_bl_action(master_api.modules_get_version(),
+                                         {'addr': address}),
+                        success_code=255)
+    logger('New version: v{0}.{1}.{2}'.format(result['f1'], result['f2'], result['f3']))
 
     logger('Resetting error list')
     master_communicator.do_command(master_api.clear_error_list())
