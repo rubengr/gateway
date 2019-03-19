@@ -14,6 +14,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Tool to bootload the slave modules (output, dimmer, input and temperature).
+For more information, see:
+* https://wiki.openmotics.com/index.php/API_Reference_Guide
+* https://wiki.openmotics.com/index.php/Bootloader_Error_Codes
 """
 from platform_utils import System
 System.import_eggs()
