@@ -70,15 +70,22 @@ class WebsocketTest(unittest.TestCase):
         self.tools.clicker_releaser(3, self.token, True)
 
         websocket_event_occurred = WebsocketTest._look_for_ws_event(callback_data, expected_id=3, expected_event='OUTPUT_CHANGE', expected_status=True)
-        self.assertTrue(websocket_event_occurred, 'Could not find data after turning on output! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
+
+        if not websocket_event_occurred:
+            socket.close(200, 'Test output_change terminated')
+            self.fail('Could not find data after turning on output! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
 
         self.tools.clicker_releaser(3, self.token, False)
 
         websocket_event_occurred = WebsocketTest._look_for_ws_event(callback_data, expected_id=3, expected_event='OUTPUT_CHANGE', expected_status=False)
-        self.assertTrue(websocket_event_occurred, 'Could not find data after turning off output! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
+
+        if not websocket_event_occurred:
+            socket.close(200, 'Test output_change terminated')
+            self.fail('Could not find data after turning off output! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
 
         callback_data.update({'data': []})
         socket.close(200, 'Test output_change terminated')
+        self.assertTrue(True)  # Safe testing and ensuring that all instructions get executed
 
     @exception_handler
     def test_websocket_input_trigger(self):
@@ -98,7 +105,10 @@ class WebsocketTest(unittest.TestCase):
         self.webinterface.set_output(id=4, is_on=False)
 
         websocket_event_occurred = WebsocketTest._look_for_ws_event(callback_data, expected_id=4, expected_event='INPUT_TRIGGER')
-        self.assertTrue(websocket_event_occurred, 'Could not find data! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
+
+        if not websocket_event_occurred:
+            socket.close(200, 'Test input_trigger terminated')
+            self.fail('Could not find data! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
 
         time.sleep(0.5)
 
@@ -107,12 +117,22 @@ class WebsocketTest(unittest.TestCase):
         self.webinterface.set_output(id=4, is_on=False)
 
         self.assertTrue(len(callback_data['data']) == 2, 'Websocket returned an empty response!')
-        self.assertEqual(callback_data['data'][-1]['data']['id'], 4, 'Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
-        self.assertEqual(callback_data['data'][-1]['type'], 'INPUT_TRIGGER', 'Should contain the correct event type. Got: {0}'.format(callback_data['data']))
+
+        if len(callback_data['data']) != 2:
+            socket.close(200, 'Test input_trigger terminated')
+            self.fail('Websocket returned an empty response!')
+
+        if callback_data['data'][-1]['data']['id'] != 4:
+            socket.close(200, 'Test input_trigger terminated')
+            self.fail('Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
+
+        if callback_data['data'][-1]['type'] != 'INPUT_TRIGGER':
+            socket.close(200, 'Test input_trigger terminated')
+            self.fail('Should contain the correct event type. Got: {0}'.format(callback_data['data']))
 
         callback_data.update({'data': []})
-
         socket.close(200, 'Test input_trigger terminated')
+        self.assertTrue(True)  # Safe testing and ensuring that all instructions get executed
 
     def _set_default_output_configuration(self):
         token = self.tools.get_new_token(self.tools.username, self.tools.password)
