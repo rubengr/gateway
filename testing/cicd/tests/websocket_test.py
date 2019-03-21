@@ -111,24 +111,17 @@ class WebsocketTest(unittest.TestCase):
             self.fail('Could not find data! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
 
         time.sleep(0.5)
+        callback_data.update({'data': []})
 
         self.webinterface.set_output(id=4, is_on=True)
         time.sleep(0.5)
         self.webinterface.set_output(id=4, is_on=False)
 
-        self.assertTrue(len(callback_data['data']) == 2, 'Websocket returned an empty response!')
+        websocket_event_occurred = WebsocketTest._look_for_ws_event(callback_data, expected_id=4, expected_event='INPUT_TRIGGER')
 
-        if len(callback_data['data']) != 2:
+        if not websocket_event_occurred:
             socket.close(200, 'Test input_trigger terminated')
-            self.fail('Websocket returned an empty response!')
-
-        if callback_data['data'][-1]['data']['id'] != 4:
-            socket.close(200, 'Test input_trigger terminated')
-            self.fail('Should contain the correct triggered ID. Got: {0}'.format(callback_data['data']))
-
-        if callback_data['data'][-1]['type'] != 'INPUT_TRIGGER':
-            socket.close(200, 'Test input_trigger terminated')
-            self.fail('Should contain the correct event type. Got: {0}'.format(callback_data['data']))
+            self.fail('Could not find data! Timeout reached or event didn\'t find it\'s way. Got: {0}'.format(callback_data['data']))
 
         callback_data.update({'data': []})
         socket.close(200, 'Test input_trigger terminated')
