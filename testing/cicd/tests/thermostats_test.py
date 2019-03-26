@@ -15,7 +15,6 @@
 """"
 The thermostats_test.py file contains thermostat configuration test.
 """
-import subprocess
 import os
 import unittest
 import time
