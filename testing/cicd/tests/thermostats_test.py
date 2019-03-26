@@ -15,7 +15,6 @@
 """"
 The thermostats_test.py file contains thermostat configuration test.
 """
-import os
 import time
 import logging
 import simplejson as json
@@ -35,15 +34,8 @@ class ThermostatsTest(OMTestCase):
     NIGHT_TEMP_INIT, DAY_BLOCK1_INIT, DAY_BLOCK2_INIT = 10.0, 10.5, 11.0  # X in X0.0 represent day number.
 
     def setUp(self):
+        super(ThermostatsTest, self).setUp()
         self.tools.configure_thermostat(0, self.NIGHT_TEMP_INIT, self.DAY_BLOCK1_INIT, self.DAY_BLOCK2_INIT)  # Configuring thermostat 0
-        self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
-        if not self.tools.discovery_success:
-            self.tools.discovery_success = self.tools.assert_discovered(self.token, self.webinterface)
-            if not self.tools.discovery_success:
-                LOGGER.error('Skipped: %s due to discovery failure.', self.id())
-                self.skipTest('Failed to discover modules.')
-        LOGGER.info('Running: %s', self.id())
-        os.system(self.tools.SSH_LOGGER_COMMAND.format(self.tools.testee_ip, self.id()))
 
     def tearDown(self):
         self.tools.unconfigure_thermostat(0)  # Unconfiguring thermostat 0 after finishing
