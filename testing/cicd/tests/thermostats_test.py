@@ -15,6 +15,8 @@
 """"
 The thermostats_test.py file contains thermostat configuration test.
 """
+import subprocess
+import os
 import unittest
 import time
 import logging
@@ -50,6 +52,7 @@ class ThermostatsTest(unittest.TestCase):
                 LOGGER.error('Skipped: %s due to discovery failure.', self.id())
                 self.skipTest('Failed to discover modules.')
         LOGGER.info('Running: %s', self.id())
+        os.system(self.tools.SSH_LOGGER_COMMAND.format(self.tools.testee_ip, self.id()))
 
     def tearDown(self):
         self.tools.unconfigure_thermostat(0)  # Unconfiguring thermostat 0 after finishing

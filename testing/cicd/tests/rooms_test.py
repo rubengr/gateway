@@ -15,6 +15,7 @@
 """"
 The rooms_test.py file contains room configuration test methods and other private methods that the tests will use.
 """
+import os
 import unittest
 import logging
 from random import randint
@@ -51,6 +52,7 @@ class RoomsTest(unittest.TestCase):
                 LOGGER.error('Skipped: %s due to discovery failure.', self.id())
                 self.skipTest('Failed to discover modules.')
         LOGGER.info('Running: %s', self.id())
+        os.system(self.tools.SSH_LOGGER_COMMAND.format(self.tools.testee_ip, self.id()))
 
     @exception_handler
     def test_set_output_configurations_rooms_floors(self):

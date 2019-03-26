@@ -16,6 +16,7 @@
 The websocket_test.py file contains tests related to websocket and other private methods
 that the tests will use.
 """
+import os
 import unittest
 import base64
 import logging
@@ -53,6 +54,7 @@ class WebsocketTest(unittest.TestCase):
         self._set_default_input_configuration()
         self._set_default_output_configuration()
         LOGGER.info('Running: %s', self.id())
+        os.system(self.tools.SSH_LOGGER_COMMAND.format(self.tools.testee_ip, self.id()))
 
     @exception_handler
     def test_websocket_output_change(self):

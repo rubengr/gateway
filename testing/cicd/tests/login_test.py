@@ -15,6 +15,7 @@
 """"
 The login_test.py file contains user and authorized mode test methods and other private methods that the tests will use.
 """
+import os
 import unittest
 import time
 import logging
@@ -50,6 +51,7 @@ class LoginTest(unittest.TestCase):
                 LOGGER.error('Skipped: %s due to discovery failure.', self.id())
                 self.skipTest('Failed to discover modules.')
         LOGGER.info('Running: %s', self.id())
+        os.system(self.tools.SSH_LOGGER_COMMAND.format(self.tools.testee_ip, self.id()))
 
     @exception_handler
     def test_create_user_authorized(self):
