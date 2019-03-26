@@ -16,8 +16,6 @@
 The actions_test.py file contains tests related to action types and action numbers and other private methods
 that the tests will use.
 """
-import os
-import unittest
 import time
 import logging
 from random import randint
