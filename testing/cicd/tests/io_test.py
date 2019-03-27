@@ -22,38 +22,19 @@ import simplejson as json
 import logging
 import toolbox
 from pytz import timezone
-from toolbox import exception_handler
+from toolbox import exception_handler, OMTestCase
 from random import randint
 
 LOGGER = logging.getLogger('openmotics')
 
 
-class IoTest(unittest.TestCase):
+class IoTest(OMTestCase):
     """
     The IoTest is a test case for input and output configurations.
     """
-    webinterface = None
-    tools = None
-    token = ''
     TESTEE_POWER = 8
     ROOM_NUMBER = 5
     INPUT_COUNT = 8
-
-    @classmethod
-    def setUpClass(cls):
-        if not cls.tools.healthy_status:
-            raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        if not cls.tools.initialisation_success:
-            raise unittest.SkipTest('Unable to initialise the Testee. All tests are skipped.')
-
-    def setUp(self):
-        self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
-        if not self.tools.discovery_success:
-            self.tools.discovery_success = self.tools.assert_discovered(self.token, self.webinterface)
-            if not self.tools.discovery_success:
-                LOGGER.error('Skipped: %s due to discovery failure.', self.id())
-                self.skipTest('Failed to discover modules.')
-        LOGGER.info('Running: %s', self.id())
 
     @exception_handler
     def test_toggle_all_outputs_testee(self):

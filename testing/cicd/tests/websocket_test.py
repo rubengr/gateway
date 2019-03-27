@@ -16,43 +16,21 @@
 The websocket_test.py file contains tests related to websocket and other private methods
 that the tests will use.
 """
-import unittest
 import base64
 import logging
 import time
 import msgpack
 import simplejson as json
 from ws4py.client.threadedclient import WebSocketClient
-from toolbox import exception_handler
+from toolbox import exception_handler, OMTestCase
 
 LOGGER = logging.getLogger('openmotics')
 
 
-class WebsocketTest(unittest.TestCase):
+class WebsocketTest(OMTestCase):
     """
     The WebsocketTest is a test case for websocket.
     """
-    webinterface = None
-    tools = None
-    token = ''
-
-    @classmethod
-    def setUpClass(cls):
-        if not cls.tools.healthy_status:
-            raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        if not cls.tools.initialisation_success:
-            raise unittest.SkipTest('Unable to initialise the Testee. All tests are skipped.')
-
-    def setUp(self):
-        self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
-        if not self.tools.discovery_success:
-            self.tools.discovery_success = self.tools.assert_discovered(self.token, self.webinterface)
-            if not self.tools.discovery_success:
-                LOGGER.error('Skipped: %s due to discovery failure.', self.id())
-                self.skipTest('Failed to discover modules.')
-        self._set_default_input_configuration()
-        self._set_default_output_configuration()
-        LOGGER.info('Running: %s', self.id())
 
     @exception_handler
     def test_websocket_output_change(self):

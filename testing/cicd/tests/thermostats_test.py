@@ -15,16 +15,15 @@
 """"
 The thermostats_test.py file contains thermostat configuration test.
 """
-import unittest
 import time
 import logging
 import simplejson as json
-from toolbox import exception_handler
+from toolbox import exception_handler, OMTestCase
 
 LOGGER = logging.getLogger('openmotics')
 
 
-class ThermostatsTest(unittest.TestCase):
+class ThermostatsTest(OMTestCase):
     """
     The ThermostatsTest is a test case for thermostats.
     """
@@ -34,22 +33,9 @@ class ThermostatsTest(unittest.TestCase):
     TESTEE_POWER = 8
     NIGHT_TEMP_INIT, DAY_BLOCK1_INIT, DAY_BLOCK2_INIT = 10.0, 10.5, 11.0  # X in X0.0 represent day number.
 
-    @classmethod
-    def setUpClass(cls):
-        if not cls.tools.healthy_status:
-            raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        if not cls.tools.initialisation_success:
-            raise unittest.SkipTest('Unable to initialise the Testee. All tests are skipped.')
-
     def setUp(self):
+        super(ThermostatsTest, self).setUp()
         self.tools.configure_thermostat(0, self.NIGHT_TEMP_INIT, self.DAY_BLOCK1_INIT, self.DAY_BLOCK2_INIT)  # Configuring thermostat 0
-        self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
-        if not self.tools.discovery_success:
-            self.tools.discovery_success = self.tools.assert_discovered(self.token, self.webinterface)
-            if not self.tools.discovery_success:
-                LOGGER.error('Skipped: %s due to discovery failure.', self.id())
-                self.skipTest('Failed to discover modules.')
-        LOGGER.info('Running: %s', self.id())
 
     def tearDown(self):
         self.tools.unconfigure_thermostat(0)  # Unconfiguring thermostat 0 after finishing
