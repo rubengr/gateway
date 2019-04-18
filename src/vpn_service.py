@@ -189,6 +189,17 @@ class Gateway(object):
             return ret
         return
 
+    def get_enabled_outputs(self):
+        """ Get the enabled outputs. """
+        data = self.do_call("get_output_status?token=None")
+        if data is not None and data['success']:
+            ret = []
+            for output in data['status']:
+                if output["status"] == 1:
+                    ret.append((output["id"], output["dimmer"]))
+            return ret
+        return
+
     @staticmethod
     def __counter_diff(current, previous):
         """ Calculate the diff between two counter values. """
@@ -274,6 +285,7 @@ class VPNService(object):
 
         self._collectors = {'pulses': DataCollector(self._gateway.get_pulse_counter_diff, 60),
                             'power': DataCollector(self._gateway.get_real_time_power),
+                            'outputs': DataCollector(self._gateway.get_enabled_outputs),
                             'errors': DataCollector(self._gateway.get_errors, 600),
                             'local_ip': DataCollector(self._gateway.get_local_ip_address, 1800)}
 
