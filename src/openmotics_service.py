@@ -59,8 +59,6 @@ from power.power_controller import PowerController
 
 from plugins.base import PluginController
 
-from dev.mocks import MasterCommunicatorMock, PowerCommunicatorMock
-
 
 def setup_logger():
     """ Setup the OpenMotics logger. """
@@ -107,7 +105,7 @@ def main():
     """ Main function. """
     log('Starting service...')
 
-    config = ConfigParser({'mode': 'PROD'})
+    config = ConfigParser()
     config.read(constants.get_config_file())
 
     defaults = {'username': config.get('OpenMotics', 'cloud_user'),
@@ -116,7 +114,6 @@ def main():
     passthrough_serial_port = config.get('OpenMotics', 'passthrough_serial')
     power_serial_port = config.get('OpenMotics', 'power_serial')
     gateway_uuid = config.get('OpenMotics', 'uuid')
-    mode = config.get('OpenMotics', 'mode')
 
     config_lock = threading.Lock()
     user_controller = UserController(constants.get_config_database_file(), config_lock, defaults, 3600)
@@ -124,27 +121,22 @@ def main():
 
     dbus_service = DBusService('openmotics_service')
 
-    if mode == 'DEV' and controller_serial_port == '':
-        master_communicator = MasterCommunicatorMock()
-    else:
-        controller_serial = Serial(controller_serial_port, 115200)
-        master_communicator = MasterCommunicator(controller_serial)
+    controller_serial = Serial(controller_serial_port, 115200)
+    power_serial = RS485(Serial(power_serial_port, 115200, timeout=None))
+
+    master_communicator = MasterCommunicator(controller_serial)
     eeprom_controller = EepromController(
         EepromFile(master_communicator),
         EepromExtension(constants.get_eeprom_extension_database_file())
     )
 
-    power_controller = PowerController(constants.get_power_database_file())
-    if mode == 'DEV' and power_serial_port == '':
-        power_communicator = PowerCommunicatorMock()
-    else:
-        power_serial = RS485(Serial(power_serial_port, 115200, timeout=None))
-        power_communicator = PowerCommunicator(power_serial, power_controller)
-
     if passthrough_serial_port:
         passthrough_serial = Serial(passthrough_serial_port, 115200)
         passthrough_service = PassthroughService(master_communicator, passthrough_serial)
         passthrough_service.start()
+
+    power_controller = PowerController(constants.get_power_database_file())
+    power_communicator = PowerCommunicator(power_serial, power_controller)
 
     pulse_controller = PulseCounterController(
         constants.get_pulse_counter_database_file(),
