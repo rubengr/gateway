@@ -149,7 +149,7 @@ class Observer(object):
 
     def invalidate_cache(self, object_type=None):
         """
-        Triggered when an external service knows certain settings might be changed in the backgrosubscnd.
+        Triggered when an external service knows certain settings might be changed in the background.
         For example: maintenance mode or module discovery
         """
         if object_type is None or object_type == Observer.Types.OUTPUTS:
