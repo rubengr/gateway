@@ -255,19 +255,10 @@ FULL_DESCR = [
     {'name': 'enumtest', 'type': 'enum', 'description': 'Test for enum',
      'choices': ['First', 'Second']},
     {'name': 'outputs', 'type': 'section', 'repeat': True, 'min': 1,
-     'content': [
-        {'name': 'output', 'type': 'int'}
-     ]},
+     'content': [{'name': 'output', 'type': 'int'}]},
     {'name': 'network', 'type': 'nested_enum',
-     'choices': [
-        {'value': 'Facebook', 'content': [{'name': 'likes', 'type': 'int'}]},
-        {'value': 'Twitter', 'content': [{'name': 'followers', 'type': 'int'}]}
-     ]}
-
-    {'name' : 'network', 'type' : 'nested_enum', 'choices' : [
-        {'value': 'Facebook', 'content' : [{'name' : 'likes', 'type' : 'int'}]},
-        {'value': 'Twitter', 'content' : [{'name' : 'followers', 'type' : 'int'}]}
-    ]}
+     'choices': [{'value': 'Facebook', 'content': [{'name': 'likes', 'type': 'int'}]},
+                 {'value': 'Twitter', 'content': [{'name': 'followers', 'type': 'int'}]}]}
 ]
 
 
