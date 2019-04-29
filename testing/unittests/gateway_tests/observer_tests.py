@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -14,30 +14,25 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Tests for the observers module.
-
-@author: svanscho
 """
-from mock import Mock
 import unittest
 import xmlrunner
+from mock import Mock
 from gateway.observer import Observer
 
 
 class ObserverTest(unittest.TestCase):
     """ Tests for Observer. """
 
-    def setUp(self):
-        pass
-
     def test_value_formatting_output(self):
         master_mock = Mock()
         dbus_mock = Mock()
 
         def callback_test_value_present(event):
-            self.assertTrue('value' in event.data['status'])
+            self.assertIn('value', event.data['status'])
 
         def callback_no_test_value_present(event):
-            self.assertFalse('value' in event.data['status'])
+            self.assertNotIn('value', event.data['status'])
 
         type_callback_mapping = {'d': callback_test_value_present,
                                  'o': callback_no_test_value_present,
