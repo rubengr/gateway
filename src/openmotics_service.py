@@ -28,10 +28,7 @@ System.import_eggs()
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
-try:
-    import json
-except ImportError:
-    import simplejson as json
+
 
 import constants
 
@@ -235,4 +232,3 @@ def main():
 if __name__ == "__main__":
     setup_logger()
     main()
-

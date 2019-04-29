@@ -15,28 +15,31 @@
 """ Includes the WebService class """
 
 
-import threading
-import random
-import subprocess
-import os
-import sys
-import time
-import requests
-import logging
+import base64
 import cherrypy
 import constants
+import logging
 import msgpack
-import base64
+import os
+import random
+import requests
+import subprocess
+import sys
+import threading
+import time
 import uuid
-from decorator import decorator
+
 from cherrypy.lib.static import serve_file
+from decorator import decorator
 from ws4py import WS_VERSION
-from ws4py.websocket import WebSocket
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
+from ws4py.websocket import WebSocket
+
 from bus.dbus_events import DBusEvents
+from gateway.observer import Event
 from master.master_communicator import InMaintenanceModeException
-from serial_utils import CommunicationTimedOutException
 from platform_utils import System
+from serial_utils import CommunicationTimedOutException
 
 try:
     import json
@@ -189,11 +192,11 @@ def _openmotics_api(f, *args, **kwargs):
         status = 503
         data = {'success': False, 'msg': 'maintenance_mode'}
     except CommunicationTimedOutException:
-        LOGGER.error('Communication timeout during API call {0}'.format(f.__name__))
+        LOGGER.error('Communication timeout during API call %s', f.__name__)
         status = 200
         data = {'success': False, 'msg': 'Internal communication timeout'}
     except Exception as ex:
-        LOGGER.exception('Unexpected error during API call {0}'.format(f.__name__))
+        LOGGER.exception('Unexpected error during API call %s', f.__name__)
         status = 200
         data = {'success': False, 'msg': str(ex)}
     timings['process'] = ('Processing', time.time() - start)
@@ -340,9 +343,7 @@ class MetricsSocket(OMSocket):
         _ = args, kwargs
         client_id = self.metadata['client_id']
         cherrypy.engine.publish('remove-metrics-receiver', client_id)
-        self.metadata['interface'].metrics_collector.set_websocket_interval(client_id,
-                                                                            self.metadata['metric_type'],
-                                                                            None)
+        self.metadata['interface'].metrics_collector.set_websocket_interval(client_id, self.metadata['metric_type'], None)
 
 
 class EventsSocket(OMSocket):
@@ -362,21 +363,25 @@ class EventsSocket(OMSocket):
         cherrypy.engine.publish('remove-events-receiver', client_id)
 
     def received_message(self, message):
-        allowed_types = ['OUTPUT_CHANGE', 'THERMOSTAT_CHANGE', 'SHUTTER_CHANGE', 'INPUT_TRIGGER']
+        allowed_types = [Event.Types.OUTPUT_CHANGE,
+                         Event.Types.THERMOSTAT_CHANGE,
+                         Event.Types.THERMOSTAT_GROUP_CHANGE,
+                         Event.Types.SHUTTER_CHANGE,
+                         Event.Types.INPUT_TRIGGER]
         try:
             data = msgpack.loads(message.data)
-            if data.get('type') == 'ACTION':
-                if data['data']['action'] == 'set_subscription':
-                    subscribed_types = [stype for stype in data['data']['types'] if stype in allowed_types]
+            event = Event.deserialize(data)
+            if event.type == Event.Types.ACTION:
+                if event.data['action'] == 'set_subscription':
+                    subscribed_types = [stype for stype in event.data['types'] if stype in allowed_types]
                     cherrypy.engine.publish('update-events-receiver',
                                             self.metadata['client_id'],
                                             {'subscribed_types': subscribed_types})
-            elif data.get('type') == 'PING':
-                self.send(msgpack.dumps({'type': 'PONG',
-                                         'data': time.time()}), binary=True)
-
+            elif event.type == Event.Types.PING:
+                self.send(msgpack.dumps(Event(event_type=Event.Types.PONG,
+                                              data=None).serialize()), binary=True)
         except Exception as ex:
-            LOGGER.exception('Error receiving message: {0}'.format(ex))
+            LOGGER.exception('Error receiving message: %s',ex)
             # pass  # Ignore malformed data processing; in that case there's nothing that will happen
 
 
@@ -421,7 +426,7 @@ class WebInterface(object):
     def distribute_metric(self, metric):
         try:
             answers = cherrypy.engine.publish('get-metrics-receivers')
-            if len(answers) == 0:
+            if not answers:
                 return
             receivers = answers.pop()
             for client_id in receivers.keys():
@@ -438,16 +443,16 @@ class WebInterface(object):
                 except cherrypy.HTTPError as ex:  # As might be caught from the `check_token` function
                     receiver_info['socket'].close(ex.code, ex.message)
                 except Exception as ex:
-                    LOGGER.error('Failed to distribute metrics to WebSocket: {0}'.format(ex))
+                    LOGGER.error('Failed to distribute metrics to WebSocket: %s', ex)
                     cherrypy.engine.publish('remove-metrics-receiver', client_id)
         except Exception as ex:
-            LOGGER.error('Failed to distribute metrics to WebSockets: {0}'.format(ex))
+            LOGGER.error('Failed to distribute metrics to WebSockets: %s', ex)
 
     def process_observer_event(self, event):
         """ Processes an observer event, pushing it forward to the event websocket """
         try:
             answers = cherrypy.engine.publish('get-events-receivers')
-            if len(answers) == 0:
+            if not answers:
                 return
             receivers = answers.pop()
             for client_id in receivers.keys():
@@ -455,18 +460,18 @@ class WebInterface(object):
                 if receiver_info is None:
                     continue
                 try:
-                    if event['type'] not in receiver_info['subscribed_types']:
+                    if event.type not in receiver_info['subscribed_types']:
                         continue
                     if cherrypy.request.remote.ip != '127.0.0.1' and not self._user_controller.check_token(receiver_info['token']):
                         raise cherrypy.HTTPError(401, 'invalid_token')
-                    receiver_info['socket'].send(msgpack.dumps(event), binary=True)
+                    receiver_info['socket'].send(msgpack.dumps(event.serialize()), binary=True)
                 except cherrypy.HTTPError as ex:  # As might be caught from the `check_token` function
                     receiver_info['socket'].close(ex.code, ex.message)
                 except Exception as ex:
-                    LOGGER.error('Failed to distribute events to WebSocket: {0}'.format(ex))
+                    LOGGER.error('Failed to distribute events to WebSocket: %s', ex)
                     cherrypy.engine.publish('remove-events-receiver', client_id)
         except Exception as ex:
-            LOGGER.error('Failed to distribute events to WebSockets: {0}'.format(ex))
+            LOGGER.error('Failed to distribute events to WebSockets: %s', ex)
 
     def set_plugin_controller(self, plugin_controller):
         """
@@ -1029,7 +1034,7 @@ class WebInterface(object):
         :rtype: dict
         """
         data = backup_data.file.read()
-        if len(data) == 0:
+        if not data:
             raise RuntimeError('backup_data is empty')
         return self._gateway_api.restore_full_backup(data)
 
@@ -2137,7 +2142,7 @@ class WebInterface(object):
         if len(command) != 3:
             raise ValueError('Command should be 3 chars, got "%s"' % command)
 
-        if data is not None and len(data) > 0:
+        if data:
             bdata = [int(c) for c in data.split(",")]
         else:
             bdata = []
@@ -2154,7 +2159,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.10.0'}
+                'gateway': '2.10.3'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
@@ -2419,7 +2424,7 @@ class WebInterface(object):
             state = self._dbus_service.get_state('vpn_service', {})
             health['vpn_service'] = {'state': state.get('last_cycle', 0) > time.time() - 300}
         except Exception as ex:
-            LOGGER.error('Error loading vpn_service health: {0}'.format(ex))
+            LOGGER.error('Error loading vpn_service health: %s', ex)
             health['vpn_service'] = {'state': False}
         try:
             state = self._dbus_service.get_state('led_service', {})
@@ -2428,7 +2433,7 @@ class WebInterface(object):
                 state_ok = state_ok and (state.get(run, 0) > time.time() - 5)
             health['led_service'] = {'state': state_ok}
         except Exception as ex:
-            LOGGER.error('Error loading led_service health: {0}'.format(ex))
+            LOGGER.error('Error loading led_service health: %s', ex)
             health['led_service'] = {'state': False}
         return {'health': health,
                 'health_version': 1.0}

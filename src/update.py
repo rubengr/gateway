@@ -93,7 +93,7 @@ def main():
 
         try:
             output = update(version, md5_sum)
-        except:
+        except Exception:
             error = traceback.format_exc()
         finally:
             with open(get_update_output_file(), 'w') as update_output_file:

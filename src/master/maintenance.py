@@ -17,13 +17,12 @@ The maintenance module contains the MaintenanceService class.
 """
 
 import logging
-LOGGER = logging.getLogger('openmotics')
-
 import threading
 import traceback
 import socket
 from platform_utils import System
 from master_communicator import InMaintenanceModeException
+LOGGER = logging.getLogger('openmotics')
 
 
 class MaintenanceService(object):
@@ -64,7 +63,7 @@ class MaintenanceService(object):
         Run the maintenance service, accepts a connection. Starts a serial
         redirector when a connection is accepted.
         """
-        LOGGER.info('Starting maintenance socket on port ' + str(port))
+        LOGGER.info('Starting maintenance socket on port %s', port)
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.settimeout(connection_timeout)
@@ -157,7 +156,7 @@ class SerialRedirector(object):
                         continue
                     else:
                         break
-            except:
+            except Exception:
                 LOGGER.error('Exception in maintenance mode: %s\n', traceback.format_exc())
                 break
 
@@ -171,7 +170,7 @@ class SerialRedirector(object):
                 data = self.__gateway_api.get_maintenance_data()
                 if data:
                     self.__connection.sendall(data)
-            except:
+            except Exception:
                 LOGGER.error('Exception in maintenance mode: %s\n', traceback.format_exc())
                 break
 
