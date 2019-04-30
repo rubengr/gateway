@@ -290,7 +290,10 @@ class VPNService(object):
             for _ in xrange(timeout):
                 time.sleep(1)
                 if p.poll() is not None:
-                    return p.communicate()
+                    stdout_data, stderr_data = p.communicate()
+                    if p.returncode == 0:
+                        return True
+                    raise Exception('stdout: {0}, stderr: {1}'.format(stdout_data, stderr_data))
             p.kill()
             return False
 
@@ -298,8 +301,7 @@ class VPNService(object):
             LOGGER.log("Testing ping to {0}".format(target))
         try:
             # Ping returns status code 0 if at least 1 ping is successful
-            popen_timeout(["ping", "-c", "3", target], 10)
-            return True
+            return popen_timeout(["ping", "-c", "3", target], 10)
         except Exception as ex:
             LOGGER.log("Error during ping: {0}".format(ex))
             return False
@@ -419,7 +421,6 @@ class VPNService(object):
                     # to reset the BeagleBone.
                     reboot_gateway()
             self._iterations += 1
-
             # Open or close the VPN
             self._set_vpn(feedback['open_vpn'])
 
