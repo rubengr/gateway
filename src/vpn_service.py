@@ -323,7 +323,8 @@ class VPNService(object):
                     stdout_data, stderr_data = p.communicate()
                     if p.returncode == 0:
                         return True
-                    raise Exception('stdout: {0}, stderr: {1}'.format(stdout_data, stderr_data))
+                    raise Exception('Non-zero exit code. Stdout: {0}, stderr: {1}'.format(stdout_data, stderr_data))
+            LOGGER.log('Got timeout during ping')
             p.kill()
             return False
 
