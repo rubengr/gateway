@@ -204,6 +204,7 @@ class MetricsController(object):
                     self._persist_counters.setdefault(plugin, {})[definition['type']] = settings['persist']
                     self._buffer_counters.setdefault(plugin, {})[definition['type']] = settings['buffer']
         for source in self.definitions.keys():
+            # Remove plugins from the self.definitions dict that are not found anymore
             if source != 'OpenMotics' and source not in expected_plugins:
                 self.definitions.pop(source, None)
                 self._persist_counters.pop(source, None)

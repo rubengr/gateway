@@ -35,6 +35,7 @@ def _load_webinterface():
 
 
 class WebInterfaceDispatcher(object):
+    # TODO: Use SDK in the future
 
     def __init__(self, logger, hostname='localhost', port=80):
         self.__logger = logger

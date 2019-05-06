@@ -16,18 +16,18 @@
 Tests for plugins.base.
 """
 
-import unittest
-import xmlrunner
+import inspect
 import os
-import shutil
-import time
 import plugins
 import plugin_runtime
+import shutil
+import time
+import unittest
+import xmlrunner
 from plugin_runtime.base import PluginConfigChecker, PluginException
 
 BASE_PATH = os.path.dirname(plugins.__file__)
 RUNTIME_PATH = os.path.dirname(plugin_runtime.__file__)
-
 
 
 class PluginControllerTest(unittest.TestCase):
@@ -500,6 +500,31 @@ class PluginConfigCheckerTest(unittest.TestCase):
             {'name': 'log_outputs', 'type': 'bool', 'description': 'Log the output data.'}
         ])
         checker.check_config({'log_inputs': True, 'log_outputs': False})
+
+    def test_load_webinterface(self):
+        """ Tests whether the webinterface.py parsing works as expected """
+        from plugin_runtime import web
+        from gateway.webservice import WebInterface
+        found_calls = web._load_webinterface()
+
+        ramaining_methods = found_calls.keys()
+        for method_info in inspect.getmembers(WebInterface, predicate=lambda m: inspect.ismethod(m)):
+            method = method_info[1]
+            method_name = method.__name__
+            call_info = found_calls.get(method_name)
+            if not hasattr(method, 'plugin_exposed'):
+                # Not an @openmotics_api call
+                self.assertIsNone(call_info, 'An unexpected call was exposed to the plugins: {0}'.format(method_name))
+                continue
+            if method.plugin_exposed is False or method.deprecated is True:
+                self.assertIsNone(call_info, 'An unexpected call was exposed to the plugins: {0}'.format(method_name))
+                continue
+            self.assertIsNotNone(call_info, 'Expected call was not exposed to plugins: {0}'.format(method_name))
+            arg_spec = inspect.getargspec(method)
+            self.assertEquals(arg_spec.args[0], 'self')
+            self.assertEquals(arg_spec.args[1:], call_info)
+            ramaining_methods.remove(method_name)
+        self.assertEqual(ramaining_methods, [])
 
 
 if __name__ == "__main__":

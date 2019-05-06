@@ -80,7 +80,7 @@ def error_generic(status, message, *args, **kwargs):
 
 def error_unexpected():
     cherrypy.response.headers["Content-Type"] = "application/json"
-    cherrypy.response.status = 500
+    cherrypy.response.status = 500  # Internal Server Error
     return json.dumps({"success": False, "msg": "unknown_error"})
 
 
@@ -116,7 +116,7 @@ def params_handler(**kwargs):
         params_parser(request.params, kwargs)
     except ValueError:
         cherrypy.response.headers['Content-Type'] = 'application/json'
-        cherrypy.response.status = 406
+        cherrypy.response.status = 406  # No Acceptable
         cherrypy.response.body = json.dumps({'success': False,
                                              'msg': 'invalid_parameters'})
         request.handler = None
@@ -166,7 +166,7 @@ def authentication_handler(pass_token=False):
             request.params['token'] = token
     except Exception:
         cherrypy.response.headers['Content-Type'] = 'application/json'
-        cherrypy.response.status = 401
+        cherrypy.response.status = 401  # Unauthorized
         cherrypy.response.body = '"invalid_token"'
         request.handler = None
 
@@ -181,7 +181,7 @@ cherrypy.tools.params = cherrypy.Tool('before_handler', params_handler)
 def _openmotics_api(f, *args, **kwargs):
     start = time.time()
     timings = {}
-    status = 200
+    status = 200  # OK
     try:
         return_data = f(*args, **kwargs)
         data = limit_floats(dict({'success': True}.items() + return_data.items()))
@@ -189,15 +189,15 @@ def _openmotics_api(f, *args, **kwargs):
         status = ex.status
         data = {'success': False, 'msg': ex._message}
     except InMaintenanceModeException:
-        status = 503
+        status = 503  # Service Unavailable
         data = {'success': False, 'msg': 'maintenance_mode'}
     except CommunicationTimedOutException:
         LOGGER.error('Communication timeout during API call %s', f.__name__)
-        status = 200
+        status = 200  # OK
         data = {'success': False, 'msg': 'Internal communication timeout'}
     except Exception as ex:
         LOGGER.exception('Unexpected error during API call %s', f.__name__)
-        status = 200
+        status = 200  # OK
         data = {'success': False, 'msg': str(ex)}
     timings['process'] = ('Processing', time.time() - start)
     serialization_start = time.time()
