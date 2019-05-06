@@ -80,7 +80,7 @@ def error_generic(status, message, *args, **kwargs):
 
 def error_unexpected():
     cherrypy.response.headers["Content-Type"] = "application/json"
-    cherrypy.response.status = 500
+    cherrypy.response.status = 500  # Internal Server Error
     return json.dumps({"success": False, "msg": "unknown_error"})
 
 
@@ -95,13 +95,16 @@ def params_parser(params, param_types):
         value = params[key]
         if value is None:
             continue
-        if isinstance(value, basestring) and value.lower() in ['null', 'none']:
+        if isinstance(value, basestring) and value.lower() in ['null', 'none', '']:
             params[key] = None
         else:
             if param_types[key] == bool:
                 params[key] = str(value).lower() not in ['false', '0', '0.0', 'no']
             elif param_types[key] == 'json':
                 params[key] = json.loads(value)
+            elif param_types[key] == int:
+                # Double convertion. Params come in as strings, and int('0.0') fails, while int(float('0.0')) works as expected
+                params[key] = int(float(value))
             else:
                 params[key] = param_types[key](value)
 
@@ -113,8 +116,9 @@ def params_handler(**kwargs):
         params_parser(request.params, kwargs)
     except ValueError:
         cherrypy.response.headers['Content-Type'] = 'application/json'
-        cherrypy.response.status = 406
-        cherrypy.response.body = '"invalid_parameters"'
+        cherrypy.response.status = 406  # No Acceptable
+        cherrypy.response.body = json.dumps({'success': False,
+                                             'msg': 'invalid_parameters'})
         request.handler = None
 
 
@@ -162,7 +166,7 @@ def authentication_handler(pass_token=False):
             request.params['token'] = token
     except Exception:
         cherrypy.response.headers['Content-Type'] = 'application/json'
-        cherrypy.response.status = 401
+        cherrypy.response.status = 401  # Unauthorized
         cherrypy.response.body = '"invalid_token"'
         request.handler = None
 
@@ -177,7 +181,7 @@ cherrypy.tools.params = cherrypy.Tool('before_handler', params_handler)
 def _openmotics_api(f, *args, **kwargs):
     start = time.time()
     timings = {}
-    status = 200
+    status = 200  # OK
     try:
         return_data = f(*args, **kwargs)
         data = limit_floats(dict({'success': True}.items() + return_data.items()))
@@ -185,15 +189,15 @@ def _openmotics_api(f, *args, **kwargs):
         status = ex.status
         data = {'success': False, 'msg': ex._message}
     except InMaintenanceModeException:
-        status = 503
+        status = 503  # Service Unavailable
         data = {'success': False, 'msg': 'maintenance_mode'}
     except CommunicationTimedOutException:
         LOGGER.error('Communication timeout during API call %s', f.__name__)
-        status = 200
+        status = 200  # OK
         data = {'success': False, 'msg': 'Internal communication timeout'}
     except Exception as ex:
         LOGGER.exception('Unexpected error during API call %s', f.__name__)
-        status = 200
+        status = 200  # OK
         data = {'success': False, 'msg': str(ex)}
     timings['process'] = ('Processing', time.time() - start)
     serialization_start = time.time()
@@ -470,7 +474,11 @@ class WebInterface(object):
             LOGGER.error('Failed to distribute events to WebSockets: %s', ex)
 
     def set_plugin_controller(self, plugin_controller):
-        """ Set the plugin controller. """
+        """
+        Set the plugin controller.
+
+        :type plugin_controller: plugins.base.PluginController
+        """
         self._plugin_controller = plugin_controller
 
     def set_metrics_collector(self, metrics_collector):
@@ -647,10 +655,11 @@ class WebInterface(object):
         Returns all available features this Gateway supports. This allows to make flexible clients
         """
         return {'features': [
-            'metrics',        # Advanced metrics (including metrics over websockets)
-            'dirty_flag',     # A dirty flag that can be used to trigger syncs on power & master
-            'scheduling',     # Gateway backed scheduling
-            'factory_reset',  # The gateway can be complete reset to factory standard
+            'metrics',           # Advanced metrics (including metrics over websockets)
+            'dirty_flag',        # A dirty flag that can be used to trigger syncs on power & master
+            'scheduling',        # Gateway backed scheduling
+            'factory_reset',     # The gateway can be complete reset to factory standard
+            'isolated_plugins',  # Plugins run in a separate process, so allow fine-graded control
         ]}
 
     @openmotics_api(auth=True, check=types(type=int, id=int))
@@ -2295,8 +2304,10 @@ class WebInterface(object):
         :rtype: dict
         """
         plugins = self._plugin_controller.get_plugins()
-        ret = [{'name': p.name, 'version': p.version, 'interfaces': p.interfaces}
-               for p in plugins]
+        ret = [{'name': p.name,
+                'version': p.version,
+                'interfaces': p.interfaces,
+                'status': 'RUNNING' if p.is_running() else 'STOPPED'} for p in plugins]
         return {'plugins': ret}
 
     @openmotics_api(auth=True, plugin_exposed=False)
@@ -2321,7 +2332,7 @@ class WebInterface(object):
         :param package_data: a tgz file containing the content of the plugin package.
         :type package_data: multipart/form-data encoded byte string.
         """
-        return self._plugin_controller.install_plugin(md5, package_data.file.read())
+        return {'msg': self._plugin_controller.install_plugin(md5, package_data.file.read())}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def remove_plugin(self, name):
@@ -2332,6 +2343,22 @@ class WebInterface(object):
         :type name: str
         """
         return self._plugin_controller.remove_plugin(name)
+
+    @openmotics_api(auth=True, plugin_exposed=False)
+    def stop_plugin(self, name):
+        """
+        Stops a plugin
+        """
+        running = self._plugin_controller.stop_plugin(name)
+        return {'status': 'RUNNING' if running else 'STOPPED'}
+
+    @openmotics_api(auth=True, plugin_exposed=False)
+    def start_plugin(self, name):
+        """
+        Starts a plugin
+        """
+        running = self._plugin_controller.start_plugin(name)
+        return {'status': 'RUNNING' if running else 'STOPPED'}
 
     @openmotics_api(auth=True, check=types(settings='json'), plugin_exposed=False)
     def get_settings(self, settings):
@@ -2447,12 +2474,14 @@ class WebService(object):
         self._config_controller = config_controller
         self._https_server = None
         self._http_server = None
+        self._running = False
         if not verbose:
             logging.getLogger("cherrypy").propagate = False
 
     def run(self):
         """ Run the web service: start cherrypy. """
         try:
+            LOGGER.info('Starting webserver...')
             OMPlugin(cherrypy.engine).subscribe()
             cherrypy.tools.websocket = OMSocketTool()
 
@@ -2468,7 +2497,7 @@ class WebService(object):
                             'tools.cors.on': self._config_controller.get_setting('cors_enabled', False),
                             'tools.sessions.on': False}}
 
-            cherrypy.tree.mount(self._webinterface,
+            cherrypy.tree.mount(root=self._webinterface,
                                 config=config)
 
             cherrypy.config.update({'engine.autoreload.on': False})
@@ -2492,7 +2521,11 @@ class WebService(object):
             cherrypy.engine.autoreload_on = False
 
             cherrypy.engine.start()
+            self._running = True
+            LOGGER.info('Starting webserver... Done')
             cherrypy.engine.block()
+            LOGGER.info('Webserver stopped')
+            self._running = False
         except Exception:
             LOGGER.exception("Could not start webservice. Dying...")
             sys.exit(1)
@@ -2504,10 +2537,19 @@ class WebService(object):
         thread.daemon = True
         thread.start()
 
-    def stop(self):
+    def stop(self, timeout=1):
         """ Stop the web service. """
+        LOGGER.info('Stopping webserver...')
         cherrypy.engine.exit()  # Shutdown the cherrypy server: no new requests
-        if self._https_server is not None:
-            self._https_server.stop()
-        if self._http_server is not None:
-            self._http_server.stop()
+        start = time.time()
+        while self._running and time.time() - start < timeout:
+            time.sleep(0.1)
+        LOGGER.info('Stopping webserver... Done')
+
+    def update_tree(self, mounts):
+        self._http_server.stop()
+        self._https_server.stop()
+        for mount in mounts:
+            cherrypy.tree.mount(**mount)
+        self._http_server.start()
+        self._https_server.start()
