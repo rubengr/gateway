@@ -2536,6 +2536,10 @@ class WebService(object):
         thread.setName("Web service thread")
         thread.daemon = True
         thread.start()
+        counter = 20
+        while self._running is False and counter > 0:
+            time.sleep(0.5)
+            counter -= 1
 
     def stop(self, timeout=1):
         """ Stop the web service. """
