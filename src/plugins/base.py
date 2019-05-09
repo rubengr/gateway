@@ -191,7 +191,7 @@ class PluginController(object):
         hasher.update(package_data)
         calculated_md5 = hasher.hexdigest()
 
-        if calculated_md5 != md5:
+        if calculated_md5 != md5.strip():
             raise Exception('The provided md5sum ({0}) does not match the actual md5 of the package data ({1}).'.format(md5, calculated_md5))
 
         tmp_dir = mkdtemp()
