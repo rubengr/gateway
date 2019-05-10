@@ -92,14 +92,8 @@ class IoTest(OMTestCase):
             self.tools.initialisation_success = False
             self.fail('response was not none but not expected: {0}'.format(response_dict))
 
-        self.assertTrue(len(response_dict['outputs']) == 2, 'Expected 2 outputs discovered. Got: {0}'.format(len(response_dict)))
-        self.assertTrue(len(response_dict['inputs']) == 3, 'Expected 3 inputs discovered. Got: {0}'.format(len(response_dict)))
-
-        self.assertTrue('O' in response_dict['outputs'], 'No Output module found. Got: {0}'.format(response_dict))
-        self.assertTrue('D' in response_dict['outputs'], 'No Dimmer module found. Got: {0}'.format(response_dict))
-        self.assertTrue('I' in response_dict['inputs'], 'No Input module found. Got: {0}'.format(response_dict))
-        self.assertTrue('T' in response_dict['inputs'], 'No Temperature module found. Got: {0}'.format(response_dict))
-        self.assertTrue('C' in response_dict['inputs'], 'No CAN module found. Got: {0}'.format(response_dict))
+        self.assertEquals(sorted(response_dict['outputs']), ['D', 'O'])
+        self.assertEquals(sorted(response_dict['inputs']), ['C', 'I', 'T'])
 
     @exception_handler
     def test_discovery_authorization(self):
