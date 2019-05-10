@@ -73,10 +73,11 @@ class IoTest(OMTestCase):
         response_dict = self.tools.api_testee(api='module_discover_status', token=self.token)
         self.assertEqual(response_dict.get('running'), True, 'Should be true to indicate discovery mode has started.')
 
-        # The initializer test will discover all modules by default but it's skippable.
-        # discovery test's default behaviour will remain.
         self.tools.human_click(toolbox.DISCOVER_TESTEE_OUTPUT_ID, True, self.webinterface)
         self.tools.human_click(toolbox.DISCOVER_TESTEE_INPUT_ID, True, self.webinterface)
+        self.tools.human_click(toolbox.DISCOVER_TESTEE_DIMMER_ID, True, self.webinterface)
+        self.tools.human_click(toolbox.DISCOVER_TESTEE_TEMPERATURE_ID, True, self.webinterface)
+        self.tools.human_click(toolbox.DISCOVER_TESTEE_CAN_ID, True, self.webinterface)
 
         self.tools.api_testee(api='module_discover_stop', token=self.token)
         response_dict = self.tools.api_testee(api='module_discover_status', token=self.token)
@@ -85,12 +86,20 @@ class IoTest(OMTestCase):
         response_dict = self.tools.api_testee(api='get_modules', token=self.token)
         if response_dict is None:
             self.tools.discovery_success = False
-        if len(response_dict.get('outputs', [])) != 1 or len(response_dict.get('inputs', [])) != 1:
-            self.assertTrue(len(response_dict.get('outputs', [])) == 2, 'Expected 2 outputs discovered. Got: {0}'.format(len(response_dict.get('outputs'))))
-            self.assertTrue(len(response_dict.get('inputs', [])) == 3, 'Expected 3 inputs discovered. Got: {0}'.format(len(response_dict.get('inputs'))))
-        else:
-            self.assertTrue(len(response_dict.get('outputs', [])) == 1, 'Should be true to indicate that the testee has only 1 output module.')
-            self.assertTrue(len(response_dict.get('inputs', [])) == 1, 'Should be true to indicate that the testee has only 1 input module.')
+
+        if not ('outputs' in response_dict and 'inputs' in response_dict):
+            self.tools.discovery_success = False
+            self.tools.initialisation_success = False
+            self.fail('response was not none but not expected: {0}'.format(response_dict))
+
+        self.assertTrue(len(response_dict['outputs']) == 2, 'Expected 2 outputs discovered. Got: {0}'.format(len(response_dict)))
+        self.assertTrue(len(response_dict['inputs']) == 3, 'Expected 3 inputs discovered. Got: {0}'.format(len(response_dict)))
+
+        self.assertTrue('O' in response_dict['outputs'], 'No Output module found. Got: {0}'.format(response_dict))
+        self.assertTrue('D' in response_dict['outputs'], 'No Dimmer module found. Got: {0}'.format(response_dict))
+        self.assertTrue('I' in response_dict['inputs'], 'No Input module found. Got: {0}'.format(response_dict))
+        self.assertTrue('T' in response_dict['inputs'], 'No Temperature module found. Got: {0}'.format(response_dict))
+        self.assertTrue('C' in response_dict['inputs'], 'No CAN module found. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_discovery_authorization(self):
@@ -269,13 +278,10 @@ class IoTest(OMTestCase):
 
         if response_dict is None:
             self.tools.healthy_status = False
-            self.fail(
-                'Failed to report health check. Service openmotics might have crashed. Please run \'supervisorctl restart openmotics\' or see logs for more details.')
+            self.fail('Failed to report health check. Service openmotics might have crashed. Please run \'supervisorctl restart openmotics\' or see logs for more details.')
 
-        self.assertIsNotNone(response_dict,
-                             'Should not be none and should have the response back from the API call. Got: {0}'.format(response_dict))
-        self.assertTrue(response_dict.get('health_version') > 0,
-                        'Should have a health_version int to indicate the health check API version.')
+        self.assertIsNotNone(response_dict, 'Should not be none and should have the response back from the API call. Got: {0}'.format(response_dict))
+        self.assertTrue(response_dict.get('health_version') > 0, 'Should have a health_version int to indicate the health check API version.')
 
         health = response_dict.get('health', None)
         self.assertIsNotNone(health, 'Should not be none and should have health dict object. Got: {0}'.format(health))
