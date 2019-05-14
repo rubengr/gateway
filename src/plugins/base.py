@@ -56,7 +56,7 @@ class PluginController(object):
             LOGGER.error('The PluginController is already running')
 
     def stop(self):
-        for runner_name in self.__runners:
+        for runner_name in self.__runners.keys():
             self.__destroy_plugin_runner(runner_name)
         self.__stopped = True
 
