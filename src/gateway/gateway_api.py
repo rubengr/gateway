@@ -1356,7 +1356,8 @@ class GatewayApi(object):
         return output
 
     def master_restore(self, data):
-        """ Restore a backup of the eeprom of the master.
+        """
+        Restore a backup of the eeprom of the master.
 
         :param data: The eeprom backup to restore.
         :type data: string of bytes (size = 64 kb).
@@ -1381,6 +1382,7 @@ class GatewayApi(object):
 
         self.__master_communicator.do_command(master_api.activate_eeprom(), {'eep': 0})
         ret.append('Activated eeprom')
+        self.__eeprom_controller.invalidate_cache()
 
         return {'output': ret}
 
