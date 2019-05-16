@@ -1332,16 +1332,27 @@ class GatewayApi(object):
             threading.Timer(1, lambda: os._exit(0)).start()
 
     def get_master_backup(self):
-        """ Get a backup of the eeprom of the master.
+        """
+        Get a backup of the eeprom of the master.
 
         :returns: String of bytes (size = 64kb).
         """
+        retry = None
         output = ""
-        for bank in range(0, 256):
-            output += self.__master_communicator.do_command(
-                master_api.eeprom_list(),
-                {'bank': bank}
-            )['data']
+        bank = 0
+        while bank < 256:
+            try:
+                output += self.__master_communicator.do_command(
+                    master_api.eeprom_list(),
+                    {'bank': bank}
+                )['data']
+                bank += 1
+            except CommunicationTimedOutException:
+                if retry == bank:
+                    raise
+                retry = bank
+                LOGGER.warning('Got timeout reading bank {0}. Retrying...'.format(bank))
+                time.sleep(2)  # Doing heavy reads on eeprom can exhaust the master. Give it a bit room to breathe.
         return output
 
     def master_restore(self, data):
