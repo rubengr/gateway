@@ -571,8 +571,8 @@ class GatewayApi(object):
         for shutter in range(mods['shutter']):
             shutters.append('S')
 
-        if len(can_inputs) > 0 and 'C' not in inputs:
-            inputs.append('C')  # First CAN enabled installations didn't had this in the eeprom yet
+        if len(can_inputs) > 0 and 'C' not in can_inputs:
+            can_inputs.append('C')  # First CAN enabled installations didn't had this in the eeprom yet
 
         return {'outputs': outputs, 'inputs': inputs, 'shutters': shutters, 'can_inputs': can_inputs}
 
