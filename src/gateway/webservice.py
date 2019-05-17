@@ -662,6 +662,14 @@ class WebInterface(object):
         return self._gateway_api.get_modules()
 
     @openmotics_api(auth=True)
+    def get_modules_information(self):
+        """
+        Gets an overview of all modules and information
+        :return: Dict containing information per address
+        """
+        return {'modules': self._gateway_api.get_modules_information()}
+
+    @openmotics_api(auth=True)
     def get_features(self):
         """
         Returns all available features this Gateway supports. This allows to make flexible clients
