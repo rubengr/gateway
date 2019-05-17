@@ -675,11 +675,6 @@ class WebInterface(object):
         Returns all available features this Gateway supports. This allows to make flexible clients
         """
         return {'features': [
-
-            'metrics',              # Advanced metrics (including metrics over websockets)
-            'dirty_flag',           # A dirty flag that can be used to trigger syncs on power & master
-            'scheduling',           # Gateway backed scheduling
-            'factory_reset',        # The gateway can be complete reset to factory standard
             'metrics',              # Advanced metrics (including metrics over websockets)
             'dirty_flag',           # A dirty flag that can be used to trigger syncs on power & master
             'scheduling',           # Gateway backed scheduling
