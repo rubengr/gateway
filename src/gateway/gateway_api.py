@@ -302,6 +302,14 @@ class GatewayApi(object):
             )
             write = True
 
+        if eeprom_data[13] != chr(0):
+            LOGGER.info('Configure master startup mode to: API')
+            self.__master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 13, 'data': chr(0)}
+            )
+            write = True
+
         if write:
             self.__master_communicator.do_command(master_api.activate_eeprom(), {'eep': 0})
         self.set_master_status_leds(True)
