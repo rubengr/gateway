@@ -195,6 +195,34 @@ class Gateway(object):
         diff = current - previous
         return diff if diff >= 0 else 65536 - previous + current
 
+    def get_enabled_outputs(self):
+        """ Get the enabled outputs. """
+        data = self.do_call("get_output_status?token=None")
+        if data is not None and data['success']:
+            ret = []
+            for output in data['status']:
+                if output["status"] == 1:
+                    ret.append((output["id"], output["dimmer"]))
+            return ret
+        return
+
+    def get_thermostats(self):
+        """ Fetch the setpoints for the enabled thermostats from the webservice. """
+        data = self.do_call("get_thermostat_status?token=None")
+        if data is None or data['success'] is False:
+            return None
+        ret = {'thermostats_on': data['thermostats_on'],
+               'automatic': data['automatic'],
+               'cooling': data['cooling']}
+        thermostats = []
+        for thermostat in data['status']:
+            to_add = {}
+            for field in ['id', 'act', 'csetp', 'mode', 'output0', 'output1', 'outside', 'airco']:
+                to_add[field] = thermostat[field]
+            thermostats.append(to_add)
+        ret['status'] = thermostats
+        return ret
+
     def get_errors(self):
         """ Get the errors on the gateway. """
         data = self.do_call("get_errors?token=None")
@@ -272,7 +300,9 @@ class VPNService(object):
                             self._dbus_service,
                             self._config_controller)
 
-        self._collectors = {'pulses': DataCollector(self._gateway.get_pulse_counter_diff, 60),
+        self._collectors = {'thermostats': DataCollector(self._gateway.get_thermostats, 60),
+                            'outputs': DataCollector(self._gateway.get_enabled_outputs),
+                            'pulses': DataCollector(self._gateway.get_pulse_counter_diff, 60),
                             'power': DataCollector(self._gateway.get_real_time_power),
                             'errors': DataCollector(self._gateway.get_errors, 600),
                             'local_ip': DataCollector(self._gateway.get_local_ip_address, 1800)}
@@ -290,7 +320,11 @@ class VPNService(object):
             for _ in xrange(timeout):
                 time.sleep(1)
                 if p.poll() is not None:
-                    return p.communicate()
+                    stdout_data, stderr_data = p.communicate()
+                    if p.returncode == 0:
+                        return True
+                    raise Exception('Non-zero exit code. Stdout: {0}, stderr: {1}'.format(stdout_data, stderr_data))
+            LOGGER.log('Got timeout during ping')
             p.kill()
             return False
 
@@ -298,8 +332,7 @@ class VPNService(object):
             LOGGER.log("Testing ping to {0}".format(target))
         try:
             # Ping returns status code 0 if at least 1 ping is successful
-            popen_timeout(["ping", "-c", "3", target], 10)
-            return True
+            return popen_timeout(["ping", "-c", "3", target], 10)
         except Exception as ex:
             LOGGER.log("Error during ping: {0}".format(ex))
             return False
@@ -419,7 +452,6 @@ class VPNService(object):
                     # to reset the BeagleBone.
                     reboot_gateway()
             self._iterations += 1
-
             # Open or close the VPN
             self._set_vpn(feedback['open_vpn'])
 

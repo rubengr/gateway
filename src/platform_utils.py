@@ -138,9 +138,12 @@ class System(object):
         return 'openvpn.service' if System._get_operating_system()['ID'] == 'angstrom' else 'openvpn-client@omcloud'
 
     @staticmethod
+    def _use_pyopenssl():
+        return System._get_operating_system()['ID'] == 'angstrom'
+
+    @staticmethod
     def get_ssl_socket(sock, private_key_filename, certificate_filename):
-        operating_system = System._get_operating_system()
-        if operating_system['ID'] == 'angstrom':
+        if System._use_pyopenssl():
             from OpenSSL import SSL
             context = SSL.Context(SSL.SSLv23_METHOD)
             context.use_privatekey_file(private_key_filename)
@@ -156,8 +159,7 @@ class System(object):
 
     @staticmethod
     def setup_cherrypy_ssl(https_server, private_key_filename, certificate_filename):
-        operating_system = System._get_operating_system()
-        if operating_system['ID'] == 'angstrom':
+        if System._use_pyopenssl():
             https_server.ssl_module = 'pyopenssl'
         else:
             import ssl
@@ -168,8 +170,7 @@ class System(object):
 
     @staticmethod
     def handle_socket_exception(connection, exception, logger):
-        operating_system = System._get_operating_system()
-        if operating_system['ID'] == 'angstrom':
+        if System._use_pyopenssl():
             import select
             from OpenSSL import SSL
             if isinstance(exception, SSL.SysCallError):

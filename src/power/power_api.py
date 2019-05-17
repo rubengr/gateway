@@ -131,9 +131,7 @@ def get_normal_energy(version):
     """ Get the total energy measured by the power module (12x in Wh)
     :param version: power api version (POWER_API_8_PORTS or POWER_API_12_PORTS).
     """
-    if version == POWER_API_8_PORTS:
-        return PowerCommand('G', 'ENO', '', '8L')
-    elif version == POWER_API_12_PORTS:
+    if version == POWER_API_12_PORTS:
         return PowerCommand('G', 'ENE', '', '12L')
     else:
         raise ValueError("Unknown power api version")

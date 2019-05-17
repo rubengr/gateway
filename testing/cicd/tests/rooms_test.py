@@ -15,42 +15,22 @@
 """"
 The rooms_test.py file contains room configuration test methods and other private methods that the tests will use.
 """
-import unittest
 import logging
 from random import randint
 import simplejson as json
-from toolbox import exception_handler
+from toolbox import exception_handler, OMTestCase
 
 
 LOGGER = logging.getLogger('openmotics')
 
 
-class RoomsTest(unittest.TestCase):
+class RoomsTest(OMTestCase):
     """
     The RoomsTest is a test case for room configuration.
     """
-    webinterface = None
-    tools = None
-    token = ''
     FLOOR_NUMBER = 3
     INPUT_COUNT = 8
     ROOM_NUMBER = 5
-
-    @classmethod
-    def setUpClass(cls):
-        if not cls.tools.healthy_status:
-            raise unittest.SkipTest('The Testee is showing an unhealthy status. All tests are skipped.')
-        if not cls.tools.initialisation_success:
-            raise unittest.SkipTest('Unable to initialise the Testee. All tests are skipped.')
-
-    def setUp(self):
-        self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
-        if not self.tools.discovery_success:
-            self.tools.discovery_success = self.tools.assert_discovered(self.token, self.webinterface)
-            if not self.tools.discovery_success:
-                LOGGER.error('Skipped: %s due to discovery failure.', self.id())
-                self.skipTest('Failed to discover modules.')
-        LOGGER.info('Running: %s', self.id())
 
     @exception_handler
     def test_set_output_configurations_rooms_floors(self):

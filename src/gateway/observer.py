@@ -233,11 +233,15 @@ class Observer(object):
         """ Executed by the Output Status tracker when an output changed state """
         self._dbus_service.send_event(DBusEvents.OUTPUT_CHANGE, {'id': output_id})
         for callback in self._event_subscriptions:
-            callback(Event(event_type=Event.Types.OUTPUT_CHANGE,
-                           data={'id': output_id,
-                                 'status': {'on': status['on'],
-                                            'value': status['value']},
-                                 'location': {'room_id': self._output_config[output_id]['room']}}))
+            resp_status = {'on': status['on']}
+            # 1. only add value to status when handling dimmers
+            if self._output_config[output_id]['module_type'] in ['d', 'D']:
+                resp_status['value'] = status['value']
+            # 2. format response data
+            resp_data = {'id': output_id,
+                         'status': resp_status,
+                         'location': {'room_id': self._output_config[output_id]['room']}}
+            callback(Event(event_type=Event.Types.OUTPUT_CHANGE, data=resp_data))
 
     def _refresh_outputs(self):
         """ Refreshes the Output Status tracker """
