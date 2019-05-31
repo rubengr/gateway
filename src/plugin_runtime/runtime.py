@@ -29,7 +29,7 @@ class PluginRuntime:
         self._event_receivers = []
 
         self._name = None
-        self._vesion = None
+        self._version = None
         self._interfaces = []
         self._receivers = []
         self._exposes = []

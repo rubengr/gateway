@@ -14,7 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """ The OpenMotics plugin controller. """
 
-import inspect
 import logging
 import os
 import pkgutil
@@ -34,10 +33,17 @@ LOGGER = logging.getLogger("openmotics")
 class PluginController(object):
     """ The controller keeps track of all plugins in the system. """
 
-    def __init__(self, webinterface, config_controller, runtime_path='/opt/openmotics/python/plugin_runtime'):
+    def __init__(
+        self, webinterface, config_controller,
+        runtime_path='/opt/openmotics/python/plugin_runtime',
+        plugins_path='/opt/openmotics/python/plugins',
+        plugin_config_path='/opt/openmotics/etc'
+    ):
         self.__webinterface = webinterface
         self.__config_controller = config_controller
         self.__runtime_path = runtime_path
+        self.__plugins_path = plugins_path
+        self.__plugin_config_path = plugin_config_path
 
         self.__stopped = True
         self.__logs = {}
@@ -74,8 +80,7 @@ class PluginController(object):
 
     def __init_runners(self):
         """ Scan the plugins package for installed plugins in the form of subpackages. """
-        import plugins
-        objects = pkgutil.iter_modules(plugins.__path__)  # (module_loader, name, ispkg)
+        objects = pkgutil.iter_modules([self.__plugins_path])  # (module_loader, name, ispkg)
         package_names = [o[1] for o in objects if o[2]]
 
         self.__runners = {}
@@ -94,7 +99,7 @@ class PluginController(object):
                 self.log(plugin_name, '[Runner] Could not init plugin', 'Multiple plugins with the same name found')
                 return
             logger = self.get_logger(plugin_name)
-            plugin_path = os.path.join(PluginController.__get_plugin_root(), plugin_name)
+            plugin_path = os.path.join(self.__plugins_path, plugin_name)
             runner = PluginRunner(plugin_name, self.__runtime_path, plugin_path, logger)
             self.__runners[runner.name] = runner
             return runner
@@ -157,11 +162,6 @@ class PluginController(object):
             self.__metrics_collector.set_plugin_intervals(self.__get_metric_receivers())
         if self.__metrics_controller is not None:
             self.__metrics_controller.set_plugin_definitions(self.__get_metric_definitions())
-
-    @staticmethod
-    def __get_plugin_root():
-        import plugins
-        return os.path.abspath(os.path.dirname(inspect.getfile(plugins)))
 
     def get_plugins(self):
         """
@@ -231,15 +231,15 @@ class PluginController(object):
                     raise Exception('A newer version of plugins {0} is already installed (current version = {1}, to installed = {2}).'.format(name, installed_plugin.version, version))
                 else:
                     # Remove the old version of the plugin
-                    installed_plugin.stop()
-                    retcode = call('cd /opt/openmotics/python/plugins; rm -R {0}'.format(name),
+                    self.__destroy_plugin_runner(name)
+                    retcode = call('cd {0}; rm -R {1}'.format(self.__plugins_path, name),
                                    shell=True)
                     if retcode != 0:
                         raise Exception('The old version of the plugin could not be removed.')
 
             # Check if the package directory exists, this can only be the case if a previous
             # install failed or if the plugin has gone corrupt: remove it !
-            plugin_path = '/opt/openmotics/python/plugins/{0}'.format(name)
+            plugin_path = '{0}/{1}'.format(self.__plugins_path, name)
             if os.path.exists(plugin_path):
                 rmtree(plugin_path)
 
@@ -249,6 +249,8 @@ class PluginController(object):
                 raise Exception('The package could not be installed.')
 
             runner = self.__init_plugin_runner(name)
+            if runner is None:
+                raise Exception('Could not initialize plugin.')
             self.__start_plugin_runner(runner, name)
             self.__update_dependencies()
 
@@ -281,14 +283,14 @@ class PluginController(object):
         self.__update_dependencies()
 
         # Remove the plugin package
-        plugin_path = '/opt/openmotics/python/plugins/{0}'.format(name)
+        plugin_path = '{0}/{1}'.format(self.__plugins_path, name)
         try:
             rmtree(plugin_path)
         except Exception as exception:
             raise Exception('Error while removing package for plugin \'{0}\': {1}'.format(name, exception))
 
         # Remove the plugin configuration
-        conf_file = '/opt/openmotics/etc/pi_{0}.conf'.format(name)
+        conf_file = '{0}/pi_{1}.conf'.format(self.__plugin_config_path, name)
         if os.path.exists(conf_file):
             os.remove(conf_file)
 

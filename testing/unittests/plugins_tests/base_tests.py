@@ -16,27 +16,47 @@
 Tests for plugins.base.
 """
 
+import hashlib
 import inspect
 import os
-import plugins
 import plugin_runtime
 import shutil
+import tempfile
 import time
 import unittest
 import xmlrunner
+from subprocess import call
 from plugin_runtime.base import PluginConfigChecker, PluginException
-
-BASE_PATH = os.path.dirname(plugins.__file__)
-RUNTIME_PATH = os.path.dirname(plugin_runtime.__file__)
 
 
 class PluginControllerTest(unittest.TestCase):
     """ Tests for the PluginController. """
 
+    PLUGINS_PATH = None
+    PLUGIN_CONFIG_PATH = None
+    RUNTIME_PATH = os.path.dirname(plugin_runtime.__file__)
+
+    @classmethod
+    def setUpClass(cls):
+        cls.PLUGINS_PATH = tempfile.mkdtemp()
+        cls.PLUGIN_CONFIG_PATH = tempfile.mkdtemp()
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            if cls.PLUGINS_PATH is not None:
+                shutil.rmtree(cls.PLUGINS_PATH)
+            if cls.PLUGIN_CONFIG_PATH is not None:
+                shutil.rmtree(cls.PLUGIN_CONFIG_PATH)
+        except Exception:
+            pass
+
     @staticmethod
-    def create_plugin(name, code):
+    def _create_plugin(name, code, base_path=None):
         """ Create a plugin with a given name and the provided code. """
-        path = '{0}/{1}'.format(BASE_PATH, name)
+        if base_path is None:
+            base_path = PluginControllerTest.PLUGINS_PATH
+        path = '{0}/{1}'.format(base_path, name)
         os.makedirs(path)
 
         with open('{0}/main.py'.format(path), 'w') as code_file:
@@ -46,17 +66,41 @@ class PluginControllerTest(unittest.TestCase):
             pass
 
     @staticmethod
-    def destroy_plugin(name):
-        """ Remove the code for a plugin created by create_plugin. """
-        path = '{0}/{1}'.format(BASE_PATH, name)
+    def _destroy_plugin(name):
+        """ Remove the code for a plugin created by _create_plugin. """
+        path = '{0}/{1}'.format(PluginControllerTest.PLUGINS_PATH, name)
         if os.path.exists(path):
             shutil.rmtree(path)
+
+    @staticmethod
+    def _get_controller():
+        from plugins.base import PluginController
+        return PluginController(webinterface=None,
+                                config_controller=None,
+                                runtime_path=PluginControllerTest.RUNTIME_PATH,
+                                plugins_path=PluginControllerTest.PLUGINS_PATH,
+                                plugin_config_path=PluginControllerTest.PLUGIN_CONFIG_PATH)
+
+    @staticmethod
+    def _create_plugin_package(name, code):
+        temp_directory = tempfile.mkdtemp()
+        try:
+            PluginControllerTest._create_plugin(name, code, temp_directory)
+            call('cd {0}/{1}; tar -czf ../package.tgz .'.format(temp_directory, name), shell=True)
+            with open('{0}/package.tgz'.format(temp_directory), 'r') as package_file:
+                package_data = package_file.read()
+            hasher = hashlib.md5()
+            hasher.update(package_data)
+            calculated_md5 = hasher.hexdigest()
+            return calculated_md5, package_data
+        finally:
+            shutil.rmtree(temp_directory)
 
     def test_get_one_plugin(self):
         """ Test getting one plugin in the plugins package. """
         controller = None
         try:
-            PluginControllerTest.create_plugin('P1', """
+            PluginControllerTest._create_plugin('P1', """
 from plugins.base import *
 
 class P1(OMPluginBase):
@@ -64,23 +108,21 @@ class P1(OMPluginBase):
     version = '1.0.0'
     interfaces = []
 """)
-            from plugins.base import PluginController
-
-            controller = PluginController(None, None, RUNTIME_PATH)
+            controller = PluginControllerTest._get_controller()
             controller.start()
             plugin_list = controller.get_plugins()
             self.assertEquals(1, len(plugin_list))
             self.assertEquals('P1', plugin_list[0].name)
         finally:
-            if controller is None:
+            if controller is not None:
                 controller.stop()
-            PluginControllerTest.destroy_plugin('P1')
+            PluginControllerTest._destroy_plugin('P1')
 
     def test_get_two_plugins(self):
         """ Test getting two plugins in the plugins package. """
         controller = None
         try:
-            PluginControllerTest.create_plugin('P1', """
+            PluginControllerTest._create_plugin('P1', """
 from plugins.base import *
 
 class P1(OMPluginBase):
@@ -89,7 +131,7 @@ class P1(OMPluginBase):
     interfaces = []
 """)
 
-            PluginControllerTest.create_plugin('P2', """
+            PluginControllerTest._create_plugin('P2', """
 from plugins.base import *
 
 class P2(OMPluginBase):
@@ -98,25 +140,23 @@ class P2(OMPluginBase):
     interfaces = []
 """)
 
-            from plugins.base import PluginController
-
-            controller = PluginController(None, None, RUNTIME_PATH)
+            controller = PluginControllerTest._get_controller()
             controller.start()
             plugin_list = controller.get_plugins()
             self.assertEquals(2, len(plugin_list))
             names = sorted([plugin_list[0].name, plugin_list[1].name])
             self.assertEquals(['P1', 'P2'], names)
         finally:
-            if controller is None:
+            if controller is not None:
                 controller.stop()
-            PluginControllerTest.destroy_plugin('P1')
-            PluginControllerTest.destroy_plugin('P2')
+            PluginControllerTest._destroy_plugin('P1')
+            PluginControllerTest._destroy_plugin('P2')
 
     def test_get_special_methods(self):
         """ Test getting special methods on a plugin. """
         controller = None
         try:
-            PluginControllerTest.create_plugin('P1', """
+            PluginControllerTest._create_plugin('P1', """
 import time
 from plugins.base import *
 
@@ -156,9 +196,7 @@ class P1(OMPluginBase):
             time.sleep(1)
 """)
 
-            from plugins.base import PluginController
-
-            controller = PluginController(None, None, RUNTIME_PATH)
+            controller = PluginControllerTest._get_controller()
             controller.start()
 
             response = controller._request('P1', 'html_index')
@@ -180,15 +218,47 @@ class P1(OMPluginBase):
         finally:
             if controller is None:
                 controller.stop()
-            PluginControllerTest.destroy_plugin('P1')
+            PluginControllerTest._destroy_plugin('P1')
+
+    def test_update_plugin(self):
+        """ Validates whether a plugin can be updated """
+        test_1_md5, test_1_data = PluginControllerTest._create_plugin_package('Test', """
+from plugins.base import *
+
+class Test(OMPluginBase):
+    name = 'Test'
+    version = '0.0.1'
+    interfaces = []
+""")
+        test_2_md5, test_2_data = PluginControllerTest._create_plugin_package('Test', """
+from plugins.base import *
+
+class Test(OMPluginBase):
+    name = 'Test'
+    version = '0.0.2'
+    interfaces = []
+""")
+
+        controller = PluginControllerTest._get_controller()
+        controller.start()
+
+        # Install first version
+        result = controller.install_plugin(test_1_md5, test_1_data)
+        self.assertEqual(result, 'Plugin successfully installed')
+        controller.start_plugin('Test')
+        self.assertEqual([r.name for r in controller.get_plugins()], ['Test'])
+
+        # Update to version 2
+        result = controller.install_plugin(test_2_md5, test_2_data)
+        self.assertEqual(result, 'Plugin successfully installed')
+        self.assertEqual([r.name for r in controller.get_plugins()], ['Test'])
 
     def test_check_plugin(self):
         """ Test the exception that can occur when checking a plugin. """
         from plugin_runtime.utils import check_plugin
         from plugin_runtime.base import OMPluginBase
 
-        from plugins.base import PluginController
-        PluginController(None, None)
+        PluginControllerTest._get_controller()
 
         class P1(OMPluginBase):
             """ Plugin without name. """
