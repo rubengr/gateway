@@ -114,10 +114,11 @@ class Observer(object):
 
         self._thread = Thread(target=self._monitor)
         self._thread.daemon = True
+        self._master_shutter_status_registered = False
+        self._master_version = None
 
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.output_list(), 0, self._on_output, True))
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(), 0, self._on_input))
-        self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(), 0, self._on_shutter_update))
 
     def set_gateway_api(self, gateway_api):
         """
@@ -169,6 +170,7 @@ class Observer(object):
         """ Monitors certain system states to detect changes without events """
         while True:
             try:
+                self._check_master_version()
                 # Refresh if required
                 if self._thermostats_last_updated + self._thermostats_interval < time.time():
                     self._refresh_thermostats()
@@ -179,6 +181,7 @@ class Observer(object):
                 # Restore interval if required
                 if self._thermostats_restore < time.time():
                     self._thermostats_interval = self._thermostats_original_interval
+                self._register_consumer_shutter_status()
                 time.sleep(1)
             except CommunicationTimedOutException:
                 LOGGER.error('Got communication timeout during monitoring, waiting 10 seconds.')
@@ -190,6 +193,15 @@ class Observer(object):
     def _ensure_gateway_api(self):
         if self._gateway_api is None:
             raise RuntimeError('The observer has no access to the Gateway API yet')
+
+    def _check_master_version(self):
+        if self._master_version is None:
+            self._master_version = self._gateway_api.get_status['hw_version']
+
+    def _register_consumer_shutter_status(self):
+        if not self._master_shutter_status_registered:
+            self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(self._master_version), 0, self._on_shutter_update))
+            self._master_shutter_status_registered = True
 
     # Handle master "events"
 
