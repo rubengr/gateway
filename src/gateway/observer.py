@@ -196,7 +196,7 @@ class Observer(object):
 
     def _check_master_version(self):
         if self._master_version is None:
-            self._master_version = self._gateway_api.get_status['version']
+            self._master_version = self._gateway_api.get_status()['version']
 
     def _register_consumer_shutter_status(self):
         if self._master_version and not self._master_shutter_status_registered:
@@ -291,7 +291,7 @@ class Observer(object):
         for module_id in xrange(number_of_shutter_modules):
             self._shutter_status.update_states(
                 {'module_nr': module_id,
-                 'status': self._master_communicator.do_command(master_api.shutter_status(),
+                 'status': self._master_communicator.do_command(master_api.shutter_status(self._master_version),
                                                                 {'module_nr': module_id})['status']}
             )
         self._shutters_last_updated = time.time()
