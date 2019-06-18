@@ -111,11 +111,11 @@ class Observer(object):
         self._thermostats_config = {}
         self._shutters_interval = 600
         self._shutters_last_updated = 0
+        self._master_shutter_status_registered = False
+        self._master_version = None
 
         self._thread = Thread(target=self._monitor)
         self._thread.daemon = True
-        self._master_shutter_status_registered = False
-        self._master_version = None
 
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.output_list(), 0, self._on_output, True))
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(), 0, self._on_input))
@@ -196,10 +196,10 @@ class Observer(object):
 
     def _check_master_version(self):
         if self._master_version is None:
-            self._master_version = self._gateway_api.get_status['hw_version']
+            self._master_version = self._gateway_api.get_status['version']
 
     def _register_consumer_shutter_status(self):
-        if not self._master_shutter_status_registered:
+        if self._master_version and not self._master_shutter_status_registered:
             self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(self._master_version), 0, self._on_shutter_update))
             self._master_shutter_status_registered = True
 

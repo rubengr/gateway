@@ -197,8 +197,8 @@ def read_input():
 
 def shutter_status(master_version):
     """ Read the status of a shutter module. """
-    parsed_current_version = tuple([int(x) for x in master_version.split('s.')])
-    if parsed_current_version >= tuple("3.143.78"):
+    parsed_current_version = tuple([int(x) for x in master_version.split('.')])
+    if parsed_current_version >= (3, 143, 78):
         return MasterCommandSpec("SO",
                                  [Field.byte("module_nr"), Field.padding(12)],
                                  [Field.byte("module_nr"), Field.padding(3), Field.byte("status"), Field.byte("shutter_lock"), Field.lit('\r\n')])
