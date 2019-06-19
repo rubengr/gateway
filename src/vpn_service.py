@@ -92,11 +92,18 @@ class VpnController(object):
     def _vpn_connected(self):
         """ Checks if the VPN tunnel is connected """
         try:
-            route = subprocess.check_output('ip r | grep tun | grep via || true', shell=True).strip()
-            if not route:
-                return False
-            vpn_server = route.split(' ')[0]
-            self.vpn_connected = VPNService.ping(vpn_server, verbose=False)
+            routes = subprocess.check_output('ip r | grep tun | grep via || true', shell=True).strip()
+            # example output:
+            # 10.0.0.0/24 via 10.37.0.5 dev tun0\n
+            # 10.37.0.1 via 10.37.0.5 dev tun0
+            result = False
+            if routes:
+                vpn_servers = [route.split(' ')[0] for route in routes.split('\n') if '/' not in route]
+                for vpn_server in vpn_servers:
+                    if VPNService.ping(vpn_server, verbose=False):
+                        result = True
+                        break
+            self.vpn_connected = result
         except Exception as ex:
             LOGGER.log('Exception occured during vpn connectivity test: {0}'.format(ex))
             self.vpn_connected = False
