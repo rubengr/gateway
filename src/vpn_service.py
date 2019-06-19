@@ -96,14 +96,14 @@ class VpnController(object):
             #example output:
             # 10.0.0.0/24 via 10.37.0.5 dev tun0\n
             # 10.37.0.1 via 10.37.0.5 dev tun0
-            if not routes:
-                self.vpn_connected = False
-            else:
+            result = False
+            if routes:
                 vpn_servers = [route.split(' ')[0] for route in routes.split('\n') if '/' not in route]
                 for vpn_server in vpn_servers:
                     if VPNService.ping(vpn_server, verbose=False):
-                        self.vpn_connected = True
+                        result = True
                         continue
+            self.vpn_connected = result
         except Exception as ex:
             LOGGER.log('Exception occured during vpn connectivity test: {0}'.format(ex))
             self.vpn_connected = False
