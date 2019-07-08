@@ -44,6 +44,7 @@ from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 from gateway.observer import Observer
+from gateway.cloud_connector import CloudConnector
 
 from bus.dbus_service import DBusService
 from bus.dbus_events import DBusEvents
@@ -159,6 +160,9 @@ def main():
 
     scheduling_controller.set_webinterface(web_interface)
 
+    # Connection to the Cloud
+    cloud_connector = CloudConnector(gateway_uuid)
+
     # Plugins
     plugin_controller = PluginController(web_interface, config_controller)
     web_interface.set_plugin_controller(plugin_controller)
@@ -186,6 +190,7 @@ def main():
     observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
     observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
     observer.subscribe_events(web_interface.process_observer_event)
+    observer.subscribe_events(cloud_connector.report_event)
 
     led_thread = threading.Thread(target=led_driver, args=(dbus_service, master_communicator, power_communicator))
     led_thread.setName("Serial led driver thread")
@@ -200,6 +205,7 @@ def main():
     metrics_collector.start()
     web_service.start()
     gateway_api.start()
+    cloud_connector.start()
     plugin_controller.start()
 
     signal_request = {'stop': False}

@@ -108,20 +108,20 @@ class System(object):
     """
 
     @staticmethod
-    def _get_operating_system():
+    def get_operating_system():
         operating_system = {}
         with open('/etc/os-release', 'r') as osfh:
             lines = osfh.readlines()
             for line in lines:
                 k, v = line.strip().split('=')
-                operating_system[k] = v
+                operating_system[k] = v.strip('"')
         return operating_system
 
     @staticmethod
     def get_ip_address():
         """ Get the local ip address. """
         interface = Hardware.get_local_interface()
-        operating_system = System._get_operating_system()
+        operating_system = System.get_operating_system()
         try:
             lines = subprocess.check_output('ifconfig {0}'.format(interface), shell=True)
             if operating_system['ID'] == 'angstrom':
@@ -135,11 +135,11 @@ class System(object):
 
     @staticmethod
     def get_vpn_service():
-        return 'openvpn.service' if System._get_operating_system()['ID'] == 'angstrom' else 'openvpn-client@omcloud'
+        return 'openvpn.service' if System.get_operating_system()['ID'] == 'angstrom' else 'openvpn-client@omcloud'
 
     @staticmethod
     def _use_pyopenssl():
-        return System._get_operating_system()['ID'] == 'angstrom'
+        return System.get_operating_system()['ID'] == 'angstrom'
 
     @staticmethod
     def get_ssl_socket(sock, private_key_filename, certificate_filename):
@@ -198,7 +198,7 @@ class System(object):
 
     @staticmethod
     def import_eggs():
-        operating_system = System._get_operating_system()
+        operating_system = System.get_operating_system()
         blacklisted_eggs = {'debian': ['requests-1.2.0-py2.7.egg']}.get(operating_system['ID'], [])
         os.environ['PYTHON_EGG_CACHE'] = '/tmp/.eggs-cache/'
         for egg in os.listdir('/opt/openmotics/python/eggs'):
