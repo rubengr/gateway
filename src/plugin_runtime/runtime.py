@@ -6,6 +6,9 @@ from threading import Thread
 
 sys.path.insert(0, '/opt/openmotics/python')
 
+from platform_utils import System
+System.import_eggs()
+
 from plugin_runtime import base
 from plugin_runtime.utils import get_plugin_class, check_plugin, get_special_methods
 from plugin_runtime.interfaces import has_interface
