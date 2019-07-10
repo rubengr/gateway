@@ -307,6 +307,8 @@ class PluginRunner:
             return score
 
     def get_queue_length(self):
+        if self._async_command_queue is None:
+            return 0
         return self._async_command_queue.qsize()
 
 
