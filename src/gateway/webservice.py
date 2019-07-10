@@ -324,11 +324,14 @@ class OMSocket(WebSocket):
         return True
 
 
+# noinspection PyUnresolvedReferences
 class MetricsSocket(OMSocket):
     """
     Handles web socket communications for metrics
     """
     def opened(self):
+        if not hasattr(self, 'metadata'):
+            return
         cherrypy.engine.publish('add-metrics-receiver',
                                 self.metadata['client_id'],
                                 {'source': self.metadata['source'],
@@ -341,16 +344,21 @@ class MetricsSocket(OMSocket):
 
     def closed(self, *args, **kwargs):
         _ = args, kwargs
+        if not hasattr(self, 'metadata'):
+            return
         client_id = self.metadata['client_id']
         cherrypy.engine.publish('remove-metrics-receiver', client_id)
         self.metadata['interface'].metrics_collector.set_websocket_interval(client_id, self.metadata['metric_type'], None)
 
 
+# noinspection PyUnresolvedReferences
 class EventsSocket(OMSocket):
     """
     Handles web socket communications for events
     """
     def opened(self):
+        if not hasattr(self, 'metadata'):
+            return
         cherrypy.engine.publish('add-events-receiver',
                                 self.metadata['client_id'],
                                 {'token': self.metadata['token'],
@@ -359,10 +367,14 @@ class EventsSocket(OMSocket):
 
     def closed(self, *args, **kwargs):
         _ = args, kwargs
+        if not hasattr(self, 'metadata'):
+            return
         client_id = self.metadata['client_id']
         cherrypy.engine.publish('remove-events-receiver', client_id)
 
     def received_message(self, message):
+        if not hasattr(self, 'metadata'):
+            return
         allowed_types = [Event.Types.OUTPUT_CHANGE,
                          Event.Types.THERMOSTAT_CHANGE,
                          Event.Types.THERMOSTAT_GROUP_CHANGE,
@@ -648,6 +660,14 @@ class WebInterface(object):
         :rtype: dict
         """
         return self._gateway_api.get_modules()
+
+    @openmotics_api(auth=True)
+    def get_modules_information(self):
+        """
+        Gets an overview of all modules and information
+        :return: Dict containing information per address
+        """
+        return {'modules': self._gateway_api.get_modules_information()}
 
     @openmotics_api(auth=True)
     def get_features(self):
@@ -2159,7 +2179,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.11.0'}
+                'gateway': '2.11.1'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):

@@ -195,8 +195,13 @@ def read_input():
                               Field.str('input_name', 8), Field.crc(), Field.lit('\r\n')])
 
 
-def shutter_status():
+def shutter_status(master_version):
     """ Read the status of a shutter module. """
+    parsed_current_version = tuple([int(x) for x in master_version.split('.')])
+    if parsed_current_version >= (3, 143, 78):
+        return MasterCommandSpec("SO",
+                                 [Field.byte("module_nr"), Field.padding(12)],
+                                 [Field.byte("module_nr"), Field.padding(3), Field.byte("status"), Field.byte("shutter_lock"), Field.lit('\r\n')])
     return MasterCommandSpec("SO",
                              [Field.byte("module_nr"), Field.padding(12)],
                              [Field.byte("module_nr"), Field.padding(3), Field.byte("status"), Field.lit('\r\n')])
@@ -485,6 +490,15 @@ def write_timer():
                              [Field.byte("id"), Field.int("timer"), Field.padding(10)],
                              [Field.byte("id"), Field.int("timer"), Field.padding(10), Field.lit("\r\n")],
                              "RT")
+
+
+def get_module_version():
+    """ Get the version of the module. """
+    return MasterCommandSpec("FV",
+                             [Field.str('addr', 4), Field.crc(), Field.padding(6)],
+                             [Field.str('addr', 4), Field.byte("error_code"), Field.byte("hw_version"),
+                              Field.byte("f1"), Field.byte("f2"), Field.byte("f3"), Field.byte("status"),
+                              Field.crc(), Field.lit("\r\n")])
 
 
 # Below are the asynchronous messages, sent by the master to the gateway
