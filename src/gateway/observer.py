@@ -196,7 +196,7 @@ class Observer(object):
 
     def _check_master_version(self):
         if self._master_version is None:
-            self._master_version = self._gateway_api.get_status()['version']
+            self._master_version = self._gateway_api.get_master_version()
 
     def _register_consumer_shutter_status(self):
         if self._master_version and not self._master_shutter_status_registered:

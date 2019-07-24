@@ -197,8 +197,7 @@ def read_input():
 
 def shutter_status(master_version):
     """ Read the status of a shutter module. """
-    parsed_current_version = tuple([int(x) for x in master_version.split('.')])
-    if parsed_current_version >= (3, 143, 78):
+    if master_version >= (3, 143, 78):
         return MasterCommandSpec("SO",
                                  [Field.byte("module_nr"), Field.padding(12)],
                                  [Field.byte("module_nr"), Field.padding(3), Field.byte("status"), Field.byte("shutter_lock"), Field.lit('\r\n')])
@@ -424,6 +423,13 @@ def clear_error_list():
     return MasterCommandSpec("ec",
                              [Field.padding(13)],
                              [Field.str("resp", 2), Field.padding(11), Field.lit("\r\n")])
+
+
+def write_dimmer():
+    """ Writes a dimmer value directly """
+    return MasterCommandSpec("wd",
+                             [Field.byte("output_nr"), Field.byte("dimmer_value"), Field.padding(11)],
+                             [Field.byte("output_nr"), Field.byte("dimmer_value"), Field.padding(11), Field.lit('\r\n')])
 
 
 def write_airco_status_bit():

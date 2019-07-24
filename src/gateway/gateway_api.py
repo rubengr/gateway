@@ -441,6 +441,11 @@ class GatewayApi(object):
                 'version': '%d.%d.%d' % (out_dict['f1'], out_dict['f2'], out_dict['f3']),
                 'hw_version': out_dict['h']}
 
+    def get_master_version(self):
+        """ Returns the master firmware version as tuple """
+        master_version = self.get_status()['version']
+        return tuple([int(x) for x in master_version.split('.')])
+
     def get_main_version(self):
         """ Gets reported main version """
         _ = self
@@ -737,8 +742,8 @@ class GatewayApi(object):
 
         :param output_id: The id of the output to set
         :type output_id: Integer [0, 240]
-        :param dimmer: The dimmer value to set, None if unchanged
-        :type dimmer: Integer [0, 100] or None
+        :param dimmer: The dimmer value to set
+        :type dimmer: Integer [0, 100]
         :returns: empty dict.
         """
         if output_id < 0 or output_id > 240:
@@ -747,21 +752,30 @@ class GatewayApi(object):
         if dimmer < 0 or dimmer > 100:
             raise ValueError('Dimmer value not in [0, 100]: %d' % dimmer)
 
-        dimmer = int(dimmer) / 10 * 10
+        master_version = self.get_master_version()
+        if master_version >= (3, 143, 79):
+            dimmer = int(0.63 * dimmer)
 
-        if dimmer == 0:
-            dimmer_action = master_api.BA_DIMMER_MIN
-        elif dimmer == 100:
-            dimmer_action = master_api.BA_DIMMER_MAX
+            self.__master_communicator.do_command(
+                master_api.write_dimmer(),
+                {'output_nr': output_id, 'dimmer_value': dimmer}
+            )
         else:
-            dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_' + str(dimmer)]
+            dimmer = int(dimmer) / 10 * 10
 
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': dimmer_action, 'action_number': output_id}
-        )
+            if dimmer == 0:
+                dimmer_action = master_api.BA_DIMMER_MIN
+            elif dimmer == 100:
+                dimmer_action = master_api.BA_DIMMER_MAX
+            else:
+                dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_' + str(dimmer)]
 
-        return dict()
+            self.__master_communicator.do_command(
+                master_api.basic_action(),
+                {'action_type': dimmer_action, 'action_number': output_id}
+            )
+
+        return {}
 
     def set_output_timer(self, output_id, timer):
         """ Set the timer of an output.

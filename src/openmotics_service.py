@@ -14,8 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 The main module for the OpenMotics
-
-@author: fryckbos
 """
 
 import logging

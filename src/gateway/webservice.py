@@ -674,13 +674,21 @@ class WebInterface(object):
         """
         Returns all available features this Gateway supports. This allows to make flexible clients
         """
-        return {'features': [
-            'metrics',           # Advanced metrics (including metrics over websockets)
-            'dirty_flag',        # A dirty flag that can be used to trigger syncs on power & master
-            'scheduling',        # Gateway backed scheduling
-            'factory_reset',     # The gateway can be complete reset to factory standard
+        features = [
+            'metrics',  # Advanced metrics (including metrics over websockets)
+            'dirty_flag',  # A dirty flag that can be used to trigger syncs on power & master
+            'scheduling',  # Gateway backed scheduling
+            'factory_reset',  # The gateway can be complete reset to factory standard
             'isolated_plugins',  # Plugins run in a separate process, so allow fine-graded control
-        ]}
+        ]
+
+        master_version = self._gateway_api.get_master_version()
+        if master_version >= (3, 143, 77):
+            features.append('default_timer_disabled')
+        if master_version >= (3, 143, 79):
+            features.append('100_steps_dimmer')
+
+        return {'features': features}
 
     @openmotics_api(auth=True, check=types(type=int, id=int))
     def flash_leds(self, type, id):
@@ -2179,7 +2187,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.11.1'}
+                'gateway': '2.12.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
