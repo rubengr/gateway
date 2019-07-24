@@ -426,6 +426,13 @@ def clear_error_list():
                              [Field.str("resp", 2), Field.padding(11), Field.lit("\r\n")])
 
 
+def write_dimmer():
+    """ Writes a dimmer value directly """
+    return MasterCommandSpec("wd",
+                             [Field.byte("output_nr"), Field.byte("dimmer_value"), Field.padding(11)],
+                             [Field.byte("output_nr"), Field.byte("dimmer_value"), Field.padding(11), Field.lit('\r\n')])
+
+
 def write_airco_status_bit():
     """ Write the airco status bit. """
     return MasterCommandSpec("AW",
