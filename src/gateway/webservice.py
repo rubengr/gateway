@@ -682,11 +682,10 @@ class WebInterface(object):
             'isolated_plugins',  # Plugins run in a separate process, so allow fine-graded control
         ]
 
-        master_version = self.get_status()['version']
-        parsed_current_version = tuple([int(x) for x in master_version.split('.')])
-        if parsed_current_version >= (3, 143, 77):
+        master_version = self._gateway_api.get_master_version()
+        if master_version >= (3, 143, 77):
             features.append('default_timer_disabled')
-        if parsed_current_version >= (3, 143, 79):
+        if master_version >= (3, 143, 79):
             features.append('100_steps_dimmer')
 
         return {'features': features}

@@ -441,6 +441,11 @@ class GatewayApi(object):
                 'version': '%d.%d.%d' % (out_dict['f1'], out_dict['f2'], out_dict['f3']),
                 'hw_version': out_dict['h']}
 
+    def get_master_version(self):
+        """ Returns the master firmware version as tuple """
+        master_version = self.get_status()['version']
+        return tuple([int(x) for x in master_version.split('.')])
+
     def get_main_version(self):
         """ Gets reported main version """
         _ = self
@@ -747,9 +752,8 @@ class GatewayApi(object):
         if dimmer < 0 or dimmer > 100:
             raise ValueError('Dimmer value not in [0, 100]: %d' % dimmer)
 
-        master_version = self.get_status()['version']
-        parsed_current_version = tuple([int(x) for x in master_version.split('.')])
-        if parsed_current_version >= (3, 143, 79):
+        master_version = self.get_master_version()
+        if master_version >= (3, 143, 79):
             dimmer = int(0.63 * dimmer)
 
             self.__master_communicator.do_command(
