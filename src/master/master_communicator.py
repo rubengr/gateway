@@ -14,8 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Module to communicate with the master.
-
-@author: fryckbos
 """
 
 import logging
@@ -31,10 +29,9 @@ LOGGER = logging.getLogger("openmotics")
 
 
 class MasterCommunicator(object):
-    """ Uses a serial port to communicate with the master and updates the output state.
-    Provides methods to send MasterCommands, Passthrough and Maintenance. A watchdog checks the
-    state of the communication: if more than 1 timeout between 2 watchdog checks is received, the
-    communication is not working properly and watchdog callback is called.
+    """
+    Uses a serial port to communicate with the master and updates the output state.
+    Provides methods to send MasterCommands, Passthrough and Maintenance.
     """
 
     def __init__(self, serial, init_master=True, verbose=False, passthrough_timeout=0.2):
