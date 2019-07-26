@@ -22,9 +22,9 @@ import time
 from threading import Thread, Lock
 from Queue import Queue, Empty
 
-import aio_api
-from aio_command import Field, printable
-from serial_utils import CommunicationTimedOutException
+from master_aio.aio_api import AIOAPI
+from master_aio.aio_command import WordField
+from serial_utils import CommunicationTimedOutException, printable
 
 LOGGER = logging.getLogger('openmotics')
 
@@ -36,6 +36,8 @@ class AIOCommunicator(object):
     """
 
     # Message constants. There are here for better code readability, no not change them without checking the other code.
+    START_OF_REQUEST = 'STR'
+    END_OF_REQUEST = '\r\n\r\n'
     START_OF_REPLY = 'RTR'
     END_OF_REPLY = '\r\n'
 
@@ -76,11 +78,11 @@ class AIOCommunicator(object):
         self.__read_thread.start()
 
     def get_bytes_written(self):
-        """ Get the number of bytes written to the Master. """
+        """ Get the number of bytes written to the AIO. """
         return self.__serial_bytes_written
 
     def get_bytes_read(self):
-        """ Get the number of bytes read from the Master. """
+        """ Get the number of bytes read from the AIO. """
         return self.__serial_bytes_read
 
     def get_communication_statistics(self):
@@ -135,7 +137,7 @@ class AIOCommunicator(object):
 
     def do_basic_action(self, action_type, action, device_nr, extra_parameter=0):
         """
-        Sends a basic action to the master with the given action type and action number
+        Sends a basic action to the AIO with the given action type and action number
         :param action_type: The action type to execute
         :type action_type: int
         :param action: The action number to execute
@@ -149,37 +151,47 @@ class AIOCommunicator(object):
         """
         LOGGER.info('BA: Execute {0} {1} {2} {3}'.format(action_type, action, device_nr, extra_parameter))
         return self.do_command(
-            aio_api.basic_action(),
+            AIOAPI.basic_action(),
             {'type': action_type,
              'action': action,
              'device_nr': device_nr,
              'extra_parameter': extra_parameter}
         )
 
-    def do_command(self, cmd, fields=None, timeout=2, extended_crc=False):
+    def do_command(self, command, fields=None, timeout=2):
         """
         Send a command over the serial port and block until an answer is received.
         If the AIO does not respond within the timeout period, a CommunicationTimedOutException is raised
 
-        :param cmd: specification of the command to execute
-        :type cmd: :class`AIOCommand.AIOCommandSpec`
+        :param command: specification of the command to execute
+        :type command: master_aio.aio_command.AIOCommandSpec
         :param fields: A dictionary with the command input field values
         :type fields dict
         :param timeout: maximum allowed time before a CommunicationTimedOutException is raised
         :type timeout: int
-        :raises: :class`CommunicationTimedOutException` if master did not respond in time
+        :raises: :class`CommunicationTimedOutException` if AIO did not respond in time
         :returns: dict containing the output fields of the command
         """
         if fields is None:
             fields = dict()
+        word_field = WordField('dummy')
 
         with self.__command_lock:
             cid = self.__get_cid()
-            consumer = Consumer(cmd, cid)
-            request = cmd.create_input(cid, fields, extended_crc)
+            consumer = Consumer(command, cid)
+            payload = command.create_request_payload(fields)
+
+            data = (AIOCommunicator.START_OF_REQUEST +
+                    str(chr(cid)) +
+                    command.instruction +
+                    word_field.encode(len(payload)) +
+                    payload +
+                    'C' +
+                    str(chr(AIOCommunicator.__calculate_crc(payload))) +
+                    AIOCommunicator.END_OF_REQUEST)
 
             self.__consumers.setdefault(consumer.get_header(), []).append(consumer)
-            self.__write_to_serial(request)
+            self.__write_to_serial(data)
             try:
                 result = consumer.get(timeout).fields
                 self.__last_success = time.time()
@@ -208,6 +220,10 @@ class AIOCommunicator(object):
         """
         Code for the background read thread: reads from the serial port and forward certain messages to waiting
         consumers
+
+        Request format: 'STR' + {CID, 1 byte} + {command, 2 bytes} + {length, 2 bytes} + {payload, `length` bytes} + 'C' + {checksum, 1 byte} + '\r\n\r\n'
+        Response format: 'RTR' + {CID, 1 byte} + {command, 2 bytes} + {length, 2 bytes} + {payload, `length` bytes} + 'C' + {checksum, 1 byte} + '\r\n'
+
         """
         data = ''
         wait_for_length = None
@@ -295,18 +311,18 @@ class Consumer(object):
     matches the consumer, the output will unblock the get() caller.
     """
 
-    def __init__(self, cmd, cid):
-        self.cmd = cmd
-        self.cid = cid
+    def __init__(self, command, cid):
+        self.__command = command
+        self.__cid = cid
         self.__queue = Queue()
 
     def get_header(self):
         """ Get the prefix of the answer from the AIO. """
-        return 'RTR' + str(chr(self.cid)) + self.cmd.output_action
+        return 'RTR' + str(chr(self.__cid)) + self.__command.response_instruction
 
     def consume(self, data):
         """ Consume data. """
-        return self.cmd.consume_output(data)
+        return self.__command.consume_response_payload(data)
 
     def deliver(self, data):
         """ Deliver data to the thread waiting on get(). """
@@ -317,7 +333,7 @@ class Consumer(object):
         Wait until the AIO replies or the timeout expires.
 
         :param timeout: timeout in seconds
-        :raises: :class`CommunicationTimedOutException` if master did not respond in time
+        :raises: :class`CommunicationTimedOutException` if AIO did not respond in time
         :returns: dict containing the output fields of the command
         """
         try:
@@ -332,25 +348,25 @@ class BackgroundConsumer(object):
     but does a callback to a function whenever a message was consumed.
     """
 
-    def __init__(self, cmd, cid, callback):
+    def __init__(self, command, cid, callback):
         """
         Create a background consumer using a cmd, cid and callback.
 
-        :param cmd: the AIOCommand to consume.
+        :param command: the AIOCommand to consume.
         :param cid: the communication id.
         :param callback: function to call when an instance was found.
         """
-        self.__cmd = cmd
+        self.__command = command
         self.__cid = cid
         self.__callback = callback
 
     def get_header(self):
         """ Get the prefix of the answer from the AIO. """
-        return 'RTR' + str(chr(self.__cid)) + self.__cmd.output_action
+        return 'RTR' + str(chr(self.__cid)) + self.__command.response_instruction
 
     def consume(self, data):
         """ Consume data. """
-        return self.__cmd.consume_output(data)
+        return self.__command.consume_response_payload(data)
 
     def deliver(self, data):
         """ Deliver data to the thread waiting on get(). """
