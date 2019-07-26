@@ -35,6 +35,8 @@ class AIOCommunicator(object):
     Provides methods to send AIOCommands.
     """
 
+    # TODO: Use the length of the below constants instead of hardcoding e.g. 3 or 8, ...
+
     # Message constants. There are here for better code readability, no not change them without checking the other code.
     START_OF_REQUEST = 'STR'
     END_OF_REQUEST = '\r\n\r\n'
@@ -181,13 +183,18 @@ class AIOCommunicator(object):
             consumer = Consumer(command, cid)
             payload = command.create_request_payload(fields)
 
+            checked_payload = (str(chr(cid)) +
+                               command.instruction +
+                               word_field.encode(len(payload)) +
+                               payload)
+
             data = (AIOCommunicator.START_OF_REQUEST +
                     str(chr(cid)) +
                     command.instruction +
                     word_field.encode(len(payload)) +
                     payload +
                     'C' +
-                    str(chr(AIOCommunicator.__calculate_crc(payload))) +
+                    str(chr(AIOCommunicator.__calculate_crc(checked_payload))) +
                     AIOCommunicator.END_OF_REQUEST)
 
             self.__consumers.setdefault(consumer.get_header(), []).append(consumer)
@@ -214,7 +221,7 @@ class AIOCommunicator(object):
         crc = 0
         for byte in data:
             crc += ord(byte)
-        return crc
+        return crc % 256
 
     def __read(self):
         """
@@ -229,6 +236,7 @@ class AIOCommunicator(object):
         wait_for_length = None
 
         while not self.__stop:
+
             # Read what's now on the buffer
             data += self.__serial.read(1)
             num_bytes = self.__serial.inWaiting()
@@ -256,41 +264,45 @@ class AIOCommunicator(object):
             cid = ord(data[3])
             command = data[4:6]
             header = data[:6]
-            length = ord(data[6]) * 255 + ord(data[7])
-            message_length = length + 8 + 6  # `length` payload, 8 header, 6 footer
+            length = ord(data[6]) * 256 + ord(data[7])
+            message_length = length + 8 + 4  # `length` payload, 8 header, 4 footer
 
             # If not all data is present, wait for more data
             if len(data) < message_length:
                 wait_for_length = message_length
                 continue
 
+            message = data[:message_length]
+            data = data[message_length:]
+
             # A possible message is received, log where appropriate
             if self.__verbose:
-                LOGGER.info('Reading from AIO serial: {0}'.format(printable(data)))
+                LOGGER.info('Reading from AIO serial: {0}'.format(printable(message)))
             threshold = time.time() - self.__debug_buffer_duration
-            self.__debug_buffer['read'][time.time()] = printable(data)
+            self.__debug_buffer['read'][time.time()] = printable(message)
             for t in self.__debug_buffer['read'].keys():
                 if t < threshold:
                     del self.__debug_buffer['read'][t]
 
             # Validate message boundaries
-            correct_boundaries = not data.startswith(AIOCommunicator.START_OF_REPLY) or not data.endswith(AIOCommunicator.END_OF_REPLY)
+            correct_boundaries = message.startswith(AIOCommunicator.START_OF_REPLY) and message.endswith(AIOCommunicator.END_OF_REPLY)
             if not correct_boundaries:
+                LOGGER.info('Unexpected boundaries: {0}'.format(printable(data)))
                 # Reset, so we'll wait for the next RTR
                 wait_for_length = None
-                data = data[3:]  # Strip the START_OF_REPLY
-                LOGGER.info('Unexpected boundaries: {0}'.format(printable(data)))
+                data = message[3:] + data  # Strip the START_OF_REPLY, and restore full data
                 continue
 
             # Validate message CRC
-            payload = data[8:-6]
-            crc = ord(data[-5])
-            expected_crc = AIOCommunicator.__calculate_crc(payload)
+            crc = ord(message[-3])
+            payload = message[8:-4]
+            checked_payload = message[3:-4]
+            expected_crc = AIOCommunicator.__calculate_crc(checked_payload)
             if crc != expected_crc:
+                LOGGER.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, printable(checked_payload)))
                 # Reset, so we'll wait for the next RTR
                 wait_for_length = None
-                data = data[3:]  # Strip the START_OF_REPLY
-                LOGGER.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, printable(data)))
+                data = message[3:] + data  # Strip the START_OF_REPLY, and restore full data
                 continue
 
             # A valid message is received, reliver it to the correct consumer
@@ -299,9 +311,9 @@ class AIOCommunicator(object):
                 if self.__verbose:
                     LOGGER.info('Delivering payload to consumer {0}.{1}: {2}'.format(command, cid, printable(payload)))
                 consumer.consume(payload)
+                # TODO: consume should be offloaded to another thread - don't block the read thread
 
             # Message processed, cleaning up
-            data = ''
             wait_for_length = None
 
 

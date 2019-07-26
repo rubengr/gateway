@@ -133,7 +133,7 @@ class Field(object):
 
 class ByteField(Field):
     def __init__(self, name):
-        super(ByteField).__init__(name, 1)
+        super(ByteField, self).__init__(name, 1)
 
     def encode(self, value):
         if not (0 <= value <= 255):
@@ -146,7 +146,7 @@ class ByteField(Field):
 
 class WordField(Field):
     def __init__(self, name):
-        super(WordField).__init__(name, 2)
+        super(WordField, self).__init__(name, 2)
 
     def encode(self, value):
         if not (0 <= value <= 65535):
@@ -159,7 +159,7 @@ class WordField(Field):
 
 class ByteArrayField(Field):
     def __init__(self, name, length):
-        super(ByteArrayField).__init__(name, length)
+        super(ByteArrayField, self).__init__(name, length)
 
     def encode(self, value):
         if len(value) != self.length:
