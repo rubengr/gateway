@@ -64,7 +64,7 @@ class AIOCommunicator(object):
         self.__stop = False
 
         self.__read_thread = Thread(target=self.__read, name='AIOCommunicator read thread')
-        self.__read_thread.daemon = True
+        self.__read_thread.setDaemon(True)
 
         self.__communication_stats = {'calls_succeeded': [],
                                       'calls_timedout': [],
@@ -176,7 +176,6 @@ class AIOCommunicator(object):
         """
         if fields is None:
             fields = dict()
-        word_field = WordField('dummy')
 
         with self.__command_lock:
             cid = self.__get_cid()
@@ -185,30 +184,35 @@ class AIOCommunicator(object):
 
             checked_payload = (str(chr(cid)) +
                                command.instruction +
-                               word_field.encode(len(payload)) +
+                               WordField.encode(len(payload)) +
                                payload)
 
             data = (AIOCommunicator.START_OF_REQUEST +
                     str(chr(cid)) +
                     command.instruction +
-                    word_field.encode(len(payload)) +
+                    WordField.encode(len(payload)) +
                     payload +
                     'C' +
                     str(chr(AIOCommunicator.__calculate_crc(checked_payload))) +
                     AIOCommunicator.END_OF_REQUEST)
 
+            start = time.time()
             self.__consumers.setdefault(consumer.get_header(), []).append(consumer)
             self.__write_to_serial(data)
-            try:
-                result = consumer.get(timeout).fields
-                self.__last_success = time.time()
-                self.__communication_stats['calls_succeeded'].append(time.time())
-                self.__communication_stats['calls_succeeded'] = self.__communication_stats['calls_succeeded'][-50:]
-                return result
-            except CommunicationTimedOutException:
-                self.__communication_stats['calls_timedout'].append(time.time())
-                self.__communication_stats['calls_timedout'] = self.__communication_stats['calls_timedout'][-50:]
-                raise
+
+        try:
+            result = consumer.get(timeout)
+            duration = time.time() - start
+            if self.__verbose:
+                LOGGER.info('Consumer {0}.{1} waited {2:.3f}s'.format(command.instruction, cid, duration))
+            self.__last_success = time.time()
+            self.__communication_stats['calls_succeeded'].append(time.time())
+            self.__communication_stats['calls_succeeded'] = self.__communication_stats['calls_succeeded'][-50:]
+            return result
+        except CommunicationTimedOutException:
+            self.__communication_stats['calls_timedout'].append(time.time())
+            self.__communication_stats['calls_timedout'] = self.__communication_stats['calls_timedout'][-50:]
+            raise
 
     @staticmethod
     def __calculate_crc(data):
@@ -238,14 +242,13 @@ class AIOCommunicator(object):
         while not self.__stop:
 
             # Read what's now on the buffer
-            data += self.__serial.read(1)
             num_bytes = self.__serial.inWaiting()
             if num_bytes > 0:
                 data += self.__serial.read(num_bytes)
 
             # Update counters
-            self.__serial_bytes_read += (1 + num_bytes)
-            self.__communication_stats['bytes_read'] += (1 + num_bytes)
+            self.__serial_bytes_read += num_bytes
+            self.__communication_stats['bytes_read'] += num_bytes
 
             # Wait for a speicific number of bytes, or the minimum of 8
             if (wait_for_length is None and len(data) < 8) or len(data) < wait_for_length:
@@ -307,11 +310,12 @@ class AIOCommunicator(object):
 
             # A valid message is received, reliver it to the correct consumer
             consumers = self.__consumers.get(header, [])
-            for consumer in consumers:
+            for consumer in consumers[:]:
                 if self.__verbose:
                     LOGGER.info('Delivering payload to consumer {0}.{1}: {2}'.format(command, cid, printable(payload)))
                 consumer.consume(payload)
-                # TODO: consume should be offloaded to another thread - don't block the read thread
+                if isinstance(consumer, Consumer):
+                    consumers.remove(consumer)
 
             # Message processed, cleaning up
             wait_for_length = None
@@ -332,12 +336,9 @@ class Consumer(object):
         """ Get the prefix of the answer from the AIO. """
         return 'RTR' + str(chr(self.__cid)) + self.__command.response_instruction
 
-    def consume(self, data):
-        """ Consume data. """
-        return self.__command.consume_response_payload(data)
-
-    def deliver(self, data):
-        """ Deliver data to the thread waiting on get(). """
+    def consume(self, payload):
+        """ Consume payload. """
+        data = self.__command.consume_response_payload(payload)
         self.__queue.put(data)
 
     def get(self, timeout):
@@ -371,15 +372,26 @@ class BackgroundConsumer(object):
         self.__command = command
         self.__cid = cid
         self.__callback = callback
+        self.__queue = Queue()
+
+        self.__callback_thread = Thread(target=self.deliver, name='AIOCommunicator BackgroundConsumer delivery thread')
+        self.__callback_thread.setDaemon(True)
+        self.__callback_thread.start()
 
     def get_header(self):
         """ Get the prefix of the answer from the AIO. """
         return 'RTR' + str(chr(self.__cid)) + self.__command.response_instruction
 
-    def consume(self, data):
-        """ Consume data. """
-        return self.__command.consume_response_payload(data)
+    def consume(self, payload):
+        """ Consume payload. """
+        data = self.__command.consume_response_payload(payload)
+        self.__queue.put(data)
 
-    def deliver(self, data):
-        """ Deliver data to the thread waiting on get(). """
-        self.__callback(data)
+    def deliver(self):
+        """ Deliver data to the callback functions. """
+        while True:
+            try:
+                self.__callback(self.__queue.get())
+            except Exception:
+                LOGGER.exception('Unexpected exception delivering background consumer data')
+                time.sleep(1)

@@ -109,12 +109,6 @@ class Field(object):
         self.name = name
         self.length = length
 
-    @staticmethod
-    def byte(name):
-        """ Create 1-byte field with a certain name.
-        The byte type takes an int as input. """
-        return ByteField(name)
-
     def encode(self, value):
         """
         Generate an encoded field.
@@ -148,12 +142,14 @@ class WordField(Field):
     def __init__(self, name):
         super(WordField, self).__init__(name, 2)
 
-    def encode(self, value):
+    @classmethod
+    def encode(cls, value):
         if not (0 <= value <= 65535):
             raise ValueError('Value out of limits: 0 <= value <= 65535')
         return str(chr(value / 256)) + str(chr(value % 256))
 
-    def decode(self, data):
+    @classmethod
+    def decode(cls, data):
         return ord(data[0]) * 256 + ord(data[1])
 
 
