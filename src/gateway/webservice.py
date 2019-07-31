@@ -401,7 +401,7 @@ class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 dbus_service, config_controller, scheduling_controller):
+                 dbus_service, config_controller, scheduling_controller, gateway_uuid):
         """
         Constructor for the WebInterface.
 
@@ -418,6 +418,7 @@ class WebInterface(object):
         :param scheduling_controller: Scheduling Controller
         :type scheduling_controller: gateway.scheduling.SchedulingController
         """
+        self._gateway_uuid = gateway_uuid
         self._user_controller = user_controller
         self._config_controller = config_controller
         self._scheduling_controller = scheduling_controller
@@ -462,6 +463,15 @@ class WebInterface(object):
 
     def process_observer_event(self, event):
         """ Processes an observer event, pushing it forward to the event websocket """
+
+        try:
+            requests.post('https://staging.openmotics.com/portal/capture_event/?uuid={0}'.format(self._gateway_uuid),
+                          data={'event': json.dumps(event.serialize())})
+        except Exception as ex:
+            LOGGER.error('Failed to distribute events to REST: %s', ex)
+
+        return
+
         try:
             answers = cherrypy.engine.publish('get-events-receivers')
             if not answers:

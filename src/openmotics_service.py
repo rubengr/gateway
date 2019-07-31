@@ -153,7 +153,7 @@ def main():
                                              constants.get_ssl_certificate_file())
 
     web_interface = WebInterface(user_controller, gateway_api, maintenance_service, dbus_service,
-                                 config_controller, scheduling_controller)
+                                 config_controller, scheduling_controller, gateway_uuid)
 
     scheduling_controller.set_webinterface(web_interface)
 
