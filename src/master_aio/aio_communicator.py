@@ -196,15 +196,11 @@ class AIOCommunicator(object):
                     str(chr(AIOCommunicator.__calculate_crc(checked_payload))) +
                     AIOCommunicator.END_OF_REQUEST)
 
-            start = time.time()
             self.__consumers.setdefault(consumer.get_header(), []).append(consumer)
             self.__write_to_serial(data)
 
         try:
             result = consumer.get(timeout)
-            duration = time.time() - start
-            if self.__verbose:
-                LOGGER.info('Consumer {0}.{1} waited {2:.3f}s'.format(command.instruction, cid, duration))
             self.__last_success = time.time()
             self.__communication_stats['calls_succeeded'].append(time.time())
             self.__communication_stats['calls_succeeded'] = self.__communication_stats['calls_succeeded'][-50:]

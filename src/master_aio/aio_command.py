@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -87,14 +87,18 @@ class AIOCommandSpec(object):
         :rtype: dict
         """
 
+        payload_length = len(payload)
         result = {}
         for field in self.response_fields:
-            if len(payload) < field.length:
+            field_length = field.length
+            if callable(field_length):
+                field_length = field_length(payload_length)
+            if len(payload) < field_length:
                 LOGGER.warning('Payload for instruction {0} did not contain all the expected data: {1}'.format(self.instruction, printable(payload)))
                 break
-            data = payload[:field.length]
+            data = payload[:field_length]
             result[field.name] = field.decode(data)
-            payload = payload[field.length:]
+            payload = payload[field_length:]
         if payload != '':
             LOGGER.warning('Payload for instruction {0} could not be consumed completely: {1}'.format(self.instruction, printable(payload)))
         return result
@@ -138,6 +142,20 @@ class ByteField(Field):
         return ord(data)
 
 
+class CharField(Field):
+    def __init__(self, name):
+        super(CharField, self).__init__(name, 1)
+
+    def encode(self, value):
+        value = str(value)
+        if len(value) != 1:
+            raise ValueError('Value must be a single-character string')
+        return value
+
+    def decode(self, data):
+        return str(data)
+
+
 class WordField(Field):
     def __init__(self, name):
         super(WordField, self).__init__(name, 2)
@@ -164,7 +182,7 @@ class ByteArrayField(Field):
         for item in value:
             if not (0 <= item <= 255):
                 raise ValueError('One of the items in value is out of limits: 0 <= item <= 255')
-            data += str(chr(value))
+            data += str(chr(item))
         return data
 
     def decode(self, data):
@@ -172,3 +190,49 @@ class ByteArrayField(Field):
         for item in data:
             result.append(ord(item))
         return result
+
+
+class LiteralBytesField(Field):
+    def __init__(self, *data):
+        super(LiteralBytesField, self).__init__('literal_bytes', len(data))
+        self.data = data
+
+    def encode(self, value):
+        if value is not None:
+            raise ValueError('LiteralBytesField does no support value encoding')
+        data = ''
+        for item in self.data:
+            if not (0 <= item <= 255):
+                raise ValueError('One of the items in literal data is out of limits: 0 <= item <= 255')
+            data += str(chr(item))
+        return data
+
+    def decode(self, data):
+        raise ValueError('LiteralBytesField does not support decoding')
+
+
+class AddressField(Field):
+    def __init__(self, name):
+        super(AddressField, self).__init__(name, 4)
+
+    def encode(self, value):
+        error_message = 'Value should be an address in the format of ID1.ID2.ID3.ID4, where 0 <= ID2-3 <= 255'
+        parts = str(value).split('.')
+        if len(parts) != 4:
+            raise ValueError(error_message)
+        data = ''
+        for part in parts:
+            try:
+                part = int(part)
+            except ValueError:
+                raise ValueError(error_message)
+            if not (0 <= part <= 255):
+                raise ValueError(error_message)
+            data += str(chr(part))
+        return data
+
+    def decode(self, data):
+        result = []
+        for item in data:
+            result.append('{0:03}'.format(ord(item)))
+        return '.'.join(result)

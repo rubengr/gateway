@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BVBA
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -16,7 +16,7 @@
 Contains the definition of the AIO API
 """
 
-from aio_command import AIOCommandSpec, ByteField, WordField, ByteArrayField
+from aio_command import AIOCommandSpec, ByteField, WordField, ByteArrayField, LiteralBytesField, AddressField, CharField
 
 
 class AIOAPI(object):
@@ -34,3 +34,59 @@ class AIOAPI(object):
         return AIOCommandSpec('EV',
                               [],  # No request, only a response
                               [ByteField('type'), ByteField('action'), WordField('device_nr'), ByteArrayField('data', 4)])
+
+    @staticmethod
+    def error_information():
+        """ Error information """
+        return AIOCommandSpec('ER',
+                              [],  # No request, only a response
+                              [ByteField('type'), ByteField('parameter_a'), WordField('parameter_b'), WordField('parameter_c')])
+
+    @staticmethod
+    def device_information_list_outputs():
+        """ Device information list for output """
+        return AIOCommandSpec('DL',
+                              [LiteralBytesField(0)],
+                              [ByteField('type'), ByteArrayField('information', lambda length: length - 1)])
+
+    @staticmethod
+    def device_information_list_inputs():
+        """ Device information list for inputs """
+        return AIOCommandSpec('DL',
+                              [LiteralBytesField(1)],
+                              [ByteField('type'), ByteArrayField('information', lambda length: length - 1)])
+
+    @staticmethod
+    def general_configuration_number_of_modules():
+        """ Receives general configuration regarding number of modules """
+        return AIOCommandSpec('GC',
+                              [LiteralBytesField(0)],
+                              [ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('u_can'), ByteField('can_input'), ByteField('can_sensor')])
+
+    @staticmethod
+    def general_configuration_max_specs():
+        """ Receives general configuration regarding maximum specifications (e.g. max number of input modules, max number of basic actions, ...) """
+        return AIOCommandSpec('GC',
+                              [LiteralBytesField(1)],
+                              [ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('u_can'), WordField('groups'), WordField('basic_actions')])
+
+    @staticmethod
+    def module_information():
+        """ Receives module information """
+        return AIOCommandSpec('MC',
+                              [ByteField('module_nr'), ByteField('module_type')],
+                              [ByteField('module_nr'), ByteField('module_type'), AddressField('address'), WordField('bus_errors'), ByteField('module_status')])
+
+    @staticmethod
+    def memory_read():
+        """ Reads memory """
+        return AIOCommandSpec('MR',
+                              [CharField('type'), WordField('page'), ByteField('start'), ByteField('length')],
+                              [CharField('type'), WordField('page'), ByteField('start'), ByteArrayField('data', lambda length: length - 4)])
+
+    @staticmethod
+    def memory_write(length):
+        """ Writes memory """
+        return AIOCommandSpec('MW',
+                              [CharField('type'), WordField('page'), ByteField('start'), ByteArrayField('data', length)],
+                              [CharField('type'), WordField('page'), ByteField('start'), ByteField('length'), CharField('result')])
