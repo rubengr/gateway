@@ -54,13 +54,15 @@ class Event(object):
             elif self._data[2] == 2:
                 timer_type = '1_M'
                 timer_factor = 60
-            return {'status': self._action == 1,
+            return {'output': self._device_nr,
+                    'status': self._action == 1,
                     'dimmer_value': self._data[0],
                     'timer_type': timer_type,
                     'timer_factor': timer_factor,
                     'timer_value': Event._word_decode(self._data[2:])}
         if self._type == 1:
-            return {'status': self._action == 1}
+            return {'input': self._device_nr,
+                    'status': self._action == 1}
         if self._type == 2:
             sensor_type = 'UNKNOWN'
             sensor_value = None
@@ -73,7 +75,8 @@ class Event(object):
             elif self._action == 2:
                 sensor_type = 'BRIGHTNESS'
                 sensor_value = Event._word_decode(self._data[0:2])
-            return {'type': sensor_type,
+            return {'sensor': self._device_nr,
+                    'type': sensor_type,
                     'value': sensor_value}
         return None
 
