@@ -34,8 +34,8 @@ class GlobalConfiguration(MemoryModelDefinition):
 
 
 class OutputModuleConfiguration(MemoryModelDefinition):
-    device_type = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (id + 1, 0), length=1)
-    address = MemoryAddressField(MemoryTypes.EEPROM, address_spec=lambda id: (id + 1, 0))
+    device_type = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id, 0), length=1)
+    address = MemoryAddressField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id, 0))
     firmware_version = MemoryByteArrayField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id, 4), length=3)
 
 
@@ -51,3 +51,15 @@ class OutputConfiguration(MemoryModelDefinition):
     shutter_config = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 72 + id % 8))
     name = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 128 + (id % 8) * 16), length=16)
     module = MemoryRelation(OutputModuleConfiguration, id_spec=lambda id: id / 8)
+
+
+class InputModuleConfiguration(MemoryModelDefinition):
+    device_type = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 0), length=1)
+    address = MemoryAddressField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 0))
+    firmware_version = MemoryByteArrayField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 4), length=3)
+
+
+class InputConfiguration(MemoryModelDefinition):
+    input_config = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 7 + id))
+    name = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 128 + id * 16), length=16)
+    module = MemoryRelation(InputModuleConfiguration, id_spec=lambda id: id / 8)
