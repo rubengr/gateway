@@ -19,7 +19,7 @@ Contains the EepromModels
 from eeprom_controller import EepromModel, EepromAddress, EepromId, EepromString, \
                               EepromWord, EepromByte, EepromActions, EepromTemp, EepromTime, \
                               EepromCSV, CompositeDataType, EepromSignedTemp, EepromIBool, \
-                              EepromEnum, EextByte, EextString
+                              EepromEnum, EextByte, EextString, EextWord
 
 
 def page_per_module(module_size, start_page, start_offset, field_size):
@@ -146,6 +146,8 @@ class ShutterConfiguration(EepromModel):
     group_1 = EepromByte(lambda mid: (63, (mid * 2) + 0))
     group_2 = EepromByte(lambda mid: (63, (mid * 2) + 1))
     room = EextByte()
+    up_position = EextWord()
+    down_position = EextWord()
 
 
 class ShutterGroupConfiguration(EepromModel):

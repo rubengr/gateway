@@ -787,31 +787,33 @@ class WebInterface(object):
         """
         return {'status': self._gateway_api.get_shutter_status()}
 
-    @openmotics_api(auth=True, check=types(id=int))
-    def do_shutter_down(self, id):
+    @openmotics_api(auth=True, check=types(id=int, position=int))
+    def do_shutter_down(self, id, position=None):
         """
-        Make a shutter go down. The shutter stops automatically when the down position is
-        reached (after the predefined number of seconds).
+        Make a shutter go down. The shutter stops automatically when the down or specified position is reached
 
         :param id: The id of the shutter.
         :type id: int
+        :param position: The desired end position
+        :type position: int
         :returns:'status': 'OK'.
         :rtype: dict
         """
-        return self._gateway_api.do_shutter_down(id)
+        return self._gateway_api.do_shutter_down(id, position)
 
-    @openmotics_api(auth=True, check=types(id=int))
-    def do_shutter_up(self, id):
+    @openmotics_api(auth=True, check=types(id=int, position=int))
+    def do_shutter_up(self, id, position=None):
         """
-        Make a shutter go up. The shutter stops automatically when the up position is
-        reached (after the predefined number of seconds).
+        Make a shutter go up. The shutter stops automatically when the up or specified position is reached
 
         :param id: The id of the shutter.
         :type id: int
+        :param position: The desired end position
+        :type position: int
         :returns:'status': 'OK'.
         :rtype: dict
         """
-        return self._gateway_api.do_shutter_up(id)
+        return self._gateway_api.do_shutter_up(id, position)
 
     @openmotics_api(auth=True, check=types(id=int))
     def do_shutter_stop(self, id):
@@ -824,6 +826,20 @@ class WebInterface(object):
         :rtype: dict
         """
         return self._gateway_api.do_shutter_stop(id)
+
+    @openmotics_api(auth=True, check=types(id=int, position=int))
+    def do_shutter_goto(self, id, position):
+        """
+        Make a shutter go up or down to the specified position.
+
+        :param id: The id of the shutter.
+        :type id: int
+        :param position: The desired end position
+        :type position: int
+        :returns:'status': 'OK'.
+        :rtype: dict
+        """
+        return self._gateway_api.do_shutter_goto(id, position)
 
     @openmotics_api(auth=True, check=types(id=int))
     def do_shutter_group_down(self, id):
