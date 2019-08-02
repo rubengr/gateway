@@ -42,6 +42,7 @@ from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 from gateway.observer import Observer
+from gateway.shutters import ShutterController
 
 from bus.dbus_service import DBusService
 from bus.dbus_events import DBusEvents
@@ -142,8 +143,10 @@ def main():
         eeprom_controller
     )
 
+    shutter_controller = ShutterController(master_communicator)
+
     observer = Observer(master_communicator, dbus_service)
-    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer, config_controller)
+    gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer, config_controller, shutter_controller)
 
     observer.set_gateway_api(gateway_api)
 
@@ -183,6 +186,7 @@ def main():
     observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, metrics_collector.on_output)
     observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
     observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
+    observer.subscribe_master(Observer.MasterEvents.ONLINE, gateway_api.master_online_event)
     observer.subscribe_events(web_interface.process_observer_event)
 
     led_thread = threading.Thread(target=led_driver, args=(dbus_service, master_communicator, power_communicator))

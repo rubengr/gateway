@@ -841,6 +841,20 @@ class WebInterface(object):
         """
         return self._gateway_api.do_shutter_goto(id, position)
 
+    @openmotics_api(auth=True, check=types(id=int, position=int))
+    def shutter_report_position(self, id, position):
+        """
+        Reports the actual position of a shutter
+
+        :param id: The id of the shutter.
+        :type id: int
+        :param position: The actual position
+        :type position: int
+        :returns:'status': 'OK'.
+        :rtype: dict
+        """
+        return self._gateway_api.shutter_report_position(id, position)
+
     @openmotics_api(auth=True, check=types(id=int))
     def do_shutter_group_down(self, id):
         """

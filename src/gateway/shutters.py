@@ -20,6 +20,9 @@ from master.master_api import BA_SHUTTER_DOWN, BA_SHUTTER_STOP, BA_SHUTTER_UP
 
 
 class ShutterController(object):
+
+    # TODO: Colaborate with the observer
+
     class Direction(object):
         UP = 'UP'
         DOWN = 'DOWN'
@@ -66,25 +69,15 @@ class ShutterController(object):
                 self._desired_positions[shutter_id] = None  # Remove desired position
 
     def shutter_up(self, shutter_id, position=None):
-        # Fetch and validate data
-        shutter = self._get_shutter(shutter_id)
-        position_limits = self._get_position_limits(shutter)
-        direction = ShutterController.Direction.UP
-
-        if position is not None:
-            ShutterController._validate_position_limits(shutter_id, position, position_limits)
-        else:
-            position = ShutterController._get_limit(direction, position_limits)
-
-        self._desired_positions[shutter_id] = position
-        self._directions[shutter_id] = direction
-        self._execute_shutter(shutter_id, direction)
+        return self._shutter_goto_direction(shutter_id, ShutterController.Direction.UP, position)
 
     def shutter_down(self, shutter_id, position=None):
+        return self._shutter_goto_direction(shutter_id, ShutterController.Direction.DOWN, position)
+
+    def _shutter_goto_direction(self, shutter_id, direction, position=None):
         # Fetch and validate data
         shutter = self._get_shutter(shutter_id)
         position_limits = self._get_position_limits(shutter)
-        direction = ShutterController.Direction.DOWN
 
         if position is not None:
             ShutterController._validate_position_limits(shutter_id, position, position_limits)
@@ -149,6 +142,8 @@ class ShutterController(object):
 
     @staticmethod
     def _get_limit(direction, position_limits):
+        if position_limits is None:
+            return None
         if direction == ShutterController.Direction.UP:
             return position_limits['up']
         return position_limits['down']

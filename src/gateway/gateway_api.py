@@ -133,6 +133,10 @@ class GatewayApi(object):
         """
         self.__plugin_controller = plugin_controller
 
+    def master_online_event(self, online):
+        if online:
+            self.__shutter_controller.reload_config(self.get_shutter_configurations())
+
     def __master_checker(self):
         """
         Validates certain master settings such as time and whether e.g. events are enabled. It will try to correct all
@@ -900,6 +904,20 @@ class GatewayApi(object):
         :rtype: dict
         """
         self.__shutter_controller.shutter_goto(shutter_id, position)
+        return {'status': 'OK'}
+
+    def shutter_report_position(self, shutter_id, position):
+        """
+        Report the actual position of a shutter
+
+        :param shutter_id: The id of the shutter.
+        :type shutter_id: int
+        :param position: The actual position
+        :type position: int
+        :returns:'status': 'OK'.
+        :rtype: dict
+        """
+        self.__shutter_controller.report_shutter_position(shutter_id, position)
         return {'status': 'OK'}
 
     def do_shutter_group_down(self, group_id):
