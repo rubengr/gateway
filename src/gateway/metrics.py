@@ -258,13 +258,29 @@ class MetricsController(object):
         """
         metric_type = metric['type']
         metric_source = metric['source']
-        metric_types = self._config_controller.get_setting('cloud_metrics_types')
-        if metric_type not in metric_types:
-            return
 
         if self._config_controller.get_setting('cloud_enabled', True) is False:
             return
         if self._config_controller.get_setting('cloud_metrics_enabled|{0}'.format(metric_type), False) is False:
+            return
+
+        if metric_source == 'OpenMotics':
+            # filter openmotics metrics that are not listed in cloud_metrics_types
+            metric_types = self._config_controller.get_setting('cloud_metrics_types')
+            if metric_type not in metric_types:
+                return
+            # round off timestamps for openmotics metrics
+            timestamp = int(metric['timestamp'] - metric['timestamp'] % self.cloud_intervals.get(metric_type, 900))
+        else:
+            # filter 3rd party (plugin) metrics that are not listed in cloud_metrics_sources
+            metric_sources = self._config_controller.get_setting('cloud_metrics_sources')
+            if metric_source not in metric_sources:
+                return
+            timestamp = int(metric['timestamp'])
+
+        # get definition for metric source and type
+        definition = self.definitions.get(metric_source, {}).get(metric_type)
+        if definition is None:
             return
 
         cloud_batch_size = self._config_controller.get_setting('cloud_metrics_batch_size')
@@ -276,10 +292,7 @@ class MetricsController(object):
             self._config_controller.get_setting('cloud_endpoint_metrics'),
             self._gateway_uuid
         )
-        timestamp = int(metric['timestamp'] - metric['timestamp'] % self.cloud_intervals.get(metric_type, 900))
-        definition = self.definitions.get(metric_source, {}).get(metric_type)
-        if definition is None:
-            return
+
         counters_to_buffer = self._buffer_counters.get(metric_source, {}).get(metric_type, {})
         identifier = '|'.join(['{0}={1}'.format(tag, metric['tags'][tag]) for tag in sorted(definition['tags'])])
 

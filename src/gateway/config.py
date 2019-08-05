@@ -62,6 +62,7 @@ class ConfigurationController(object):
                                          'cloud_endpoint': 'cloud.openmotics.com',
                                          'cloud_endpoint_metrics': 'portal/metrics/',
                                          'cloud_metrics_types': ['energy', 'counter'],
+                                         'cloud_metrics_sources': ['openmotics'],
                                          'cloud_metrics_enabled|energy': True,
                                          'cloud_metrics_enabled|counter': True,
                                          'cloud_metrics_batch_size': 50,
