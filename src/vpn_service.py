@@ -137,6 +137,10 @@ class Cloud(object):
                 for setting, value in data['configuration'].iteritems():
                     self.__config.set_setting(setting, value)
 
+            if 'intervals' in data:
+                for mtype, interval in data['intervals'].iteritems():
+                    self.set_cloud_interval(mtype, interval)
+
             self.__last_connect = time.time()
             self.__dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, True)
             return {'open_vpn': data['open_vpn'],

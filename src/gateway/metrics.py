@@ -261,7 +261,10 @@ class MetricsController(object):
 
         if self._config_controller.get_setting('cloud_enabled', True) is False:
             return
-        if self._config_controller.get_setting('cloud_metrics_enabled|{0}'.format(metric_type), False) is False:
+
+        # OM717: only energy and counter types can be opt-out atm
+        # TODO: make all metric types opt-out via the cloud, remove config from gateway
+        if self._config_controller.get_setting('cloud_metrics_enabled|{0}'.format(metric_type), True) is False:
             return
 
         if metric_source == 'OpenMotics':
