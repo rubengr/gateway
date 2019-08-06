@@ -119,6 +119,7 @@ class Cloud(object):
         self.__last_connect = time.time()
         self.__sleep_time = sleep_time
         self.__config = config
+        self.__intervals = {}
 
     def call_home(self, extra_data):
         """ Call home reporting our state, and optionally get new settings or other stuff """
@@ -138,8 +139,13 @@ class Cloud(object):
                     self.__config.set_setting(setting, value)
 
             if 'intervals' in data:
-                for mtype, interval in data['intervals'].iteritems():
-                    self.set_cloud_interval(mtype, interval)
+                # check if interval changes occurred and distribute interval changes
+                intervals_changed = cmp(self.__intervals, data['intervals']) != 0
+                if intervals_changed:
+                    self.__dbus_service.send_event(DBusEvents.METRICS_INTERVAL_CHANGE, data['intervals'])
+
+                # update __intervals when sending is successful
+                self.__intervals = data['intervals']
 
             self.__last_connect = time.time()
             self.__dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, True)
