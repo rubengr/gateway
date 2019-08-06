@@ -135,7 +135,7 @@ class GatewayApi(object):
 
     def master_online_event(self, online):
         if online:
-            self.__shutter_controller.reload_config(self.get_shutter_configurations())
+            self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def __master_checker(self):
         """
@@ -906,7 +906,7 @@ class GatewayApi(object):
         self.__shutter_controller.shutter_goto(shutter_id, position)
         return {'status': 'OK'}
 
-    def shutter_report_position(self, shutter_id, position):
+    def shutter_report_position(self, shutter_id, position, direction):
         """
         Report the actual position of a shutter
 
@@ -914,10 +914,12 @@ class GatewayApi(object):
         :type shutter_id: int
         :param position: The actual position
         :type position: int
+        :param direction: The direction
+        :type direction: str
         :returns:'status': 'OK'.
         :rtype: dict
         """
-        self.__shutter_controller.report_shutter_position(shutter_id, position)
+        self.__shutter_controller.report_shutter_position(shutter_id, position, direction)
         return {'status': 'OK'}
 
     def do_shutter_group_down(self, group_id):
@@ -1705,7 +1707,7 @@ class GatewayApi(object):
         """
         self.__eeprom_controller.write(ShutterConfiguration.deserialize(config))
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
-        self.__shutter_controller.reload_config(self.get_shutter_configurations())
+        self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def set_shutter_configurations(self, config):
         """
@@ -1716,7 +1718,7 @@ class GatewayApi(object):
         """
         self.__eeprom_controller.write_batch([ShutterConfiguration.deserialize(o) for o in config])
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
-        self.__shutter_controller.reload_config(self.get_shutter_configurations())
+        self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def get_shutter_group_configuration(self, group_id, fields=None):
         """

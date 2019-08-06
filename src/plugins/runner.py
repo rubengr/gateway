@@ -159,7 +159,7 @@ class PluginRunner:
         self._do_async('output_status', {'status': status}, should_filter=True)
 
     def process_shutter_status(self, status):
-        self._do_async('shutter_status', {'status': status}, should_filter=True)
+        self._do_async('shutter_status', status, should_filter=True)
 
     def process_event(self, code):
         self._do_async('process_event', {'code': code}, should_filter=True)

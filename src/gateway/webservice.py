@@ -37,6 +37,7 @@ from ws4py.websocket import WebSocket
 
 from bus.dbus_events import DBusEvents
 from gateway.observer import Event
+from gateway.shutters import ShutterController
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
@@ -54,6 +55,10 @@ class FloatWrapper(float):
 
     def __repr__(self):
         return '%.2f' % self
+
+
+class BadRequestException(Exception):
+        pass
 
 
 def limit_floats(struct):
@@ -98,7 +103,10 @@ def params_parser(params, param_types):
         if isinstance(value, basestring) and value.lower() in ['null', 'none', '']:
             params[key] = None
         else:
-            if param_types[key] == bool:
+            if isinstance(param_types[key], list):
+                if value not in param_types[key]:
+                    raise ValueError('Value has invalid value')
+            elif param_types[key] == bool:
                 params[key] = str(value).lower() not in ['false', '0', '0.0', 'no']
             elif param_types[key] == 'json':
                 params[key] = json.loads(value)
@@ -785,7 +793,7 @@ class WebInterface(object):
         :returns: 'status': list of dictionaries with the following keys: id, position.
         :rtype: dict
         """
-        return {'status': self._gateway_api.get_shutter_status()}
+        return self._gateway_api.get_shutter_status()
 
     @openmotics_api(auth=True, check=types(id=int, position=int))
     def do_shutter_down(self, id, position=None):
@@ -841,8 +849,8 @@ class WebInterface(object):
         """
         return self._gateway_api.do_shutter_goto(id, position)
 
-    @openmotics_api(auth=True, check=types(id=int, position=int))
-    def shutter_report_position(self, id, position):
+    @openmotics_api(auth=True, check=types(id=int, position=int, direction=[ShutterController.Direction.UP, ShutterController.Direction.DOWN, ShutterController.Direction.STOP]))
+    def shutter_report_position(self, id, position, direction):
         """
         Reports the actual position of a shutter
 
@@ -850,10 +858,12 @@ class WebInterface(object):
         :type id: int
         :param position: The actual position
         :type position: int
+        :param direction: The direction
+        :type direction: str
         :returns:'status': 'OK'.
         :rtype: dict
         """
-        return self._gateway_api.shutter_report_position(id, position)
+        return self._gateway_api.shutter_report_position(id, position, direction)
 
     @openmotics_api(auth=True, check=types(id=int))
     def do_shutter_group_down(self, id):

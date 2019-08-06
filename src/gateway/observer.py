@@ -25,7 +25,6 @@ except ImportError:
 from threading import Thread
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.outputs import OutputStatus
-from master.shutters import ShutterStatus
 from master.thermostats import ThermostatStatus
 from master.inputs import InputStatus
 from master import master_api
@@ -80,12 +79,14 @@ class Observer(object):
         THERMOSTATS = 'THERMOSTATS'
         SHUTTERS = 'SHUTTERS'
 
-    def __init__(self, master_communicator, dbus_service):
+    def __init__(self, master_communicator, dbus_service, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
         :param dbus_service: DBusService instance
         :type dbus_service: bus.dbus_service.DBusService
+        :param shutter_controller: Shutter Controller
+        :type shutter_controller: gateway.shutters.ShutterController
         """
         self._master_communicator = master_communicator
         self._dbus_service = dbus_service
@@ -101,7 +102,8 @@ class Observer(object):
         self._output_status = OutputStatus(on_output_change=self._output_changed)
         self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed,
                                                    on_thermostat_group_change=self._thermostat_group_changed)
-        self._shutter_status = ShutterStatus(on_shutter_change=self._shutter_changed)
+        self._shutter_controller = shutter_controller
+        self._shutter_controller.set_shutter_changed_callback(self._shutter_changed)
 
         self._output_interval = 600
         self._output_last_updated = 0
@@ -244,10 +246,10 @@ class Observer(object):
     def _on_shutter_update(self, data):
         """ Triggers when the master informs us of an Shutter state change """
         # Update status tracker
-        self._shutter_status.update_states(data)
+        self._shutter_controller.update_from_master_state(data)
         # Notify subscribers
         for callback in self._master_subscriptions[Observer.MasterEvents.ON_SHUTTER_UPDATE]:
-            callback(self._shutter_status.get_states())
+            callback(self._shutter_controller.get_states())
 
     # Outputs
 
@@ -289,7 +291,7 @@ class Observer(object):
     # Shutters
 
     def get_shutter_status(self):
-        return self._shutter_status.get_states()
+        return self._shutter_controller.get_states()
 
     def _shutter_changed(self, shutter_id, shutter_data, shutter_state):
         """ Executed by the Shutter Status tracker when a shutter changed state """
@@ -302,9 +304,9 @@ class Observer(object):
     def _refresh_shutters(self):
         """ Refreshes the Shutter status tracker """
         number_of_shutter_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['shutter']
-        self._shutter_status.update_config(self._gateway_api.get_shutter_configurations())
+        self._shutter_controller.update_config(self._gateway_api.get_shutter_configurations())
         for module_id in xrange(number_of_shutter_modules):
-            self._shutter_status.update_states(
+            self._shutter_controller.update_from_master_state(
                 {'module_nr': module_id,
                  'status': self._master_communicator.do_command(master_api.shutter_status(self._master_version),
                                                                 {'module_nr': module_id})['status']}

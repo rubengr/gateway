@@ -145,7 +145,7 @@ def main():
 
     shutter_controller = ShutterController(master_communicator)
 
-    observer = Observer(master_communicator, dbus_service)
+    observer = Observer(master_communicator, dbus_service, shutter_controller)
     gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer, config_controller, shutter_controller)
 
     observer.set_gateway_api(gateway_api)
