@@ -906,7 +906,7 @@ class GatewayApi(object):
         self.__shutter_controller.shutter_goto(shutter_id, position)
         return {'status': 'OK'}
 
-    def shutter_report_position(self, shutter_id, position, direction):
+    def shutter_report_position(self, shutter_id, position, direction=None):
         """
         Report the actual position of a shutter
 

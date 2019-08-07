@@ -850,7 +850,7 @@ class WebInterface(object):
         return self._gateway_api.do_shutter_goto(id, position)
 
     @openmotics_api(auth=True, check=types(id=int, position=int, direction=[ShutterController.Direction.UP, ShutterController.Direction.DOWN, ShutterController.Direction.STOP]))
-    def shutter_report_position(self, id, position, direction):
+    def shutter_report_position(self, id, position, direction=None):
         """
         Reports the actual position of a shutter
 

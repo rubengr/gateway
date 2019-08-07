@@ -85,9 +85,9 @@ class ShutterController(object):
                 self._states[shutter_id] = [0, ShutterController.State.STOPPED]
                 self._actual_positions[shutter_id] = None
                 self._desired_positions[shutter_id] = None
-                self._directions[shutter_id] = None
+                self._directions[shutter_id] = ShutterController.Direction.STOP
 
-        for shutter_id in self._shutters:
+        for shutter_id in self._shutters.keys():
             if shutter_id not in shutter_ids:
                 del self._shutters[shutter_id]
                 del self._states[shutter_id]
@@ -109,11 +109,9 @@ class ShutterController(object):
         # Check for desired position to stop the shutter if appropriate
         expected_direction = self._directions[shutter_id]
         if direction is not None and expected_direction != direction:
-            # No clue about what's going on. Make sure internal states are as accurate as possible
+            # We received a more accurate direction
             self._report_shutter_state(shutter_id, ShutterController.DIRECTION_STATE_MAP[direction])
         expected_direction = self._directions[shutter_id]
-        if expected_direction is None:
-            return
         desired_position = self._desired_positions[shutter_id]
         if desired_position is None:
             return
@@ -186,8 +184,10 @@ class ShutterController(object):
     def _is_position_reached(shutter, direction, desired_position, actual_position, stopped=True):
         up = shutter['up_position']
         down = shutter['down_position']
+        if desired_position == actual_position:
+            return True  # Obviously reached
         if direction == ShutterController.Direction.STOP:
-            return stopped
+            return stopped  # Can't be decided, so return user value
         if direction == ShutterController.Direction.UP:
             if up > down:
                 return actual_position >= desired_position
@@ -242,7 +242,7 @@ class ShutterController(object):
             module_id = data['module_nr']
             new_state = self._interprete_output_states(module_id, data['status'])
             if new_state is None:
-                return
+                return  # Failsafe for master event handler
             for i in xrange(4):
                 shutter_id = module_id * 4 + i
                 self._report_shutter_state(shutter_id, new_state[i])
@@ -256,17 +256,16 @@ class ShutterController(object):
             direction = self._directions[shutter_id]
             if direction != expected_direction:
                 self._directions[shutter_id] = expected_direction
-                self._desired_positions[shutter_id] = None  # Direction changed, so desired position isn't usefull anymore
 
         current_state_timestamp, current_state = self._states[shutter_id]
-        if state == current_state:
+        if state == current_state or (state == ShutterController.State.STOPPED and current_state in [ShutterController.State.DOWN, ShutterController.State.UP]):
             return  # State didn't change, nothing to do
 
         if state != ShutterController.State.STOPPED:
             # Shutter started moving
             self._states[shutter_id] = [time.time(), state]
         else:
-            direction = self._directions[shutter_id]
+            direction = ShutterController.STATE_DIRECTION_MAP[current_state]
             if position_limits is None:
                 # Time based state calculation
                 threshold = 0.95 * shutter['timer_{0}'.format(direction.lower())]  # Allow 5% difference
@@ -289,7 +288,7 @@ class ShutterController(object):
         for i in xrange(4):
             shutter_id = module_id * 4 + i
             if shutter_id not in self._shutters:
-                return
+                return  # Failsafe for master event handler
 
             # first_up = 0 -> output 0 = up, output 1 = down
             # first_up = 1 -> output 0 = down, output 1 = up
