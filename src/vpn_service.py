@@ -310,9 +310,9 @@ class VPNService(object):
         self._gateway = Gateway()
         self._vpn_controller = VpnController()
         self._config_controller = ConfigurationController(constants.get_config_database_file(), threading.Lock())
-        self._dbus_service = DBusService('vpn_service',
-                                         event_receiver=self._event_receiver,
-                                         get_state=self._check_state)
+        self._dbus_service = DBusService('vpn_service')
+        self._dbus_service.add_event_handler(self._event_receiver)
+        self._dbus_service.set_state_handler(self._check_state)
         self._cloud = Cloud(config.get('OpenMotics', 'vpn_check_url') % config.get('OpenMotics', 'uuid'),
                             self._dbus_service,
                             self._config_controller)

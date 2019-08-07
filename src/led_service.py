@@ -263,9 +263,9 @@ def main():
         led_controller.start()
         led_controller.set_led(Hardware.Led.POWER, True)
 
-        DBusService('led_service',
-                    event_receiver=lambda *args, **kwargs: led_controller.event_receiver(*args, **kwargs),
-                    get_state=led_controller.get_state)
+        dbus_service = DBusService('led_service')
+        dbus_service.add_event_handler(lambda *args, **kwargs: led_controller.event_receiver(*args, **kwargs))
+        dbus_service.set_state_handler(led_controller.get_state)
 
         LOGGER.log("Running led service.")
         mainloop = gobject.MainLoop()

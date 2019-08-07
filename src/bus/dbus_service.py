@@ -34,14 +34,13 @@ class DBusService(dbus.service.Object):
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
-    def __init__(self, service, event_receiver=None, get_state=None):
+    def __init__(self, service):
         self._system_bus = dbus.SystemBus()
         dbus.service.Object.__init__(self, dbus.service.BusName(DBusService.BUS.format(service), self._system_bus), DBusService.PATH.format(service))
 
-        self._get_state = get_state
-        if event_receiver is not None:
-            self._event_receiver = event_receiver
-            self._system_bus.add_signal_receiver(self._process_event, dbus_interface=DBusService.INTERFACE.format('events'))
+        self._get_state = None
+        self._event_handlers = []
+        self._system_bus.add_signal_receiver(self._process_event, dbus_interface=DBusService.INTERFACE.format('events'))
 
     @dbus.service.signal(INTERFACE.format('events'), signature='ss')
     def _send_event(self, event, json_payload):
@@ -52,7 +51,8 @@ class DBusService(dbus.service.Object):
         return self._send_event(event, json.dumps(payload))
 
     def _process_event(self, event, json_payload):
-        return self._event_receiver(event, json.loads(json_payload))
+        for event_handler in self._event_handlers:
+            return event_handler(event, json.loads(json_payload))
 
     @dbus.service.method(INTERFACE.format('state'), in_signature='', out_signature='s')
     def _request_state(self):
@@ -71,3 +71,9 @@ class DBusService(dbus.service.Object):
         if data is None:
             return default
         return json.loads(data)
+
+    def add_event_handler(self, event_handler):
+        self._event_handlers.append(event_handler)
+
+    def set_state_handler(self, state_handler):
+        self._get_state = state_handler

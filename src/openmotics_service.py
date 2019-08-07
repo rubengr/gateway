@@ -169,6 +169,7 @@ def main():
     metrics_collector.set_controllers(metrics_controller, plugin_controller)
     metrics_controller.add_receiver(metrics_controller.receiver)
     metrics_controller.add_receiver(web_interface.distribute_metric)
+    dbus_service.add_event_handler(metrics_collector.event_receiver)
 
     plugin_controller.set_metrics_controller(metrics_controller)
     plugin_controller.set_metrics_collector(metrics_collector)

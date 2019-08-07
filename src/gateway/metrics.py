@@ -25,7 +25,6 @@ from threading import Thread
 from collections import deque
 
 from bus.dbus_events import DBusEvents
-from bus.dbus_service import DBusService
 
 try:
     import json
@@ -100,10 +99,6 @@ class MetricsController(object):
             settings = MetricsController._parse_definition(definition)
             self._persist_counters.setdefault('OpenMotics', {})[definition['type']] = settings['persist']
             self._buffer_counters.setdefault('OpenMotics', {})[definition['type']] = settings['buffer']
-
-        self._dbus_service = DBusService('metrics_controller',
-                                         event_receiver=self._event_receiver,
-                                         get_state=self._check_state)
 
     def start(self):
         self._collector_plugins = Thread(target=self._collect_plugins)
@@ -516,13 +511,8 @@ class MetricsController(object):
             except IndexError:
                 time.sleep(0.1)
 
-    def _event_receiver(self, event, payload):
+    def event_receiver(self, event, payload):
         if event == DBusEvents.METRICS_INTERVAL_CHANGE:
             for metric_type, interval in payload.iteritems:
                 self.set_cloud_interval(metric_type, interval)
 
-    def _check_state(self):
-        return {'cloud_last_send': self._cloud_last_send,
-                'cloud_last_try': self._cloud_last_try,
-                'cloud_retry_interval': self._cloud_retry_interval,
-                'stopped': self._stopped}
