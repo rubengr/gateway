@@ -47,7 +47,7 @@ class ShutterController(object):
                            State.GOING_DOWN: Direction.DOWN,
                            State.STOPPED: Direction.STOP}
 
-    def __init__(self, master_communicator):
+    def __init__(self, master_communicator, verbose=False):
         """
         Initializes a ShutterController
         :param master_communicator: Master communicator
@@ -61,11 +61,16 @@ class ShutterController(object):
         self._directions = {}
         self._states = {}
 
+        self._verbose = verbose
         self._merge_lock = Lock()
         self._on_shutter_changed = None
 
     def set_shutter_changed_callback(self, callback):
         self._on_shutter_changed = callback
+
+    def _log(self, message):
+        if self._verbose:
+            LOGGER.info('ShutterController: {0}'.format(message))
 
     # Update internal shutter configuration cache
 
@@ -98,6 +103,7 @@ class ShutterController(object):
     # Allow shutter positions to be reported
 
     def report_shutter_position(self, shutter_id, position, direction=None):
+        self._log('Shutter {0} reports position {1}'.format(shutter_id, position))
         # Fetch and validate information
         shutter = self._get_shutter(shutter_id)
         position_limits = ShutterController._get_position_limits(shutter)
@@ -106,16 +112,19 @@ class ShutterController(object):
         # Store new position
         self._actual_positions[shutter_id] = position
 
-        # Check for desired position to stop the shutter if appropriate
+        # Update the direction and report if changed
         expected_direction = self._directions[shutter_id]
         if direction is not None and expected_direction != direction:
             # We received a more accurate direction
+            self._log('Shutter {0} report direction change to {1}'.format(shutter_id, direction))
             self._report_shutter_state(shutter_id, ShutterController.DIRECTION_STATE_MAP[direction])
-        expected_direction = self._directions[shutter_id]
+
+        direction = self._directions[shutter_id]
         desired_position = self._desired_positions[shutter_id]
         if desired_position is None:
             return
-        if ShutterController._is_position_reached(shutter, expected_direction, desired_position, position, stopped=True):
+        if ShutterController._is_position_reached(shutter, direction, desired_position, position, stopped=True):
+            self._log('Shutter {0} reported position is desired position: Stopping'.format(shutter_id))
             self.shutter_stop(shutter_id)
 
     # Control shutters
@@ -247,38 +256,43 @@ class ShutterController(object):
                 shutter_id = module_id * 4 + i
                 self._report_shutter_state(shutter_id, new_state[i])
 
-    def _report_shutter_state(self, shutter_id, state):
+    def _report_shutter_state(self, shutter_id, new_state):
         shutter = self._get_shutter(shutter_id)
         position_limits = ShutterController._get_position_limits(shutter)
 
-        expected_direction = ShutterController.STATE_DIRECTION_MAP.get(state)
-        if expected_direction is not None:
-            direction = self._directions[shutter_id]
-            if direction != expected_direction:
-                self._directions[shutter_id] = expected_direction
+        self._directions[shutter_id] = ShutterController.STATE_DIRECTION_MAP[new_state]
+        self._log('Shutter {0} reports state {1}, which is direction {2}'.format(shutter_id, new_state, self._directions[shutter_id]))
 
         current_state_timestamp, current_state = self._states[shutter_id]
-        if state == current_state or (state == ShutterController.State.STOPPED and current_state in [ShutterController.State.DOWN, ShutterController.State.UP]):
+        if new_state == current_state or (new_state == ShutterController.State.STOPPED and current_state in [ShutterController.State.DOWN, ShutterController.State.UP]):
+            self._log('Shutter {0} new state {1} ignored since it equals {2}'.format(shutter_id, new_state, current_state))
             return  # State didn't change, nothing to do
 
-        if state != ShutterController.State.STOPPED:
+        if new_state != ShutterController.State.STOPPED:
             # Shutter started moving
-            self._states[shutter_id] = [time.time(), state]
+            self._states[shutter_id] = [time.time(), new_state]
+            self._log('Shutter {0} started moving'.format(shutter_id))
         else:
             direction = ShutterController.STATE_DIRECTION_MAP[current_state]
             if position_limits is None:
                 # Time based state calculation
                 threshold = 0.95 * shutter['timer_{0}'.format(direction.lower())]  # Allow 5% difference
                 if time.time() >= current_state_timestamp + threshold:  # The shutter was going up/down for the whole `timer`. So it's now up/down
+                    self._log('Shutter {0} going {1} passed time threshold. New state {2}'.format(shutter_id, direction, ShutterController.DIRECTION_END_STATE_MAP[direction]))
                     new_state = ShutterController.DIRECTION_END_STATE_MAP[direction]
                 else:
+                    self._log('Shutter {0} going {1} did not pass time threshold. New state {2}'.format(shutter_id, direction, ShutterController.State.STOPPED))
                     new_state = ShutterController.State.STOPPED
             else:
                 # Supports position, so state will be calculated on position
-                if ShutterController._is_position_reached(shutter, direction, self._desired_positions[shutter_id], self._actual_positions[shutter_id]):
+                limit_position = ShutterController._get_limit(direction, position_limits)
+                if ShutterController._is_position_reached(shutter, direction, limit_position, self._actual_positions[shutter_id]):
+                    self._log('Shutter {0} going {1} reached limit. New state {2}'.format(shutter_id, direction, ShutterController.DIRECTION_END_STATE_MAP[direction]))
                     new_state = ShutterController.DIRECTION_END_STATE_MAP[direction]
                 else:
+                    self._log('Shutter {0} going {1} did not reach limit. New state {2}'.format(shutter_id, direction, ShutterController.State.STOPPED))
                     new_state = ShutterController.State.STOPPED
+
             self._states[shutter_id] = [time.time(), new_state]
 
         self._report_change(shutter_id, shutter, self._states[shutter_id])
