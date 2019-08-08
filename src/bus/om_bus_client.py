@@ -55,6 +55,9 @@ class MessageClient(object):
         msg = json.dumps(payload)
         if self.client is not None and self.client.closed is False:
             self.client.send_bytes(msg)
+        else:
+            # TODO: raise error
+            pass
 
     def get_state(self, client_name, default=None, timeout=5):
         self.latest_state_received = None
@@ -85,28 +88,3 @@ class MessageClient(object):
         receiver.daemon = True
         receiver.start()
 
-
-if __name__ == "__main__":
-
-    name = random.randint(0, 3)
-
-    def print_message(msg):
-        print('received {0}'.format(msg))
-
-    def state():
-        return {'someinfo': 'com.openmotics.testclient{0}'.format(name)}
-
-    client = MessageClient('com.openmotics.testclient{0}'.format(name))
-    client.add_event_handler(print_message)
-    client.set_state_handler(state)
-    client.start()
-
-    i = 0
-    while True:
-        message = {'message': 'number {0}'.format(i)}
-        print('sent {0}'.format(message))
-        client.send_event(Events.METRICS_INTERVAL_CHANGE, message)
-        i = i + 1
-        time.sleep(2)
-        if i % 4 == 0:
-            print(client.get_state('com.openmotics.testclient1'))
