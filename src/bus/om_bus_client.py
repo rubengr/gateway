@@ -25,6 +25,8 @@ class MessageClient(object):
         self.client_name = name
         self.latest_state_received = None
 
+        self._start()
+
     def _send_state(self):
         if self._get_state is not None:
             msg = self._get_state()
@@ -59,6 +61,11 @@ class MessageClient(object):
             # TODO: raise error
             pass
 
+    def _start(self):
+        receiver = Thread(target=self._message_receiver)
+        receiver.daemon = True
+        receiver.start()
+
     def get_state(self, client_name, default=None, timeout=5):
         self.latest_state_received = None
         data = {'client': client_name}
@@ -82,9 +89,3 @@ class MessageClient(object):
 
     def add_event_handler(self, callback):
         self.callbacks.append(callback)
-
-    def start(self):
-        receiver = Thread(target=self._message_receiver)
-        receiver.daemon = True
-        receiver.start()
-
