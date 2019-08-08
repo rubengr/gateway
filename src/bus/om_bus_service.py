@@ -36,7 +36,7 @@ class MessageService():
         if should_be is None:
             self.connections[conn] = msg['client']
             should_be = msg['client']
-            print('Detected new client name {0}'.format(msg['client']))
+            logger.info('Detected new client name {0}'.format(msg['client']))
         pretends_to_be = msg['client']
         if pretends_to_be != should_be:
             raise EOFError('Client cannot use name {0} on connection for {1}'.format(pretends_to_be, should_be))
@@ -48,14 +48,14 @@ class MessageService():
         # 2. route message based on type
         msg_type = msg.get('type', None)
         if msg_type is None:
-            print('no message type defined')
+            logger.error('no message type defined')
         elif msg_type == 'event' or msg_type == 'state':
             self.multicast(conn, msg)
         elif msg['type'] == 'request_state':
             target_client_name = msg['data']['client']
             self.unicast(target_client_name, msg)
         else:
-            print('unknown message type: {0}'.format(msg_type))
+            logger.warning('unknown message type: {0}'.format(msg_type))
 
     def receiver(self, conn):
         try:
@@ -66,14 +66,14 @@ class MessageService():
         except EOFError as e:
             client_name = self.connections[conn]
             conn.close()
-            print('Connection closed {0}'.format(client_name))
+            logger.info('Connection closed {0}'.format(client_name))
             del self.connections[conn]
 
     def start(self):
         while True:
             try:
                 conn = self.listener.accept()
-                print('connection accepted from {0}'.format(self.listener.last_accepted))
+                logger.info('connection accepted from {0}'.format(self.listener.last_accepted))
                 receiver = Thread(target=self.receiver, args=(conn, ))
                 receiver.daemon = True
                 receiver.start()

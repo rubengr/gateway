@@ -39,8 +39,16 @@ class MessageClient(object):
         if msg['type'] == 'state':
             self.latest_state_received = msg
         if msg['type'] == 'event':
+            self._process_event(msg)
+
+    def _process_event(self, msg):
+        try:
+            event_type = msg['data']['event_type']
+            payload = msg['data']['payload']
             for callback in self.callbacks:
-                callback(msg['data']['event_type'], msg['data']['payload'])
+                callback(event_type, payload)
+        except KeyError as e:
+            logger.exception('error processing event')
 
     def _message_receiver(self):
         self.client = Client(self.address, authkey=self.authkey)
@@ -48,7 +56,8 @@ class MessageClient(object):
             try:
                 msg = self.client.recv_bytes()
                 self._process_message(msg)
-            except EOFError:
+            except EOFError as e:
+                logger.exception('client connection closed unexpectedly')
                 self.client.close()
                 self.client = Client(self.address, authkey=self.authkey)
 
