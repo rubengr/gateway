@@ -202,7 +202,7 @@ class LedController(object):
                 self._write_leds()
             except Exception as exception:
                 LOGGER.log('Error while driving leds: {0}'.format(exception))
-            time.sleep(0.5)
+            time.sleep(0.25)
 
     def check_button(self):
         """ Handles input button presses """
@@ -230,7 +230,7 @@ class LedController(object):
             except Exception as exception:
                 LOGGER.log('Error while checking button: {0}'.format(exception))
             self._last_button_check = time.time()
-            time.sleep(0.5)
+            time.sleep(0.25)
 
     def event_receiver(self, event, payload):
         if event == Events.CLOUD_REACHABLE:
