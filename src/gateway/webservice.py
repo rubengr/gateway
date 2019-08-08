@@ -35,7 +35,6 @@ from ws4py import WS_VERSION
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from ws4py.websocket import WebSocket
 
-from bus.dbus_events import DBusEvents
 from gateway.observer import Event
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
@@ -401,7 +400,7 @@ class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 dbus_service, config_controller, scheduling_controller):
+                 message_client, config_controller, scheduling_controller):
         """
         Constructor for the WebInterface.
 
@@ -411,8 +410,8 @@ class WebInterface(object):
         :type gateway_api: gateway.gateway_api.GatewayApi
         :param maintenance_service: used when opening maintenance mode.
         :type maintenance_service: master.maintenance.MaintenanceService
-        :param dbus_service: check if the gateway is in authorized mode.
-        :type dbus_service: bus.dbus_service.DBusService
+        :param message_client: an OM bus message client
+        :type message_client: bus.om_bus_client.MessageClient
         :param config_controller: Configuration controller
         :type config_controller: gateway.config.ConfigController
         :param scheduling_controller: Scheduling Controller
@@ -426,14 +425,14 @@ class WebInterface(object):
 
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
-        self._dbus_service = dbus_service
+        self._message_client = message_client
 
         self.metrics_collector = None
         self._ws_metrics_registered = False
         self._power_dirty = False
 
     def in_authorized_mode(self):
-        return self._dbus_service.get_state('led_service', {}).get('authorized_mode', False)
+        return self._message_client.get_state('led_service', {}).get('authorized_mode', False)
 
     def distribute_metric(self, metric):
         try:
@@ -2449,13 +2448,13 @@ class WebInterface(object):
         """ Requests the state of the various services and checks the returned value for the global state """
         health = {'openmotics': {'state': True}}
         try:
-            state = self._dbus_service.get_state('vpn_service', {})
+            state = self._message_client.get_state('vpn_service', {})
             health['vpn_service'] = {'state': state.get('last_cycle', 0) > time.time() - 300}
         except Exception as ex:
             LOGGER.error('Error loading vpn_service health: %s', ex)
             health['vpn_service'] = {'state': False}
         try:
-            state = self._dbus_service.get_state('led_service', {})
+            state = self._message_client.get_state('led_service', {})
             state_ok = True
             for run in ['run_gpio', 'run_i2c', 'run_buttons', 'run_state_check']:
                 state_ok = state_ok and (state.get(run, 0) > time.time() - 5)
@@ -2469,7 +2468,7 @@ class WebInterface(object):
     @openmotics_api(auth=True)
     def indicate(self):
         """ Blinks the Status led on the Gateway to indicate the module """
-        self._dbus_service.send_event(DBusEvents.INDICATE_GATEWAY, None)
+        self._message_client.send_event(Events.INDICATE_GATEWAY, None)
         return {}
 
     @cherrypy.expose

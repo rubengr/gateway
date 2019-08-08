@@ -24,14 +24,14 @@ import requests
 from threading import Thread
 from collections import deque
 
-from bus.dbus_events import DBusEvents
+from bus.om_bus_events import Events
 
 try:
     import json
 except ImportError:
     import simplejson as json
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class MetricsController(object):
@@ -122,6 +122,7 @@ class MetricsController(object):
         self._stopped = True
 
     def set_cloud_interval(self, metric_type, interval):
+        logger.info('setting cloud interval {0}_{1}'.format(metric_type, interval))
         self.cloud_intervals[metric_type] = interval
         self._metrics_collector.set_cloud_interval(metric_type, interval)
         self._config_controller.set_setting('cloud_metrics_interval|{0}'.format(metric_type), interval)
@@ -355,7 +356,7 @@ class MetricsController(object):
                 #for mtype, interval in return_data.get('intervals', {}).iteritems():
                 #    self.set_cloud_interval(mtype, interval)
             except Exception as ex:
-                LOGGER.error('Error sending metrics to Cloud: {0}'.format(ex))
+                logger.error('Error sending metrics to Cloud: {0}'.format(ex))
                 if time_ago_send > 60 * 60:
                     # Decrease metrics rate, but at least every 2 hours
                     # Decrease cloud try interval, but at least every hour
@@ -502,7 +503,7 @@ class MetricsController(object):
                     try:
                         receiver(metric)
                     except Exception as ex:
-                        LOGGER.exception('Error distributing metrics to internal receivers: {0}'.format(ex))
+                        logger.exception('Error distributing metrics to internal receivers: {0}'.format(ex))
                     rate_key = '{0}.{1}'.format(metric['source'].lower(), metric['type'].lower())
                     if rate_key not in self.outbound_rates:
                         self.outbound_rates[rate_key] = 0
@@ -512,7 +513,7 @@ class MetricsController(object):
                 time.sleep(0.1)
 
     def event_receiver(self, event, payload):
-        if event == DBusEvents.METRICS_INTERVAL_CHANGE:
-            for metric_type, interval in payload.iteritems:
+        if event == Events.METRICS_INTERVAL_CHANGE:
+            for metric_type, interval in payload.iteritems():
                 self.set_cloud_interval(metric_type, interval)
 

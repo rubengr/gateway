@@ -16,6 +16,7 @@
 The DBus service provides all tooling to send/receive events and request/receive state reports
 """
 
+import logging
 import dbus
 import dbus.service
 import dbus.mainloop.glib
@@ -24,6 +25,7 @@ try:
 except ImportError:
     import simplejson as json
 
+logger = logging.getLogger('openmotics')
 
 class DBusService(dbus.service.Object):
     """ The DBus service provides all tooling to send/receive events and request/receive state reports """
@@ -51,6 +53,7 @@ class DBusService(dbus.service.Object):
         return self._send_event(event, json.dumps(payload))
 
     def _process_event(self, event, json_payload):
+        logger.info("_process_event {0} {1}".format(event, json_payload))
         for event_handler in self._event_handlers:
             return event_handler(event, json.loads(json_payload))
 

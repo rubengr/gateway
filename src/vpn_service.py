@@ -17,13 +17,14 @@ The vpn_service asks the OpenMotics cloud it a vpn tunnel should be opened. It s
 if required. On each check the vpn_service sends some status information about the outputs and
 thermostats to the cloud, to keep the status information in the cloud in sync.
 """
-
+from bus.om_bus_client import MessageClient
+from bus.om_bus_events import Events
 from platform_utils import System
 System.import_eggs()
 
+import logging
 import os
 import glob
-import gobject
 import sys
 import requests
 import time
@@ -32,11 +33,10 @@ import traceback
 import constants
 import threading
 
+from threading import Thread
 from collections import deque
 from ConfigParser import ConfigParser
 from datetime import datetime
-from bus.dbus_service import DBusService
-from bus.dbus_events import DBusEvents
 from gateway.config import ConfigurationController
 
 try:
@@ -47,12 +47,21 @@ except ImportError:
 REBOOT_TIMEOUT = 900
 DEFAULT_SLEEP_TIME = 30
 
+def setup_logger():
+    """ Setup the OpenMotics logger. """
+    logger = logging.getLogger("openmotics")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
 
-class LOGGER(object):
-    @staticmethod
-    def log(line):
-        sys.stdout.write('{0}: {1}\n'.format(datetime.now(), line))
-        sys.stdout.flush()
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
+
+
+def log(message):
+    logger = logging.getLogger("openmotics")
+    logger.info(message)
 
 
 def reboot_gateway():
@@ -70,18 +79,20 @@ class VpnController(object):
 
     def __init__(self):
         self.vpn_connected = False
-        gobject.timeout_add_seconds(5, self._vpn_connected)
+        t_vpn_connected = Thread(target=self._vpn_connected)
+        t_vpn_connected.daemon = True
+        t_vpn_connected.start()
 
     @staticmethod
     def start_vpn():
         """ Start openvpn """
-        LOGGER.log('Starting VPN')
+        log('Starting VPN')
         return subprocess.call(VpnController.start_cmd, shell=True) == 0
 
     @staticmethod
     def stop_vpn():
         """ Stop openvpn """
-        LOGGER.log('Stopping VPN')
+        log('Stopping VPN')
         return subprocess.call(VpnController.stop_cmd, shell=True) == 0
 
     @staticmethod
@@ -91,31 +102,32 @@ class VpnController(object):
 
     def _vpn_connected(self):
         """ Checks if the VPN tunnel is connected """
-        try:
-            routes = subprocess.check_output('ip r | grep tun | grep via || true', shell=True).strip()
-            # example output:
-            # 10.0.0.0/24 via 10.37.0.5 dev tun0\n
-            # 10.37.0.1 via 10.37.0.5 dev tun0
-            result = False
-            if routes:
-                vpn_servers = [route.split(' ')[0] for route in routes.split('\n') if '/' not in route]
-                for vpn_server in vpn_servers:
-                    if VPNService.ping(vpn_server, verbose=False):
-                        result = True
-                        break
-            self.vpn_connected = result
-        except Exception as ex:
-            LOGGER.log('Exception occured during vpn connectivity test: {0}'.format(ex))
-            self.vpn_connected = False
-        gobject.timeout_add_seconds(5, self._vpn_connected)
+        while True:
+            try:
+                routes = subprocess.check_output('ip r | grep tun | grep via || true', shell=True).strip()
+                # example output:
+                # 10.0.0.0/24 via 10.37.0.5 dev tun0\n
+                # 10.37.0.1 via 10.37.0.5 dev tun0
+                result = False
+                if routes:
+                    vpn_servers = [route.split(' ')[0] for route in routes.split('\n') if '/' not in route]
+                    for vpn_server in vpn_servers:
+                        if VPNService.ping(vpn_server, verbose=False):
+                            result = True
+                            break
+                self.vpn_connected = result
+            except Exception as ex:
+                log('Exception occured during vpn connectivity test: {0}'.format(ex))
+                self.vpn_connected = False
+            time.sleep(5)
 
 
 class Cloud(object):
     """ Connects to the cloud """
 
-    def __init__(self, url, dbus_service, config, sleep_time=DEFAULT_SLEEP_TIME):
+    def __init__(self, url, message_client, config, sleep_time=DEFAULT_SLEEP_TIME):
         self.__url = url
-        self.__dbus_service = dbus_service
+        self.__message_client = message_client
         self.__last_connect = time.time()
         self.__sleep_time = sleep_time
         self.__config = config
@@ -142,18 +154,19 @@ class Cloud(object):
                 # check if interval changes occurred and distribute interval changes
                 intervals_changed = cmp(self.__intervals, data['intervals']) != 0
                 if intervals_changed:
-                    self.__dbus_service.send_event(DBusEvents.METRICS_INTERVAL_CHANGE, data['intervals'])
+                    log('intervals changed: {0}'.format(data['intervals']))
+                    self.__message_client.send_event(Events.METRICS_INTERVAL_CHANGE, data['intervals'])
 
                 # update __intervals when sending is successful
                 self.__intervals = data['intervals']
 
             self.__last_connect = time.time()
-            self.__dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, True)
+            self.__message_client.send_event(Events.CLOUD_REACHABLE, True)
             return {'open_vpn': data['open_vpn'],
                     'success': True}
         except Exception as ex:
-            LOGGER.log('Exception occured during check: {0}'.format(ex))
-            self.__dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, False)
+            log('Exception occured during check: {0}'.format(ex))
+            self.__message_client.send_event(Events.CLOUD_REACHABLE, False)
             return {'open_vpn': True,
                     'success': False}
 
@@ -179,7 +192,7 @@ class Gateway(object):
             request = requests.get("http://" + self.__host + "/" + uri, timeout=15.0)
             return json.loads(request.text)
         except Exception as ex:
-            LOGGER.log('Exception during Gateway call: {0}'.format(ex))
+            log('Exception during Gateway call: {0} {1}'.format(ex, uri))
             return
 
     def get_real_time_power(self):
@@ -287,7 +300,7 @@ class DataCollector(object):
             else:
                 return
         except Exception as ex:
-            LOGGER.log('Error while collecting data: {0}'.format(ex))
+            log('Error while collecting data: {0}'.format(ex))
             traceback.print_exc()
             return
 
@@ -310,11 +323,11 @@ class VPNService(object):
         self._gateway = Gateway()
         self._vpn_controller = VpnController()
         self._config_controller = ConfigurationController(constants.get_config_database_file(), threading.Lock())
-        self._dbus_service = DBusService('vpn_service')
-        self._dbus_service.add_event_handler(self._event_receiver)
-        self._dbus_service.set_state_handler(self._check_state)
+        self._message_client = MessageClient('vpn_service')
+        self._message_client.add_event_handler(self._event_receiver)
+        self._message_client.set_state_handler(self._check_state)
         self._cloud = Cloud(config.get('OpenMotics', 'vpn_check_url') % config.get('OpenMotics', 'uuid'),
-                            self._dbus_service,
+                            self._message_client,
                             self._config_controller)
 
         self._collectors = {'thermostats': DataCollector(self._gateway.get_thermostats, 60),
@@ -341,17 +354,17 @@ class VPNService(object):
                     if p.returncode == 0:
                         return True
                     raise Exception('Non-zero exit code. Stdout: {0}, stderr: {1}'.format(stdout_data, stderr_data))
-            LOGGER.log('Got timeout during ping')
+            log('Got timeout during ping')
             p.kill()
             return False
 
         if verbose is True:
-            LOGGER.log("Testing ping to {0}".format(target))
+            log("Testing ping to {0}".format(target))
         try:
             # Ping returns status code 0 if at least 1 ping is successful
             return popen_timeout(["ping", "-c", "3", target], 10)
         except Exception as ex:
-            LOGGER.log("Error during ping: {0}".format(ex))
+            log("Error during ping: {0}".format(ex))
             return False
 
     def _get_debug_dumps(self):
@@ -375,7 +388,7 @@ class VPNService(object):
             try:
                 os.remove(filename)
             except Exception as ex:
-                LOGGER.log('Could not remove debug file {0}: {1}'.format(filename, ex))
+                log('Could not remove debug file {0}: {1}'.format(filename, ex))
 
     @staticmethod
     def _get_gateway():
@@ -383,7 +396,7 @@ class VPNService(object):
         try:
             return subprocess.check_output("ip r | grep '^default via' | awk '{ print $3; }'", shell=True)
         except Exception as ex:
-            LOGGER.log("Error during get_gateway: {0}".format(ex))
+            log("Error during get_gateway: {0}".format(ex))
             return
 
     def _check_state(self):
@@ -395,7 +408,7 @@ class VPNService(object):
 
     def _event_receiver(self, event, payload):
         _ = payload
-        if event == DBusEvents.DIRTY_EEPROM:
+        if event == Events.DIRTY_EEPROM:
             self._eeprom_events.appendleft(True)
 
     @staticmethod
@@ -411,82 +424,84 @@ class VPNService(object):
     def _set_vpn(self, should_open):
         is_running = VpnController.check_vpn()
         if should_open and not is_running:
-            LOGGER.log("opening vpn")
+            log("opening vpn")
             VpnController.start_vpn()
         elif not should_open and is_running:
-            LOGGER.log("closing vpn")
+            log("closing vpn")
             VpnController.stop_vpn()
         is_running = VpnController.check_vpn()
         self._vpn_open = is_running and self._vpn_controller.vpn_connected
-        self._dbus_service.send_event(DBusEvents.VPN_OPEN, self._vpn_open)
+        self._message_client.send_event(Events.VPN_OPEN, self._vpn_open)
 
     def start(self):
-        mainloop = gobject.MainLoop()
-        gobject.timeout_add(250, self._check_vpn)
-        mainloop.run()
+        t_check_vpn = Thread(target=self._check_vpn)
+        t_check_vpn.daemon = True
+        t_check_vpn.start()
 
     def _check_vpn(self):
-        self._last_cycle = time.time()
-        try:
-            start_time = time.time()
+        while True:
+            self._last_cycle = time.time()
+            try:
+                start_time = time.time()
 
-            # Check whether connection to the Cloud is enabled/disabled
-            cloud_enabled = self._config_controller.get_setting('cloud_enabled')
-            if cloud_enabled is False:
-                self._sleep_time = None
-                self._set_vpn(False)
-                self._dbus_service.send_event(DBusEvents.VPN_OPEN, False)
-                self._dbus_service.send_event(DBusEvents.CLOUD_REACHABLE, False)
+                # Check whether connection to the Cloud is enabled/disabled
+                cloud_enabled = self._config_controller.get_setting('cloud_enabled')
+                if cloud_enabled is False:
+                    self._sleep_time = None
+                    self._set_vpn(False)
+                    self._message_client.send_event(Events.VPN_OPEN, False)
+                    self._message_client.send_event(Events.CLOUD_REACHABLE, False)
 
-                gobject.timeout_add_seconds(DEFAULT_SLEEP_TIME, self._check_vpn)
-                return
+                    time.sleep(DEFAULT_SLEEP_TIME)
+                    continue
 
-            call_data = {'events': {}}
+                call_data = {'events': {}}
 
-            # Events  # TODO: Replace this by websocket events in the future
-            dirty_events = VPNService._unload_queue(self._eeprom_events)
-            if dirty_events:
-                call_data['events']['DIRTY_EEPROM'] = True
+                # Events  # TODO: Replace this by websocket events in the future
+                dirty_events = VPNService._unload_queue(self._eeprom_events)
+                if dirty_events:
+                    call_data['events']['DIRTY_EEPROM'] = True
 
-            # Collect data to be send to the Cloud
-            for collector_name in self._collectors:
-                collector = self._collectors[collector_name]
-                data = collector.collect()
-                if data is not None:
-                    call_data[collector_name] = data
-            call_data['debug'] = {'dumps': self._get_debug_dumps()}
+                # Collect data to be send to the Cloud
+                for collector_name in self._collectors:
+                    collector = self._collectors[collector_name]
+                    data = collector.collect()
+                    if data is not None:
+                        call_data[collector_name] = data
+                call_data['debug'] = {'dumps': self._get_debug_dumps()}
 
-            # Send data to the cloud and see if the VPN should be opened
-            feedback = self._cloud.call_home(call_data)
+                # Send data to the cloud and see if the VPN should be opened
+                feedback = self._cloud.call_home(call_data)
 
-            if feedback['success']:
-                self._clean_debug_dumps()
+                if feedback['success']:
+                    self._clean_debug_dumps()
 
-            if self._iterations > 20 and self._cloud.get_last_connect() < time.time() - REBOOT_TIMEOUT:
-                # The cloud is not responding for a while.
-                if not VPNService.ping('cloud.openmotics.com') and not VPNService.ping('8.8.8.8') and not VPNService.ping(VPNService._get_gateway()):
-                    # Perhaps the BeagleBone network stack is hanging, reboot the gateway
-                    # to reset the BeagleBone.
-                    reboot_gateway()
-            self._iterations += 1
-            # Open or close the VPN
-            self._set_vpn(feedback['open_vpn'])
+                if self._iterations > 20 and self._cloud.get_last_connect() < time.time() - REBOOT_TIMEOUT:
+                    # The cloud is not responding for a while.
+                    if not VPNService.ping('cloud.openmotics.com') and not VPNService.ping('8.8.8.8') and not VPNService.ping(VPNService._get_gateway()):
+                        # Perhaps the BeagleBone network stack is hanging, reboot the gateway
+                        # to reset the BeagleBone.
+                        reboot_gateway()
+                self._iterations += 1
+                # Open or close the VPN
+                self._set_vpn(feedback['open_vpn'])
 
-            # Getting some sleep
-            exec_time = time.time() - start_time
-            if exec_time > 1:
-                LOGGER.log('Heartbeat took more than 1s to complete: {0:.2f}s'.format(exec_time))
-            sleep_time = self._cloud.get_sleep_time()
-            if self._previous_sleep_time != sleep_time:
-                LOGGER.log('Set sleep interval to {0}s'.format(sleep_time))
-                self._previous_sleep_time = sleep_time
-            gobject.timeout_add_seconds(sleep_time, self._check_vpn)
-        except Exception as ex:
-            LOGGER.log("Error during vpn check loop: {0}".format(ex))
-            gobject.timeout_add_seconds(1, self._check_vpn)
+                # Getting some sleep
+                exec_time = time.time() - start_time
+                if exec_time > 1:
+                    log('Heartbeat took more than 1s to complete: {0:.2f}s'.format(exec_time))
+                sleep_time = self._cloud.get_sleep_time()
+                if self._previous_sleep_time != sleep_time:
+                    log('Set sleep interval to {0}s'.format(sleep_time))
+                    self._previous_sleep_time = sleep_time
+                time.sleep(sleep_time)
+            except Exception as ex:
+                log("Error during vpn check loop: {0}".format(ex))
+                time.sleep(1)
 
 
 if __name__ == '__main__':
-    LOGGER.log("Starting VPN service")
+    setup_logger()
+    log("Starting VPN service")
     vpn_service = VPNService()
     vpn_service.start()
