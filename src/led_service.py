@@ -61,7 +61,7 @@ class LedController(object):
     The LEDController contains all logic to control the leds, and read out the physical buttons
     """
 
-    def __init__(self, i2c_device, i2c_address, input_button):
+    def __init__(self, i2c_device, i2c_address, input_button, message_client):
         self._i2c_device = i2c_device
         self._i2c_address = i2c_address
         self._input_button = input_button
@@ -86,11 +86,18 @@ class LedController(object):
         self._authorized_timeout = 0
 
         self._check_states_thread = None
+        self._leds_thread = None
+        self._button_thread = None
 
         self._last_run_i2c = 0
         self._last_run_gpio = 0
         self._last_state_check = 0
         self._last_button_check = 0
+        self._running = False
+
+        self._message_client = message_client
+        self._message_client.add_event_handler(self.event_receiver)
+        self._message_client.set_state_handler(self.get_state)
 
         self._gpio_led_config = Hardware.get_gpio_led_config()
         self._i2c_led_config = Hardware.get_i2c_led_config()
@@ -100,9 +107,21 @@ class LedController(object):
 
     def start(self):
         """ Start the leds and buttons thread. """
+        self._running = True
         self._check_states_thread = Thread(target=self._check_states)
         self._check_states_thread.daemon = True
         self._check_states_thread.start()
+
+        self._leds_thread = Thread(target=self.drive_leds)
+        self._leds_thread.daemon = True
+        self._leds_thread.start()
+
+        self._button_thread = Thread(target=self.check_button)
+        self._button_thread.daemon = True
+        self._button_thread.start()
+
+    def stop(self):
+        self._running = False
 
     def set_led(self, led_name, enable):
         """ Set the state of a LED, enabled means LED on in this context. """
@@ -165,7 +184,7 @@ class LedController(object):
 
     def _check_states(self):
         """ Checks various states of the system (network) """
-        while True:
+        while self._running:
             try:
                 with open('/sys/class/net/eth0/carrier', 'r') as fh_up:
                     line = fh_up.read()
@@ -195,7 +214,7 @@ class LedController(object):
 
     def drive_leds(self):
         """ This drives different leds (status, alive and serial) """
-        while True:
+        while self._running:
             try:
                 now = time.time()
                 if now - 30 < self._indicate_started < now:
@@ -224,7 +243,7 @@ class LedController(object):
 
     def check_button(self):
         """ Handles input button presses """
-        while True:
+        while self._running:
             try:
                 button_pressed = LedController._is_button_pressed(self._input_button)
                 if button_pressed is False:
@@ -279,28 +298,18 @@ def main():
         config.read(constants.get_config_file())
         i2c_address = int(config.get('OpenMotics', 'leds_i2c_address'), 16)
 
-        led_controller = LedController(Hardware.get_i2c_device(), i2c_address, Hardware.get_gpio_input())
+        message_client = MessageClient('led_service')
+
+        led_controller = LedController(Hardware.get_i2c_device(), i2c_address, Hardware.get_gpio_input(), message_client)
         led_controller.start()
         led_controller.set_led(Hardware.Led.POWER, True)
-
-        message_client = MessageClient('led_service')
-        message_client.add_event_handler(led_controller.event_receiver)
-        message_client.set_state_handler(led_controller.get_state)
-
-        t_leds = Thread(target=led_controller.drive_leds)
-        t_leds.daemon = True
-        t_leds.start()
-
-        t_button = Thread(target=led_controller.check_button)
-        t_button.daemon = True
-        t_button.start()
 
         signal_request = {'stop': False}
         def stop(signum, frame):
             """ This function is called on SIGTERM. """
             _ = signum, frame
             log('Stopping led service...')
-            # TODO: stop threads
+            led_controller.stop()
             log('Stopping led service...Done')
             signal_request['stop'] = True
 

@@ -46,13 +46,14 @@ class MessageClient(object):
             event_type = msg['data']['event_type']
             payload = msg['data']['payload']
             for callback in self.callbacks:
-                callback(event_type, payload)
+                try:
+                    callback(event_type, payload)
+                except Exception as e:
+                    logger.exception('Error executing callback')
         except KeyError as e:
             logger.exception('error processing event')
 
     def _message_receiver(self):
-        self.client = Client(self.address, authkey=self.authkey)
-        self.send_event(Events.CLIENT_DISCOVERY, None)
         while True:
             try:
                 msg = self.client.recv_bytes()
@@ -60,9 +61,12 @@ class MessageClient(object):
             except EOFError as eof_error:
                 logger.exception('client connection closed unexpectedly')
                 self.client.close()
-                self.client = Client(self.address, authkey=self.authkey)
+                self._connected = False
+                time.sleep(1)
+                self._connect()
             except Exception as e:
                 logger.exception('unexpected error occured in message receiver'.format(e))
+                time.sleep(5)
 
     def _send(self, data, msg_type='event'):
         payload = {'type': msg_type, 'client': self.client_name, 'data': data}
@@ -73,7 +77,18 @@ class MessageClient(object):
             # TODO: raise error
             pass
 
+    def _connect(self):
+        while not self._connected:
+            try:
+                self.client = Client(self.address, authkey=self.authkey)
+                self.send_event(Events.CLIENT_DISCOVERY, None)
+                self._connected = True
+            except Exception as e:
+                logger.exception('Could not connect to message server.'.format(e))
+                time.sleep(2)
+
     def _start(self):
+        self._connect()
         receiver = Thread(target=self._message_receiver)
         receiver.daemon = True
         receiver.start()

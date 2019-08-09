@@ -16,22 +16,20 @@
 The main module for the OpenMotics
 """
 
+from platform_utils import System
+System.import_eggs()
+
 import logging
 import time
+import constants
 
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
 from bus.om_bus_events import Events
-from platform_utils import System
-System.import_eggs()
-
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
 from threading import Thread, Lock
-
-
-import constants
 
 from serial_utils import RS485
 
@@ -233,10 +231,3 @@ if __name__ == "__main__":
 
     openmotics_service = OpenmoticsService()
     openmotics_service.start()
-
-
-
-
-
-
-

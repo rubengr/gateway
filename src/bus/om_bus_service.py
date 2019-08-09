@@ -57,7 +57,7 @@ class MessageService():
             target_client_name = msg['data']['client']
             self._unicast(target_client_name, msg)
         else:
-            logger.warning('unknown message type: {0}'.format(msg_type))
+            logger.warning('Unknown message type: {0}'.format(msg_type))
 
     def _receiver(self, conn):
         try:
