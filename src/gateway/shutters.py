@@ -24,6 +24,16 @@ LOGGER = logging.getLogger('openmotics')
 
 
 class ShutterController(object):
+    """
+    Controls everything related to shutters.
+
+    Important assumptions:
+    * A shutter can go UP and go DOWN
+    * A shutter that is UP is considered open and has a position of 0
+    * A shutter that is DOWN is considered closed and has a position of `steps`
+
+    # TODO: The states OPEN and CLOSED make more sense but is a reasonable heavy change at this moment. To be updated if/when a new Gateway API is introduced
+    """
 
     class Direction(object):
         UP = 'UP'
@@ -106,8 +116,8 @@ class ShutterController(object):
         self._log('Shutter {0} reports position {1}'.format(shutter_id, position))
         # Fetch and validate information
         shutter = self._get_shutter(shutter_id)
-        position_limits = ShutterController._get_position_limits(shutter)
-        ShutterController._validate_position_limits(shutter_id, position, position_limits)
+        steps = ShutterController._get_steps(shutter)
+        ShutterController._validate_position(shutter_id, position, steps)
 
         # Store new position
         self._actual_positions[shutter_id] = position
@@ -123,7 +133,7 @@ class ShutterController(object):
         desired_position = self._desired_positions[shutter_id]
         if desired_position is None:
             return
-        if ShutterController._is_position_reached(shutter, direction, desired_position, position, stopped=True):
+        if ShutterController._is_position_reached(direction, desired_position, position, stopped=True):
             self._log('Shutter {0} reported position is desired position: Stopping'.format(shutter_id))
             self.shutter_stop(shutter_id)
 
@@ -138,14 +148,16 @@ class ShutterController(object):
     def shutter_goto(self, shutter_id, desired_position):
         # Fetch and validate data
         shutter = self._get_shutter(shutter_id)
-        position_limits = ShutterController._get_position_limits(shutter)
-        ShutterController._validate_position_limits(shutter_id, desired_position, position_limits)
+        steps = ShutterController._get_steps(shutter)
+        ShutterController._validate_position(shutter_id, desired_position, steps)
 
         actual_position = self._actual_positions[shutter_id]
         if actual_position is None:
             raise RuntimeError('Shutter {0} has unknown actual position'.format(shutter_id))
 
-        direction = self._get_direction(actual_position, desired_position, position_limits)
+        direction = self._get_direction(actual_position, desired_position)
+
+        self._log('Shutter {0} setting desired position to {1}'.format(shutter_id, desired_position))
 
         self._desired_positions[shutter_id] = desired_position
         self._directions[shutter_id] = direction
@@ -155,6 +167,8 @@ class ShutterController(object):
         # Validate data
         self._get_shutter(shutter_id)
 
+        self._log('Shutter {0} removing desired position'.format(shutter_id))
+
         self._desired_positions[shutter_id] = None
         self._directions[shutter_id] = ShutterController.Direction.STOP
         self._execute_shutter(shutter_id, ShutterController.Direction.STOP)
@@ -162,12 +176,14 @@ class ShutterController(object):
     def _shutter_goto_direction(self, shutter_id, direction, desired_position=None):
         # Fetch and validate data
         shutter = self._get_shutter(shutter_id)
-        position_limits = ShutterController._get_position_limits(shutter)
+        steps = ShutterController._get_steps(shutter)
 
         if desired_position is not None:
-            ShutterController._validate_position_limits(shutter_id, desired_position, position_limits)
+            ShutterController._validate_position(shutter_id, desired_position, steps)
         else:
-            desired_position = ShutterController._get_limit(direction, position_limits)
+            desired_position = ShutterController._get_limit(direction, steps)
+
+        self._log('Shutter {0} setting desired position to {1}'.format(shutter_id, desired_position))
 
         self._desired_positions[shutter_id] = desired_position
         self._directions[shutter_id] = direction
@@ -190,56 +206,44 @@ class ShutterController(object):
         return shutter
 
     @staticmethod
-    def _is_position_reached(shutter, direction, desired_position, actual_position, stopped=True):
-        up = shutter['up_position']
-        down = shutter['down_position']
+    def _is_position_reached(direction, desired_position, actual_position, stopped=True):
         if desired_position == actual_position:
             return True  # Obviously reached
         if direction == ShutterController.Direction.STOP:
             return stopped  # Can't be decided, so return user value
+        # An overshoot is considered as "position reached"
         if direction == ShutterController.Direction.UP:
-            if up > down:
-                return actual_position >= desired_position
-            return actual_position <= desired_position
-        if up > down:
-            return actual_position <= desired_position
-        return actual_position >= desired_position
+            return actual_position < desired_position
+        return actual_position > desired_position
 
     @staticmethod
-    def _get_limit(direction, position_limits):
-        if position_limits is None:
+    def _get_limit(direction, steps):
+        if steps is None:
             return None
         if direction == ShutterController.Direction.UP:
-            return position_limits['up']
-        return position_limits['down']
+            return 0
+        return steps - 1
 
     @staticmethod
-    def _get_direction(actual_position, desired_position, position_limits):
-        up = position_limits['up']
-        down = position_limits['down']
-        if up > down:
-            if desired_position > actual_position:
-                return ShutterController.Direction.UP
-            return ShutterController.Direction.DOWN
-        if desired_position > actual_position:
-            return ShutterController.Direction.DOWN
-        return ShutterController.Direction.UP
+    def _get_direction(actual_position, desired_position):
+        if actual_position <= desired_position:
+            return ShutterController.Direction.UP
+        return ShutterController.Direction.DOWN
 
     @staticmethod
-    def _get_position_limits(shutter):
-        limits = {'up': shutter['up_position'],
-                  'down': shutter['down_position']}
-        if limits['up'] == limits['down']:
-            # If they are equal it means that they are both set to the standard value 65535, or they are incorrectly configured
+    def _get_steps(shutter):
+        steps = shutter['steps']
+        if steps in [0, 1, 65535]:
+            # These step values are considered "not configured" and thus "no position support"
             return None
-        return limits
+        return steps
 
     @staticmethod
-    def _validate_position_limits(shutter_id, position, position_limits):
-        if position_limits is None:
+    def _validate_position(shutter_id, position, steps):
+        if steps is None:
             raise RuntimeError('Shutter {0} does not support positioning'.format(shutter_id))
-        if not (min(position_limits['up'], position_limits['down']) <= position <= max(position_limits['up'], position_limits['down'])):
-            raise RuntimeError('Shutter {0} has a position limit between {1} and {2}'.format(shutter_id, position_limits['up'], position_limits['down']))
+        if not (0 <= position < steps):
+            raise RuntimeError('Shutter {0} has a position limit of 0 <= position <= {1}'.format(shutter_id, steps - 1))
 
     # Reporting
 
@@ -258,7 +262,7 @@ class ShutterController(object):
 
     def _report_shutter_state(self, shutter_id, new_state):
         shutter = self._get_shutter(shutter_id)
-        position_limits = ShutterController._get_position_limits(shutter)
+        steps = ShutterController._get_steps(shutter)
 
         self._directions[shutter_id] = ShutterController.STATE_DIRECTION_MAP[new_state]
         self._log('Shutter {0} reports state {1}, which is direction {2}'.format(shutter_id, new_state, self._directions[shutter_id]))
@@ -274,7 +278,7 @@ class ShutterController(object):
             self._log('Shutter {0} started moving'.format(shutter_id))
         else:
             direction = ShutterController.STATE_DIRECTION_MAP[current_state]
-            if position_limits is None:
+            if steps is None:
                 # Time based state calculation
                 threshold = 0.95 * shutter['timer_{0}'.format(direction.lower())]  # Allow 5% difference
                 if time.time() >= current_state_timestamp + threshold:  # The shutter was going up/down for the whole `timer`. So it's now up/down
@@ -285,8 +289,8 @@ class ShutterController(object):
                     new_state = ShutterController.State.STOPPED
             else:
                 # Supports position, so state will be calculated on position
-                limit_position = ShutterController._get_limit(direction, position_limits)
-                if ShutterController._is_position_reached(shutter, direction, limit_position, self._actual_positions[shutter_id]):
+                limit_position = ShutterController._get_limit(direction, steps)
+                if ShutterController._is_position_reached(direction, limit_position, self._actual_positions[shutter_id]):
                     self._log('Shutter {0} going {1} reached limit. New state {2}'.format(shutter_id, direction, ShutterController.DIRECTION_END_STATE_MAP[direction]))
                     new_state = ShutterController.DIRECTION_END_STATE_MAP[direction]
                 else:

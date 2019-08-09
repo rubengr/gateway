@@ -146,8 +146,7 @@ class ShutterConfiguration(EepromModel):
     group_1 = EepromByte(lambda mid: (63, (mid * 2) + 0))
     group_2 = EepromByte(lambda mid: (63, (mid * 2) + 1))
     room = EextByte()
-    up_position = EextWord()
-    down_position = EextWord()
+    steps = EextWord()
 
 
 class ShutterGroupConfiguration(EepromModel):
