@@ -72,7 +72,7 @@ class ShutterController(object):
         self._states = {}
 
         self._verbose = verbose
-        self._merge_lock = Lock()
+        self._config_lock = Lock()
         self._on_shutter_changed = None
 
     def set_shutter_changed_callback(self, callback):
@@ -156,6 +156,8 @@ class ShutterController(object):
             raise RuntimeError('Shutter {0} has unknown actual position'.format(shutter_id))
 
         direction = self._get_direction(actual_position, desired_position)
+        if direction == ShutterController.Direction.STOP:
+            return self.shutter_stop(shutter_id)
 
         self._log('Shutter {0} setting desired position to {1}'.format(shutter_id, desired_position))
 
@@ -167,7 +169,7 @@ class ShutterController(object):
         # Validate data
         self._get_shutter(shutter_id)
 
-        self._log('Shutter {0} removing desired position'.format(shutter_id))
+        self._log('Shutter {0} stopped. Removing desired position'.format(shutter_id))
 
         self._desired_positions[shutter_id] = None
         self._directions[shutter_id] = ShutterController.Direction.STOP
@@ -226,7 +228,9 @@ class ShutterController(object):
 
     @staticmethod
     def _get_direction(actual_position, desired_position):
-        if actual_position <= desired_position:
+        if actual_position == desired_position:
+            return ShutterController.Direction.STOP
+        if actual_position < desired_position:
             return ShutterController.Direction.UP
         return ShutterController.Direction.DOWN
 
@@ -251,7 +255,7 @@ class ShutterController(object):
         """
         Called with Master event information.
         """
-        with self._merge_lock:
+        with self._config_lock:
             module_id = data['module_nr']
             new_state = self._interprete_output_states(module_id, data['status'])
             if new_state is None:
@@ -315,11 +319,11 @@ class ShutterController(object):
             up = (output_states >> (i * 2 + (1 - first_up))) & 0x1
             down = (output_states >> (i * 2 + first_up)) & 0x1
 
-            if up == 1:
+            if up == 1 and down == 0:
                 states.append(ShutterController.State.GOING_UP)
-            elif down == 1:
+            elif down == 1 and up == 0:
                 states.append(ShutterController.State.GOING_DOWN)
-            else:
+            else:  # Both are off or - unlikely - both are on
                 states.append(ShutterController.State.STOPPED)
 
         return states

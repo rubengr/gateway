@@ -223,9 +223,11 @@ class ShutterControllerTest(unittest.TestCase):
             # Validate correct calls
             for entry in data:
                 controller._actual_positions[shutter_id] = entry[0]
+                controller.shutter_goto(shutter_id, entry[0])
+                self.assertEqual(calls[shutter_id].pop(), BA_SHUTTER_STOP)
                 controller.shutter_goto(shutter_id, entry[1])
                 self.assertEqual(controller._directions[shutter_id], entry[2])
-                self.assertEqual(calls[shutter_id][-1], entry[3])
+                self.assertEqual(calls[shutter_id].pop(), entry[3])
 
     def test_position_reached(self):
         for expected_result, data in [[False, {'direction': ShutterController.Direction.UP,
