@@ -106,7 +106,7 @@ class OpenmoticsService(object):
 
     def start(self):
         """ Main function. """
-        log('Starting service...')
+        log('Starting OM core service...')
 
         config = ConfigParser()
         config.read(constants.get_config_file())
@@ -209,16 +209,16 @@ class OpenmoticsService(object):
         def stop(signum, frame):
             """ This function is called on SIGTERM. """
             _ = signum, frame
-            log('Stopping service...')
+            log('Stopping OM core service...')
             web_service.stop()
             metrics_collector.stop()
             metrics_controller.stop()
             plugin_controller.stop()
-            log('Stopping service... Done')
+            log('Stopping OM core service... Done')
             signal_request['stop'] = True
 
         signal(SIGTERM, stop)
-        log('Starting service... Done')
+        log('Starting OM core service... Done')
         while not signal_request['stop']:
             time.sleep(1)
 

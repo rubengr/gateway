@@ -17,8 +17,7 @@ The vpn_service asks the OpenMotics cloud it a vpn tunnel should be opened. It s
 if required. On each check the vpn_service sends some status information about the outputs and
 thermostats to the cloud, to keep the status information in the cloud in sync.
 """
-from bus.om_bus_client import MessageClient
-from bus.om_bus_events import Events
+
 from platform_utils import System
 System.import_eggs()
 
@@ -38,6 +37,8 @@ from collections import deque
 from ConfigParser import ConfigParser
 from datetime import datetime
 from gateway.config import ConfigurationController
+from bus.om_bus_client import MessageClient
+from bus.om_bus_events import Events
 
 try:
     import json
@@ -312,6 +313,10 @@ class VPNService(object):
         config = ConfigParser()
         config.read(constants.get_config_file())
 
+        self._message_client = MessageClient('vpn_service')
+        self._message_client.add_event_handler(self._event_receiver)
+        self._message_client.set_state_handler(self._check_state)
+
         self._iterations = 0
         self._last_cycle = 0
         self._cloud_enabled = True
@@ -323,9 +328,6 @@ class VPNService(object):
         self._gateway = Gateway()
         self._vpn_controller = VpnController()
         self._config_controller = ConfigurationController(constants.get_config_database_file(), threading.Lock())
-        self._message_client = MessageClient('vpn_service')
-        self._message_client.add_event_handler(self._event_receiver)
-        self._message_client.set_state_handler(self._check_state)
         self._cloud = Cloud(config.get('OpenMotics', 'vpn_check_url') % config.get('OpenMotics', 'uuid'),
                             self._message_client,
                             self._config_controller)
@@ -434,9 +436,11 @@ class VPNService(object):
         self._message_client.send_event(Events.VPN_OPEN, self._vpn_open)
 
     def start(self):
-        t_check_vpn = Thread(target=self._check_vpn)
-        t_check_vpn.daemon = True
-        t_check_vpn.start()
+        self._check_vpn()
+        # t_check_vpn = Thread(target=self._check_vpn)
+        # t_check_vpn.daemon = True
+        # t_check_vpn.start()
+        # t_check_vpn.join()
 
     def _check_vpn(self):
         while True:

@@ -17,25 +17,43 @@ Service that drives the leds and checks the switch on the front panel of the gat
 This service allows other services to set the leds over the om bus and check whether the
 gateway is in authorized mode.
 """
+
+from platform_utils import System
+System.import_eggs()
+
 import sys
 import fcntl
 import time
 from threading import Thread
 from ConfigParser import ConfigParser
 
+from signal import signal, SIGTERM
 from bus.om_bus_events import Events
-from bus.om_bus_service import MessageService
+from bus.om_bus_client import MessageClient
 from platform_utils import Hardware
 import constants
+import logging
 
 AUTH_MODE_LEDS = [Hardware.Led.ALIVE, Hardware.Led.CLOUD, Hardware.Led.VPN, Hardware.Led.COMM_1, Hardware.Led.COMM_2]
 
 
-class LOGGER(object):
-    @staticmethod
-    def log(line):
-        sys.stdout.write('{0}\n'.format(line))
-        sys.stdout.flush()
+logger = logging.getLogger("led_service")
+
+def setup_logger():
+    """ Setup the OpenMotics logger. """
+    logger = logging.getLogger("led_service")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
+
+
+def log(message):
+    logger = logging.getLogger("led_service")
+    logger.info(message)
 
 
 class LedController(object):
@@ -129,7 +147,7 @@ class LedController(object):
             else:
                 self._last_run_i2c = time.time()
         except Exception as exception:
-            LOGGER.log('Error while writing to i2c: {0}'.format(exception))
+            logger.log('Error while writing to i2c: {0}'.format(exception))
 
         for led in self._gpio_led_config:
             on = self._enabled_leds.get(led, False)
@@ -171,7 +189,7 @@ class LedController(object):
                             else:
                                 self._network_activity = False
             except Exception as exception:
-                LOGGER.log('Error while checking states: {0}'.format(exception))
+                log('Error while checking states: {0}'.format(exception))
             self._last_state_check = time.time()
             time.sleep(0.5)
 
@@ -201,7 +219,7 @@ class LedController(object):
                 # Update all leds
                 self._write_leds()
             except Exception as exception:
-                LOGGER.log('Error while driving leds: {0}'.format(exception))
+                log('Error while driving leds: {0}'.format(exception))
             time.sleep(0.25)
 
     def check_button(self):
@@ -228,7 +246,7 @@ class LedController(object):
                     else:
                         self._input_button_pressed_since = None
             except Exception as exception:
-                LOGGER.log('Error while checking button: {0}'.format(exception))
+                log('Error while checking button: {0}'.format(exception))
             self._last_button_check = time.time()
             time.sleep(0.25)
 
@@ -256,6 +274,7 @@ def main():
     switch.
     """
     try:
+        log('Starting led service...')
         config = ConfigParser()
         config.read(constants.get_config_file())
         i2c_address = int(config.get('OpenMotics', 'leds_i2c_address'), 16)
@@ -264,11 +283,9 @@ def main():
         led_controller.start()
         led_controller.set_led(Hardware.Led.POWER, True)
 
-        message_service = MessageService('led_service')
-        message_service.add_event_handler(lambda *args, **kwargs: led_controller.event_receiver(*args, **kwargs))
-        message_service.set_state_handler(led_controller.get_state)
-
-        LOGGER.log("Running led service.")
+        message_client = MessageClient('led_service')
+        message_client.add_event_handler(led_controller.event_receiver)
+        message_client.set_state_handler(led_controller.get_state)
 
         t_leds = Thread(target=led_controller.drive_leds)
         t_leds.daemon = True
@@ -278,9 +295,24 @@ def main():
         t_button.daemon = True
         t_button.start()
 
+        signal_request = {'stop': False}
+        def stop(signum, frame):
+            """ This function is called on SIGTERM. """
+            _ = signum, frame
+            log('Stopping led service...')
+            # TODO: stop threads
+            log('Stopping led service...Done')
+            signal_request['stop'] = True
+
+        signal(SIGTERM, stop)
+        log('Starting led service... Done')
+        while not signal_request['stop']:
+            time.sleep(1)
+
     except Exception as exception:
-        LOGGER.log('Error starting led service: {0}'.format(exception))
+        logger.exception('Error starting led service: {0}'.format(exception))
 
 
 if __name__ == '__main__':
+    setup_logger()
     main()

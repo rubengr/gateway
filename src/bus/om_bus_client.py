@@ -16,7 +16,7 @@ logger = logging.getLogger('openmotics')
 
 class MessageClient(object):
 
-    def __init__(self, name, ip='localhost', port=6000, authkey='openmotics'):
+    def __init__(self, name, ip='localhost', port=10000, authkey='openmotics'):
         self.address = (ip, port)  # family is deduced to be 'AF_INET'
         self.authkey = authkey
         self.callbacks = []
@@ -52,14 +52,17 @@ class MessageClient(object):
 
     def _message_receiver(self):
         self.client = Client(self.address, authkey=self.authkey)
+        self.send_event(Events.CLIENT_DISCOVERY, None)
         while True:
             try:
                 msg = self.client.recv_bytes()
                 self._process_message(msg)
-            except EOFError as e:
+            except EOFError as eof_error:
                 logger.exception('client connection closed unexpectedly')
                 self.client.close()
                 self.client = Client(self.address, authkey=self.authkey)
+            except Exception as e:
+                logger.exception('unexpected error occured in message receiver'.format(e))
 
     def _send(self, data, msg_type='event'):
         payload = {'type': msg_type, 'client': self.client_name, 'data': data}
