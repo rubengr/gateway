@@ -24,7 +24,7 @@ import requests
 from threading import Thread
 from collections import deque
 
-from bus.om_bus_events import Events
+from bus.om_bus_events import OMBusEvents
 
 try:
     import json
@@ -513,7 +513,7 @@ class MetricsController(object):
                 time.sleep(0.1)
 
     def event_receiver(self, event, payload):
-        if event == Events.METRICS_INTERVAL_CHANGE:
+        if event == OMBusEvents.METRICS_INTERVAL_CHANGE:
             for metric_type, interval in payload.iteritems():
                 self.set_cloud_interval(metric_type, interval)
 

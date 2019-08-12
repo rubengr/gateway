@@ -4,7 +4,7 @@ from threading import Thread
 import logging
 import time
 
-from om_bus_events import Events
+from om_bus_events import OMBusEvents
 
 try:
     import json
@@ -24,6 +24,7 @@ class MessageClient(object):
         self._get_state = None
         self.client_name = name
         self.latest_state_received = None
+        self._connected = False
 
         self._start()
 
@@ -59,19 +60,21 @@ class MessageClient(object):
                 msg = self.client.recv_bytes()
                 self._process_message(msg)
             except EOFError as eof_error:
-                logger.exception('client connection closed unexpectedly')
+                logger.exception('Client connection closed unexpectedly')
                 self.client.close()
                 self._connected = False
-                time.sleep(1)
                 self._connect()
             except Exception as e:
-                logger.exception('unexpected error occured in message receiver'.format(e))
+                logger.exception('Unexpected error occured in message receiver'.format(e))
+                self.client.close()
+                self._connected = False
                 time.sleep(5)
+                self._connect()
 
     def _send(self, data, msg_type='event'):
         payload = {'type': msg_type, 'client': self.client_name, 'data': data}
         msg = json.dumps(payload)
-        if self.client is not None and self.client.closed is False:
+        if self.client is not None and self.client.closed is False and self._connected:
             self.client.send_bytes(msg)
         else:
             # TODO: raise error
@@ -81,11 +84,11 @@ class MessageClient(object):
         while not self._connected:
             try:
                 self.client = Client(self.address, authkey=self.authkey)
-                self.send_event(Events.CLIENT_DISCOVERY, None)
                 self._connected = True
+                self.send_event(OMBusEvents.CLIENT_DISCOVERY, None)
             except Exception as e:
                 logger.exception('Could not connect to message server.'.format(e))
-                time.sleep(2)
+                time.sleep(1)
 
     def _start(self):
         self._connect()

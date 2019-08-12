@@ -19,7 +19,7 @@ The observer module contains logic to observe various states of the system. It k
 import time
 import logging
 
-from bus.om_bus_events import Events
+from bus.om_bus_events import OMBusEvents
 
 try:
     import json
@@ -245,7 +245,7 @@ class Observer(object):
 
     def _output_changed(self, output_id, status):
         """ Executed by the Output Status tracker when an output changed state """
-        self._message_client.send_event(Events.OUTPUT_CHANGE, {'id': output_id})
+        self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': output_id})
         for callback in self._event_subscriptions:
             resp_status = {'on': status['on']}
             # 1. only add value to status when handling dimmers
@@ -308,7 +308,7 @@ class Observer(object):
 
     def _thermostat_changed(self, thermostat_id, status):
         """ Executed by the Thermostat Status tracker when an output changed state """
-        self._message_client.send_event(Events.THERMOSTAT_CHANGE, {'id': thermostat_id})
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
         location = {'room_id': self._thermostats_config[thermostat_id]['room']}
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
@@ -321,7 +321,7 @@ class Observer(object):
                                  'location': location}))
 
     def _thermostat_group_changed(self, status):
-        self._message_client.send_event(Events.THERMOSTAT_CHANGE, {'id': None})
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
                            data={'id': 0,

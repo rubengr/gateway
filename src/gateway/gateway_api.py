@@ -32,7 +32,7 @@ import subprocess
 import tempfile
 import ConfigParser
 
-from bus.om_bus_events import Events
+from bus.om_bus_events import OMBusEvents
 
 try:
     import json
@@ -428,7 +428,7 @@ class GatewayApi(object):
         self.__observer.invalidate_cache()
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__eeprom_controller.dirty = True
-        self.__message_client.send_event(Events.DIRTY_EEPROM, None)
+        self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
 
     def get_status(self):
         """ Get the status of the Master.
@@ -526,7 +526,7 @@ class GatewayApi(object):
         self.__module_log = []
         self.__eeprom_controller.invalidate_cache()
         self.__eeprom_controller.dirty = True
-        self.__message_client.send_event(Events.DIRTY_EEPROM, None)
+        self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
         self.__observer.invalidate_cache()
 
         return {'status': ret['resp']}

@@ -17,7 +17,7 @@ A container class for events send over the OM bus by OpenMotics services
 """
 
 
-class Events(object):
+class OMBusEvents(object):
     CLOUD_REACHABLE = 'CLOUD_REACHABLE'
     VPN_OPEN = 'VPN_OPEN'
     SERIAL_ACTIVITY = 'SERIAL_ACTIVITY'

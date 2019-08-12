@@ -28,7 +28,7 @@ from threading import Thread
 from ConfigParser import ConfigParser
 
 from signal import signal, SIGTERM
-from bus.om_bus_events import Events
+from bus.om_bus_events import OMBusEvents
 from bus.om_bus_client import MessageClient
 from platform_utils import Hardware
 import constants
@@ -51,17 +51,12 @@ def setup_logger():
     logger.addHandler(handler)
 
 
-def log(message):
-    logger = logging.getLogger("led_service")
-    logger.info(message)
-
-
 class LedController(object):
     """
     The LEDController contains all logic to control the leds, and read out the physical buttons
     """
 
-    def __init__(self, i2c_device, i2c_address, input_button, message_client):
+    def __init__(self, i2c_device, i2c_address, input_button):
         self._i2c_device = i2c_device
         self._i2c_address = i2c_address
         self._input_button = input_button
@@ -95,7 +90,7 @@ class LedController(object):
         self._last_button_check = 0
         self._running = False
 
-        self._message_client = message_client
+        self._message_client = MessageClient('led_service')
         self._message_client.add_event_handler(self.event_receiver)
         self._message_client.set_state_handler(self.get_state)
 
@@ -166,7 +161,7 @@ class LedController(object):
             else:
                 self._last_run_i2c = time.time()
         except Exception as exception:
-            logger.log('Error while writing to i2c: {0}'.format(exception))
+            logger.error('Error while writing to i2c: {0}'.format(exception))
 
         for led in self._gpio_led_config:
             on = self._enabled_leds.get(led, False)
@@ -208,7 +203,7 @@ class LedController(object):
                             else:
                                 self._network_activity = False
             except Exception as exception:
-                log('Error while checking states: {0}'.format(exception))
+                logger.error('Error while checking states: {0}'.format(exception))
             self._last_state_check = time.time()
             time.sleep(0.5)
 
@@ -238,7 +233,7 @@ class LedController(object):
                 # Update all leds
                 self._write_leds()
             except Exception as exception:
-                log('Error while driving leds: {0}'.format(exception))
+                logger.error('Error while driving leds: {0}'.format(exception))
             time.sleep(0.25)
 
     def check_button(self):
@@ -265,18 +260,18 @@ class LedController(object):
                     else:
                         self._input_button_pressed_since = None
             except Exception as exception:
-                log('Error while checking button: {0}'.format(exception))
+                logger.error('Error while checking button: {0}'.format(exception))
             self._last_button_check = time.time()
             time.sleep(0.25)
 
     def event_receiver(self, event, payload):
-        if event == Events.CLOUD_REACHABLE:
+        if event == OMBusEvents.CLOUD_REACHABLE:
             self.set_led(Hardware.Led.CLOUD, payload)
-        elif event == Events.VPN_OPEN:
+        elif event == OMBusEvents.VPN_OPEN:
             self.set_led(Hardware.Led.VPN, payload)
-        elif event == Events.SERIAL_ACTIVITY:
+        elif event == OMBusEvents.SERIAL_ACTIVITY:
             self.serial_activity(payload)
-        elif event == Events.INDICATE_GATEWAY:
+        elif event == OMBusEvents.INDICATE_GATEWAY:
             self._indicate_started = time.time()
 
     def get_state(self):
@@ -293,14 +288,12 @@ def main():
     switch.
     """
     try:
-        log('Starting led service...')
+        logger.info('Starting led service...')
         config = ConfigParser()
         config.read(constants.get_config_file())
         i2c_address = int(config.get('OpenMotics', 'leds_i2c_address'), 16)
 
-        message_client = MessageClient('led_service')
-
-        led_controller = LedController(Hardware.get_i2c_device(), i2c_address, Hardware.get_gpio_input(), message_client)
+        led_controller = LedController(Hardware.get_i2c_device(), i2c_address, Hardware.get_gpio_input())
         led_controller.start()
         led_controller.set_led(Hardware.Led.POWER, True)
 
@@ -308,13 +301,13 @@ def main():
         def stop(signum, frame):
             """ This function is called on SIGTERM. """
             _ = signum, frame
-            log('Stopping led service...')
+            logger.info('Stopping led service...')
             led_controller.stop()
-            log('Stopping led service...Done')
+            logger.info('Stopping led service...Done')
             signal_request['stop'] = True
 
         signal(SIGTERM, stop)
-        log('Starting led service... Done')
+        logger.info('Starting led service... Done')
         while not signal_request['stop']:
             time.sleep(1)
 

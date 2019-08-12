@@ -25,7 +25,7 @@ import constants
 
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
-from bus.om_bus_events import Events
+from bus.om_bus_events import OMBusEvents
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
@@ -88,9 +88,9 @@ def led_driver(message_client, master_communicator, power_communicator):
         new_power = (power_communicator.get_bytes_read(), power_communicator.get_bytes_written())
 
         if master[0] != new_master[0] or master[1] != new_master[1]:
-            message_client.send_event(Events.SERIAL_ACTIVITY, 5)
+            message_client.send_event(OMBusEvents.SERIAL_ACTIVITY, 5)
         if power[0] != new_power[0] or power[1] != new_power[1]:
-            message_client.send_event(Events.SERIAL_ACTIVITY, 4)
+            message_client.send_event(OMBusEvents.SERIAL_ACTIVITY, 4)
 
         master = new_master
         power = new_power
