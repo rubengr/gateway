@@ -267,16 +267,17 @@ class MetricsController(object):
         if self._config_controller.get_setting('cloud_enabled', True) is False:
             return
 
-        # OM717: only energy and counter types can be opt-out atm
-        # TODO: make all metric types opt-out via the cloud, remove config from gateway
-        if self._config_controller.get_setting('cloud_metrics_enabled|{0}'.format(metric_type), True) is False:
-            return
-
         if metric_source == 'OpenMotics':
+            # OM717: only energy and counter types can be opt-out atm
+            # TODO: make all metric types opt-out via the cloud, remove config from gateway
+            if self._config_controller.get_setting('cloud_metrics_enabled|{0}'.format(metric_type), True) is False:
+                return
+
             # filter openmotics metrics that are not listed in cloud_metrics_types
             metric_types = self._config_controller.get_setting('cloud_metrics_types')
             if metric_type not in metric_types:
                 return
+
             # round off timestamps for openmotics metrics
             modulo_interval = self._config_controller.get_setting('cloud_metrics_interval|{0}'.format(metric_type), 900)
             timestamp = int(metric['timestamp'] - metric['timestamp'] % modulo_interval)
@@ -351,10 +352,6 @@ class MetricsController(object):
                 self._cloud_queue = []
                 self._cloud_last_send = now
                 self._cloud_retry_interval = cloud_min_interval
-                # OM717: the intervals are now coming from the heartbeat call
-                # Restore intervals
-                #for mtype, interval in return_data.get('intervals', {}).iteritems():
-                #    self.set_cloud_interval(mtype, interval)
             except Exception as ex:
                 logger.error('Error sending metrics to Cloud: {0}'.format(ex))
                 if time_ago_send > 60 * 60:
