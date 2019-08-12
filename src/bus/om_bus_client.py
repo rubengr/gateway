@@ -1,6 +1,6 @@
 import random
 from multiprocessing.connection import Client
-from threading import Thread
+from threading import Thread, Lock
 import logging
 import time
 
@@ -23,35 +23,38 @@ class MessageClient(object):
         self.client = None
         self._get_state = None
         self.client_name = name
-        self.latest_state_received = None
+        self.latest_state_received = {}
         self._connected = False
+        self._get_state_lock = Lock()
 
         self._start()
 
-    def _send_state(self):
+    def _send_state(self, source):
         if self._get_state is not None:
             msg = self._get_state()
-            self._send(msg, msg_type='state')
+            self._send(msg, msg_type='state', destination=source)
 
     def _process_message(self, payload):
         msg = json.loads(payload)
+        data = msg['data']
+        source = msg['source']
         if msg['type'] == 'request_state':
-            self._send_state()
+            self._send_state(source)
         if msg['type'] == 'state':
-            self.latest_state_received = msg
+            self.latest_state_received[source] = data
         if msg['type'] == 'event':
-            self._process_event(msg)
+            self._process_event(data)
 
-    def _process_event(self, msg):
+    def _process_event(self, data):
         try:
-            event_type = msg['data']['event_type']
-            payload = msg['data']['payload']
+            event_type = data['event_type']
+            payload = data['payload']
             for callback in self.callbacks:
                 try:
                     callback(event_type, payload)
-                except Exception as e:
+                except Exception:
                     logger.exception('Error executing callback')
-        except KeyError as e:
+        except KeyError:
             logger.exception('error processing event')
 
     def _message_receiver(self):
@@ -60,7 +63,7 @@ class MessageClient(object):
             try:
                 msg = self.client.recv_bytes()
                 self._process_message(msg)
-            except EOFError as eof_error:
+            except EOFError:
                 logger.exception('Client connection closed unexpectedly')
                 self.client.close()
                 self._connected = False
@@ -72,8 +75,8 @@ class MessageClient(object):
                 time.sleep(5)
                 self._connect()
 
-    def _send(self, data, msg_type='event'):
-        payload = {'type': msg_type, 'client': self.client_name, 'data': data}
+    def _send(self, data, msg_type='event', destination=None):
+        payload = {'type': msg_type, 'source': self.client_name, 'destination': destination, 'data': data}
         msg = json.dumps(payload)
         if self.client is not None and self.client.closed is False and self._connected:
             self.client.send_bytes(msg)
@@ -95,19 +98,17 @@ class MessageClient(object):
         receiver.daemon = True
         receiver.start()
 
-    def get_state(self, client_name, default=None, timeout=5):
-        self.latest_state_received = None
-        data = {'client': client_name}
-        self._send(data, msg_type='request_state')
-        t_end = time.time() + timeout
-        while time.time() < t_end:
-            if self.latest_state_received is not None and self.latest_state_received['client'] == client_name:
-                response = self.latest_state_received.get('data', None)
-                self.latest_state_received = None
-                return response
-            else:
-                time.sleep(0.2)
-        return default
+    def get_state(self, destination, default=None, timeout=5):
+        with self._get_state_lock:
+            self._send(None, msg_type='request_state', destination=destination)
+            t_end = time.time() + timeout
+            while time.time() < t_end:
+                latest_state = self.latest_state_received.pop(destination, None)
+                if latest_state is not None:
+                    return latest_state
+                else:
+                    time.sleep(0.2)
+            return default
 
     def send_event(self, event_type, payload):
         data = {'event_type': event_type, 'payload': payload}

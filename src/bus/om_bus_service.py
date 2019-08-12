@@ -18,14 +18,14 @@ class MessageService():
         self.authkey = authkey
         self.listener = Listener(self.address, authkey=self.authkey)
 
-    def _multicast(self, source_connection, msg):
+    def _multicast(self, source, msg):
         for connection, client_name in self.connections.iteritems():
-            if connection != source_connection:
+            if client_name != source and connection is not None:
                 self._send(connection, msg)
 
-    def _unicast(self, target_client_name, msg):
+    def _unicast(self, destination, msg):
         for connection, client_name in self.connections.iteritems():
-            if client_name == target_client_name and connection is not None:
+            if client_name == destination and connection is not None:
                 self._send(connection, msg)
                 break
 
@@ -36,10 +36,10 @@ class MessageService():
     def _verify_client(self, conn, msg):
         should_be = self.connections.get(conn, None)
         if should_be is None:
-            self.connections[conn] = msg['client']
-            should_be = msg['client']
-            logger.info('Detected new client name {0}'.format(msg['client']))
-        pretends_to_be = msg['client']
+            self.connections[conn] = msg['source']
+            should_be = msg['source']
+            logger.info('Detected new client name {0}'.format(msg['source']))
+        pretends_to_be = msg['source']
         if pretends_to_be != should_be:
             raise EOFError('Client cannot use name {0} on connection for {1}'.format(pretends_to_be, should_be))
 
@@ -47,17 +47,13 @@ class MessageService():
         # 1. update client name for connection
         self._verify_client(conn, msg)
 
-        # 2. route message based on type
-        msg_type = msg.get('type', None)
-        if msg_type is None:
-            logger.error('no message type defined')
-        elif msg_type == 'event' or msg_type == 'state':
-            self._multicast(conn, msg)
-        elif msg['type'] == 'request_state':
-            target_client_name = msg['data']['client']
-            self._unicast(target_client_name, msg)
+        # 2. route message based on destination
+        destination = msg.get('destination', None)
+        if destination is None:
+            source = msg.get('source', None)
+            self._multicast(source, msg)
         else:
-            logger.warning('Unknown message type: {0}'.format(msg_type))
+            self._unicast(destination, msg)
 
     def _receiver(self, conn):
         while not conn.closed:
