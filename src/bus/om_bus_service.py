@@ -68,14 +68,17 @@ class MessageService():
             except ValueError:
                 logger.exception('Error decoding payload from client {0}'.format(self.connections.get(conn, None)))
             except EOFError as e:
-                client_name = self.connections.get(conn, 'unknown')
-                conn.close()
-                if conn in self.connections:
-                    del self.connections[conn]
-                logger.info('Connection closed from {0}'.format(client_name))
+                self._close(conn)
             except Exception:
                 logger.exception('Unknown error in receiver')
-                raise
+                self._close(conn)
+
+    def _close(self, conn):
+        client_name = self.connections.get(conn, 'unknown')
+        conn.close()
+        if conn in self.connections:
+            del self.connections[conn]
+        logger.info('Connection closed from {0}'.format(client_name))
 
     def _server(self):
         logger.info('Starting OM messaging service...')
