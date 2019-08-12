@@ -49,7 +49,7 @@ class WebInterfaceDispatcher(object):
             wrapper = self.get_wrapper(attribute)
             setattr(self, attribute, wrapper)
             return wrapper
-        raise AttributeError()
+        raise AttributeError('The call \'{0}\' does not exist'.format(attribute))
 
     def warn(self):
         if self.__warned is False:

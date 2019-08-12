@@ -27,6 +27,7 @@ class ObserverTest(unittest.TestCase):
     def test_value_formatting_output(self):
         master_mock = Mock()
         dbus_mock = Mock()
+        shutter_controller = Mock()
 
         def callback_test_value_present(event):
             self.assertIn('value', event.data['status'])
@@ -39,7 +40,7 @@ class ObserverTest(unittest.TestCase):
                                  'D': callback_test_value_present}
 
         for module_type, callback in type_callback_mapping.iteritems():
-            observer = Observer(master_mock, dbus_mock)
+            observer = Observer(master_mock, dbus_mock, shutter_controller)
             observer._output_config = {5: {'module_type': module_type, 'room': 'test_room'}}
             observer.subscribe_events(callback)
             status = {'on': 1, 'value': 131}
