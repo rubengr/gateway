@@ -60,33 +60,36 @@ class MessageService():
             logger.warning('Unknown message type: {0}'.format(msg_type))
 
     def _receiver(self, conn):
-        try:
-            while True:
+        while not conn.closed:
+            try:
                 payload = conn.recv_bytes()
                 msg = json.loads(payload)
                 self._process_message(conn, msg)
-        except EOFError as e:
-            client_name = self.connections.get(conn, 'unknown')
-            conn.close()
-            if conn in self.connections:
-                del self.connections[conn]
-            logger.info('Connection closed from {0}'.format(client_name))
-
+            except ValueError:
+                logger.exception('Error decoding payload from client {0}'.format(self.connections.get(conn, None)))
+            except EOFError as e:
+                client_name = self.connections.get(conn, 'unknown')
+                conn.close()
+                if conn in self.connections:
+                    del self.connections[conn]
+                logger.info('Connection closed from {0}'.format(client_name))
+            except Exception:
+                logger.exception('Unknown error in receiver')
+                raise
 
     def _server(self):
         logger.info('Starting OM messaging service...')
         while True:
             try:
-                try:
-                    conn = self.listener.accept()
-                    logger.info('connection accepted from {0}'.format(self.listener.last_accepted))
-                    receiver = Thread(target=self._receiver, args=(conn,))
-                    receiver.daemon = True
-                    receiver.start()
-                except IOError as io_error:
-                    logger.error('IOError in accepting connection: {0}'.format(io_error))
+                conn = self.listener.accept()
+                logger.info('connection accepted from {0}'.format(self.listener.last_accepted))
+                receiver = Thread(target=self._receiver, args=(conn,))
+                receiver.daemon = True
+                receiver.start()
+            except IOError as io_error:
+                logger.error('IOError in accepting connection: {0}'.format(io_error))
             except Exception as e:
-                logger.exception('Error in message service. Shutting down...')
+                logger.exception('Error in message service. Restarting...')
                 self.listener.close()
                 time.sleep(1)
                 self.listener = Listener(self.address, authkey=self.authkey)

@@ -434,10 +434,6 @@ class VPNService(object):
 
     def start(self):
         self._check_vpn()
-        # t_check_vpn = Thread(target=self._check_vpn)
-        # t_check_vpn.daemon = True
-        # t_check_vpn.start()
-        # t_check_vpn.join()
 
     def _check_vpn(self):
         while True:

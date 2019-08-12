@@ -30,9 +30,7 @@ from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
 from threading import Thread, Lock
-
 from serial_utils import RS485
-
 from gateway.webservice import WebInterface, WebService
 from gateway.gateway_api import GatewayApi
 from gateway.users import UserController
@@ -43,16 +41,13 @@ from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 from gateway.observer import Observer
-
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
 from master.maintenance import MaintenanceService
 from master.master_communicator import MasterCommunicator
 from master.passthrough import PassthroughService
-
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
-
 from plugins.base import PluginController
 
 

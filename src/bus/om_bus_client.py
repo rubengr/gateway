@@ -55,6 +55,7 @@ class MessageClient(object):
             logger.exception('error processing event')
 
     def _message_receiver(self):
+        self._connect()
         while True:
             try:
                 msg = self.client.recv_bytes()
@@ -91,7 +92,6 @@ class MessageClient(object):
                 time.sleep(1)
 
     def _start(self):
-        self._connect()
         receiver = Thread(target=self._message_receiver)
         receiver.daemon = True
         receiver.start()
