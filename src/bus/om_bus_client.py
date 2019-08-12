@@ -78,8 +78,7 @@ class MessageClient(object):
         if self.client is not None and self.client.closed is False and self._connected:
             self.client.send_bytes(msg)
         else:
-            # TODO: raise error
-            pass
+            logger.error('Unable to send payload. Client still connected?')
 
     def _connect(self):
         while not self._connected:
@@ -103,7 +102,7 @@ class MessageClient(object):
         t_end = time.time() + timeout
         while time.time() < t_end:
             if self.latest_state_received is not None and self.latest_state_received['client'] == client_name:
-                response = self.latest_state_received
+                response = self.latest_state_received.get('data', None)
                 self.latest_state_received = None
                 return response
             else:
