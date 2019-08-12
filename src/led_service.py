@@ -35,11 +35,11 @@ from bus.om_bus_client import MessageClient
 from platform_utils import Hardware
 
 AUTH_MODE_LEDS = [Hardware.Led.ALIVE, Hardware.Led.CLOUD, Hardware.Led.VPN, Hardware.Led.COMM_1, Hardware.Led.COMM_2]
-logger = logging.getLogger("led_service")
+logger = logging.getLogger("openmotics")
 
 def setup_logger():
     """ Setup the OpenMotics logger. """
-    logger = logging.getLogger("led_service")
+    logger = logging.getLogger("openmotics")
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
