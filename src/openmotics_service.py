@@ -50,10 +50,12 @@ from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
 from plugins.base import PluginController
 
+logger = logging.getLogger("openmotics")
+
 
 def setup_logger():
     """ Setup the OpenMotics logger. """
-    logger = logging.getLogger("openmotics")
+
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
@@ -61,11 +63,6 @@ def setup_logger():
     handler.setLevel(logging.INFO)
     handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     logger.addHandler(handler)
-
-
-def log(message):
-    logger = logging.getLogger("openmotics")
-    logger.info(message)
 
 
 def led_driver(message_client, master_communicator, power_communicator):
@@ -99,7 +96,7 @@ class OpenmoticsService(object):
 
     def start(self):
         """ Main function. """
-        log('Starting OM core service...')
+        logger.info('Starting OM core service...')
 
         config = ConfigParser()
         config.read(constants.get_config_file())
@@ -202,23 +199,23 @@ class OpenmoticsService(object):
         def stop(signum, frame):
             """ This function is called on SIGTERM. """
             _ = signum, frame
-            log('Stopping OM core service...')
+            logger.info('Stopping OM core service...')
             web_service.stop()
             metrics_collector.stop()
             metrics_controller.stop()
             plugin_controller.stop()
-            log('Stopping OM core service... Done')
+            logger.info('Stopping OM core service... Done')
             signal_request['stop'] = True
 
         signal(SIGTERM, stop)
-        log('Starting OM core service... Done')
+        logger.info('Starting OM core service... Done')
         while not signal_request['stop']:
             time.sleep(1)
 
 
 if __name__ == "__main__":
     setup_logger()
-    log("Starting OpenMotics service")
+    logger.info("Starting OpenMotics service")
 
     # TODO: move message service to separate process
     message_service = MessageService()
