@@ -208,6 +208,7 @@ class LedController(object):
     def drive_leds(self):
         """ This drives different leds (status, alive and serial) """
         while self._running:
+            start = time.time()
             try:
                 now = time.time()
                 if now - 30 < self._indicate_started < now:
@@ -232,8 +233,9 @@ class LedController(object):
                 self._write_leds()
             except Exception as exception:
                 logger.error('Error while driving leds: {0}'.format(exception))
-            time.sleep(0.25)
-
+            duration = time.time() - start
+            time.sleep(max(0.05, 0.25 - duration))
+            
     def check_button(self):
         """ Handles input button presses """
         while self._running:
