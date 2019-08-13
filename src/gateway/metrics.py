@@ -282,7 +282,7 @@ class MetricsController(object):
         else:
             # filter 3rd party (plugin) metrics that are not listed in cloud_metrics_sources
             metric_sources = self._config_controller.get_setting('cloud_metrics_sources')
-            if metric_source not in metric_sources:
+            if metric_source.lower() not in metric_sources:
                 return
             timestamp = int(metric['timestamp'])
 
