@@ -486,7 +486,7 @@ class VPNService(object):
                 # Getting some sleep
                 exec_time = time.time() - start_time
                 if exec_time > 2:
-                    logger.warning('Heartbeat took more than 1s to complete: {0:.2f}s'.format(exec_time))
+                    logger.warning('Heartbeat took more than 2s to complete: {0:.2f}s'.format(exec_time))
                 sleep_time = self._cloud.get_sleep_time()
                 if self._previous_sleep_time != sleep_time:
                     logger.info('Set sleep interval to {0}s'.format(sleep_time))
