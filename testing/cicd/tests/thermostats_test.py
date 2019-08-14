@@ -53,19 +53,19 @@ class ThermostatsTest(OMTestCase):
         thermostat_auto_config = {'thermostat_on': True, 'automatic': True, 'setpoint': 0, 'cooling_mode': False, 'cooling_on': True}
         self.tools.api_testee(api='set_thermostat_mode', params=thermostat_auto_config, token=self.token, expected_failure=False)
 
-        setpoint_config = {'thermostat': 0, 'temperature': 9}
+        setpoint_config = {'thermostat': 0, 'temperature': 17}
         self.tools.api_testee(api='set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
 
         response_dict = self.tools.api_testee(api='get_thermostat_status', token=self.token, expected_failure=False)
 
-        self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set. Got: {0}".format(response_dict))
+        self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 17, "Should return a thermostat status according to the thermostat auto config that has been set. Got: {0}".format(response_dict))
 
         response_dict = self.tools.api_testee(api='reset_master', token=self.token, expected_failure=False)
         self.assertTrue(response_dict.get('status', 'Failed') == 'OK', "Should successfully reset the master. Got: {0}".format(response_dict))
 
         response_dict = self._get_new_thermostat_status(timeout=120)
 
-        self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 9,
+        self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 17,
                         "Should return a thermostat status according to the thermostat auto config that has been set after resetting the master. Got: {0}".format(response_dict))
 
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
@@ -73,12 +73,12 @@ class ThermostatsTest(OMTestCase):
         self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
 
         response_dict = self._get_new_thermostat_status(timeout=120)
-        self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat auto config that has been set after a full power cycle. Got: {0}".format(response_dict))
+        self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 17, "Should return a thermostat status according to the thermostat auto config that has been set after a full power cycle. Got: {0}".format(response_dict))
 
         # Testing the mode persistence after reset
 
         thermostat_auto_config = {'thermostat_on': True, 'automatic': False, 'setpoint': 5, 'cooling_mode': False, 'cooling_on': True}
-        new_token = self.tools._get_new_token(self.tools.username, self.tools.password)['token']
+        new_token = self.tools.get_new_token(self.tools.username, self.tools.password)
         self.tools.api_testee(api='set_thermostat_mode', params=thermostat_auto_config, token=new_token, expected_failure=False)
 
         response_dict = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=False)

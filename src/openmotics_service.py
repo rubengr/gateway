@@ -41,6 +41,7 @@ from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 from gateway.observer import Observer
+from gateway.shutters import ShutterController
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
 from master.maintenance import MaintenanceService
@@ -135,8 +136,11 @@ class OpenmoticsService(object):
             eeprom_controller
         )
 
-        observer = Observer(master_communicator, self._message_client)
-        gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, self._message_client, observer, config_controller)
+        shutter_controller = ShutterController(master_communicator)
+
+        observer = Observer(master_communicator, self._message_client, shutter_controller)
+        gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller,
+                                 pulse_controller, self._message_client, observer, config_controller, shutter_controller)
 
         observer.set_gateway_api(gateway_api)
 

@@ -1023,6 +1023,22 @@ class EextByte(EextDataType):
         return str(value)
 
 
+class EextWord(EextDataType):
+    """ An word field, stored in the eeprom extension database. """
+
+    def get_name(self):
+        return 'Word'
+
+    def default_value(self):
+        return 65535
+
+    def decode(self, value):
+        return int(value)
+
+    def encode(self, value):
+        return str(value)
+
+
 class EextString(EextDataType):
     """ An string field, stored in the eeprom extension database. """
 

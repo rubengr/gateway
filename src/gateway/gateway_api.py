@@ -73,7 +73,7 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
-    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller):
+    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -91,6 +91,8 @@ class GatewayApi(object):
         :type observer: gateway.observer.Observer
         :param config_controller: Configuration controller
         :type config_controller: gateway.config.ConfigurationController
+        :param shutter_controller: Shutter Controller
+        :type shutter_controller: gateway.shutters.ShutterController
         """
         self.__master_communicator = master_communicator
         self.__config_controller = config_controller
@@ -101,6 +103,7 @@ class GatewayApi(object):
         self.__plugin_controller = None
         self.__message_client = message_client
         self.__observer = observer
+        self.__shutter_controller = shutter_controller
 
         self.__last_maintenance_send_time = 0
         self.__maintenance_timeout_timer = None
@@ -131,6 +134,10 @@ class GatewayApi(object):
         :type plugin_controller: plugins.base.PluginController
         """
         self.__plugin_controller = plugin_controller
+
+    def master_online_event(self, online):
+        if online:
+            self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def __master_checker(self):
         """
@@ -848,57 +855,73 @@ class GatewayApi(object):
         """
         return self.__observer.get_shutter_status()
 
-    def do_shutter_down(self, shutter_id):
-        """ Make a shutter go down. The shutter stops automatically when the down position is
-        reached (after the predefined number of seconds).
+    def do_shutter_down(self, shutter_id, position):
+        """
+        Make a shutter go down. The shutter stops automatically when the down or specified position is reached
 
         :param shutter_id: The id of the shutter.
-        :type shutter_id: Byte
+        :type shutter_id: int
+        :param position: The desired end position
+        :type position: int
         :returns:'status': 'OK'.
+        :rtype: dict
         """
-        if shutter_id < 0 or shutter_id > 120:
-            raise ValueError('id not in [0, 120]: %d' % shutter_id)
-
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': master_api.BA_SHUTTER_DOWN, 'action_number': shutter_id}
-        )
-
+        self.__shutter_controller.shutter_down(shutter_id, position)
         return {'status': 'OK'}
 
-    def do_shutter_up(self, shutter_id):
-        """ Make a shutter go up. The shutter stops automatically when the up position is
-        reached (after the predefined number of seconds).
+    def do_shutter_up(self, shutter_id, position):
+        """
+        Make a shutter go up. The shutter stops automatically when the up or specified position is reached
 
         :param shutter_id: The id of the shutter.
-        :type shutter_id: Byte
+        :type shutter_id: int
+        :param position: The desired end position
+        :type position: int
         :returns:'status': 'OK'.
+        :rtype: dict
         """
-        if shutter_id < 0 or shutter_id > 120:
-            raise ValueError('id not in [0, 120]: %d' % shutter_id)
-
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': master_api.BA_SHUTTER_UP, 'action_number': shutter_id}
-        )
-
+        self.__shutter_controller.shutter_up(shutter_id, position)
         return {'status': 'OK'}
 
     def do_shutter_stop(self, shutter_id):
-        """ Make a shutter stop.
+        """
+        Make a shutter stop.
 
         :param shutter_id: The id of the shutter.
         :type shutter_id: Byte
         :returns:'status': 'OK'.
         """
-        if shutter_id < 0 or shutter_id > 120:
-            raise ValueError('id not in [0, 120]: %d' % shutter_id)
+        self.__shutter_controller.shutter_stop(shutter_id)
+        return {'status': 'OK'}
 
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': master_api.BA_SHUTTER_STOP, 'action_number': shutter_id}
-        )
+    def do_shutter_goto(self, shutter_id, position):
+        """
+        Make a shutter go to the desired position
 
+        :param shutter_id: The id of the shutter.
+        :type shutter_id: int
+        :param position: The desired end position
+        :type position: int
+        :returns:'status': 'OK'.
+        :rtype: dict
+        """
+        self.__shutter_controller.shutter_goto(shutter_id, position)
+        return {'status': 'OK'}
+
+    def shutter_report_position(self, shutter_id, position, direction=None):
+        """
+        Report the actual position of a shutter
+
+        :param shutter_id: The id of the shutter.
+        :type shutter_id: int
+        :param position: The actual position
+        :type position: int
+        :param direction: The direction
+        :type direction: str
+        :returns:'status': 'OK'.
+        :rtype: dict
+        """
+        self.__shutter_controller.report_shutter_position(shutter_id, position, direction)
         return {'status': 'OK'}
 
     def do_shutter_group_down(self, group_id):
@@ -1686,6 +1709,7 @@ class GatewayApi(object):
         """
         self.__eeprom_controller.write(ShutterConfiguration.deserialize(config))
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
+        self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def set_shutter_configurations(self, config):
         """
@@ -1696,6 +1720,7 @@ class GatewayApi(object):
         """
         self.__eeprom_controller.write_batch([ShutterConfiguration.deserialize(o) for o in config])
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
+        self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def get_shutter_group_configuration(self, group_id, fields=None):
         """
