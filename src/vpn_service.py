@@ -349,7 +349,6 @@ class VPNService(object):
         # Check connectivity by using ping to recover from a messed up network stack on the BeagleBone
         # Prefer using OpenMotics infrastructure first
 
-        # Ping OpenMotics infrastructure, try to not use third party infrastructure
         if VPNService.ping('cloud.openmotics.com'):
             # OpenMotics infrastructure can be pinged
             # > Connectivity
