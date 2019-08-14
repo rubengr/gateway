@@ -316,6 +316,7 @@ class MetricsController(object):
         )
 
         counters_to_buffer = self._buffer_counters.get(metric_source, {}).get(metric_type, {})
+        definition = self.definitions.get(metric_source, {}).get(metric_type)
         identifier = '|'.join(['{0}={1}'.format(tag, metric['tags'][tag]) for tag in sorted(definition['tags'])])
 
         # Check if the metric needs to be send
