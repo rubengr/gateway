@@ -130,6 +130,7 @@ class Cloud(object):
         self.__sleep_time = sleep_time
         self.__config = config
         self.__intervals = {}
+        self.__configuration = {}
 
     def call_home(self, extra_data):
         """ Call home reporting our state, and optionally get new settings or other stuff """
@@ -145,15 +146,21 @@ class Cloud(object):
                 self.__sleep_time = DEFAULT_SLEEP_TIME
 
             if 'configuration' in data:
-                for setting, value in data['configuration'].iteritems():
-                    self.__config.set_setting(setting, value)
+                configuration_changed = cmp(self.__configuration, data['configuration']) != 0
+                if configuration_changed:
+                    for setting, value in data['configuration'].iteritems():
+                        self.__config.set_setting(setting, value)
+                    logger.info('configuration changed: {0}'.format(data['configuration']))
+
+                # update __configuration when storing config is successful
+                self.__configuration = data['configuration']
 
             if 'intervals' in data:
                 # check if interval changes occurred and distribute interval changes
                 intervals_changed = cmp(self.__intervals, data['intervals']) != 0
                 if intervals_changed:
-                    logger.info('intervals changed: {0}'.format(data['intervals']))
                     self.__message_client.send_event(OMBusEvents.METRICS_INTERVAL_CHANGE, data['intervals'])
+                    logger.info('intervals changed: {0}'.format(data['intervals']))
 
                 # update __intervals when sending is successful
                 self.__intervals = data['intervals']
