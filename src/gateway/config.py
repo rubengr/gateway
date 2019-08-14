@@ -61,6 +61,7 @@ class ConfigurationController(object):
         for setting, default_setting in {'cloud_enabled': True,
                                          'cloud_endpoint': 'cloud.openmotics.com',
                                          'cloud_endpoint_metrics': 'portal/metrics/',
+                                         'cloud_endpoint_events': 'portal/events/',
                                          'cloud_metrics_types': ['energy', 'counter'],
                                          'cloud_metrics_enabled|energy': True,
                                          'cloud_metrics_enabled|counter': True,

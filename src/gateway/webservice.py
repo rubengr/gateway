@@ -36,6 +36,7 @@ from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from ws4py.websocket import WebSocket
 
 from bus.dbus_events import DBusEvents
+from cloud.client import Client
 from gateway.observer import Event
 from gateway.shutters import ShutterController
 from master.master_communicator import InMaintenanceModeException
@@ -436,6 +437,7 @@ class WebInterface(object):
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
         self._dbus_service = dbus_service
+        self._cloud = Client(config_controller)
 
         self.metrics_collector = None
         self._ws_metrics_registered = False
@@ -469,17 +471,7 @@ class WebInterface(object):
         except Exception as ex:
             LOGGER.error('Failed to distribute metrics to WebSockets: %s', ex)
 
-    def process_observer_event(self, event):
-        """ Processes an observer event, pushing it forward to the event websocket """
-
-        try:
-            requests.post('https://staging.openmotics.com/portal/capture_event/?uuid={0}'.format(self._gateway_uuid),
-                          data={'event': json.dumps(event.serialize())})
-        except Exception as ex:
-            LOGGER.error('Failed to distribute events to REST: %s', ex)
-
-        return
-
+    def _send_event_websocket(self, event):
         try:
             answers = cherrypy.engine.publish('get-events-receivers')
             if not answers:
@@ -502,6 +494,11 @@ class WebInterface(object):
                     cherrypy.engine.publish('remove-events-receiver', client_id)
         except Exception as ex:
             LOGGER.error('Failed to distribute events to WebSockets: %s', ex)
+
+    def process_observer_event(self, event):
+        """ Processes an observer event, pushing it forward to the upstream components (e.g. local websockets, cloud)"""
+        self._cloud.send_event(event)
+        self._send_event_websocket(event)
 
     def set_plugin_controller(self, plugin_controller):
         """
