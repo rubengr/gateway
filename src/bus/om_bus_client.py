@@ -1,15 +1,12 @@
-import random
-from multiprocessing.connection import Client
-from threading import Thread, Lock
 import logging
 import time
-
-from om_bus_events import OMBusEvents
-
 try:
     import json
 except ImportError:
     import simplejson as json
+from multiprocessing.connection import Client
+from threading import Thread, Lock
+from om_bus_events import OMBusEvents
 
 logger = logging.getLogger('openmotics')
 

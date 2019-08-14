@@ -32,17 +32,16 @@ import subprocess
 import tempfile
 import ConfigParser
 
-from bus.om_bus_events import OMBusEvents
-
 try:
     import json
 except ImportError:
     import simplejson as json
+import master.master_api as master_api
+import power.power_api as power_api
 from subprocess import check_output
 from threading import Timer, Thread
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
-import master.master_api as master_api
 from master.master_communicator import BackgroundConsumer
 from master.eeprom_controller import EepromAddress
 from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
@@ -52,7 +51,7 @@ from master.eeprom_models import OutputConfiguration, InputConfiguration, Thermo
     GlobalThermostatConfiguration, CoolingConfiguration, CoolingPumpGroupConfiguration, \
     GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
     CanLedConfiguration, RoomConfiguration
-import power.power_api as power_api
+from bus.om_bus_events import OMBusEvents
 
 LOGGER = logging.getLogger('openmotics')
 

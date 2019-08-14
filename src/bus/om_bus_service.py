@@ -1,16 +1,16 @@
-from multiprocessing.connection import Listener
 import logging
-from threading import Thread
 import time
-
 try:
     import json
 except ImportError:
     import simplejson as json
+from multiprocessing.connection import Listener
+from threading import Thread
 
 logger = logging.getLogger('openmotics')
 
-class MessageService():
+
+class MessageService(object):
 
     def __init__(self, ip='localhost', port=10000, authkey='openmotics'):
         self.connections = {}

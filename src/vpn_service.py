@@ -24,18 +24,15 @@ System.import_eggs()
 import logging
 import os
 import glob
-import sys
 import requests
 import time
 import subprocess
 import traceback
 import constants
-import threading
 
-from threading import Thread
+from threading import Thread, Lock
 from collections import deque
 from ConfigParser import ConfigParser
-from datetime import datetime
 from gateway.config import ConfigurationController
 from bus.om_bus_client import MessageClient
 from bus.om_bus_events import OMBusEvents
@@ -53,7 +50,6 @@ logger = logging.getLogger("openmotics")
 
 def setup_logger():
     """ Setup the OpenMotics logger. """
-    logger = logging.getLogger("openmotics")
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
@@ -331,7 +327,7 @@ class VPNService(object):
         self._eeprom_events = deque()
         self._gateway = Gateway()
         self._vpn_controller = VpnController()
-        self._config_controller = ConfigurationController(constants.get_config_database_file(), threading.Lock())
+        self._config_controller = ConfigurationController(constants.get_config_database_file(), Lock())
         self._cloud = Cloud(config.get('OpenMotics', 'vpn_check_url') % config.get('OpenMotics', 'uuid'),
                             self._message_client,
                             self._config_controller)

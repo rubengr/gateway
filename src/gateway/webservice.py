@@ -35,6 +35,7 @@ from ws4py import WS_VERSION
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from ws4py.websocket import WebSocket
 
+from bus.om_bus_events import OMBusEvents
 from gateway.observer import Event
 from gateway.shutters import ShutterController
 from master.master_communicator import InMaintenanceModeException
@@ -2508,7 +2509,7 @@ class WebInterface(object):
     @openmotics_api(auth=True)
     def indicate(self):
         """ Blinks the Status led on the Gateway to indicate the module """
-        self._message_client.send_event(Events.INDICATE_GATEWAY, None)
+        self._message_client.send_event(OMBusEvents.INDICATE_GATEWAY, None)
         return {}
 
     @cherrypy.expose

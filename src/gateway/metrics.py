@@ -249,6 +249,11 @@ class MetricsController(object):
         metric_type = metric['type']
         metric_source = metric['source']
 
+        # get definition for metric source and type, getting the definitions for a metric_source is case sensitive!
+        definition = definitions.get(metric_source, {}).get(metric_type)
+        if definition is None:
+            return False
+
         if config_controller.get_setting('cloud_enabled', True) is False:
             return False
 
@@ -267,11 +272,6 @@ class MetricsController(object):
             # make sure to get the lowercase metric_source
             if metric_source.lower() not in metric_sources:
                 return False
-
-        # get definition for metric source and type, getting the definitions for a metric_source is case sensitive!
-        definition = definitions.get(metric_source, {}).get(metric_type)
-        if definition is None:
-            return False
 
         return True
 
@@ -379,6 +379,9 @@ class MetricsController(object):
                     else:
                         self._cloud_retry_interval = 60 * 60
                         new_interval = 2 * 60 * 60
+                    metric_types = self._config_controller.get_setting('cloud_metrics_types')
+                    for mtype in metric_types:
+                        self.set_cloud_interval(mtype, new_interval)
 
         # Buffer metrics if appropriate
         time_ago_send = int(now - self._cloud_last_send)
@@ -526,4 +529,3 @@ class MetricsController(object):
         if event == OMBusEvents.METRICS_INTERVAL_CHANGE:
             for metric_type, interval in payload.iteritems():
                 self.set_cloud_interval(metric_type, interval)
-
