@@ -344,6 +344,22 @@ class VPNService(object):
             LOGGER.log("Error during ping: {0}".format(ex))
             return False
 
+    @staticmethod
+    def has_connectivity():
+        # Check connectivity by using ping to recover from a messed up network stack on the BeagleBone
+        # Ping OpenMotics infrastructure, try to not use third party infrastructure
+        if VPNService.ping('cloud.openmotics.com'):
+            # OpenMotics can be reached. There is connectivity
+            return True
+        can_ping_dns = VPNService.ping('8.8.8.8') or VPNService.ping('1.1.1.1')
+        if not can_ping_dns:
+            # It is not possible to ping public DNS services; internet connectivity is not available
+            # If the local gateway is pingable an internet outage can be assumed.
+            return VPNService.ping(VPNService._get_gateway())
+        # DNS services are available, but OpenMotics could not be pinged.
+        # Ping third party service to rule out maintenance at OpenMotics infrastructure
+        return VPNService.ping('example.com') or VPNService.ping('google.com')
+
     def _get_debug_dumps(self):
         if not self._config_controller.get_setting('cloud_support', False):
             return {}
@@ -453,11 +469,11 @@ class VPNService(object):
                 self._clean_debug_dumps()
 
             if self._iterations > 20 and self._cloud.get_last_connect() < time.time() - REBOOT_TIMEOUT:
-                # The cloud is not responding for a while.
-                if not VPNService.ping('cloud.openmotics.com') and not VPNService.ping('8.8.8.8') and not VPNService.ping(VPNService._get_gateway()):
-                    # Perhaps the BeagleBone network stack is hanging, reboot the gateway
-                    # to reset the BeagleBone.
+                # We can't connect for over `REBOOT_TIMEOUT` seconds and we tried for at least 20 times.
+                # Try to figure out whether the network stack works as expected
+                if not VPNService.has_connectivity():
                     reboot_gateway()
+
             self._iterations += 1
             # Open or close the VPN
             self._set_vpn(feedback['open_vpn'])
