@@ -244,31 +244,30 @@ class MetricsController(object):
                     settings[policy][metric['name']] = setting
         return settings
 
-    @staticmethod
-    def _needs_upload_to_cloud(config_controller, definitions, metric):
+    def _needs_upload_to_cloud(self, metric):
         metric_type = metric['type']
         metric_source = metric['source']
 
         # get definition for metric source and type, getting the definitions for a metric_source is case sensitive!
-        definition = definitions.get(metric_source, {}).get(metric_type)
+        definition = self.definitions.get(metric_source, {}).get(metric_type)
         if definition is None:
             return False
 
-        if config_controller.get_setting('cloud_enabled', True) is False:
+        if self._config_controller.get_setting('cloud_enabled', True) is False:
             return False
 
         if metric_source == 'OpenMotics':
-            if config_controller.get_setting('cloud_metrics_enabled|{0}'.format(metric_type), True) is False:
+            if self._config_controller.get_setting('cloud_metrics_enabled|{0}'.format(metric_type), True) is False:
                 return False
 
             # filter openmotics metrics that are not listed in cloud_metrics_types
-            metric_types = config_controller.get_setting('cloud_metrics_types')
+            metric_types = self._config_controller.get_setting('cloud_metrics_types')
             if metric_type not in metric_types:
                 return False
 
         else:
             # filter 3rd party (plugin) metrics that are not listed in cloud_metrics_sources
-            metric_sources = config_controller.get_setting('cloud_metrics_sources')
+            metric_sources = self._config_controller.get_setting('cloud_metrics_sources')
             # make sure to get the lowercase metric_source
             if metric_source.lower() not in metric_sources:
                 return False
@@ -295,7 +294,7 @@ class MetricsController(object):
         metric_type = metric['type']
         metric_source = metric['source']
 
-        if not self._needs_upload_to_cloud(self._config_controller, self.definitions, metric):
+        if not self._needs_upload_to_cloud(metric):
             return
 
         if metric_source == 'OpenMotics':
