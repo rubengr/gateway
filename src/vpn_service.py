@@ -58,6 +58,7 @@ def setup_logger():
     handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     logger.addHandler(handler)
 
+
 def reboot_gateway():
     """ Reboot the gateway. """
     subprocess.call('sync && reboot', shell=True)
