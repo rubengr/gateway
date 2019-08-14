@@ -244,6 +244,37 @@ class MetricsController(object):
                     settings[policy][metric['name']] = setting
         return settings
 
+    @staticmethod
+    def _needs_upload_to_cloud(config_controller, definitions, metric):
+        metric_type = metric['type']
+        metric_source = metric['source']
+
+        if config_controller.get_setting('cloud_enabled', True) is False:
+            return False
+
+        if metric_source == 'OpenMotics':
+            if config_controller.get_setting('cloud_metrics_enabled|{0}'.format(metric_type), True) is False:
+                return False
+
+            # filter openmotics metrics that are not listed in cloud_metrics_types
+            metric_types = config_controller.get_setting('cloud_metrics_types')
+            if metric_type not in metric_types:
+                return False
+
+        else:
+            # filter 3rd party (plugin) metrics that are not listed in cloud_metrics_sources
+            metric_sources = config_controller.get_setting('cloud_metrics_sources')
+            # make sure to get the lowercase metric_source
+            if metric_source.lower() not in metric_sources:
+                return False
+
+        # get definition for metric source and type, getting the definitions for a metric_source is case sensitive!
+        definition = definitions.get(metric_source, {}).get(metric_type)
+        if definition is None:
+            return False
+
+        return True
+
     def receiver(self, metric):
         """
         Collects all metrics made available by the MetricsCollector and the plugins. These metrics
@@ -264,32 +295,15 @@ class MetricsController(object):
         metric_type = metric['type']
         metric_source = metric['source']
 
-        if self._config_controller.get_setting('cloud_enabled', True) is False:
+        if not self._needs_upload_to_cloud(self._config_controller, self.definitions, metric):
             return
 
         if metric_source == 'OpenMotics':
-            if self._config_controller.get_setting('cloud_metrics_enabled|{0}'.format(metric_type), True) is False:
-                return
-
-            # filter openmotics metrics that are not listed in cloud_metrics_types
-            metric_types = self._config_controller.get_setting('cloud_metrics_types')
-            if metric_type not in metric_types:
-                return
-
             # round off timestamps for openmotics metrics
             modulo_interval = self._config_controller.get_setting('cloud_metrics_interval|{0}'.format(metric_type), 900)
             timestamp = int(metric['timestamp'] - metric['timestamp'] % modulo_interval)
         else:
-            # filter 3rd party (plugin) metrics that are not listed in cloud_metrics_sources
-            metric_sources = self._config_controller.get_setting('cloud_metrics_sources')
-            if metric_source.lower() not in metric_sources:
-                return
             timestamp = int(metric['timestamp'])
-
-        # get definition for metric source and type
-        definition = self.definitions.get(metric_source, {}).get(metric_type)
-        if definition is None:
-            return
 
         cloud_batch_size = self._config_controller.get_setting('cloud_metrics_batch_size')
         cloud_min_interval = self._config_controller.get_setting('cloud_metrics_min_interval')
