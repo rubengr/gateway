@@ -42,4 +42,4 @@ class Client(object):
         events_endpoint = 'https://{0}/{1}?uuid={2}'.format(self._cloud_endpoint, 'portal/events/', self._gateway_uuid)
         response = self._session.post(events_endpoint, data={'event': json.dumps(event.serialize())}, timeout=2)
         if not response:
-            raise APIException('Error while sending event. Status code: {}'.format(response.status_code))
+            raise APIException('Error while sending event type {}. Status code: {}'.format(event.type, response.status_code))
