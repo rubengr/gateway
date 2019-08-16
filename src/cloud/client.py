@@ -51,10 +51,16 @@ class Client(object):
             response = self._session.post(events_endpoint, params=query_params, data={'event': json.dumps(event.serialize())}, timeout=2)
             if not response:
                 raise APIException('Error while sending {} to {}. HTTP Status: {}'.format(event.type, self._hostname, response.status_code))
+        except APIException:
+            raise
+        except ConnectionError as ce:
+            raise APIException('Error while sending {} to {}. Reason: {}'.format(event.type, self._hostname, ce))
         except Exception as e:
-            if isinstance(e, APIException):
-                raise e
-            if isinstance(e, ConnectionError):
-                raise APIException('Error while sending {} to {}. Reason: {}'.format(event.type, self._hostname, e))
             logger.exception(e)
             raise APIException('Unknown error while executing API request on {}. Reason: {}'.format(self._hostname, e))
+
+    def set_port(self, port):
+        self._port = port
+
+    def set_ssl(self, ssl):
+        self._ssl = ssl

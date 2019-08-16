@@ -91,6 +91,7 @@ def led_driver(message_client, master_communicator, power_communicator):
         power = new_power
         time.sleep(0.1)
 
+
 class OpenmoticsService(object):
 
     def __init__(self):
@@ -112,9 +113,11 @@ class OpenmoticsService(object):
 
         parsed_url = urlparse(config.get('OpenMotics', 'vpn_check_url'))
         cloud_endpoint = parsed_url.hostname
-        cloud_port = parsed_url.port if parsed_url.port is not None else 443
-        cloud_ssl = parsed_url.scheme == 'https' if parsed_url.scheme is not None else True
-        cloud = Client(gateway_uuid, hostname=cloud_endpoint, port=cloud_port, ssl=cloud_ssl)
+        cloud = Client(gateway_uuid, hostname=cloud_endpoint)
+        if parsed_url.port is not None:
+            cloud.set_port(parsed_url.port)
+        if parsed_url.scheme is not None:
+            cloud.set_ssl(parsed_url.scheme == 'https')
 
         config_lock = Lock()
         user_controller = UserController(constants.get_config_database_file(), config_lock, defaults, 3600)
