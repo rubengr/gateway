@@ -26,6 +26,7 @@ import constants
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
 from bus.om_bus_events import OMBusEvents
+from cloud.client import Client
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
@@ -42,6 +43,7 @@ from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 from gateway.observer import Observer
 from gateway.shutters import ShutterController
+from urlparse import urlparse
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
 from master.maintenance import MaintenanceService
@@ -109,6 +111,14 @@ class OpenmoticsService(object):
         power_serial_port = config.get('OpenMotics', 'power_serial')
         gateway_uuid = config.get('OpenMotics', 'uuid')
 
+        parsed_url = urlparse(config.get('OpenMotics', 'vpn_check_url'))
+        cloud_endpoint = parsed_url.hostname
+        cloud = Client(gateway_uuid, hostname=cloud_endpoint)
+        if parsed_url.port is not None:
+            cloud.set_port(parsed_url.port)
+        if parsed_url.scheme is not None:
+            cloud.set_ssl(parsed_url.scheme == 'https')
+
         config_lock = Lock()
         user_controller = UserController(constants.get_config_database_file(), config_lock, defaults, 3600)
         config_controller = ConfigurationController(constants.get_config_database_file(), config_lock)
@@ -150,7 +160,7 @@ class OpenmoticsService(object):
                                                  constants.get_ssl_certificate_file())
 
         web_interface = WebInterface(user_controller, gateway_api, maintenance_service, self._message_client,
-                                     config_controller, scheduling_controller)
+                                     config_controller, scheduling_controller, cloud)
 
         scheduling_controller.set_webinterface(web_interface)
 
