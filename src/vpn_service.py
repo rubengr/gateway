@@ -370,6 +370,33 @@ class VPNService(object):
             logger.error("Error during ping: {0}".format(ex))
             return False
 
+    @staticmethod
+    def has_connectivity():
+        # Check connectivity by using ping to recover from a messed up network stack on the BeagleBone
+        # Prefer using OpenMotics infrastructure first
+
+        if VPNService.ping('cloud.openmotics.com'):
+            # OpenMotics infrastructure can be pinged
+            # > Connectivity
+            return True
+        can_ping_internet_by_fqdn = VPNService.ping('example.com') or VPNService.ping('google.com')
+        if can_ping_internet_by_fqdn:
+            # Public internet servers can be pinged by FQDN
+            # > Assume maintenance on OpenMotics infrastructure. Sufficient connectivity
+            return True
+        can_ping_internet_by_ip = VPNService.ping('8.8.8.8') or VPNService.ping('1.1.1.1')
+        if can_ping_internet_by_ip:
+            # Public internet servers can be pinged by IP, but not by FQDN
+            # > Assume DNS resolving issues. Insufficient connectivity
+            return False
+        # Public internet servers cannot be pinged by IP, nor by FQDN
+        can_ping_default_gateway = VPNService.ping(VPNService._get_gateway())
+        if can_ping_default_gateway:
+            # > Assume ISP outage. Sufficient connectivity
+            return True
+        # > Assume broken TCP stack. No connectivity
+        return False
+
     def _get_debug_dumps(self):
         if not self._config_controller.get_setting('cloud_support', False):
             return {}
@@ -500,7 +527,7 @@ class VPNService(object):
                 logger.error("Error during vpn check loop: {0}".format(ex))
                 time.sleep(1)
 
-
+                
 if __name__ == '__main__':
     setup_logger()
     logger.info("Starting VPN service")
