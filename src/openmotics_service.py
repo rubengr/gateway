@@ -117,8 +117,8 @@ def main():
 
     parsed_url = urlparse(config.get('OpenMotics', 'vpn_check_url'))
     cloud_endpoint = parsed_url.hostname
-    cloud_port = parsed_url.port
-    cloud_ssl = parsed_url.scheme == 'https'
+    cloud_port = parsed_url.port if parsed_url.port is not None else 443
+    cloud_ssl = parsed_url.scheme == 'https' if parsed_url.scheme is not None else True
     cloud = Client(gateway_uuid, hostname=cloud_endpoint, port=cloud_port, ssl=cloud_ssl)
 
     config_lock = threading.Lock()
