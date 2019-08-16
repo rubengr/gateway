@@ -36,7 +36,7 @@ from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from ws4py.websocket import WebSocket
 
 from bus.dbus_events import DBusEvents
-from cloud.client import Client
+from cloud.client import Client, APIException
 from gateway.observer import Event
 from gateway.shutters import ShutterController
 from master.master_communicator import InMaintenanceModeException
@@ -497,7 +497,10 @@ class WebInterface(object):
 
     def process_observer_event(self, event):
         """ Processes an observer event, pushing it forward to the upstream components (e.g. local websockets, cloud)"""
-        self._send_event_websocket(event)
+        try:
+            self._send_event_websocket(event)
+        except APIException as api_exception:
+            logger.error(api_exception)
         self._cloud.send_event(event)
 
     def set_plugin_controller(self, plugin_controller):
