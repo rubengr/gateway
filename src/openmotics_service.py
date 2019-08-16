@@ -20,6 +20,7 @@ import logging
 import time
 import threading
 
+from cloud.client import Client
 from platform_utils import System
 System.import_eggs()
 
@@ -43,6 +44,7 @@ from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 from gateway.observer import Observer
 from gateway.shutters import ShutterController
+from urlparse import urlparse
 
 from bus.dbus_service import DBusService
 from bus.dbus_events import DBusEvents
@@ -99,7 +101,6 @@ def led_driver(dbus_service, master_communicator, power_communicator):
         power = new_power
         time.sleep(0.1)
 
-
 def main():
     """ Main function. """
     log('Starting service...')
@@ -113,6 +114,12 @@ def main():
     passthrough_serial_port = config.get('OpenMotics', 'passthrough_serial')
     power_serial_port = config.get('OpenMotics', 'power_serial')
     gateway_uuid = config.get('OpenMotics', 'uuid')
+
+    parsed_url = urlparse(config.get('OpenMotics', 'vpn_check_url'))
+    cloud_endpoint = parsed_url.hostname
+    cloud_port = parsed_url.port
+    cloud_ssl = parsed_url.scheme == 'https'
+    cloud = Client(gateway_uuid, hostname=cloud_endpoint, port=cloud_port, ssl=cloud_ssl)
 
     config_lock = threading.Lock()
     user_controller = UserController(constants.get_config_database_file(), config_lock, defaults, 3600)
@@ -156,7 +163,7 @@ def main():
                                              constants.get_ssl_certificate_file())
 
     web_interface = WebInterface(user_controller, gateway_api, maintenance_service, dbus_service,
-                                 config_controller, scheduling_controller, gateway_uuid)
+                                 config_controller, scheduling_controller, gateway_uuid, cloud)
 
     scheduling_controller.set_webinterface(web_interface)
 

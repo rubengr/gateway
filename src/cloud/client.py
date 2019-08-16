@@ -2,6 +2,7 @@ from platform_utils import System
 System.import_eggs()
 import logging
 import requests
+from requests import ConnectionError
 from requests.adapters import HTTPAdapter
 try:
     import json
@@ -24,14 +25,19 @@ class Client(object):
 
     API_TIMEOUT = 5.0
 
-    def __init__(self, gateway_uuid, cloud_endpoint=None, api_version=0):
+    def __init__(self, gateway_uuid, hostname=None, port=443, api_version=0, ssl=True):
         self._gateway_uuid = gateway_uuid
-        self._cloud_endpoint = 'cloud.openmotics.com' if cloud_endpoint is None else cloud_endpoint
+        self._hostname = 'cloud.openmotics.com' if hostname is None else hostname
+        self._ssl = ssl
+        self._port = port
         self.api_version = api_version
 
         self._session = requests.Session()
         openmotics_adapter = HTTPAdapter(max_retries=3)
-        self._session.mount(self._cloud_endpoint, openmotics_adapter)
+        self._session.mount(self._hostname, openmotics_adapter)
+
+    def _get_endpoint(self, path):
+        return '{0}://{1}:{2}/{3}'.format('https' if self._ssl else 'http', self._hostname, self._port, path)
 
     def send_event(self, event):
         # sending events over REST is only supported in the v0 API
@@ -39,7 +45,11 @@ class Client(object):
             raise NotImplementedError('Sending events is not supported on this api version')
 
         # make request
-        events_endpoint = 'https://{0}/{1}?uuid={2}'.format(self._cloud_endpoint, 'portal/events/', self._gateway_uuid)
-        response = self._session.post(events_endpoint, data={'event': json.dumps(event.serialize())}, timeout=2)
-        if not response:
-            raise APIException('Error while sending event type {}. Status code: {}'.format(event.type, response.status_code))
+        events_endpoint = self._get_endpoint('portal/events/')
+        query_params = {'uuid': self._gateway_uuid}
+        try:
+            response = self._session.post(events_endpoint, params=query_params, data={'event': json.dumps(event.serialize())}, timeout=2)
+            if not response:
+                raise APIException('Error while sending {} to {}. HTTP Status: {}'.format(event.type, self._hostname, response.status_code))
+        except ConnectionError as ce:
+            raise APIException('Error while sending {} to {}. Reason: {}'.format(event.type, self._hostname, ce))

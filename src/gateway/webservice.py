@@ -410,7 +410,7 @@ class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 dbus_service, config_controller, scheduling_controller, gateway_uuid):
+                 dbus_service, config_controller, scheduling_controller, gateway_uuid, cloud):
         """
         Constructor for the WebInterface.
 
@@ -426,6 +426,10 @@ class WebInterface(object):
         :type config_controller: gateway.config.ConfigController
         :param scheduling_controller: Scheduling Controller
         :type scheduling_controller: gateway.scheduling.SchedulingController
+        :param gateway_uuid: The GW uuid
+        :type gateway_uuid: str
+        :param cloud: The cloud API object
+        :type cloud: cloud.client.Client
         """
         self._gateway_uuid = gateway_uuid
         self._user_controller = user_controller
@@ -437,7 +441,7 @@ class WebInterface(object):
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
         self._dbus_service = dbus_service
-        self._cloud = Client(self._gateway_uuid, cloud_endpoint=self._config_controller.get_setting('cloud_endpoint'))
+        self._cloud = cloud
 
         self.metrics_collector = None
         self._ws_metrics_registered = False
