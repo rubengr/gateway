@@ -18,6 +18,7 @@ The observer module contains logic to observe various states of the system. It k
 
 import time
 import logging
+
 try:
     import json
 except ImportError:
@@ -28,7 +29,8 @@ from master.outputs import OutputStatus
 from master.thermostats import ThermostatStatus
 from master.inputs import InputStatus
 from master import master_api
-from bus.dbus_events import DBusEvents
+from bus.om_bus_events import OMBusEvents
+
 
 LOGGER = logging.getLogger("openmotics")
 
@@ -79,17 +81,17 @@ class Observer(object):
         THERMOSTATS = 'THERMOSTATS'
         SHUTTERS = 'SHUTTERS'
 
-    def __init__(self, master_communicator, dbus_service, shutter_controller):
+    def __init__(self, master_communicator, message_client, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
-        :param dbus_service: DBusService instance
-        :type dbus_service: bus.dbus_service.DBusService
+        :param message_client: MessageClient instance
+        :type message_client: bus.om_bus_client.MessageClient
         :param shutter_controller: Shutter Controller
         :type shutter_controller: gateway.shutters.ShutterController
         """
         self._master_communicator = master_communicator
-        self._dbus_service = dbus_service
+        self._message_client = message_client
         self._gateway_api = None
 
         self._master_subscriptions = {Observer.MasterEvents.ON_OUTPUTS: [],
@@ -260,7 +262,7 @@ class Observer(object):
 
     def _output_changed(self, output_id, status):
         """ Executed by the Output Status tracker when an output changed state """
-        self._dbus_service.send_event(DBusEvents.OUTPUT_CHANGE, {'id': output_id})
+        self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': output_id})
         for callback in self._event_subscriptions:
             resp_status = {'on': status['on']}
             # 1. only add value to status when handling dimmers
@@ -323,7 +325,7 @@ class Observer(object):
 
     def _thermostat_changed(self, thermostat_id, status):
         """ Executed by the Thermostat Status tracker when an output changed state """
-        self._dbus_service.send_event(DBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
         location = {'room_id': self._thermostats_config[thermostat_id]['room']}
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
@@ -336,7 +338,7 @@ class Observer(object):
                                  'location': location}))
 
     def _thermostat_group_changed(self, status):
-        self._dbus_service.send_event(DBusEvents.THERMOSTAT_CHANGE, {'id': None})
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
                            data={'id': 0,

@@ -31,16 +31,17 @@ import shutil
 import subprocess
 import tempfile
 import ConfigParser
+
 try:
     import json
 except ImportError:
     import simplejson as json
+import master.master_api as master_api
+import power.power_api as power_api
 from subprocess import check_output
 from threading import Timer, Thread
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
-from bus.dbus_events import DBusEvents
-import master.master_api as master_api
 from master.master_communicator import BackgroundConsumer
 from master.eeprom_controller import EepromAddress
 from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
@@ -50,7 +51,7 @@ from master.eeprom_models import OutputConfiguration, InputConfiguration, Thermo
     GlobalThermostatConfiguration, CoolingConfiguration, CoolingPumpGroupConfiguration, \
     GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
     CanLedConfiguration, RoomConfiguration
-import power.power_api as power_api
+from bus.om_bus_events import OMBusEvents
 
 LOGGER = logging.getLogger('openmotics')
 
@@ -71,7 +72,7 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
-    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer, config_controller, shutter_controller):
+    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -83,8 +84,8 @@ class GatewayApi(object):
         :type eeprom_controller: master.eeprom_controller.EepromController
         :param pulse_controller: Pulse controller
         :type pulse_controller: gateway.pulses.PulseCounterController
-        :param dbus_service: DBus Service
-        :type dbus_service: bus.dbus_service.DBusService
+        :param message_client: Om Message Client
+        :type message_client: bus.om_bus_client.MessageClient
         :param observer: Observer
         :type observer: gateway.observer.Observer
         :param config_controller: Configuration controller
@@ -99,7 +100,7 @@ class GatewayApi(object):
         self.__power_controller = power_controller
         self.__pulse_controller = pulse_controller
         self.__plugin_controller = None
-        self.__dbus_service = dbus_service
+        self.__message_client = message_client
         self.__observer = observer
         self.__shutter_controller = shutter_controller
 
@@ -433,7 +434,7 @@ class GatewayApi(object):
         self.__observer.invalidate_cache()
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__eeprom_controller.dirty = True
-        self.__dbus_service.send_event(DBusEvents.DIRTY_EEPROM, None)
+        self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
 
     def get_status(self):
         """ Get the status of the Master.
@@ -531,7 +532,7 @@ class GatewayApi(object):
         self.__module_log = []
         self.__eeprom_controller.invalidate_cache()
         self.__eeprom_controller.dirty = True
-        self.__dbus_service.send_event(DBusEvents.DIRTY_EEPROM, None)
+        self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
         self.__observer.invalidate_cache()
 
         return {'status': ret['resp']}

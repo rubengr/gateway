@@ -13,11 +13,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-A container class for events send over the DBus by OpenMotics services
+A container class for events send over the OM bus by OpenMotics services
 """
 
 
-class DBusEvents(object):
+class OMBusEvents(object):
     CLOUD_REACHABLE = 'CLOUD_REACHABLE'
     VPN_OPEN = 'VPN_OPEN'
     SERIAL_ACTIVITY = 'SERIAL_ACTIVITY'
@@ -25,3 +25,5 @@ class DBusEvents(object):
     OUTPUT_CHANGE = 'OUTPUT_CHANGE'
     DIRTY_EEPROM = 'DIRTY_EEPROM'
     THERMOSTAT_CHANGE = 'THERMOSTAT_CHANGE'
+    METRICS_INTERVAL_CHANGE = 'METRICS_INTERVAL_CHANGE'
+    CLIENT_DISCOVERY = 'CLIENT_DISCOVERY'
