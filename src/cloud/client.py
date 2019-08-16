@@ -13,7 +13,8 @@ logger = logging.getLogger('openmotics')
 
 class APIException(Exception):
     """Raised when there was en error communicating with the cloud"""
-    pass
+    def __init__(self, message):
+        super(APIException, self).__init__(message)
 
 
 class Client(object):

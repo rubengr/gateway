@@ -497,11 +497,11 @@ class WebInterface(object):
 
     def process_observer_event(self, event):
         """ Processes an observer event, pushing it forward to the upstream components (e.g. local websockets, cloud)"""
+        self._send_event_websocket(event)
         try:
-            self._send_event_websocket(event)
+            self._cloud.send_event(event)
         except APIException as api_exception:
             logger.error(api_exception)
-        self._cloud.send_event(event)
 
     def set_plugin_controller(self, plugin_controller):
         """
