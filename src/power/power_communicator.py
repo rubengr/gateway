@@ -137,7 +137,7 @@ class PowerCommunicator(object):
                     # if we for some reason had a timeout on the previous call, and we now read the response
                     # to that call. In this case, we just re-try (up to 3 times), as the correct data might be
                     # next in line.
-                    header, response_data = self.__read_from_serial()
+                    header, response_data = self.__read_from_serial(timeout=5)
                     if not _cmd.check_header(header, _address, cid):
                         if _cmd.is_nack(header, _address, cid) and response_data == "\x02":
                             raise UnkownCommandException()
@@ -252,7 +252,7 @@ class PowerCommunicator(object):
         """ Returns whether the PowerCommunicator is in address mode. """
         return self.__address_mode
 
-    def __read_from_serial(self):
+    def __read_from_serial(self, timeout=None):
         """ Read a PowerCommand from the serial port. """
         phase = 0
         index = 0
@@ -264,9 +264,13 @@ class PowerCommunicator(object):
 
         command = ""
 
+        default_timeout = 0.25
+        current_timeout = timeout if timeout is not None else default_timeout
+
         try:
             while phase < 8:
-                byte = self.__serial.read_queue.get(True, 0.25)
+                byte = self.__serial.read_queue.get(True, current_timeout)
+                current_timeout = default_timeout
                 command += byte
                 self.__serial_bytes_read += 1
                 if phase == 0:  # Skip non 'R' bytes
