@@ -100,10 +100,14 @@ class MetricsCollector(object):
         self._plugin_controller = plugin_controller
 
     def set_cloud_interval(self, metric_type, interval):
+        if metric_type not in self._min_intervals:  # e.g. event metric types
+            return
         self._cloud_intervals[metric_type] = interval
         self._update_intervals(metric_type)
 
     def set_websocket_interval(self, client_id, metric_type, interval):
+        if metric_type not in self._min_intervals:  # e.g. event metric types
+            return
         metric_types = self._metrics_controller.get_filter('metric_type', metric_type)
         for mtype in self._websocket_intervals:
             if mtype in metric_types:

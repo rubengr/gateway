@@ -14,29 +14,39 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Service that drives the leds and checks the switch on the front panel of the gateway.
-This service allows other services to set the leds over dbus and check whether the
+This service allows other services to set the leds over the om bus and check whether the
 gateway is in authorized mode.
 """
+
+from platform_utils import System
+System.import_eggs()
+
 import sys
 import fcntl
 import time
-import gobject
+import constants
+import logging
+
 from threading import Thread
 from ConfigParser import ConfigParser
-
-from bus.dbus_service import DBusService
-from bus.dbus_events import DBusEvents
+from signal import signal, SIGTERM
+from bus.om_bus_events import OMBusEvents
+from bus.om_bus_client import MessageClient
 from platform_utils import Hardware
-import constants
 
 AUTH_MODE_LEDS = [Hardware.Led.ALIVE, Hardware.Led.CLOUD, Hardware.Led.VPN, Hardware.Led.COMM_1, Hardware.Led.COMM_2]
+logger = logging.getLogger("openmotics")
 
+def setup_logger():
+    """ Setup the OpenMotics logger. """
+    logger = logging.getLogger("openmotics")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
 
-class LOGGER(object):
-    @staticmethod
-    def log(line):
-        sys.stdout.write('{0}\n'.format(line))
-        sys.stdout.flush()
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
 
 
 class LedController(object):
@@ -69,11 +79,18 @@ class LedController(object):
         self._authorized_timeout = 0
 
         self._check_states_thread = None
+        self._leds_thread = None
+        self._button_thread = None
 
         self._last_run_i2c = 0
         self._last_run_gpio = 0
         self._last_state_check = 0
         self._last_button_check = 0
+        self._running = False
+
+        self._message_client = MessageClient('led_service')
+        self._message_client.add_event_handler(self.event_receiver)
+        self._message_client.set_state_handler(self.get_state)
 
         self._gpio_led_config = Hardware.get_gpio_led_config()
         self._i2c_led_config = Hardware.get_i2c_led_config()
@@ -83,9 +100,21 @@ class LedController(object):
 
     def start(self):
         """ Start the leds and buttons thread. """
+        self._running = True
         self._check_states_thread = Thread(target=self._check_states)
         self._check_states_thread.daemon = True
         self._check_states_thread.start()
+
+        self._leds_thread = Thread(target=self.drive_leds)
+        self._leds_thread.daemon = True
+        self._leds_thread.start()
+
+        self._button_thread = Thread(target=self.check_button)
+        self._button_thread.daemon = True
+        self._button_thread.start()
+
+    def stop(self):
+        self._running = False
 
     def set_led(self, led_name, enable):
         """ Set the state of a LED, enabled means LED on in this context. """
@@ -130,7 +159,7 @@ class LedController(object):
             else:
                 self._last_run_i2c = time.time()
         except Exception as exception:
-            LOGGER.log('Error while writing to i2c: {0}'.format(exception))
+            logger.error('Error while writing to i2c: {0}'.format(exception))
 
         for led in self._gpio_led_config:
             on = self._enabled_leds.get(led, False)
@@ -148,7 +177,7 @@ class LedController(object):
 
     def _check_states(self):
         """ Checks various states of the system (network) """
-        while True:
+        while self._running:
             try:
                 with open('/sys/class/net/eth0/carrier', 'r') as fh_up:
                     line = fh_up.read()
@@ -172,73 +201,77 @@ class LedController(object):
                             else:
                                 self._network_activity = False
             except Exception as exception:
-                LOGGER.log('Error while checking states: {0}'.format(exception))
+                logger.error('Error while checking states: {0}'.format(exception))
             self._last_state_check = time.time()
             time.sleep(0.5)
 
     def drive_leds(self):
         """ This drives different leds (status, alive and serial) """
-        try:
-            now = time.time()
-            if now - 30 < self._indicate_started < now:
-                self.set_led(Hardware.Led.STATUS, self._indicate_sequence[self._indicate_pointer])
-                self._indicate_pointer = self._indicate_pointer + 1 if self._indicate_pointer < len(self._indicate_sequence) - 1 else 0
-            else:
-                self.set_led(Hardware.Led.STATUS, not self._network_enabled)
-            if self._network_activity:
-                self.toggle_led(Hardware.Led.ALIVE)
-            else:
-                self.set_led(Hardware.Led.ALIVE, False)
-            # Calculate serial led states
-            comm_map = {4: Hardware.Led.COMM_1,
-                        5: Hardware.Led.COMM_2}
-            for uart in [4, 5]:
-                if self._serial_activity[uart]:
-                    self.toggle_led(comm_map[uart])
+        while self._running:
+            start = time.time()
+            try:
+                now = time.time()
+                if now - 30 < self._indicate_started < now:
+                    self.set_led(Hardware.Led.STATUS, self._indicate_sequence[self._indicate_pointer])
+                    self._indicate_pointer = self._indicate_pointer + 1 if self._indicate_pointer < len(self._indicate_sequence) - 1 else 0
                 else:
-                    self.set_led(comm_map[uart], False)
-                self._serial_activity[uart] = False
-            # Update all leds
-            self._write_leds()
-        except Exception as exception:
-            LOGGER.log('Error while driving leds: {0}'.format(exception))
-        gobject.timeout_add(250, self.drive_leds)
-
+                    self.set_led(Hardware.Led.STATUS, not self._network_enabled)
+                if self._network_activity:
+                    self.toggle_led(Hardware.Led.ALIVE)
+                else:
+                    self.set_led(Hardware.Led.ALIVE, False)
+                # Calculate serial led states
+                comm_map = {4: Hardware.Led.COMM_1,
+                            5: Hardware.Led.COMM_2}
+                for uart in [4, 5]:
+                    if self._serial_activity[uart]:
+                        self.toggle_led(comm_map[uart])
+                    else:
+                        self.set_led(comm_map[uart], False)
+                    self._serial_activity[uart] = False
+                # Update all leds
+                self._write_leds()
+            except Exception as exception:
+                logger.error('Error while driving leds: {0}'.format(exception))
+            duration = time.time() - start
+            time.sleep(max(0.05, 0.25 - duration))
+            
     def check_button(self):
         """ Handles input button presses """
-        try:
-            button_pressed = LedController._is_button_pressed(self._input_button)
-            if button_pressed is False:
-                self._input_button_released = True
-            if self._authorized_mode:
-                if time.time() > self._authorized_timeout or (button_pressed and self._input_button_released):
-                    self._authorized_mode = False
-            else:
-                if button_pressed:
-                    self._ticks += 0.25
-                    self._input_button_released = False
-                    if self._input_button_pressed_since is None:
-                        self._input_button_pressed_since = time.time()
-                    if self._ticks > 5.75:  # After 5.75 seconds + time to execute the code it should be pressed between 5.8 and 6.5 seconds.
-                        self._authorized_mode = True
-                        self._authorized_timeout = time.time() + 60
-                        self._input_button_pressed_since = None
-                        self._ticks = 0
+        while self._running:
+            try:
+                button_pressed = LedController._is_button_pressed(self._input_button)
+                if button_pressed is False:
+                    self._input_button_released = True
+                if self._authorized_mode:
+                    if time.time() > self._authorized_timeout or (button_pressed and self._input_button_released):
+                        self._authorized_mode = False
                 else:
-                    self._input_button_pressed_since = None
-        except Exception as exception:
-            LOGGER.log('Error while checking button: {0}'.format(exception))
-        self._last_button_check = time.time()
-        gobject.timeout_add(250, self.check_button)
+                    if button_pressed:
+                        self._ticks += 0.25
+                        self._input_button_released = False
+                        if self._input_button_pressed_since is None:
+                            self._input_button_pressed_since = time.time()
+                        if self._ticks > 5.75:  # After 5.75 seconds + time to execute the code it should be pressed between 5.8 and 6.5 seconds.
+                            self._authorized_mode = True
+                            self._authorized_timeout = time.time() + 60
+                            self._input_button_pressed_since = None
+                            self._ticks = 0
+                    else:
+                        self._input_button_pressed_since = None
+            except Exception as exception:
+                logger.error('Error while checking button: {0}'.format(exception))
+            self._last_button_check = time.time()
+            time.sleep(0.25)
 
     def event_receiver(self, event, payload):
-        if event == DBusEvents.CLOUD_REACHABLE:
+        if event == OMBusEvents.CLOUD_REACHABLE:
             self.set_led(Hardware.Led.CLOUD, payload)
-        elif event == DBusEvents.VPN_OPEN:
+        elif event == OMBusEvents.VPN_OPEN:
             self.set_led(Hardware.Led.VPN, payload)
-        elif event == DBusEvents.SERIAL_ACTIVITY:
+        elif event == OMBusEvents.SERIAL_ACTIVITY:
             self.serial_activity(payload)
-        elif event == DBusEvents.INDICATE_GATEWAY:
+        elif event == OMBusEvents.INDICATE_GATEWAY:
             self._indicate_started = time.time()
 
     def get_state(self):
@@ -251,10 +284,11 @@ class LedController(object):
 
 def main():
     """
-    The main function runs a loop that waits for dbus calls, drives the leds and reads the
+    The main function runs a loop that waits for om bus calls, drives the leds and reads the
     switch.
     """
     try:
+        logger.info('Starting led service...')
         config = ConfigParser()
         config.read(constants.get_config_file())
         i2c_address = int(config.get('OpenMotics', 'leds_i2c_address'), 16)
@@ -263,18 +297,24 @@ def main():
         led_controller.start()
         led_controller.set_led(Hardware.Led.POWER, True)
 
-        DBusService('led_service',
-                    event_receiver=lambda *args, **kwargs: led_controller.event_receiver(*args, **kwargs),
-                    get_state=led_controller.get_state)
+        signal_request = {'stop': False}
+        def stop(signum, frame):
+            """ This function is called on SIGTERM. """
+            _ = signum, frame
+            logger.info('Stopping led service...')
+            led_controller.stop()
+            logger.info('Stopping led service...Done')
+            signal_request['stop'] = True
 
-        LOGGER.log("Running led service.")
-        mainloop = gobject.MainLoop()
-        gobject.timeout_add(250, led_controller.drive_leds)
-        gobject.timeout_add(250, led_controller.check_button)
-        mainloop.run()
+        signal(SIGTERM, stop)
+        logger.info('Starting led service... Done')
+        while not signal_request['stop']:
+            time.sleep(1)
+
     except Exception as exception:
-        LOGGER.log('Error starting led service: {0}'.format(exception))
+        logger.exception('Error starting led service: {0}'.format(exception))
 
 
 if __name__ == '__main__':
+    setup_logger()
     main()
