@@ -22,6 +22,8 @@ import intelhex
 import constants
 import sys
 import argparse
+import logging
+import time
 from ConfigParser import ConfigParser
 from serial import Serial
 from serial_utils import RS485
@@ -32,11 +34,23 @@ from power.power_api import bootloader_goto, bootloader_read_id, bootloader_writ
                             read_eeprom, write_eeprom, \
                             POWER_API_8_PORTS, POWER_API_12_PORTS
 
+logger = logging.getLogger("openmotics")
 
-class logger(object):
-    @staticmethod
-    def info(message):
-        print message
+
+def setup_logger():
+    """ Setup the OpenMotics logger. """
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
+
+    handler = logging.FileHandler(constants.get_update_log_location(), mode='w')
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
 
 
 class HexReader(object):
@@ -87,10 +101,10 @@ class HexReader(object):
         data_bytes = self.int_to_array_12(address)
 
         for i in range(32):
-            data0 = self.__hex[address + 4 * i + 0]
-            data1 = self.__hex[address + 4 * i + 1]
-            data2 = self.__hex[address + 4 * i + 2]
-            data3 = self.__hex[address + 4 * i + 3]
+            data0 = self.__hex[address + (4 * i) + 0]
+            data1 = self.__hex[address + (4 * i) + 1]
+            data2 = self.__hex[address + (4 * i) + 2]
+            data3 = self.__hex[address + (4 * i) + 3]
 
             data_bytes.append(data0)
             data_bytes.append(data1)
@@ -102,7 +116,7 @@ class HexReader(object):
 
         if address == 486801280:
             data_bytes = data_bytes[:-4]
-            data_bytes.extend(self.int_to_array_12(self.get_crc()))
+            data_bytes += self.int_to_array_12(self.get_crc())
 
         return data_bytes
 
@@ -123,7 +137,7 @@ def get_module_firmware_version(module_address, power_communicator):
     parsed_version = cleaned_version.split('_')
     if len(parsed_version) != 4:
         return cleaned_version
-    return '{0}.{1}.{2}'.format(parsed_version[1], parsed_version[2], parsed_version[3])
+    return '{0}.{1}.{2} ({3})'.format(parsed_version[1], parsed_version[2], parsed_version[3], parsed_version[0])
 
 
 def bootload_8(module_address, hex_file, power_communicator):
@@ -148,13 +162,11 @@ def bootload_8(module_address, hex_file, power_communicator):
 
     logger.info('E{0} - Writing vector tabel'.format(module_address))
     for address in range(0, 1024, 128):      # 0x000 - 0x400
-        logger.info('* Writing {0}'.format(address))
         data = reader.get_bytes_version_8(address)
         power_communicator.do_command(module_address, bootloader_write_code(POWER_API_8_PORTS), *data)
 
     logger.info('E{0} -  Writing code'.format(module_address))
     for address in range(8192, 44032, 128):  # 0x2000 - 0xAC00
-        logger.info('* Writing {0}'.format(address))
         data = reader.get_bytes_version_8(address)
         power_communicator.do_command(module_address, bootloader_write_code(POWER_API_8_PORTS), *data)
 
@@ -189,11 +201,11 @@ def bootload_12(module_address, hex_file, power_communicator):
     power_communicator.do_command(module_address, bootloader_goto(), 10)
 
     try:
-        logger.info('E{0} - Erasing code'.format(module_address))
+        logger.info('E{0} - Erasing code...'.format(module_address))
         for page in range(6, 64):
             power_communicator.do_command(module_address, bootloader_erase_code(), page)
 
-        logger.info('E{0} -  Writing code'.format(module_address))
+        logger.info('E{0} - Writing code...'.format(module_address))
         for address in range(0x1D006000, 0x1D03FFFB, 128):
             data = reader.get_bytes_version_12(address)
             power_communicator.do_command(module_address, bootloader_write_code(POWER_API_12_PORTS), *data)
@@ -202,6 +214,7 @@ def bootload_12(module_address, hex_file, power_communicator):
         power_communicator.do_command(module_address, bootloader_jump_application())
 
     if calibration_data is not None:
+        time.sleep(1)
         logger.info('E{0} - Restoring calibration data'.format(module_address))
         power_communicator.do_command(module_address, write_eeprom(12, 100), *([256] + calibration_data))
 
@@ -210,6 +223,9 @@ def bootload_12(module_address, hex_file, power_communicator):
 
 def main():
     """ The main function. """
+    logger.info('Energy/Power Module bootloader')
+    logger.info('Command: {0}'.format(' '.join(sys.argv)))
+
     parser = argparse.ArgumentParser(description='Tool to bootload a power module.')
     parser.add_argument('--address', dest='address', type=int,
                         help='the address of the power module to bootload')
@@ -224,6 +240,10 @@ def main():
 
     args = parser.parse_args()
 
+    if not args.file:
+        parser.print_help()
+        return
+
     config = ConfigParser()
     config.read(constants.get_config_file())
 
@@ -232,34 +252,40 @@ def main():
     power_communicator = PowerCommunicator(power_serial, None, time_keeper_period=0, verbose=args.verbose)
     power_communicator.start()
 
+    def _bootload(_module, _module_address):
+        try:
+            if args.old and _module['version'] == POWER_API_8_PORTS:
+                bootload_8(_module_address, args.file, power_communicator)
+            elif not args.old and _module['version'] == POWER_API_12_PORTS:
+                bootload_12(_module_address, args.file, power_communicator)
+            return True
+        except Exception:
+            logger.exception('E{0} - Unexpected exception during bootload'.format(address))
+            return False
+
+    success = True
     if args.address or args.all:
         power_controller = PowerController(constants.get_power_database_file())
         power_modules = power_controller.get_power_modules()
         if args.all:
             for module_id in power_modules:
                 module = power_modules[module_id]
-                addr = module['address']
-                if args.file:
-                    if args.old and module['version'] == POWER_API_8_PORTS:
-                        bootload_8(addr, args.file, power_communicator)
-                    elif not args.old and module['version'] == POWER_API_12_PORTS:
-                        bootload_12(addr, args.file, power_communicator)
-
+                address = module['address']
+                success &= _bootload(module, address)
         else:
-            addr = args.address
-            modules = [module for module in power_modules if module['address'] == addr]
+            address = args.address
+            modules = [module for module in power_modules if module['address'] == address]
             if len(modules) != 1:
-                logger.info('ERROR: Cannot find a module with address {0}'.format(addr))
+                logger.info('ERROR: Cannot find a module with address {0}'.format(address))
                 sys.exit(0)
-            if args.file:
-                module = modules[0]
-                if args.old and module['version'] == POWER_API_8_PORTS:
-                    bootload_8(addr, args.file, power_communicator)
-                elif not args.old and module['version'] == POWER_API_12_PORTS:
-                    bootload_12(addr, args.file, power_communicator)
+            module = modules[0]
+            success &= _bootload(module, address)
+        if not success:
+            sys.exit(1)
     else:
         parser.print_help()
 
 
 if __name__ == '__main__':
+    setup_logger()
     main()

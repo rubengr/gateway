@@ -137,10 +137,10 @@ class PowerCommunicator(object):
                     # if we for some reason had a timeout on the previous call, and we now read the response
                     # to that call. In this case, we just re-try (up to 3 times), as the correct data might be
                     # next in line.
-                    header, response_data = self.__read_from_serial(timeout=5)
+                    header, response_data = self.__read_from_serial()
                     if not _cmd.check_header(header, _address, cid):
                         if _cmd.is_nack(header, _address, cid) and response_data == "\x02":
-                            raise UnkownCommandException()
+                            raise UnkownCommandException('Unknown command')
                         tries += 1
                         LOGGER.warning("Header did not match command ({0})".format(tries))
                         if tries == 3:
@@ -252,7 +252,7 @@ class PowerCommunicator(object):
         """ Returns whether the PowerCommunicator is in address mode. """
         return self.__address_mode
 
-    def __read_from_serial(self, timeout=None):
+    def __read_from_serial(self):
         """ Read a PowerCommand from the serial port. """
         phase = 0
         index = 0
@@ -264,13 +264,9 @@ class PowerCommunicator(object):
 
         command = ""
 
-        default_timeout = 0.25
-        current_timeout = timeout if timeout is not None else default_timeout
-
         try:
             while phase < 8:
-                byte = self.__serial.read_queue.get(True, current_timeout)
-                current_timeout = default_timeout
+                byte = self.__serial.read_queue.get(True, 0.25)
                 command += byte
                 self.__serial_bytes_read += 1
                 if phase == 0:  # Skip non 'R' bytes
@@ -320,7 +316,7 @@ class PowerCommunicator(object):
             if crc7(header + data) != crc:
                 raise Exception("CRC doesn't match")
         except Queue.Empty:
-            raise CommunicationTimedOutException()
+            raise CommunicationTimedOutException('Communication timed out')
         finally:
             if self.__verbose:
                 PowerCommunicator.__log('reading from', command)
@@ -330,11 +326,11 @@ class PowerCommunicator(object):
 
 class InAddressModeException(Exception):
     """ Raised when the power communication is in address mode. """
-    def __init__(self):
-        Exception.__init__(self)
+    def __init__(self, message=None):
+        Exception.__init__(self, message)
 
 
 class UnkownCommandException(Exception):
     """ Raised when the power module responds with a NACK indicating an unkown command. """
-    def __init__(self):
-        Exception.__init__(self)
+    def __init__(self, message=None):
+        Exception.__init__(self, message)
