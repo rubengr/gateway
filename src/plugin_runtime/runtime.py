@@ -145,7 +145,7 @@ class PluginRuntime:
                 elif action == 'output_status':
                     ret = self._handle_output_status(command['status'])
                 elif action == 'shutter_status':
-                    ret = self._handle_shutter_status(command['status'])
+                    ret = self._handle_shutter_status(command)
                 elif action == 'process_event':
                     ret = self._handle_process_event(command['code'])
                 elif action == 'get_metric_definitions':
@@ -205,7 +205,10 @@ class PluginRuntime:
 
     def _handle_shutter_status(self, status):
         for receiver in self._shutter_status_receivers:
-            IO._with_catch('shutter status', receiver, [status])
+            if receiver.shutter_status['add_detail']:
+                IO._with_catch('shutter status', receiver, [status['status'], status['detail']])
+            else:
+                IO._with_catch('shutter status', receiver, [status['status']])
 
     def _handle_process_event(self, code):
         for receiver in self._event_receivers:
