@@ -252,12 +252,12 @@ def main():
     power_communicator = PowerCommunicator(power_serial, None, time_keeper_period=0, verbose=args.verbose)
     power_communicator.start()
 
-    def _bootload(_module, _module_address):
+    def _bootload(_module, _module_address, filename, is_power_module):
         try:
-            if args.old and _module['version'] == POWER_API_8_PORTS:
-                bootload_8(_module_address, args.file, power_communicator)
-            elif not args.old and _module['version'] == POWER_API_12_PORTS:
-                bootload_12(_module_address, args.file, power_communicator)
+            if is_power_module and _module['version'] == POWER_API_8_PORTS:
+                bootload_8(_module_address, filename, power_communicator)
+            elif not is_power_module and _module['version'] == POWER_API_12_PORTS:
+                bootload_12(_module_address, filename, power_communicator)
             return True
         except Exception:
             logger.exception('E{0} - Unexpected exception during bootload'.format(address))
@@ -271,7 +271,7 @@ def main():
             for module_id in power_modules:
                 module = power_modules[module_id]
                 address = module['address']
-                success &= _bootload(module, address)
+                success &= _bootload(module, address, args.file, is_power_module=args.old)
         else:
             address = args.address
             modules = [module for module in power_modules if module['address'] == address]
@@ -279,7 +279,7 @@ def main():
                 logger.info('ERROR: Cannot find a module with address {0}'.format(address))
                 sys.exit(0)
             module = modules[0]
-            success &= _bootload(module, address)
+            success &= _bootload(module, address, args.file, is_power_module=args.old)
         if not success:
             sys.exit(1)
     else:
