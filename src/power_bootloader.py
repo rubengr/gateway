@@ -261,7 +261,7 @@ def main():
         except CommunicationTimedOutException:
             logger.warning('E{0} - Module unavailable. Skipping...'.format(address))
         except Exception:
-            logger.exception('E{0} - Unexpected exception during bootload'.format(address))
+            logger.exception('E{0} - Unexpected exception during bootload. Skipping...'.format(address))
 
     if args.address or args.all:
         power_controller = PowerController(constants.get_power_database_file())
