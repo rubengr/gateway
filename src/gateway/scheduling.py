@@ -121,8 +121,8 @@ class SchedulingController(object):
 
     @provides('scheduling_controller')
     @scope(SingletonScope)
-    @inject(db_filename='scheduling_db', lock='scheduling_db_lock', gateway_api='gateway_api', web_interface='web_interface')
-    def __init__(self, db_filename, lock, gateway_api, web_interface):
+    @inject(db_filename='scheduling_db', lock='scheduling_db_lock', gateway_api='gateway_api')
+    def __init__(self, db_filename, lock, gateway_api):
         """
         Constructs a new ConfigController.
 
@@ -145,7 +145,7 @@ class SchedulingController(object):
         self._stop = False
         self._processor = None
         self._semaphore = None
-        self._web_interface = web_interface
+        self._web_interface = None
 
         try:
             Schedule.timezone = gateway_api.get_timezone()

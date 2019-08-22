@@ -37,10 +37,9 @@ class PluginController(object):
 
     @provides('plugin_controller')
     @scope(SingletonScope)
-    @inject(webinterface='web_interface', config_controller='config_controller', metrics_controller='metrics_controller',
-            metrics_collector='metrics_collector', web_service='web_service')
+    @inject(webinterface='web_interface', config_controller='config_controller')
     def __init__(
-        self, webinterface, config_controller, metrics_controller, metrics_collector, web_service,
+        self, webinterface, config_controller,
         runtime_path='/opt/openmotics/python/plugin_runtime',
         plugins_path='/opt/openmotics/python/plugins',
         plugin_config_path='/opt/openmotics/etc'
@@ -55,9 +54,9 @@ class PluginController(object):
         self.__logs = {}
         self.__runners = {}
 
-        self.__metrics_controller = metrics_controller
-        self.__metrics_collector = metrics_collector
-        self.__web_service = web_service
+        self.__metrics_controller = None
+        self.__metrics_collector = None
+        self.__web_service = None
 
     def start(self):
         """ Start the plugins and expose them via the webinterface. """

@@ -36,9 +36,8 @@ class MetricsCollector(object):
 
     @provides('metrics_collector')
     @scope(SingletonScope)
-    @inject(gateway_api='gateway_api', pulse_controller='pulse_controller',
-            metrics_controller='metrics_controller', plugin_controller='plugin_controller')
-    def __init__(self, gateway_api, pulse_controller, metrics_controller, plugin_controller):
+    @inject(gateway_api='gateway_api', pulse_controller='pulse_controller')
+    def __init__(self, gateway_api, pulse_controller):
         """
         :param gateway_api: Gateway API
         :type gateway_api: gateway.gateway_api.GatewayApi
@@ -73,8 +72,6 @@ class MetricsCollector(object):
         self._gateway_api = gateway_api
         self._pulse_controller = pulse_controller
         self._metrics_queue = deque()
-        self._metrics_controller = metrics_controller
-        self._plugin_controller = plugin_controller
 
     def start(self):
         self._start = time.time()

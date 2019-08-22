@@ -414,11 +414,9 @@ class WebInterface(object):
     @scope(SingletonScope)
     @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_service='maintenance_service',
             message_client='message_client', config_controller='config_controller',
-            scheduling_controller='scheduling_controller', cloud='om_api_client', plugin_controller='plugin_controller',
-            metrics_collector='metrics_collector', metrics_controller='metrics_controller')
+            scheduling_controller='scheduling_controller', cloud='om_api_client')
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 message_client, config_controller, scheduling_controller, cloud, plugin_controller, metrics_collector,
-                 metrics_controller):
+                 message_client, config_controller, scheduling_controller, cloud):
         """
         Constructor for the WebInterface.
 
@@ -446,9 +444,9 @@ class WebInterface(object):
         self._maintenance_service = maintenance_service
         self._message_client = message_client
         self._cloud = cloud
-        self._plugin_controller = plugin_controller
-        self._metrics_collector = metrics_collector
-        self._metrics_controller = metrics_controller
+        self._plugin_controller = None
+        self._metrics_collector = None
+        self._metrics_controller = None
 
         self._ws_metrics_registered = False
         self._power_dirty = False
