@@ -216,7 +216,7 @@ class PowerCommunicator(object):
                 else:
                     (old_address, cid) = (ord(header[:2][1]), header[2:3])
                     # Ask power_controller for new address, and register it.
-                    new_address = self.__service_registry.get('power_controller').get_free_address()
+                    new_address = self.__power_controller.get_free_address()
 
                     if self.__power_controller.module_exists(old_address):
                         self.__power_controller.readdress_power_module(old_address, new_address)
