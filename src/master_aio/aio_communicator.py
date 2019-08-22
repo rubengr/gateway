@@ -50,81 +50,81 @@ class AIOCommunicator(object):
         :param verbose: Print all serial communication to stdout.
         :type verbose: boolean.
         """
-        self.__verbose = verbose
+        self._verbose = verbose
 
-        self.__serial = serial
-        self.__serial_write_lock = Lock()
-        self.__command_lock = Lock()
-        self.__serial_bytes_written = 0
-        self.__serial_bytes_read = 0
+        self._serial = serial
+        self._serial_write_lock = Lock()
+        self._command_lock = Lock()
+        self._serial_bytes_written = 0
+        self._serial_bytes_read = 0
 
-        self.__cid = 1
-        self.__consumers = {}
-        self.__last_success = 0
-        self.__stop = False
+        self._cid = 1
+        self._consumers = {}
+        self._last_success = 0
+        self._stop = False
 
-        self.__read_thread = Thread(target=self.__read, name='AIOCommunicator read thread')
-        self.__read_thread.setDaemon(True)
+        self._read_thread = Thread(target=self._read, name='AIOCommunicator read thread')
+        self._read_thread.setDaemon(True)
 
-        self.__communication_stats = {'calls_succeeded': [],
-                                      'calls_timedout': [],
-                                      'bytes_written': 0,
-                                      'bytes_read': 0}
-        self.__debug_buffer = {'read': {},
-                               'write': {}}
-        self.__debug_buffer_duration = 300
+        self._communication_stats = {'calls_succeeded': [],
+                                     'calls_timedout': [],
+                                     'bytes_written': 0,
+                                     'bytes_read': 0}
+        self._debug_buffer = {'read': {},
+                              'write': {}}
+        self._debug_buffer_duration = 300
 
     def start(self):
         """ Start the AIOComunicator, this starts the background read thread. """
-        self.__stop = False
-        self.__read_thread.start()
+        self._stop = False
+        self._read_thread.start()
 
     def get_bytes_written(self):
         """ Get the number of bytes written to the AIO. """
-        return self.__serial_bytes_written
+        return self._serial_bytes_written
 
     def get_bytes_read(self):
         """ Get the number of bytes read from the AIO. """
-        return self.__serial_bytes_read
+        return self._serial_bytes_read
 
     def get_communication_statistics(self):
-        return self.__communication_stats
+        return self._communication_stats
 
     def get_debug_buffer(self):
-        return self.__debug_buffer
+        return self._debug_buffer
 
     def get_seconds_since_last_success(self):
         """ Get the number of seconds since the last successful communication. """
-        if self.__last_success == 0:
+        if self._last_success == 0:
             return 0  # No communication - return 0 sec since last success
         else:
-            return time.time() - self.__last_success
+            return time.time() - self._last_success
 
-    def __get_cid(self):
+    def _get_cid(self):
         """ Get a communication id """
-        (ret, self.__cid) = (self.__cid, (self.__cid % 255) + 1)
+        (ret, self._cid) = (self._cid, (self._cid % 255) + 1)
         return ret
 
-    def __write_to_serial(self, data):
+    def _write_to_serial(self, data):
         """
         Write data to the serial port.
 
         :param data: the data to write
         :type data: string
         """
-        with self.__serial_write_lock:
-            if self.__verbose:
+        with self._serial_write_lock:
+            if self._verbose:
                 LOGGER.info('Writing to AIO serial:   {0}'.format(printable(data)))
 
-            threshold = time.time() - self.__debug_buffer_duration
-            self.__debug_buffer['write'][time.time()] = printable(data)
-            for t in self.__debug_buffer['write'].keys():
+            threshold = time.time() - self._debug_buffer_duration
+            self._debug_buffer['write'][time.time()] = printable(data)
+            for t in self._debug_buffer['write'].keys():
                 if t < threshold:
-                    del self.__debug_buffer['write'][t]
+                    del self._debug_buffer['write'][t]
 
-            self.__serial.write(data)
-            self.__serial_bytes_written += len(data)
-            self.__communication_stats['bytes_written'] += len(data)
+            self._serial.write(data)
+            self._serial_bytes_written += len(data)
+            self._communication_stats['bytes_written'] += len(data)
 
     def register_consumer(self, consumer):
         """
@@ -135,7 +135,7 @@ class AIOCommunicator(object):
         :param consumer: The consumer to register.
         :type consumer: Consumer or BackgroundConsumer.
         """
-        self.__consumers.setdefault(consumer.get_header(), []).append(consumer)
+        self._consumers.setdefault(consumer.get_header(), []).append(consumer)
 
     def do_basic_action(self, action_type, action, device_nr, extra_parameter=0):
         """
@@ -177,8 +177,8 @@ class AIOCommunicator(object):
         if fields is None:
             fields = dict()
 
-        with self.__command_lock:
-            cid = self.__get_cid()
+        with self._command_lock:
+            cid = self._get_cid()
             consumer = Consumer(command, cid)
             payload = command.create_request_payload(fields)
 
@@ -193,25 +193,25 @@ class AIOCommunicator(object):
                     WordField.encode(len(payload)) +
                     payload +
                     'C' +
-                    str(chr(AIOCommunicator.__calculate_crc(checked_payload))) +
+                    str(chr(AIOCommunicator._calculate_crc(checked_payload))) +
                     AIOCommunicator.END_OF_REQUEST)
 
-            self.__consumers.setdefault(consumer.get_header(), []).append(consumer)
-            self.__write_to_serial(data)
+            self._consumers.setdefault(consumer.get_header(), []).append(consumer)
+            self._write_to_serial(data)
 
         try:
             result = consumer.get(timeout)
-            self.__last_success = time.time()
-            self.__communication_stats['calls_succeeded'].append(time.time())
-            self.__communication_stats['calls_succeeded'] = self.__communication_stats['calls_succeeded'][-50:]
+            self._last_success = time.time()
+            self._communication_stats['calls_succeeded'].append(time.time())
+            self._communication_stats['calls_succeeded'] = self._communication_stats['calls_succeeded'][-50:]
             return result
         except CommunicationTimedOutException:
-            self.__communication_stats['calls_timedout'].append(time.time())
-            self.__communication_stats['calls_timedout'] = self.__communication_stats['calls_timedout'][-50:]
+            self._communication_stats['calls_timedout'].append(time.time())
+            self._communication_stats['calls_timedout'] = self._communication_stats['calls_timedout'][-50:]
             raise
 
     @staticmethod
-    def __calculate_crc(data):
+    def _calculate_crc(data):
         """
         Calculate the CRC of the data.
 
@@ -223,7 +223,7 @@ class AIOCommunicator(object):
             crc += ord(byte)
         return crc % 256
 
-    def __read(self):
+    def _read(self):
         """
         Code for the background read thread: reads from the serial port and forward certain messages to waiting
         consumers
@@ -235,16 +235,16 @@ class AIOCommunicator(object):
         data = ''
         wait_for_length = None
 
-        while not self.__stop:
+        while not self._stop:
 
             # Read what's now on the buffer
-            num_bytes = self.__serial.inWaiting()
+            num_bytes = self._serial.inWaiting()
             if num_bytes > 0:
-                data += self.__serial.read(num_bytes)
+                data += self._serial.read(num_bytes)
 
             # Update counters
-            self.__serial_bytes_read += num_bytes
-            self.__communication_stats['bytes_read'] += num_bytes
+            self._serial_bytes_read += num_bytes
+            self._communication_stats['bytes_read'] += num_bytes
 
             # Wait for a speicific number of bytes, or the minimum of 8
             if (wait_for_length is None and len(data) < 8) or len(data) < wait_for_length:
@@ -275,13 +275,13 @@ class AIOCommunicator(object):
             data = data[message_length:]
 
             # A possible message is received, log where appropriate
-            if self.__verbose:
+            if self._verbose:
                 LOGGER.info('Reading from AIO serial: {0}'.format(printable(message)))
-            threshold = time.time() - self.__debug_buffer_duration
-            self.__debug_buffer['read'][time.time()] = printable(message)
-            for t in self.__debug_buffer['read'].keys():
+            threshold = time.time() - self._debug_buffer_duration
+            self._debug_buffer['read'][time.time()] = printable(message)
+            for t in self._debug_buffer['read'].keys():
                 if t < threshold:
-                    del self.__debug_buffer['read'][t]
+                    del self._debug_buffer['read'][t]
 
             # Validate message boundaries
             correct_boundaries = message.startswith(AIOCommunicator.START_OF_REPLY) and message.endswith(AIOCommunicator.END_OF_REPLY)
@@ -296,7 +296,7 @@ class AIOCommunicator(object):
             crc = ord(message[-3])
             payload = message[8:-4]
             checked_payload = message[3:-4]
-            expected_crc = AIOCommunicator.__calculate_crc(checked_payload)
+            expected_crc = AIOCommunicator._calculate_crc(checked_payload)
             if crc != expected_crc:
                 LOGGER.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, printable(checked_payload)))
                 # Reset, so we'll wait for the next RTR
@@ -305,9 +305,9 @@ class AIOCommunicator(object):
                 continue
 
             # A valid message is received, reliver it to the correct consumer
-            consumers = self.__consumers.get(header, [])
+            consumers = self._consumers.get(header, [])
             for consumer in consumers[:]:
-                if self.__verbose:
+                if self._verbose:
                     LOGGER.info('Delivering payload to consumer {0}.{1}: {2}'.format(command, cid, printable(payload)))
                 consumer.consume(payload)
                 if isinstance(consumer, Consumer):
@@ -324,18 +324,18 @@ class Consumer(object):
     """
 
     def __init__(self, command, cid):
-        self.__command = command
-        self.__cid = cid
-        self.__queue = Queue()
+        self._command = command
+        self._cid = cid
+        self._queue = Queue()
 
     def get_header(self):
         """ Get the prefix of the answer from the AIO. """
-        return 'RTR' + str(chr(self.__cid)) + self.__command.response_instruction
+        return 'RTR' + str(chr(self._cid)) + self._command.response_instruction
 
     def consume(self, payload):
         """ Consume payload. """
-        data = self.__command.consume_response_payload(payload)
-        self.__queue.put(data)
+        data = self._command.consume_response_payload(payload)
+        self._queue.put(data)
 
     def get(self, timeout):
         """
@@ -346,7 +346,7 @@ class Consumer(object):
         :returns: dict containing the output fields of the command
         """
         try:
-            return self.__queue.get(timeout=timeout)
+            return self._queue.get(timeout=timeout)
         except Empty:
             raise CommunicationTimedOutException()
 
@@ -365,29 +365,29 @@ class BackgroundConsumer(object):
         :param cid: the communication id.
         :param callback: function to call when an instance was found.
         """
-        self.__command = command
-        self.__cid = cid
-        self.__callback = callback
-        self.__queue = Queue()
+        self._command = command
+        self._cid = cid
+        self._callback = callback
+        self._queue = Queue()
 
-        self.__callback_thread = Thread(target=self.deliver, name='AIOCommunicator BackgroundConsumer delivery thread')
-        self.__callback_thread.setDaemon(True)
-        self.__callback_thread.start()
+        self._callback_thread = Thread(target=self.deliver, name='AIOCommunicator BackgroundConsumer delivery thread')
+        self._callback_thread.setDaemon(True)
+        self._callback_thread.start()
 
     def get_header(self):
         """ Get the prefix of the answer from the AIO. """
-        return 'RTR' + str(chr(self.__cid)) + self.__command.response_instruction
+        return 'RTR' + str(chr(self._cid)) + self._command.response_instruction
 
     def consume(self, payload):
         """ Consume payload. """
-        data = self.__command.consume_response_payload(payload)
-        self.__queue.put(data)
+        data = self._command.consume_response_payload(payload)
+        self._queue.put(data)
 
     def deliver(self):
         """ Deliver data to the callback functions. """
         while True:
             try:
-                self.__callback(self.__queue.get())
+                self._callback(self._queue.get())
             except Exception:
                 LOGGER.exception('Unexpected exception delivering background consumer data')
                 time.sleep(1)

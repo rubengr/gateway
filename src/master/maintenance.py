@@ -32,6 +32,8 @@ class MaintenanceService(object):
     over the tcp connection.
     """
 
+    # TODO: Support maintenance websocket
+
     def __init__(self, gateway_api, privatekey_filename, certificate_filename):
         """
         Construct a MaintenanceServer.
