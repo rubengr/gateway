@@ -20,6 +20,9 @@ import logging
 import threading
 import traceback
 import socket
+
+from wiring import provides, inject, SingletonScope, scope
+
 from platform_utils import System
 from master_communicator import InMaintenanceModeException
 LOGGER = logging.getLogger('openmotics')
@@ -32,6 +35,9 @@ class MaintenanceService(object):
     over the tcp connection.
     """
 
+    @provides('maintenance_service')
+    @scope(SingletonScope)
+    @inject(gateway_api='gateway_api', privatekey_filename='ssl_private_key', certificate_filename='ssl_certificate')
     def __init__(self, gateway_api, privatekey_filename, certificate_filename):
         """
         Construct a MaintenanceServer.

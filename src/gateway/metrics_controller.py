@@ -24,6 +24,8 @@ import requests
 from threading import Thread
 from collections import deque
 
+from wiring import inject, provides, SingletonScope, scope
+
 from bus.om_bus_events import OMBusEvents
 
 try:
@@ -38,7 +40,10 @@ class MetricsController(object):
     """
     The Metrics Controller collects all metrics and pushses them to all subscribers
     """
-
+    @provides('metrics_controller')
+    @scope(SingletonScope)
+    @inject(plugin_controller='plugin_controller', metrics_collector='metrics_collector',
+            metrics_cache_controller='metrics_cache_controller', config_controller='config_controller', gateway_uuid='gateway_uuid')
     def __init__(self, plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid):
         """
         :param plugin_controller: Plugin Controller

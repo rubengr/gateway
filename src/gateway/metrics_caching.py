@@ -20,6 +20,9 @@ import time
 import sqlite3
 import logging
 from random import randint
+
+from wiring import provides, inject, SingletonScope, scope
+
 try:
     import json
 except ImportError:
@@ -30,6 +33,9 @@ LOGGER = logging.getLogger("openmotics")
 
 class MetricsCacheController(object):
 
+    @provides('metrics_cache_controller')
+    @scope(SingletonScope)
+    @inject(db_filename='metrics_db', lock='metrics_db_lock')
     def __init__(self, db_filename, lock):
         """
         Constructs a new MetricsCacheController.

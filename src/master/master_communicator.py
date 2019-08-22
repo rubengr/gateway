@@ -23,6 +23,8 @@ import time
 from threading import Thread, Lock, Event
 from Queue import Queue, Empty
 
+from wiring import inject, provides, scope, SingletonScope
+
 import master_api
 from master_command import Field, printable
 from serial_utils import CommunicationTimedOutException
@@ -37,6 +39,9 @@ class MasterCommunicator(object):
     communication is not working properly and watchdog callback is called.
     """
 
+    @provides('master_communicator')
+    @scope(SingletonScope)
+    @inject(serial='controller_serial')
     def __init__(self, serial, init_master=True, verbose=False, passthrough_timeout=0.2):
         """
         :param serial: Serial port to communicate with

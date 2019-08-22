@@ -21,6 +21,9 @@ to communicate with the master.
 
 import logging
 import threading
+
+from wiring import inject, provides, SingletonScope, scope
+
 from master_communicator import InMaintenanceModeException
 from master_command import printable
 LOGGER = logging.getLogger("openmotics")
@@ -31,6 +34,9 @@ class PassthroughService(object):
     to the master.
     """
 
+    @provides('passthrough_service')
+    @scope(SingletonScope)
+    @inject(master_communicator='master_communicator', passthrough_serial='passthrough_serial')
     def __init__(self, master_communicator, passthrough_serial, verbose=False):
         self.__master_communicator = master_communicator
         self.__passthrough_serial = passthrough_serial

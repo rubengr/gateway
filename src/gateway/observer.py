@@ -19,6 +19,8 @@ The observer module contains logic to observe various states of the system. It k
 import time
 import logging
 
+from wiring import provides, inject, SingletonScope, scope
+
 try:
     import json
 except ImportError:
@@ -81,6 +83,9 @@ class Observer(object):
         THERMOSTATS = 'THERMOSTATS'
         SHUTTERS = 'SHUTTERS'
 
+    @provides('observer')
+    @scope(SingletonScope)
+    @inject(master_communicator='master_communicator', message_client='message_client', shutter_controller='shutter_controller')
     def __init__(self, master_communicator, message_client, shutter_controller):
         """
         :param master_communicator: Master communicator

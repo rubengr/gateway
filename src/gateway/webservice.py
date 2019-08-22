@@ -17,6 +17,8 @@
 
 import base64
 import cherrypy
+from wiring import inject, provides, SingletonScope, scope
+
 import constants
 import logging
 import msgpack
@@ -408,8 +410,15 @@ class EventsSocket(OMSocket):
 class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
+    @provides('web_interface')
+    @scope(SingletonScope)
+    @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_service='maintenance_service',
+            message_client='message_client', config_controller='config_controller',
+            scheduling_controller='scheduling_controller', cloud='om_api_client', plugin_controller='plugin_controller',
+            metrics_collector='metrics_collector', metrics_controller='metrics_controller')
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 message_client, config_controller, scheduling_controller, cloud):
+                 message_client, config_controller, scheduling_controller, cloud, plugin_controller, metrics_collector,
+                 metrics_controller):
         """
         Constructor for the WebInterface.
 
@@ -426,20 +435,21 @@ class WebInterface(object):
         :param scheduling_controller: Scheduling Controller
         :type scheduling_controller: gateway.scheduling.SchedulingController
         :param cloud: The cloud API object
-        :type cloud: cloud.client.Client
+        :type cloud: cloud.client.OmApiClient
         """
         self._user_controller = user_controller
         self._config_controller = config_controller
         self._scheduling_controller = scheduling_controller
         self._plugin_controller = None
-        self._metrics_controller = None
 
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
         self._message_client = message_client
         self._cloud = cloud
+        self._plugin_controller = plugin_controller
+        self._metrics_collector = metrics_collector
+        self._metrics_controller = metrics_controller
 
-        self.metrics_collector = None
         self._ws_metrics_registered = False
         self._power_dirty = False
 
@@ -513,7 +523,7 @@ class WebInterface(object):
 
     def set_metrics_collector(self, metrics_collector):
         """ Set the metrics collector """
-        self.metrics_collector = metrics_collector
+        self._metrics_collector = metrics_collector
 
     def set_metrics_controller(self, metrics_controller):
         """ Sets the metrics controller """
@@ -2547,6 +2557,9 @@ class WebService(object):
 
     name = 'web'
 
+    @provides('web_service')
+    @scope(SingletonScope)
+    @inject(webinterface='web_interface', config_controller='config_controller')
     def __init__(self, webinterface, config_controller, verbose=False):
         self._webinterface = webinterface
         self._config_controller = config_controller

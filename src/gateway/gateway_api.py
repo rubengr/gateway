@@ -24,6 +24,9 @@ import time as pytime
 import datetime
 import math
 import sqlite3
+
+from wiring import inject
+
 import constants
 import logging
 import glob
@@ -72,6 +75,10 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
+    @inject(master_communicator='master_communicator', power_communicator='power_communicator',
+            power_controller='power_controller', eeprom_controller='eeprom_controller',
+            pulse_controller='pulse_controller', message_client='message_client', observer='observer',
+            config_controller='config_controller', shutter_controller='shutter_controller')
     def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
         """
         :param master_communicator: Master communicator

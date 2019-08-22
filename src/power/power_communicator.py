@@ -22,6 +22,9 @@ import logging
 import traceback
 import time
 import Queue
+
+from wiring import inject
+
 import power.power_api as power_api
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
@@ -34,7 +37,8 @@ LOGGER = logging.getLogger("openmotics")
 class PowerCommunicator(object):
     """ Uses a serial port to communicate with the power modules. """
 
-    def __init__(self, serial, power_controller, verbose=False, time_keeper_period=60,
+    @inject(power_controller='power_controller', serial='power_serial')
+    def __init__(self, power_controller, serial, verbose=False, time_keeper_period=60,
                  address_mode_timeout=300):
         """ Default constructor.
 
@@ -212,7 +216,7 @@ class PowerCommunicator(object):
                 else:
                     (old_address, cid) = (ord(header[:2][1]), header[2:3])
                     # Ask power_controller for new address, and register it.
-                    new_address = self.__power_controller.get_free_address()
+                    new_address = self.__service_registry.get('power_controller').get_free_address()
 
                     if self.__power_controller.module_exists(old_address):
                         self.__power_controller.readdress_power_module(old_address, new_address)

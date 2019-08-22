@@ -2,6 +2,7 @@ from platform_utils import System
 System.import_eggs()
 import logging
 import requests
+from wiring import inject, provides, SingletonScope, scope
 from requests import ConnectionError
 from requests.adapters import HTTPAdapter
 try:
@@ -18,19 +19,22 @@ class APIException(Exception):
         super(APIException, self).__init__(message)
 
 
-class Client(object):
+class OmApiClient(object):
     """
     The openmotics cloud client
     """
 
     API_TIMEOUT = 5.0
 
-    def __init__(self, gateway_uuid, hostname=None, port=443, api_version=0, ssl=True):
+    @provides('om_api_client')
+    @scope(SingletonScope)
+    @inject('gateway_uuid', 'cloud_endpoint', 'cloud_port', 'cloud_api_version', 'cloud_ssl')
+    def __init__(self, gateway_uuid, cloud_endpoint=None, cloud_port=443, cloud_api_version=0, cloud_ssl=True):
         self._gateway_uuid = gateway_uuid
-        self._hostname = 'cloud.openmotics.com' if hostname is None else hostname
-        self._ssl = ssl
-        self._port = port
-        self.api_version = api_version
+        self._hostname = 'cloud.openmotics.com' if cloud_endpoint is None else cloud_endpoint
+        self._ssl = True if cloud_ssl is None else cloud_ssl
+        self._port = 443 if cloud_port is None else cloud_port
+        self.api_version = 0 if cloud_api_version is None else cloud_api_version
 
         self._session = requests.Session()
         openmotics_adapter = HTTPAdapter(max_retries=3)

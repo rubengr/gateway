@@ -21,11 +21,16 @@ import sqlite3
 import os.path
 from threading import Lock
 
+from wiring import inject, provides, SingletonScope, scope
+
 
 class EepromExtension(object):
     """ Provides the interface for reading and writing EepromExtension objects to the sqlite
     database. """
 
+    @provides('eeprom_extension')
+    @scope(SingletonScope)
+    @inject(db_filename='eeprom_db')
     def __init__(self, db_filename):
         self._lock = Lock()
         create_tables = not os.path.exists(db_filename)

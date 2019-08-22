@@ -15,18 +15,18 @@
 """
 The main module for the OpenMotics
 """
-
 from platform_utils import System
 System.import_eggs()
 
 import logging
 import time
 import constants
+import wiring
 
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
 from bus.om_bus_events import OMBusEvents
-from cloud.client import Client
+from cloud.om_api_client import OmApiClient
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
@@ -95,12 +95,37 @@ def led_driver(message_client, master_communicator, power_communicator):
 class OpenmoticsService(object):
 
     def __init__(self):
-        self._message_client = MessageClient('openmotics_service')
+        self.graph = wiring.Graph()
+
+    def _register_classes(self):
+        self.graph.register_factory('config_controller', ConfigurationController)
+        self.graph.register_factory('user_controller', UserController)
+        self.graph.register_factory('master_communicator', MasterCommunicator)
+        self.graph.register_factory('metrics_controller', MetricsController)
+        self.graph.register_factory('web_interface', WebInterface)
+        self.graph.register_factory('observer', Observer)
+        self.graph.register_factory('metrics_collector', MetricsCollector)
+        self.graph.register_factory('plugin_controller', PluginController)
+        self.graph.register_factory('power_communicator', PowerCommunicator)
+        self.graph.register_factory('shutter_controller', ShutterController)
+        self.graph.register_factory('gateway_api', GatewayApi)
+        self.graph.register_factory('pulse_controller', PulseCounterController)
+        self.graph.register_factory('eeprom_controller', EepromController)
+        self.graph.register_factory('eeprom_file', EepromFile)
+        self.graph.register_factory('eeprom_extension', EepromExtension)
+        self.graph.register_factory('power_controller', PowerController)
+        self.graph.register_factory('web_service', WebService)
+        self.graph.register_factory('scheduling_controller', SchedulingController)
+        self.graph.register_factory('maintenance_service', MaintenanceService)
+        self.graph.register_factory('om_api_client', OmApiClient)
+        self.graph.register_factory('metrics_cache_controller', MetricsCacheController)
+        self.graph.validate()
 
     def start(self):
         """ Main function. """
         logger.info('Starting OM core service...')
 
+        # Get configuration
         config = ConfigParser()
         config.read(constants.get_config_file())
 
@@ -111,81 +136,54 @@ class OpenmoticsService(object):
         power_serial_port = config.get('OpenMotics', 'power_serial')
         gateway_uuid = config.get('OpenMotics', 'uuid')
 
-        parsed_url = urlparse(config.get('OpenMotics', 'vpn_check_url'))
-        cloud_endpoint = parsed_url.hostname
-        cloud = Client(gateway_uuid, hostname=cloud_endpoint)
-        if parsed_url.port is not None:
-            cloud.set_port(parsed_url.port)
-        if parsed_url.scheme is not None:
-            cloud.set_ssl(parsed_url.scheme == 'https')
-
         config_lock = Lock()
-        user_controller = UserController(constants.get_config_database_file(), config_lock, defaults, 3600)
-        config_controller = ConfigurationController(constants.get_config_database_file(), config_lock)
+        schedule_lock = Lock()
+        metrics_lock = Lock()
 
-        controller_serial = Serial(controller_serial_port, 115200)
-        power_serial = RS485(Serial(power_serial_port, 115200, timeout=None))
+        # Create OM API client
+        parsed_url = urlparse(config.get('OpenMotics', 'vpn_check_url'))
 
-        master_communicator = MasterCommunicator(controller_serial)
-        eeprom_controller = EepromController(
-            EepromFile(master_communicator),
-            EepromExtension(constants.get_eeprom_extension_database_file())
-        )
+        self.graph.register_instance('message_client', MessageClient('openmotics_service'))
+        self.graph.register_instance('gateway_uuid', gateway_uuid)
+        self.graph.register_instance('cloud_endpoint', parsed_url.hostname)
+        self.graph.register_instance('cloud_port', parsed_url.port)
+        self.graph.register_instance('cloud_ssl', parsed_url.scheme == 'https')
+        self.graph.register_instance('cloud_api_version', 0)
+        self.graph.register_instance('user_db', constants.get_config_database_file())
+        self.graph.register_instance('user_db_lock', config_lock)
+        self.graph.register_instance('config', defaults)
+        self.graph.register_instance('token_timeout', 3600)
+        self.graph.register_instance('config_db', constants.get_config_database_file())
+        self.graph.register_instance('config_db_lock', config_lock)
+        self.graph.register_instance('controller_serial', Serial(controller_serial_port, 115200))
+        self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
+        self.graph.register_instance('power_db', constants.get_power_database_file())
+        self.graph.register_instance('scheduling_db', constants.get_scheduling_database_file())
+        self.graph.register_instance('scheduling_db_lock', schedule_lock)
+        self.graph.register_instance('power_serial', RS485(Serial(power_serial_port, 115200, timeout=None)))
+        self.graph.register_instance('pulse_db', constants.get_pulse_counter_database_file())
+        self.graph.register_instance('ssl_private_key', constants.get_ssl_private_key_file())
+        self.graph.register_instance('ssl_certificate', constants.get_ssl_certificate_file())
+        self.graph.register_instance('metrics_db', constants.get_metrics_database_file())
+        self.graph.register_instance('metrics_db_lock', metrics_lock)
 
         if passthrough_serial_port:
-            passthrough_serial = Serial(passthrough_serial_port, 115200)
-            passthrough_service = PassthroughService(master_communicator, passthrough_serial)
-            passthrough_service.start()
+            self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
 
-        power_controller = PowerController(constants.get_power_database_file())
-        power_communicator = PowerCommunicator(power_serial, power_controller)
-
-        pulse_controller = PulseCounterController(
-            constants.get_pulse_counter_database_file(),
-            master_communicator,
-            eeprom_controller
-        )
-
-        shutter_controller = ShutterController(master_communicator)
-
-        observer = Observer(master_communicator, self._message_client, shutter_controller)
-        gateway_api = GatewayApi(master_communicator, power_communicator, power_controller, eeprom_controller,
-                                 pulse_controller, self._message_client, observer, config_controller, shutter_controller)
-
-        observer.set_gateway_api(gateway_api)
-
-        scheduling_controller = SchedulingController(constants.get_scheduling_database_file(), config_lock, gateway_api)
-
-        maintenance_service = MaintenanceService(gateway_api, constants.get_ssl_private_key_file(),
-                                                 constants.get_ssl_certificate_file())
-
-        web_interface = WebInterface(user_controller, gateway_api, maintenance_service, self._message_client,
-                                     config_controller, scheduling_controller, cloud)
-
-        scheduling_controller.set_webinterface(web_interface)
-
-        # Plugins
-        plugin_controller = PluginController(web_interface, config_controller)
-        web_interface.set_plugin_controller(plugin_controller)
-        gateway_api.set_plugin_controller(plugin_controller)
+        self._register_classes()
 
         # Metrics
-        metrics_cache_controller = MetricsCacheController(constants.get_metrics_database_file(), Lock())
-        metrics_collector = MetricsCollector(gateway_api, pulse_controller)
-        metrics_controller = MetricsController(plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid)
-        self._message_client.add_event_handler(metrics_controller.event_receiver)
-        metrics_collector.set_controllers(metrics_controller, plugin_controller)
+        metrics_controller = self.graph.get('metrics_controller')
+        message_client = self.graph.get('message_client')
+        message_client.add_event_handler(metrics_controller.event_receiver)
+
+        web_interface = self.graph.get('web_interface')
         metrics_controller.add_receiver(metrics_controller.receiver)
         metrics_controller.add_receiver(web_interface.distribute_metric)
 
-        plugin_controller.set_metrics_controller(metrics_controller)
-        plugin_controller.set_metrics_collector(metrics_collector)
-        web_interface.set_metrics_collector(metrics_collector)
-        web_interface.set_metrics_controller(metrics_controller)
-
-        web_service = WebService(web_interface, config_controller)
-        plugin_controller.set_webservice(web_service)
-
+        observer = self.graph.get('observer')
+        metrics_collector = self.graph.get('metrics_collector')
+        plugin_controller = self.graph.get('plugin_controller')
         observer.subscribe_master(Observer.MasterEvents.INPUT_TRIGGER, metrics_collector.on_input)
         observer.subscribe_master(Observer.MasterEvents.INPUT_TRIGGER, plugin_controller.process_input_status)
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, metrics_collector.on_output)
@@ -193,20 +191,22 @@ class OpenmoticsService(object):
         observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
         observer.subscribe_events(web_interface.process_observer_event)
 
+        if passthrough_serial_port:
+            self.graph.register_factory('passthrough_service', PassthroughService)
+            passthrough_service = self.graph.get('passthrough_service')
+            passthrough_service.start()
+
+        master_communicator = self.graph.get('master_communicator')
+        power_communicator = self.graph.get('power_communicator')
         led_thread = Thread(target=led_driver, args=(self._message_client, master_communicator, power_communicator))
         led_thread.setName("Serial led driver thread")
         led_thread.daemon = True
         led_thread.start()
 
-        master_communicator.start()
-        observer.start()
-        power_communicator.start()
-        metrics_controller.start()
-        scheduling_controller.start()
-        metrics_collector.start()
-        web_service.start()
-        gateway_api.start()
-        plugin_controller.start()
+        services = ['master_communicator', 'observer', 'power_communicator', 'metrics_controller',
+                    'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller']
+        for service in services:
+            self.graph.get(service).start()
 
         signal_request = {'stop': False}
 
@@ -214,10 +214,9 @@ class OpenmoticsService(object):
             """ This function is called on SIGTERM. """
             _ = signum, frame
             logger.info('Stopping OM core service...')
-            web_service.stop()
-            metrics_collector.stop()
-            metrics_controller.stop()
-            plugin_controller.stop()
+            services_to_stop = ['web_service', 'metrics_collector', 'metrics_controller', 'plugin_controller']
+            for service_to_stop in services_to_stop:
+                self.graph.get(service_to_stop).stop()
             logger.info('Stopping OM core service... Done')
             signal_request['stop'] = True
 
