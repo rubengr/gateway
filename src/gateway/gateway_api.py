@@ -25,7 +25,7 @@ import datetime
 import math
 import sqlite3
 
-from wiring import inject
+from wiring import inject, scope, SingletonScope
 
 import constants
 import logging
@@ -75,6 +75,7 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
+    @scope(SingletonScope)
     @inject(master_communicator='master_communicator', power_communicator='power_communicator',
             power_controller='power_controller', eeprom_controller='eeprom_controller',
             pulse_controller='pulse_controller', message_client='message_client', observer='observer',
