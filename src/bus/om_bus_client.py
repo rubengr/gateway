@@ -61,7 +61,7 @@ class MessageClient(object):
                 msg = self.client.recv_bytes()
                 self._process_message(msg)
             except EOFError:
-                logger.exception('Client connection closed unexpectedly')
+                logger.error('Client connection closed unexpectedly')
                 self.client.close()
                 self._connected = False
                 self._connect()
@@ -86,8 +86,11 @@ class MessageClient(object):
                 self.client = Client(self.address, authkey=self.authkey)
                 self._connected = True
                 self.send_event(OMBusEvents.CLIENT_DISCOVERY, None)
+            except IOError as io_error:
+                logger.error('Could not connect to message server: {}'.format(io_error))
+                time.sleep(1)
             except Exception as e:
-                logger.exception('Could not connect to message server.'.format(e))
+                logger.exception('Unknown error connecting to message server: {}'.format(e))
                 time.sleep(1)
 
     def _start(self):

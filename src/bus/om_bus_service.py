@@ -61,6 +61,9 @@ class MessageService(object):
                 payload = conn.recv_bytes()
                 msg = json.loads(payload)
                 self._process_message(conn, msg)
+            except IOError as io_error:
+                logger.exception('Error receiving message from client {0}: {1}'.format(self.connections.get(conn, None), io_error))
+                self._close(conn)
             except ValueError:
                 logger.exception('Error decoding payload from client {0}'.format(self.connections.get(conn, None)))
             except EOFError as e:

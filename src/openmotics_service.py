@@ -35,7 +35,7 @@ from serial_utils import RS485
 from gateway.webservice import WebInterface, WebService
 from gateway.gateway_api import GatewayApi
 from gateway.users import UserController
-from gateway.metrics import MetricsController
+from gateway.metrics_controller import MetricsController
 from gateway.metrics_collector import MetricsCollector
 from gateway.metrics_caching import MetricsCacheController
 from gateway.config import ConfigurationController
@@ -119,7 +119,6 @@ class OpenmoticsService(object):
         self.graph.register_factory('maintenance_service', MaintenanceService, scope=wiring.SingletonScope)
         self.graph.register_factory('metrics_cache_controller', MetricsCacheController, scope=wiring.SingletonScope)
         self.graph.register_factory('om_api_client', OmApiClient, scope=wiring.SingletonScope)
-        self.graph.register_factory('passthrough_service', PassthroughService, scope=wiring.SingletonScope)
         self.graph.validate()
 
     def start(self):
@@ -170,6 +169,10 @@ class OpenmoticsService(object):
 
         if passthrough_serial_port:
             self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
+            self.graph.register_factory('passthrough_service', PassthroughService, scope=wiring.SingletonScope)
+            passthrough_service = self.graph.get('passthrough_service')
+            passthrough_service.start()
+
         self._register_classes()
 
         # Metrics
@@ -201,10 +204,6 @@ class OpenmoticsService(object):
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
         observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
         observer.subscribe_events(web_interface.process_observer_event)
-
-        if passthrough_serial_port:
-            passthrough_service = self.graph.get('passthrough_service')
-            passthrough_service.start()
 
         master_communicator = self.graph.get('master_communicator')
         power_communicator = self.graph.get('power_communicator')
