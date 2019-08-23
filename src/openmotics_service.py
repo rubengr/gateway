@@ -21,18 +21,17 @@ System.import_eggs()
 import logging
 import time
 import constants
-import wiring
-
+from wiring import Graph, SingletonScope
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
-from bus.om_bus_events import OMBusEvents
 from cloud.om_api_client import OmApiClient
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
-from threading import Thread, Lock
+from threading import Lock
 from serial_utils import RS485
 from gateway.webservice import WebInterface, WebService
+from gateway.comm_led_controller import CommunicationLedController
 from gateway.gateway_api import GatewayApi
 from gateway.users import UserController
 from gateway.metrics_controller import MetricsController
@@ -68,57 +67,34 @@ def setup_logger():
     logger.addHandler(handler)
 
 
-def led_driver(message_client, master_communicator, power_communicator):
-    """
-    Blink the serial leds if necessary.
-    :type message_client: bus.om_bus_client.MessageClient
-    :type master_communicator: master.master_communicator.MasterCommunicator
-    :type power_communicator: power.power_communicator.PowerCommunicator
-    """
-    master = (0, 0)
-    power = (0, 0)
-
-    while True:
-        new_master = (master_communicator.get_bytes_read(), master_communicator.get_bytes_written())
-        new_power = (power_communicator.get_bytes_read(), power_communicator.get_bytes_written())
-
-        if master[0] != new_master[0] or master[1] != new_master[1]:
-            message_client.send_event(OMBusEvents.SERIAL_ACTIVITY, 5)
-        if power[0] != new_power[0] or power[1] != new_power[1]:
-            message_client.send_event(OMBusEvents.SERIAL_ACTIVITY, 4)
-
-        master = new_master
-        power = new_power
-        time.sleep(0.1)
-
-
 class OpenmoticsService(object):
 
     def __init__(self):
-        self.graph = wiring.Graph()
+        self.graph = Graph()
 
     def _register_classes(self):
-        self.graph.register_factory('config_controller', ConfigurationController, scope=wiring.SingletonScope)
-        self.graph.register_factory('user_controller', UserController, scope=wiring.SingletonScope)
-        self.graph.register_factory('master_communicator', MasterCommunicator, scope=wiring.SingletonScope)
-        self.graph.register_factory('metrics_controller', MetricsController, scope=wiring.SingletonScope)
-        self.graph.register_factory('web_interface', WebInterface, scope=wiring.SingletonScope)
-        self.graph.register_factory('observer', Observer, scope=wiring.SingletonScope)
-        self.graph.register_factory('metrics_collector', MetricsCollector, scope=wiring.SingletonScope)
-        self.graph.register_factory('plugin_controller', PluginController, scope=wiring.SingletonScope)
-        self.graph.register_factory('power_communicator', PowerCommunicator, scope=wiring.SingletonScope)
-        self.graph.register_factory('shutter_controller', ShutterController, scope=wiring.SingletonScope)
-        self.graph.register_factory('gateway_api', GatewayApi, scope=wiring.SingletonScope)
-        self.graph.register_factory('pulse_controller', PulseCounterController, scope=wiring.SingletonScope)
-        self.graph.register_factory('eeprom_controller', EepromController, scope=wiring.SingletonScope)
-        self.graph.register_factory('eeprom_file', EepromFile, scope=wiring.SingletonScope)
-        self.graph.register_factory('eeprom_extension', EepromExtension, scope=wiring.SingletonScope)
-        self.graph.register_factory('power_controller', PowerController, scope=wiring.SingletonScope)
-        self.graph.register_factory('web_service', WebService, scope=wiring.SingletonScope)
-        self.graph.register_factory('scheduling_controller', SchedulingController, scope=wiring.SingletonScope)
-        self.graph.register_factory('maintenance_service', MaintenanceService, scope=wiring.SingletonScope)
-        self.graph.register_factory('metrics_cache_controller', MetricsCacheController, scope=wiring.SingletonScope)
-        self.graph.register_factory('om_api_client', OmApiClient, scope=wiring.SingletonScope)
+        self.graph.register_factory('config_controller', ConfigurationController, scope=SingletonScope)
+        self.graph.register_factory('user_controller', UserController, scope=SingletonScope)
+        self.graph.register_factory('master_communicator', MasterCommunicator, scope=SingletonScope)
+        self.graph.register_factory('metrics_controller', MetricsController, scope=SingletonScope)
+        self.graph.register_factory('web_interface', WebInterface, scope=SingletonScope)
+        self.graph.register_factory('observer', Observer, scope=SingletonScope)
+        self.graph.register_factory('metrics_collector', MetricsCollector, scope=SingletonScope)
+        self.graph.register_factory('plugin_controller', PluginController, scope=SingletonScope)
+        self.graph.register_factory('power_communicator', PowerCommunicator, scope=SingletonScope)
+        self.graph.register_factory('shutter_controller', ShutterController, scope=SingletonScope)
+        self.graph.register_factory('gateway_api', GatewayApi, scope=SingletonScope)
+        self.graph.register_factory('pulse_controller', PulseCounterController, scope=SingletonScope)
+        self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
+        self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
+        self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
+        self.graph.register_factory('power_controller', PowerController, scope=SingletonScope)
+        self.graph.register_factory('web_service', WebService, scope=SingletonScope)
+        self.graph.register_factory('scheduling_controller', SchedulingController, scope=SingletonScope)
+        self.graph.register_factory('maintenance_service', MaintenanceService, scope=SingletonScope)
+        self.graph.register_factory('metrics_cache_controller', MetricsCacheController, scope=SingletonScope)
+        self.graph.register_factory('om_api_client', OmApiClient, scope=SingletonScope)
+        self.graph.register_factory('communication_led_controller', CommunicationLedController, scope=SingletonScope)
         self.graph.validate()
 
     def start(self):
@@ -167,13 +143,13 @@ class OpenmoticsService(object):
         self.graph.register_instance('metrics_db', constants.get_metrics_database_file())
         self.graph.register_instance('metrics_db_lock', metrics_lock)
 
+        self._register_classes()
+
         if passthrough_serial_port:
             self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
-            self.graph.register_factory('passthrough_service', PassthroughService, scope=wiring.SingletonScope)
+            self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
             passthrough_service = self.graph.get('passthrough_service')
             passthrough_service.start()
-
-        self._register_classes()
 
         # Metrics
         metrics_controller = self.graph.get('metrics_controller')
@@ -205,15 +181,9 @@ class OpenmoticsService(object):
         observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
         observer.subscribe_events(web_interface.process_observer_event)
 
-        master_communicator = self.graph.get('master_communicator')
-        power_communicator = self.graph.get('power_communicator')
-        led_thread = Thread(target=led_driver, args=(message_client, master_communicator, power_communicator))
-        led_thread.setName("Serial led driver thread")
-        led_thread.daemon = True
-        led_thread.start()
-
         services = ['master_communicator', 'observer', 'power_communicator', 'metrics_controller',
-                    'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller']
+                    'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
+                    'communication_led_controller']
         for service in services:
             self.graph.get(service).start()
 
