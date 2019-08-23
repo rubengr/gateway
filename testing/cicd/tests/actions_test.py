@@ -721,7 +721,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_2m30s(self):
-        """ Testing the execution of an action (toggling output for 2m30s) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 2m30s) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_input_advanced_configuration('timed201', input_output_number, 201)
@@ -753,7 +753,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_7m30s(self):
-        """ Testing the execution of an action (toggling output for 7m30s) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 7m30s) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_input_advanced_configuration('timed202', input_output_number, 202)
@@ -789,7 +789,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_15m(self):
-        """ Testing the execution of an action (toggling output for 15m) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 15m) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_input_advanced_configuration('timed203', input_output_number, 203)
@@ -825,7 +825,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_25(self):
-        """ Testing the execution of an action (toggling output for 25m) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 25m) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_input_advanced_configuration('timed204', input_output_number, 204)
@@ -861,7 +861,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_37m(self):
-        """ Testing the execution of an action (toggling output for 37m) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 37m) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_output_advanced_config(input_output_number)
@@ -897,7 +897,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_52m(self):
-        """ Testing the execution of an action (toggling output for 52m) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 52m) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_output_advanced_config(input_output_number)
