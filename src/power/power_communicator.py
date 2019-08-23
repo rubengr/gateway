@@ -23,7 +23,7 @@ import traceback
 import time
 import Queue
 
-from wiring import inject, scope, SingletonScope
+from wiring import inject, scope, SingletonScope, provides
 
 import power.power_api as power_api
 from threading import Thread, RLock
@@ -37,6 +37,7 @@ LOGGER = logging.getLogger("openmotics")
 class PowerCommunicator(object):
     """ Uses a serial port to communicate with the power modules. """
 
+    @provides('power_communicator')
     @scope(SingletonScope)
     @inject(power_controller='power_controller', serial='power_serial')
     def __init__(self, power_controller, serial, verbose=False, time_keeper_period=60,

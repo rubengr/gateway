@@ -21,7 +21,7 @@ import sqlite3
 import os.path
 from threading import Lock
 
-from wiring import inject, SingletonScope, scope
+from wiring import inject, SingletonScope, scope, provides
 
 from power_api import POWER_API_8_PORTS, POWER_API_12_PORTS, NUM_PORTS
 
@@ -29,6 +29,7 @@ from power_api import POWER_API_8_PORTS, POWER_API_12_PORTS, NUM_PORTS
 class PowerController(object):
     """ The PowerController keeps track of the registered power modules. """
 
+    @provides('power_controller')
     @scope(SingletonScope)
     @inject(db_filename='power_db')
     def __init__(self, db_filename):
