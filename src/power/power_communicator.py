@@ -39,8 +39,8 @@ class PowerCommunicator(object):
 
     @provides('power_communicator')
     @scope(SingletonScope)
-    @inject(power_controller='power_controller', serial='power_serial')
-    def __init__(self, power_controller, serial, verbose=False, time_keeper_period=60,
+    @inject(serial='power_serial', power_controller='power_controller')
+    def __init__(self, serial, power_controller, verbose=False, time_keeper_period=60,
                  address_mode_timeout=300):
         """ Default constructor.
 
