@@ -117,8 +117,9 @@ class OpenmoticsService(object):
         self.graph.register_factory('web_service', WebService, scope=wiring.SingletonScope)
         self.graph.register_factory('scheduling_controller', SchedulingController, scope=wiring.SingletonScope)
         self.graph.register_factory('maintenance_service', MaintenanceService, scope=wiring.SingletonScope)
-        self.graph.register_factory('om_api_client', OmApiClient)
         self.graph.register_factory('metrics_cache_controller', MetricsCacheController, scope=wiring.SingletonScope)
+        self.graph.register_factory('om_api_client', OmApiClient, scope=wiring.SingletonScope)
+        self.graph.register_factory('passthrough_service', PassthroughService, scope=wiring.SingletonScope)
         self.graph.validate()
 
     def start(self):
@@ -169,7 +170,6 @@ class OpenmoticsService(object):
 
         if passthrough_serial_port:
             self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
-
         self._register_classes()
 
         # Metrics
@@ -193,8 +193,8 @@ class OpenmoticsService(object):
         scheduling_controller.set_webinterface(web_interface)
         metrics_collector.set_controllers(metrics_controller, plugin_controller)
         plugin_controller.set_webservice(web_service)
-
         observer.set_gateway_api(gateway_api)
+
         observer.subscribe_master(Observer.MasterEvents.INPUT_TRIGGER, metrics_collector.on_input)
         observer.subscribe_master(Observer.MasterEvents.INPUT_TRIGGER, plugin_controller.process_input_status)
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, metrics_collector.on_output)
@@ -203,7 +203,6 @@ class OpenmoticsService(object):
         observer.subscribe_events(web_interface.process_observer_event)
 
         if passthrough_serial_port:
-            self.graph.register_factory('passthrough_service', PassthroughService)
             passthrough_service = self.graph.get('passthrough_service')
             passthrough_service.start()
 

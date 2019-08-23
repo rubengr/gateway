@@ -27,7 +27,6 @@ class OmApiClient(object):
     API_TIMEOUT = 5.0
 
     @provides('om_api_client')
-    @scope(SingletonScope)
     @inject('gateway_uuid', 'cloud_endpoint', 'cloud_port', 'cloud_api_version', 'cloud_ssl')
     def __init__(self, gateway_uuid, cloud_endpoint=None, cloud_port=443, cloud_api_version=0, cloud_ssl=True):
         self._gateway_uuid = gateway_uuid
