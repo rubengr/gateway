@@ -24,7 +24,7 @@ import constants
 from wiring import Graph, SingletonScope
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
-from cloud.om_api_client import OmApiClient
+from cloud.cloud_api_client import CloudAPIClient
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
@@ -93,7 +93,7 @@ class OpenmoticsService(object):
         self.graph.register_factory('scheduling_controller', SchedulingController, scope=SingletonScope)
         self.graph.register_factory('maintenance_service', MaintenanceService, scope=SingletonScope)
         self.graph.register_factory('metrics_cache_controller', MetricsCacheController, scope=SingletonScope)
-        self.graph.register_factory('om_api_client', OmApiClient, scope=SingletonScope)
+        self.graph.register_factory('cloud_api_client', CloudAPIClient)
         self.graph.register_factory('communication_led_controller', CommunicationLedController, scope=SingletonScope)
         self.graph.validate()
 

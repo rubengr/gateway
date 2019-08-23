@@ -19,25 +19,31 @@ class APIException(Exception):
         super(APIException, self).__init__(message)
 
 
-class OmApiClient(object):
+class CloudAPIClient(object):
     """
     The openmotics cloud client
     """
 
     API_TIMEOUT = 5.0
 
-    @provides('om_api_client')
-    @inject('gateway_uuid', 'cloud_endpoint', 'cloud_port', 'cloud_api_version', 'cloud_ssl')
-    def __init__(self, gateway_uuid, cloud_endpoint=None, cloud_port=443, cloud_api_version=0, cloud_ssl=True):
+    @provides('cloud_api_client')
+    @inject('gateway_uuid', endpoint='cloud_endpoint', port='cloud_port', api_version='cloud_api_version', ssl='cloud_ssl')
+    def __init__(self, gateway_uuid, endpoint=None, port=443, api_version=0, ssl=True):
         self._gateway_uuid = gateway_uuid
-        self._hostname = 'cloud.openmotics.com' if cloud_endpoint is None else cloud_endpoint
-        self._ssl = True if cloud_ssl is None else cloud_ssl
-        self._port = 443 if cloud_port is None else cloud_port
-        self.api_version = 0 if cloud_api_version is None else cloud_api_version
+        self._hostname = 'cloud.openmotics.com' if endpoint is None else endpoint
+        self._ssl = True if ssl is None else ssl
+        self._port = 443 if port is None else port
+        self.api_version = 0 if api_version is None else api_version
 
         self._session = requests.Session()
         openmotics_adapter = HTTPAdapter(max_retries=3)
         self._session.mount(self._hostname, openmotics_adapter)
+
+    def set_port(self, port):
+        self._port = port
+
+    def set_ssl(self, ssl):
+        self._ssl = ssl
 
     def _get_endpoint(self, path):
         return '{0}://{1}:{2}/{3}'.format('https' if self._ssl else 'http', self._hostname, self._port, path)
@@ -62,8 +68,3 @@ class OmApiClient(object):
             logger.exception(e)
             raise APIException('Unknown error while executing API request on {}. Reason: {}'.format(self._hostname, e))
 
-    def set_port(self, port):
-        self._port = port
-
-    def set_ssl(self, ssl):
-        self._ssl = ssl

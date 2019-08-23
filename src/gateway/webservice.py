@@ -414,9 +414,9 @@ class WebInterface(object):
     @scope(SingletonScope)
     @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_service='maintenance_service',
             message_client='message_client', config_controller='config_controller',
-            scheduling_controller='scheduling_controller', cloud='om_api_client')
+            scheduling_controller='scheduling_controller', cloud_api_client='cloud_api_client')
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 message_client, config_controller, scheduling_controller, cloud):
+                 message_client, config_controller, scheduling_controller, cloud_api_client):
         """
         Constructor for the WebInterface.
 
@@ -443,7 +443,7 @@ class WebInterface(object):
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
         self._message_client = message_client
-        self._cloud = cloud
+        self._cloud_api_client = cloud_api_client
         self._plugin_controller = None
         self._metrics_collector = None
         self._metrics_controller = None
@@ -507,7 +507,7 @@ class WebInterface(object):
         """ Processes an observer event, pushing it forward to the upstream components (e.g. local websockets, cloud)"""
         self._send_event_websocket(event)
         try:
-            self._cloud.send_event(event)
+            self._cloud_api_client.send_event(event)
         except APIException as api_exception:
             logger.error(api_exception)
 
