@@ -7,6 +7,7 @@ except ImportError:
 from multiprocessing.connection import Client
 from threading import Thread, Lock
 from om_bus_events import OMBusEvents
+from signal import signal, SIGTERM
 
 logger = logging.getLogger('openmotics')
 
@@ -23,7 +24,7 @@ class MessageClient(object):
         self.latest_state_received = {}
         self._connected = False
         self._get_state_lock = Lock()
-
+        self._stop = False
         self._start()
 
     def _send_state(self, source):
@@ -56,7 +57,8 @@ class MessageClient(object):
 
     def _message_receiver(self):
         self._connect()
-        while True:
+        self._stop = False
+        while not self._stop:
             try:
                 msg = self.client.recv_bytes()
                 self._process_message(msg)
@@ -94,6 +96,12 @@ class MessageClient(object):
                 time.sleep(1)
 
     def _start(self):
+        def stop(signum, frame):
+            """ This function is called on SIGTERM. """
+            _ = signum, frame
+            self._stop = True
+        signal(SIGTERM, stop)
+
         receiver = Thread(target=self._message_receiver)
         receiver.daemon = True
         receiver.start()
