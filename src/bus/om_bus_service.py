@@ -6,6 +6,7 @@ except ImportError:
     import simplejson as json
 from multiprocessing.connection import Listener
 from threading import Thread
+from signal import signal, SIGTERM
 
 logger = logging.getLogger('openmotics')
 
@@ -17,6 +18,7 @@ class MessageService(object):
         self.address = (ip, port)  # family is deduced to be 'AF_INET'
         self.authkey = authkey
         self.listener = Listener(self.address, authkey=self.authkey)
+        self._stop = False
 
     def _multicast(self, source, msg):
         for connection, client_name in self.connections.iteritems():
@@ -81,7 +83,8 @@ class MessageService(object):
 
     def _server(self):
         logger.info('Starting OM messaging service...')
-        while True:
+        self._stop = False
+        while not self._stop:
             try:
                 conn = self.listener.accept()
                 logger.info('connection accepted from {0}'.format(self.listener.last_accepted))
@@ -97,6 +100,14 @@ class MessageService(object):
                 self.listener = Listener(self.address, authkey=self.authkey)
 
     def start(self):
+        def stop(signum, frame):
+            """ This function is called on SIGTERM. """
+            _ = signum, frame
+            logger.info('Stopping OM messaging service...')
+            self._stop = True
+            logger.info('Stopping OM messaging service... Done')
+        signal(SIGTERM, stop)
+
         server = Thread(target=self._server)
         server.daemon = True
         server.start()
