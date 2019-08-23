@@ -118,12 +118,16 @@ class OpenmoticsService(object):
 
         # Create OM API client
         parsed_url = urlparse(config.get('OpenMotics', 'vpn_check_url'))
+        cloud_endpoint = parsed_url.hostname
+        cloud_port = parsed_url.port
+        cloud_ssl = parsed_url.scheme == 'https'
 
+        # Inject configuration values into environment
         self.graph.register_instance('message_client', MessageClient('openmotics_service'))
         self.graph.register_instance('gateway_uuid', gateway_uuid)
-        self.graph.register_instance('cloud_endpoint', parsed_url.hostname)
-        self.graph.register_instance('cloud_port', parsed_url.port)
-        self.graph.register_instance('cloud_ssl', parsed_url.scheme == 'https')
+        self.graph.register_instance('cloud_endpoint', cloud_endpoint)
+        self.graph.register_instance('cloud_port', cloud_port)
+        self.graph.register_instance('cloud_ssl', cloud_ssl)
         self.graph.register_instance('cloud_api_version', 0)
         self.graph.register_instance('user_db', constants.get_config_database_file())
         self.graph.register_instance('user_db_lock', config_lock)
@@ -142,16 +146,13 @@ class OpenmoticsService(object):
         self.graph.register_instance('ssl_certificate', constants.get_ssl_certificate_file())
         self.graph.register_instance('metrics_db', constants.get_metrics_database_file())
         self.graph.register_instance('metrics_db_lock', metrics_lock)
-
-        self._register_classes()
-
         if passthrough_serial_port:
             self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
-            self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
-            passthrough_service = self.graph.get('passthrough_service')
-            passthrough_service.start()
 
-        # Metrics
+        # Register DI factory classes into environment
+        self._register_classes()
+
+        # TODO: eliminate circular dependencies, so below can be autowired using DI
         metrics_controller = self.graph.get('metrics_controller')
         message_client = self.graph.get('message_client')
         web_interface = self.graph.get('web_interface')
@@ -161,7 +162,6 @@ class OpenmoticsService(object):
         metrics_collector = self.graph.get('metrics_collector')
         plugin_controller = self.graph.get('plugin_controller')
         web_service = self.graph.get('web_service')
-
         message_client.add_event_handler(metrics_controller.event_receiver)
         web_interface.set_plugin_controller(plugin_controller)
         web_interface.set_metrics_collector(metrics_collector)
@@ -180,6 +180,11 @@ class OpenmoticsService(object):
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
         observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
         observer.subscribe_events(web_interface.process_observer_event)
+
+        if passthrough_serial_port:
+            self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
+            passthrough_service = self.graph.get('passthrough_service')
+            passthrough_service.start()
 
         services = ['master_communicator', 'observer', 'power_communicator', 'metrics_controller',
                     'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',

@@ -22,9 +22,9 @@ class CommunicationLedController(object):
         self._thread.daemon = True
 
     def start(self):
-        logger.info("Starting commmunications led driver...")
+        logger.info("Starting commmunications led controller...")
         self._thread.start()
-        logger.info("Starting commmunications led driver... Done")
+        logger.info("Starting commmunications led controller... Done")
 
     def led_driver(self):
         """
