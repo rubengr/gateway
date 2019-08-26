@@ -496,12 +496,16 @@ class WebInterface(object):
             logger.error('Failed to distribute events to WebSockets: %s', ex)
 
     def process_observer_event(self, event):
-        """ Processes an observer event, pushing it forward to the upstream components (e.g. local websockets, cloud)"""
+        """ Processes an observer event, pushing it forward to the upstream components (e.g. local websockets, cloud) """
         self._send_event_websocket(event)
-        try:
-            self._cloud.send_event(event)
-        except APIException as api_exception:
-            logger.error(api_exception)
+        if event.type not in [Event.Types.INPUT_TRIGGER,
+                              Event.Types.ACTION,
+                              Event.Types.PING,
+                              Event.Types.PONG]:  # Some events are not relevant (yet) to send
+            try:
+                self._cloud.send_event(event)
+            except APIException as api_exception:
+                logger.error(api_exception)
 
     def set_plugin_controller(self, plugin_controller):
         """
