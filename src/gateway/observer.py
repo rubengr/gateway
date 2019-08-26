@@ -18,13 +18,11 @@ The observer module contains logic to observe various states of the system. It k
 
 import time
 import logging
-
-from wiring import provides, inject, SingletonScope, scope
-
 try:
     import json
 except ImportError:
     import simplejson as json
+from wiring import provides, inject, SingletonScope, scope
 from threading import Thread
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.outputs import OutputStatus

@@ -24,9 +24,6 @@ import time as pytime
 import datetime
 import math
 import sqlite3
-
-from wiring import inject, scope, SingletonScope, provides
-
 import constants
 import logging
 import glob
@@ -34,13 +31,13 @@ import shutil
 import subprocess
 import tempfile
 import ConfigParser
-
+import master.master_api as master_api
+import power.power_api as power_api
 try:
     import json
 except ImportError:
     import simplejson as json
-import master.master_api as master_api
-import power.power_api as power_api
+from wiring import inject, scope, SingletonScope, provides
 from subprocess import check_output
 from threading import Timer, Thread
 from serial_utils import CommunicationTimedOutException

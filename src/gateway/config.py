@@ -20,9 +20,7 @@ import time
 import sqlite3
 import logging
 from random import randint
-
 from wiring import inject, provides, SingletonScope, scope
-
 try:
     import json
 except ImportError:

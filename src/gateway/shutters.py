@@ -18,9 +18,7 @@ This module contains logic to handle shutters with their state/position
 import logging
 import time
 from threading import Lock
-
 from wiring import inject, provides, SingletonScope, scope
-
 from master.master_api import BA_SHUTTER_DOWN, BA_SHUTTER_STOP, BA_SHUTTER_UP
 
 LOGGER = logging.getLogger('openmotics')

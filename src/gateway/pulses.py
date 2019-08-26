@@ -18,10 +18,8 @@ The pulses module contains the PulseCounterController.
 
 import sqlite3
 import logging
-
-from wiring import inject, provides, scope, SingletonScope
-
 import master.master_api as master_api
+from wiring import inject, provides, scope, SingletonScope
 from master.eeprom_models import PulseCounterConfiguration
 
 LOGGER = logging.getLogger('openmotics')

@@ -17,8 +17,6 @@
 
 import base64
 import cherrypy
-from wiring import inject, provides, SingletonScope, scope
-
 import constants
 import logging
 import msgpack
@@ -30,7 +28,7 @@ import sys
 import threading
 import time
 import uuid
-
+from wiring import inject, provides, SingletonScope, scope
 from cherrypy.lib.static import serve_file
 from decorator import decorator
 from ws4py import WS_VERSION

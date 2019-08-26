@@ -23,11 +23,8 @@ import logging
 import requests
 from threading import Thread
 from collections import deque
-
 from wiring import inject, provides, SingletonScope, scope
-
 from bus.om_bus_events import OMBusEvents
-
 try:
     import json
 except ImportError:

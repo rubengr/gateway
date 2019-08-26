@@ -20,7 +20,6 @@ import time
 import sqlite3
 import logging
 from random import randint
-
 from wiring import provides, inject, SingletonScope, scope
 
 try:

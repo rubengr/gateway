@@ -24,9 +24,7 @@ from datetime import datetime
 from croniter import croniter
 from random import randint
 from threading import Thread
-
 from wiring import inject, provides, SingletonScope, scope
-
 from gateway.webservice import params_parser
 from master.master_communicator import CommunicationTimedOutException
 try:
@@ -145,7 +143,6 @@ class SchedulingController(object):
         self._stop = False
         self._processor = None
         self._semaphore = None
-        self._web_interface = None
 
         try:
             Schedule.timezone = gateway_api.get_timezone()
