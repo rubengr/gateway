@@ -93,7 +93,6 @@ class LoginTest(OMTestCase):
         self.tools.enter_testee_authorized_mode(self.webinterface)
         params = {'username': self.login}
         self.tools.api_testee(api='remove_user', params=params)
-
         response_dict = self.tools.api_testee(api='get_usernames', expected_failure=True)
         self.assertFalse(self.login in response_dict.get('usernames'), 'The created user should exist in the list of usernames.')
 

@@ -21,6 +21,7 @@ import xmlrunner
 import time
 import fakesleep
 from threading import Lock, Semaphore
+from mock import Mock
 
 from gateway.webservice import WebInterface
 from gateway.scheduling import SchedulingController
@@ -65,7 +66,7 @@ class SchedulingControllerTest(unittest.TestCase):
     def _get_controller(self):
         gateway_api = GatewayApi()
         controller = SchedulingController(self._db, Lock(), gateway_api)
-        controller.set_webinterface(WebInterface(None, gateway_api, None, None, None, controller))
+        controller.set_webinterface(WebInterface(None, gateway_api, None, None, None, controller, Mock()))
         return controller
 
     def test_base_validation(self):

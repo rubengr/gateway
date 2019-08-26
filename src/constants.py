@@ -112,3 +112,8 @@ def get_plugin_config_dir():
 def get_plugin_configfiles():
     """ Get the directory where plugin data is stored. """
     return "/opt/openmotics/etc/pi_*"
+
+
+def get_update_log_location():
+    """ Gets the update logfile location """
+    return "/var/log/openmotics_update.log"

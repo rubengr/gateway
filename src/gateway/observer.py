@@ -18,6 +18,7 @@ The observer module contains logic to observe various states of the system. It k
 
 import time
 import logging
+
 try:
     import json
 except ImportError:
@@ -25,11 +26,11 @@ except ImportError:
 from threading import Thread
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.outputs import OutputStatus
-from master.shutters import ShutterStatus
 from master.thermostats import ThermostatStatus
 from master.inputs import InputStatus
 from master import master_api
-from bus.dbus_events import DBusEvents
+from bus.om_bus_events import OMBusEvents
+
 
 LOGGER = logging.getLogger("openmotics")
 
@@ -73,33 +74,38 @@ class Observer(object):
         ON_OUTPUTS = 'ON_OUTPUTS'
         ON_SHUTTER_UPDATE = 'ON_SHUTTER_UPDATE'
         INPUT_TRIGGER = 'INPUT_TRIGGER'
+        ONLINE = 'ONLINE'
 
     class Types(object):
         OUTPUTS = 'OUTPUTS'
         THERMOSTATS = 'THERMOSTATS'
         SHUTTERS = 'SHUTTERS'
 
-    def __init__(self, master_communicator, dbus_service):
+    def __init__(self, master_communicator, message_client, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
-        :param dbus_service: DBusService instance
-        :type dbus_service: bus.dbus_service.DBusService
+        :param message_client: MessageClient instance
+        :type message_client: bus.om_bus_client.MessageClient
+        :param shutter_controller: Shutter Controller
+        :type shutter_controller: gateway.shutters.ShutterController
         """
         self._master_communicator = master_communicator
-        self._dbus_service = dbus_service
+        self._message_client = message_client
         self._gateway_api = None
 
         self._master_subscriptions = {Observer.MasterEvents.ON_OUTPUTS: [],
                                       Observer.MasterEvents.ON_SHUTTER_UPDATE: [],
-                                      Observer.MasterEvents.INPUT_TRIGGER: []}
+                                      Observer.MasterEvents.INPUT_TRIGGER: [],
+                                      Observer.MasterEvents.ONLINE: []}
         self._event_subscriptions = []
 
         self._input_status = InputStatus()
         self._output_status = OutputStatus(on_output_change=self._output_changed)
         self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed,
                                                    on_thermostat_group_change=self._thermostat_group_changed)
-        self._shutter_status = ShutterStatus(on_shutter_change=self._shutter_changed)
+        self._shutter_controller = shutter_controller
+        self._shutter_controller.set_shutter_changed_callback(self._shutter_changed)
 
         self._output_interval = 600
         self._output_last_updated = 0
@@ -111,6 +117,7 @@ class Observer(object):
         self._thermostats_config = {}
         self._shutters_interval = 600
         self._shutters_last_updated = 0
+        self._master_online = False
         self._master_shutter_status_registered = False
         self._master_version = None
 
@@ -174,10 +181,13 @@ class Observer(object):
                 # Refresh if required
                 if self._thermostats_last_updated + self._thermostats_interval < time.time():
                     self._refresh_thermostats()
+                    self._set_master_state(True)
                 if self._output_last_updated + self._output_interval < time.time():
                     self._refresh_outputs()
+                    self._set_master_state(True)
                 if self._shutters_last_updated + self._shutters_interval < time.time():
                     self._refresh_shutters()
+                    self._set_master_state(True)
                 # Restore interval if required
                 if self._thermostats_restore < time.time():
                     self._thermostats_interval = self._thermostats_original_interval
@@ -185,6 +195,7 @@ class Observer(object):
                 time.sleep(1)
             except CommunicationTimedOutException:
                 LOGGER.error('Got communication timeout during monitoring, waiting 10 seconds.')
+                self._set_master_state(False)
                 time.sleep(10)
             except Exception as ex:
                 LOGGER.exception('Unexpected error during monitoring: {0}'.format(ex))
@@ -196,7 +207,15 @@ class Observer(object):
 
     def _check_master_version(self):
         if self._master_version is None:
-            self._master_version = self._gateway_api.get_status()['version']
+            self._master_version = self._gateway_api.get_master_version()
+            self._set_master_state(True)
+
+    def _set_master_state(self, online):
+        if online != self._master_online:
+            self._master_online = online
+            # Notify subscribers
+            for callback in self._master_subscriptions[Observer.MasterEvents.ONLINE]:
+                callback(online)
 
     def _register_consumer_shutter_status(self):
         if self._master_version and not self._master_shutter_status_registered:
@@ -229,10 +248,10 @@ class Observer(object):
     def _on_shutter_update(self, data):
         """ Triggers when the master informs us of an Shutter state change """
         # Update status tracker
-        self._shutter_status.update_states(data)
+        self._shutter_controller.update_from_master_state(data)
         # Notify subscribers
         for callback in self._master_subscriptions[Observer.MasterEvents.ON_SHUTTER_UPDATE]:
-            callback(self._shutter_status.get_states())
+            callback(self._shutter_controller.get_states())
 
     # Outputs
 
@@ -243,7 +262,7 @@ class Observer(object):
 
     def _output_changed(self, output_id, status):
         """ Executed by the Output Status tracker when an output changed state """
-        self._dbus_service.send_event(DBusEvents.OUTPUT_CHANGE, {'id': output_id})
+        self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': output_id})
         for callback in self._event_subscriptions:
             resp_status = {'on': status['on']}
             # 1. only add value to status when handling dimmers
@@ -274,7 +293,7 @@ class Observer(object):
     # Shutters
 
     def get_shutter_status(self):
-        return self._shutter_status.get_states()
+        return self._shutter_controller.get_states()
 
     def _shutter_changed(self, shutter_id, shutter_data, shutter_state):
         """ Executed by the Shutter Status tracker when a shutter changed state """
@@ -287,9 +306,9 @@ class Observer(object):
     def _refresh_shutters(self):
         """ Refreshes the Shutter status tracker """
         number_of_shutter_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['shutter']
-        self._shutter_status.update_config(self._gateway_api.get_shutter_configurations())
+        self._shutter_controller.update_config(self._gateway_api.get_shutter_configurations())
         for module_id in xrange(number_of_shutter_modules):
-            self._shutter_status.update_states(
+            self._shutter_controller.update_from_master_state(
                 {'module_nr': module_id,
                  'status': self._master_communicator.do_command(master_api.shutter_status(self._master_version),
                                                                 {'module_nr': module_id})['status']}
@@ -306,7 +325,7 @@ class Observer(object):
 
     def _thermostat_changed(self, thermostat_id, status):
         """ Executed by the Thermostat Status tracker when an output changed state """
-        self._dbus_service.send_event(DBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
         location = {'room_id': self._thermostats_config[thermostat_id]['room']}
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
@@ -319,7 +338,7 @@ class Observer(object):
                                  'location': location}))
 
     def _thermostat_group_changed(self, status):
-        self._dbus_service.send_event(DBusEvents.THERMOSTAT_CHANGE, {'id': None})
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
                            data={'id': 0,

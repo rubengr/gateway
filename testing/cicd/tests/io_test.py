@@ -63,7 +63,7 @@ class IoTest(OMTestCase):
             self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
         response_dict = self.tools.api_testee(api='get_input_configurations', token=self.token)
         response_config = response_dict.get('config')
-        self.assertEqual(response_config, initial_config, 'If the link is established, both configs should be the same')
+        self.assertEqual(response_config, initial_config, 'Expected the configuration and actual configuration to match, but got: {0}, {1}'.format(initial_config, response_config))
 
     @exception_handler
     def test_discovery(self):
@@ -71,7 +71,7 @@ class IoTest(OMTestCase):
         self.tools.api_testee(api='module_discover_start', token=self.token)
         time.sleep(0.3)
         response_dict = self.tools.api_testee(api='module_discover_status', token=self.token)
-        self.assertEqual(response_dict.get('running'), True, 'Should be true to indicate discovery mode has started.')
+        self.assertEqual(response_dict.get('running'), True, 'Expected discovery mode to be running, but got: {0}'.format(response_dict.get('running')))
 
         self.tools.human_click(toolbox.DISCOVER_TESTEE_OUTPUT_ID, True, self.webinterface)
         self.tools.human_click(toolbox.DISCOVER_TESTEE_INPUT_ID, True, self.webinterface)
@@ -81,7 +81,7 @@ class IoTest(OMTestCase):
 
         self.tools.api_testee(api='module_discover_stop', token=self.token)
         response_dict = self.tools.api_testee(api='module_discover_status', token=self.token)
-        self.assertEqual(response_dict.get('running'), False, 'Should be true to indicate discovery mode has stopped.')
+        self.assertEqual(response_dict.get('running'), False, 'Expected discovery mode to be stopped, but got: {0}'.format(response_dict.get('running')))
 
         response_dict = self.tools.api_testee(api='get_modules', token=self.token)
         if response_dict is None:
@@ -92,8 +92,8 @@ class IoTest(OMTestCase):
             self.tools.initialisation_success = False
             self.fail('response was not none but not expected: {0}'.format(response_dict))
 
-        self.assertEquals(sorted(response_dict['outputs']), ['D', 'O'])
-        self.assertEquals(sorted(response_dict['inputs']), ['C', 'I', 'T'])
+        self.assertEquals(sorted(response_dict['outputs']), ['D', 'O'], 'Got different output modules than expected: {0}'.format(response_dict['outputs']))
+        self.assertEquals(sorted(response_dict['inputs']), ['C', 'I', 'T'], 'Got different input modules than expected: {0}'.format(response_dict['inputs']))
 
     @exception_handler
     def test_discovery_authorization(self):
@@ -118,7 +118,7 @@ class IoTest(OMTestCase):
             params = {'username': 'openmotics', 'password': '123456', 'accept_terms': True}
             self.token = self.tools.api_testee(api='login', params=params).get('token', False)
             self.assertIsNot(self.token, False)
-            self.assertTrue(self.tools.is_not_empty(self.token), ' Should not have an empty token or None.')
+            self.assertTrue(self.tools.is_not_empty(self.token), 'Should not have an empty token or None.')
         health = self.tools.api_testee(api='health_check').get('health', {})
         for one in health.values():
             self.assertEqual(one.get('state'), True)
@@ -163,8 +163,8 @@ class IoTest(OMTestCase):
         self.assertEqual(response_dict, 'invalid_token')
 
         response_dict = self.tools.api_testee(api='get_version', token=self.token)
-        self.assertTrue(response_dict.get('gateway') is not None, 'Should be true and have the gateway\'s version.')
-        self.assertTrue(response_dict.get('version') is not None, 'SShould be true and have the firmware version.')
+        self.assertTrue(response_dict.get('gateway') is not None, 'Should be true and have the gateway\'s version. Got: {0}'.format(response_dict.get('gateway')))
+        self.assertTrue(response_dict.get('version') is not None, 'SShould be true and have the firmware version. Got: {0}'.format(response_dict.get('version')))
 
     @exception_handler
     def test_get_modules(self):
@@ -173,10 +173,10 @@ class IoTest(OMTestCase):
         self.assertEqual(response_dict, 'invalid_token')
 
         response_dict = self.tools.api_testee(api='get_modules', token=self.token)
-        self.assertTrue(len(response_dict.get('outputs', [])) == 1,
-                        'Should be true to indicate that the testee has only 1 output module.')
-        self.assertTrue(len(response_dict.get('inputs', [])) == 1,
-                        'Should be true to indicate that the testee has only 1 input module.')
+        self.assertTrue(len(response_dict.get('outputs', [])) == 2,
+                        'Should be true to indicate that the testee has only 2 output module. Got: {0}'.format(response_dict.get('outputs')))
+        self.assertTrue(len(response_dict.get('inputs', [])) == 3,
+                        'Should be true to indicate that the testee has only 3 input module. Got: {0}'.format(response_dict.get('inputs')))
 
     @exception_handler
     def test_validate_master_status(self):
@@ -261,7 +261,10 @@ class IoTest(OMTestCase):
         response_dict = json.loads(self.webinterface.get_output_status())
         status_list = response_dict.get('status', [])
         self.assertTrue(self.tools.is_not_empty(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
-        if status_list[8].get('status') == 0:
+
+        # if it's already off, turn on. Else, turn off and back on.
+
+        if status_list[self.TESTEE_POWER].get('status') == 0:
             self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
         else:
             self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)

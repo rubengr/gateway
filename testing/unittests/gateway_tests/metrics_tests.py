@@ -17,10 +17,11 @@ Tests for metrics.
 """
 import os
 import unittest
+
 import xmlrunner
 import time
 from threading import Lock
-
+from mock import Mock
 from gateway.config import ConfigurationController
 from gateway.metrics import MetricsController
 
@@ -70,6 +71,80 @@ class MetricsTest(unittest.TestCase):
         metrics_controller.set_cloud_interval('energy', 900)
         self.assertEqual(MetricsTest.intervals.get('energy'), 900)
         self.assertEqual(config_controller.get_setting('cloud_metrics_interval|energy'), 900)
+
+    def test_needs_upload(self):
+        # 0. the boring stuff
+        def get_setting(setting, fallback=None):
+            return config.get(setting, fallback)
+
+        def load_buffer(before=None):
+            return []
+
+        config_controller = Mock()
+        config_controller.get_setting = get_setting
+        metrics_cache_mock = Mock()
+        metrics_cache_mock.load_buffer = load_buffer
+        metrics_collector_mock = Mock()
+        metrics_collector_mock.intervals = []
+        metrics_collector_mock.get_definitions = lambda: []
+
+        # 1. baseline config and definitions
+        config = {'cloud_enabled': True,
+                  'cloud_metrics_types': ['counter', 'energy'],
+                  'cloud_metrics_sources': ['openmotics'],
+                  'cloud_metrics_enabled|energy': True}
+
+        definitions = {'OpenMotics': {'counter': Mock(), 'energy': Mock()}}
+
+        metrics_controller = MetricsController(Mock(), metrics_collector_mock, metrics_cache_mock, config_controller, Mock())
+        metrics_controller.definitions = definitions
+
+        # 2. test simple metric
+        metric = {'source': 'OpenMotics',
+                  'type': 'energy',
+                  'timestamp': 1234,
+                  'tags': {'device': 'OpenMotics energy ID1', 'id': 'E7.3'},
+                  'values': {'counter': 5678, 'power': 9012}}
+
+        needs_upload = metrics_controller._needs_upload_to_cloud(metric)
+        self.assertTrue(needs_upload)
+
+        # 3. disable energy metric type, now test again
+        config['cloud_metrics_enabled|energy'] = False
+        needs_upload = metrics_controller._needs_upload_to_cloud(metric)
+        self.assertFalse(needs_upload)
+        config['cloud_metrics_enabled|energy'] = True
+
+        # 3. disable energy metric type, now test again
+        config['cloud_metrics_types'] = ['counter']
+        needs_upload = metrics_controller._needs_upload_to_cloud(metric)
+        self.assertFalse(needs_upload)
+        config['cloud_metrics_types'] = ['counter', 'energy']
+
+        # 4. test metric with unconfigured definition
+        metric = {'source': 'MBus',
+                  'type': 'energy',
+                  'timestamp': 1234,
+                  'tags': {'device': 'OpenMotics energy ID1', 'id': 'E7.3'},
+                  'values': {'counter': 5678, 'power': 9012}}
+
+        needs_upload = metrics_controller._needs_upload_to_cloud(metric)
+        self.assertFalse(needs_upload)
+
+        # 5. configure definition, now test again
+        definitions['MBus'] = {'counter': Mock(), 'energy': Mock()}
+        needs_upload = metrics_controller._needs_upload_to_cloud(metric)
+        self.assertFalse(needs_upload)
+
+        # 5. configure source, now test again
+        config['cloud_metrics_sources'].append('mbus')
+        needs_upload = metrics_controller._needs_upload_to_cloud(metric)
+        self.assertTrue(needs_upload)
+
+        # 7. disable cloud, now test again
+        config['cloud_enabled'] = False
+        needs_upload = metrics_controller._needs_upload_to_cloud(metric)
+        self.assertFalse(needs_upload)
 
 
 if __name__ == "__main__":
