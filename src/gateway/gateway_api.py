@@ -31,17 +31,17 @@ import shutil
 import subprocess
 import tempfile
 import ConfigParser
-
 try:
     import json
 except ImportError:
     import simplejson as json
-import master.master_api as master_api
-import power.power_api as power_api
+from wiring import inject, scope, SingletonScope, provides
 from subprocess import check_output
 from threading import Timer, Thread
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
+from master import master_api
+from power import power_api
 from master.master_communicator import BackgroundConsumer
 from master.eeprom_controller import EepromAddress
 from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
@@ -72,6 +72,12 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
+    @provides('gateway_api')
+    @scope(SingletonScope)
+    @inject(master_communicator='master_communicator', power_communicator='power_communicator',
+            power_controller='power_controller', eeprom_controller='eeprom_controller',
+            pulse_controller='pulse_controller', message_client='message_client', observer='observer',
+            config_controller='config_controller', shutter_controller='shutter_controller')
     def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
         """
         :param master_communicator: Master communicator

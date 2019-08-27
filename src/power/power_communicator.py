@@ -22,9 +22,10 @@ import logging
 import traceback
 import time
 import Queue
-import power.power_api as power_api
+from wiring import inject, scope, SingletonScope, provides
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
+from power import power_api
 from power.power_command import crc7
 from power.time_keeper import TimeKeeper
 
@@ -34,6 +35,9 @@ LOGGER = logging.getLogger("openmotics")
 class PowerCommunicator(object):
     """ Uses a serial port to communicate with the power modules. """
 
+    @provides('power_communicator')
+    @scope(SingletonScope)
+    @inject(serial='power_serial', power_controller='power_controller')
     def __init__(self, serial, power_controller, verbose=False, time_keeper_period=60,
                  address_mode_timeout=300):
         """ Default constructor.
