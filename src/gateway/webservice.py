@@ -34,7 +34,7 @@ from decorator import decorator
 from ws4py import WS_VERSION
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from ws4py.websocket import WebSocket
-from cloud.client import APIException
+from cloud.cloud_api_client import APIException
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Event
 from gateway.shutters import ShutterController
