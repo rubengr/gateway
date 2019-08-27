@@ -25,6 +25,8 @@ from threading import Thread
 from collections import deque
 from wiring import inject, provides, SingletonScope, scope
 from bus.om_bus_events import OMBusEvents
+from cloud.cloud_api_client import APIException
+
 try:
     import json
 except ImportError:
@@ -40,8 +42,8 @@ class MetricsController(object):
     @provides('metrics_controller')
     @scope(SingletonScope)
     @inject(plugin_controller='plugin_controller', metrics_collector='metrics_collector',
-            metrics_cache_controller='metrics_cache_controller', config_controller='config_controller', gateway_uuid='gateway_uuid')
-    def __init__(self, plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid):
+            metrics_cache_controller='metrics_cache_controller', config_controller='config_controller', gateway_uuid='gateway_uuid', cloud_api_client='cloud_api_client')
+    def __init__(self, plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid, cloud_api_client):
         """
         :param plugin_controller: Plugin Controller
         :type plugin_controller: plugins.base.PluginController
@@ -53,6 +55,8 @@ class MetricsController(object):
         :type config_controller: gateway.config.ConfigurationController
         :param gateway_uuid: Gateway UUID
         :type gateway_uuid: basestring
+        :param cloud_api_client: The cloud API object
+        :type cloud_api_client: cloud.cloud_api_client.CloudAPIClient
         """
         self._thread = None
         self._stopped = False
@@ -60,6 +64,7 @@ class MetricsController(object):
         self._metrics_collector = metrics_collector
         self._metrics_cache_controller = metrics_cache_controller
         self._config_controller = config_controller
+        self._cloud_api_client = cloud_api_client
         self._persist_counters = {}
         self._buffer_counters = {}
         self.definitions = {}
@@ -310,11 +315,6 @@ class MetricsController(object):
         cloud_min_interval = self._config_controller.get_setting('cloud_metrics_min_interval')
         if self._cloud_retry_interval is None:
             self._cloud_retry_interval = cloud_min_interval
-        metrics_endpoint = 'https://{0}/{1}?uuid={2}'.format(
-            self._config_controller.get_setting('cloud_endpoint'),
-            self._config_controller.get_setting('cloud_endpoint_metrics'),
-            self._gateway_uuid
-        )
 
         counters_to_buffer = self._buffer_counters.get(metric_source, {}).get(metric_type, {})
         definition = self.definitions.get(metric_source, {}).get(metric_type)
@@ -354,12 +354,9 @@ class MetricsController(object):
             self._cloud_last_try = now
             try:
                 # Try to send the metrics
-                request = requests.post(metrics_endpoint,
-                                        data={'metrics': json.dumps(self._cloud_buffer + self._cloud_queue)},
-                                        timeout=30.0)
-                return_data = json.loads(request.text)
-                if return_data.get('success', False) is False:
-                    raise RuntimeError('{0}'.format(return_data.get('error')))
+                payload = self._cloud_buffer + self._cloud_queue
+                self._cloud_api_client.send_metrics(payload)  # raises APIExceptions
+
                 # If successful; clear buffers
                 if self._metrics_cache_controller.clear_buffer(metric['timestamp']) > 0:
                     self._load_cloud_buffer()
@@ -368,21 +365,7 @@ class MetricsController(object):
                 self._cloud_retry_interval = cloud_min_interval
             except Exception as ex:
                 logger.error('Error sending metrics to Cloud: {0}'.format(ex))
-                if time_ago_send > 60 * 60:
-                    # Decrease metrics rate, but at least every 2 hours
-                    # Decrease cloud try interval, but at least every hour
-                    if time_ago_send < 6 * 60 * 60:
-                        self._cloud_retry_interval = 15 * 60
-                        new_interval = 30 * 60
-                    elif time_ago_send < 24 * 60 * 60:
-                        self._cloud_retry_interval = 30 * 60
-                        new_interval = 60 * 60
-                    else:
-                        self._cloud_retry_interval = 60 * 60
-                        new_interval = 2 * 60 * 60
-                    metric_types = self._config_controller.get_setting('cloud_metrics_types')
-                    for mtype in metric_types:
-                        self.set_cloud_interval(mtype, new_interval)
+                self._decrease_intervals(time_ago_send)
 
         # Buffer metrics if appropriate
         time_ago_send = int(now - self._cloud_last_send)
@@ -396,8 +379,11 @@ class MetricsController(object):
                 cache_data[counter] = metric['values'][counter]
             if self._metrics_cache_controller.buffer_counter(metric_source, metric_type, metric['tags'], cache_data, metric['timestamp']):
                 self._cloud_buffer_length += 1
+            # clear metrics older than 1 year in buffer, reload in case metrics were deleted from buffer
             if self._metrics_cache_controller.clear_buffer(time.time() - 365 * 24 * 60 * 60) > 0:
                 self._load_cloud_buffer()
+
+
 
     def _put(self, metric):
         rate_key = '{0}.{1}'.format(metric['source'].lower(), metric['type'].lower())

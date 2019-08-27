@@ -430,8 +430,8 @@ class WebInterface(object):
         :type config_controller: gateway.config.ConfigController
         :param scheduling_controller: Scheduling Controller
         :type scheduling_controller: gateway.scheduling.SchedulingController
-        :param cloud: The cloud API object
-        :type cloud: cloud.client.OmApiClient
+        :param cloud_api_client: The cloud API object
+        :type cloud_api_client: cloud.cloud_api_client.CloudAPIClient
         """
         self._user_controller = user_controller
         self._config_controller = config_controller

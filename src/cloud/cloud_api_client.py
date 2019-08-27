@@ -48,7 +48,7 @@ class CloudAPIClient(object):
     def _get_endpoint(self, path):
         return '{0}://{1}:{2}/{3}'.format('https' if self._ssl else 'http', self._hostname, self._port, path)
 
-    def send_event(self, event):
+    def send_event(self, event, timeout=2.0):
         # sending events over REST is only supported in the v0 API
         if self.api_version != 0:
             raise NotImplementedError('Sending events is not supported on this api version')
@@ -57,9 +57,10 @@ class CloudAPIClient(object):
         events_endpoint = self._get_endpoint('portal/events/')
         query_params = {'uuid': self._gateway_uuid}
         try:
-            response = self._session.post(events_endpoint, params=query_params, data={'event': json.dumps(event.serialize())}, timeout=2)
+            response = self._session.post(events_endpoint, params=query_params, data={'event': json.dumps(event.serialize())}, timeout=timeout)
             if not response:
                 raise APIException('Error while sending {} to {}. HTTP Status: {}'.format(event.type, self._hostname, response.status_code))
+            return json.loads(response.text)
         except APIException:
             raise
         except ConnectionError as ce:
@@ -68,3 +69,27 @@ class CloudAPIClient(object):
             logger.exception(e)
             raise APIException('Unknown error while executing API request on {}. Reason: {}'.format(self._hostname, e))
 
+    def send_metrics(self, metrics, timeout=30.0):
+        # sending events over REST is only supported in the v0 API
+        if self.api_version != 0:
+            raise NotImplementedError('Sending metrics is not supported on this api version')
+
+        # make request
+        metrics_endpoint = self._get_endpoint('portal/metrics/')
+        query_params = {'uuid': self._gateway_uuid}
+        try:
+            metrics = [[metric] for metric in metrics] # backwards compatibility format (list of lists)
+            response = self._session.post(metrics_endpoint, params=query_params, data={'metrics': json.dumps(metrics)}, timeout=timeout)
+            if not response:
+                raise APIException('Error while sending {} metrics to {}. HTTP Status: {}'.format(len(metrics), self._hostname, response.status_code))
+            return_data = json.loads(response.text)
+            if return_data.get('success', False) is False:
+                raise APIException('Error while sending {} metrics to {}. Error: {}'.format(len(metrics), self._hostname, return_data.get('error', 'unknown')))
+            return return_data
+        except APIException:
+            raise
+        except ConnectionError as ce:
+            raise APIException('Error while sending {} metrics to {}. Reason: {}'.format(len(metrics), self._hostname, ce))
+        except Exception as e:
+            logger.exception(e)
+            raise APIException('Unknown error while executing API request on {}. Reason: {}'.format(self._hostname, e))
