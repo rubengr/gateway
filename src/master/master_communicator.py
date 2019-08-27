@@ -22,10 +22,8 @@ import logging
 import time
 from threading import Thread, Lock, Event
 from Queue import Queue, Empty
-
 from wiring import inject, provides, scope, SingletonScope
-
-import master_api
+from master import master_api
 from master_command import Field, printable
 from serial_utils import CommunicationTimedOutException
 

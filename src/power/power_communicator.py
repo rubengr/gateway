@@ -22,12 +22,10 @@ import logging
 import traceback
 import time
 import Queue
-
 from wiring import inject, scope, SingletonScope, provides
-
-import power.power_api as power_api
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
+from power import power_api
 from power.power_command import crc7
 from power.time_keeper import TimeKeeper
 

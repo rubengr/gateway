@@ -20,11 +20,10 @@ import logging
 import threading
 import traceback
 import socket
-
 from wiring import provides, inject, SingletonScope, scope
-
 from platform_utils import System
 from master_communicator import InMaintenanceModeException
+
 LOGGER = logging.getLogger('openmotics')
 
 

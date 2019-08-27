@@ -20,9 +20,7 @@ import inspect
 import types
 import logging
 from threading import Lock
-
 from wiring import inject, provides, SingletonScope, scope
-
 from master_api import eeprom_list, write_eeprom, activate_eeprom
 
 LOGGER = logging.getLogger("openmotics")

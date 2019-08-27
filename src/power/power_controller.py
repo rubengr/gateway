@@ -20,9 +20,7 @@ power modules and their address.
 import sqlite3
 import os.path
 from threading import Lock
-
 from wiring import inject, SingletonScope, scope, provides
-
 from power_api import POWER_API_8_PORTS, POWER_API_12_PORTS, NUM_PORTS
 
 

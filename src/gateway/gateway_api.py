@@ -31,8 +31,6 @@ import shutil
 import subprocess
 import tempfile
 import ConfigParser
-import master.master_api as master_api
-import power.power_api as power_api
 try:
     import json
 except ImportError:
@@ -42,6 +40,8 @@ from subprocess import check_output
 from threading import Timer, Thread
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
+from master import master_api
+from power import power_api
 from master.master_communicator import BackgroundConsumer
 from master.eeprom_controller import EepromAddress
 from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \

@@ -21,14 +21,14 @@ import time
 import copy
 import logging
 import requests
-from threading import Thread
-from collections import deque
-from wiring import inject, provides, SingletonScope, scope
-from bus.om_bus_events import OMBusEvents
 try:
     import json
 except ImportError:
     import simplejson as json
+from threading import Thread
+from collections import deque
+from wiring import inject, provides, SingletonScope, scope
+from bus.om_bus_events import OMBusEvents
 
 logger = logging.getLogger("openmotics")
 
@@ -37,6 +37,7 @@ class MetricsController(object):
     """
     The Metrics Controller collects all metrics and pushses them to all subscribers
     """
+
     @provides('metrics_controller')
     @scope(SingletonScope)
     @inject(plugin_controller='plugin_controller', metrics_collector='metrics_collector',

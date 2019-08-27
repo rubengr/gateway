@@ -1,20 +1,38 @@
+# Copyright (C) 2019 OpenMotics BVBA
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+Cloud API Client
+"""
+
 from platform_utils import System
 System.import_eggs()
 import logging
 import requests
-from wiring import inject, provides, SingletonScope, scope
-from requests import ConnectionError
-from requests.adapters import HTTPAdapter
 try:
     import json
 except ImportError:
     import simplejson as json
+from wiring import inject, provides
+from requests import ConnectionError
+from requests.adapters import HTTPAdapter
 
 logger = logging.getLogger('openmotics')
 
 
 class APIException(Exception):
-    """Raised when there was en error communicating with the cloud"""
+    """ Raised when there was en error communicating with the cloud """
     def __init__(self, message):
         super(APIException, self).__init__(message)
 

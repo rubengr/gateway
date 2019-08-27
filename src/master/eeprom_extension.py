@@ -20,7 +20,6 @@ data is stored in a sqlite database on the gateways filesystem.
 import sqlite3
 import os.path
 from threading import Lock
-
 from wiring import inject, provides, SingletonScope, scope
 
 

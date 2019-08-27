@@ -18,15 +18,12 @@ import logging
 import os
 import pkgutil
 import traceback
-from datetime import datetime
-
-from wiring import inject, provides, SingletonScope, scope
-
 try:
     import json
 except ImportError:
     import simplejson as json
-
+from datetime import datetime
+from wiring import inject, provides, SingletonScope, scope
 from plugins.runner import PluginRunner
 
 LOGGER = logging.getLogger("openmotics")

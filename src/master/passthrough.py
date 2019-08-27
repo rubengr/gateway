@@ -21,11 +21,10 @@ to communicate with the master.
 
 import logging
 import threading
-
 from wiring import inject, provides, SingletonScope, scope
-
 from master_communicator import InMaintenanceModeException
 from master_command import printable
+
 LOGGER = logging.getLogger("openmotics")
 
 
