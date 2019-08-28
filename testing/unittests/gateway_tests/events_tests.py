@@ -13,25 +13,26 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-Tests for metrics.
+Tests for events.
 """
-import os
 import unittest
 import xmlrunner
-import time
 from mock import Mock
-from gateway.webservice import WebInterface
-from cloud import Client
+from cloud.client import Client
+from cloud.event_sender import EventSender
 
 
-class WebserviceTest(unittest.TestCase):
+class EventsTest(unittest.TestCase):
 
     def test_events_sent_to_cloud(self):
         cloud = Client('test.example.com')
         cloud.send_event = Mock()
-        webinterface = WebInterface(Mock(), Mock(), Mock(), Mock(), Mock(), Mock(), cloud)
-        event = Mock()
-        webinterface.process_observer_event(event)
+        event_sender = EventSender(cloud)  # Don't start, trigger manually
+        self.assertEqual(event_sender._queue, 0)
+        self.assertFalse(event_sender._send_events())
+        event_sender.enqueue_event(Mock())
+        self.assertEqual(event_sender._queue, 1)
+        self.assertTrue(event_sender._send_events())
         cloud.send_event.assert_called_once()
 
 

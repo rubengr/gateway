@@ -36,7 +36,7 @@ class EventSender(object):
         self._stopped = True
         self._cloud_client = cloud_client
 
-        self._thread = Thread(target=self._send_events, name='Event sender')
+        self._thread = Thread(target=self._send_events_loop, name='Event sender')
         self._thread.setDaemon(True)
 
     def start(self):
@@ -53,17 +53,10 @@ class EventSender(object):
                           Event.Types.THERMOSTAT_GROUP_CHANGE]:
             self._queue.appendleft(event)
 
-    def _send_events(self):
+    def _send_events_loop(self):
         while not self._stopped:
             try:
-                events = []
-                try:
-                    events.append(self._queue.pop())
-                except IndexError:
-                    pass
-                if len(events) > 0:
-                    self._cloud_client.send_events(events)
-                else:
+                if not self._send_events():
                     time.sleep(0.25)
             except APIException as ex:
                 logger.error(ex)
@@ -71,3 +64,14 @@ class EventSender(object):
             except Exception:
                 logger.exception('Unexpected error when sending events')
                 time.sleep(1)
+
+    def _send_events(self):
+        events = []
+        try:
+            events.append(self._queue.pop())
+        except IndexError:
+            pass
+        if len(events) > 0:
+            self._cloud_client.send_events(events)
+            return True
+        return False
