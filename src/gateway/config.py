@@ -19,17 +19,21 @@ Configuration controller
 import time
 import sqlite3
 import logging
-from random import randint
 try:
     import json
 except ImportError:
     import simplejson as json
+from random import randint
+from wiring import inject, provides, SingletonScope, scope
 
 LOGGER = logging.getLogger("openmotics")
 
 
 class ConfigurationController(object):
 
+    @provides('config_controller')
+    @scope(SingletonScope)
+    @inject(db_filename='config_db', lock='config_db_lock')
     def __init__(self, db_filename, lock):
         """
         Constructs a new ConfigController.

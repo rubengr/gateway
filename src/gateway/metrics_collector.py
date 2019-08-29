@@ -20,6 +20,7 @@ import time
 import logging
 from threading import Thread, Event
 from collections import deque
+from wiring import provides, inject, SingletonScope, scope
 from serial_utils import CommunicationTimedOutException
 from master.master_communicator import InMaintenanceModeException
 
@@ -31,6 +32,9 @@ class MetricsCollector(object):
     The Metrics Collector collects OpenMotics metrics and makes them available.
     """
 
+    @provides('metrics_collector')
+    @scope(SingletonScope)
+    @inject(gateway_api='gateway_api', pulse_controller='pulse_controller')
     def __init__(self, gateway_api, pulse_controller):
         """
         :param gateway_api: Gateway API

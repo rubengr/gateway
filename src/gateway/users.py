@@ -22,6 +22,7 @@ import hashlib
 import uuid
 import time
 from random import randint
+from wiring import inject, scope, SingletonScope, provides
 
 
 class UserController(object):
@@ -29,6 +30,9 @@ class UserController(object):
 
     TERMS_VERSION = 1
 
+    @provides('user_controller')
+    @scope(SingletonScope)
+    @inject(db_filename='user_db', lock='user_db_lock', config='config', token_timeout='token_timeout')
     def __init__(self, db_filename, lock, config, token_timeout=3600):
         """ Constructor a new UserController.
 

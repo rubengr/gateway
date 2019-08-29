@@ -28,10 +28,10 @@ import sys
 import threading
 import time
 import uuid
-
+from wiring import inject, provides, SingletonScope, scope
 from cherrypy.lib.static import serve_file
 from decorator import decorator
-from cloud.client import APIException
+from cloud.cloud_api_client import APIException
 from bus.om_bus_events import OMBusEvents
 from gateway.shutters import ShutterController
 from master.master_communicator import InMaintenanceModeException
@@ -239,8 +239,13 @@ def types(**kwargs):
 class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
+    @provides('web_interface')
+    @scope(SingletonScope)
+    @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_service='maintenance_service',
+            message_client='message_client', config_controller='config_controller',
+            scheduling_controller='scheduling_controller', cloud_api_client='cloud_api_client')
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 message_client, config_controller, scheduling_controller, cloud):
+                 message_client, config_controller, scheduling_controller, cloud_api_client):
         """
         Constructor for the WebInterface.
 
@@ -257,20 +262,21 @@ class WebInterface(object):
         :param scheduling_controller: Scheduling Controller
         :type scheduling_controller: gateway.scheduling.SchedulingController
         :param cloud: The cloud API object
-        :type cloud: cloud.client.Client
+        :type cloud: cloud.client.OmApiClient
         """
         self._user_controller = user_controller
         self._config_controller = config_controller
         self._scheduling_controller = scheduling_controller
         self._plugin_controller = None
-        self._metrics_controller = None
 
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
         self._message_client = message_client
-        self._cloud = cloud
+        self._cloud_api_client = cloud_api_client
+        self._plugin_controller = None
+        self._metrics_collector = None
+        self._metrics_controller = None
 
-        self.metrics_collector = None
         self._ws_metrics_registered = False
         self._power_dirty = False
 
@@ -327,12 +333,16 @@ class WebInterface(object):
             logger.error('Failed to distribute events to WebSockets: %s', ex)
 
     def process_observer_event(self, event):
-        """ Processes an observer event, pushing it forward to the upstream components (e.g. local websockets, cloud)"""
+        """ Processes an observer event, pushing it forward to the upstream components (e.g. local websockets, cloud) """
         self._send_event_websocket(event)
-        try:
-            self._cloud.send_event(event)
-        except APIException as api_exception:
-            logger.error(api_exception)
+        if event.type not in [Event.Types.INPUT_TRIGGER,
+                              Event.Types.ACTION,
+                              Event.Types.PING,
+                              Event.Types.PONG]:  # Some events are not relevant (yet) to send
+            try:
+                self._cloud.send_event(event)
+            except APIException as api_exception:
+                logger.error(api_exception)
 
     def set_plugin_controller(self, plugin_controller):
         """
@@ -344,7 +354,7 @@ class WebInterface(object):
 
     def set_metrics_collector(self, metrics_collector):
         """ Set the metrics collector """
-        self.metrics_collector = metrics_collector
+        self._metrics_collector = metrics_collector
 
     def set_metrics_controller(self, metrics_controller):
         """ Sets the metrics controller """
@@ -2387,6 +2397,9 @@ class WebService(object):
 
     name = 'web'
 
+    @provides('web_service')
+    @scope(SingletonScope)
+    @inject(webinterface='web_interface', config_controller='config_controller')
     def __init__(self, webinterface, config_controller, verbose=False):
         self._webinterface = webinterface
         self._config_controller = config_controller

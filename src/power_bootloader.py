@@ -26,7 +26,7 @@ import logging
 import time
 from ConfigParser import ConfigParser
 from serial import Serial
-from serial_utils import RS485
+from serial_utils import RS485, CommunicationTimedOutException
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
 from power.power_api import bootloader_goto, bootloader_read_id, bootloader_write_code, \
@@ -258,12 +258,11 @@ def main():
                 bootload_8(_module_address, filename, power_communicator)
             elif not is_power_module and _module['version'] == POWER_API_12_PORTS:
                 bootload_12(_module_address, filename, power_communicator)
-            return True
+        except CommunicationTimedOutException:
+            logger.warning('E{0} - Module unavailable. Skipping...'.format(address))
         except Exception:
-            logger.exception('E{0} - Unexpected exception during bootload'.format(address))
-            return False
+            logger.exception('E{0} - Unexpected exception during bootload. Skipping...'.format(address))
 
-    success = True
     if args.address or args.all:
         power_controller = PowerController(constants.get_power_database_file())
         power_modules = power_controller.get_power_modules()
@@ -271,7 +270,7 @@ def main():
             for module_id in power_modules:
                 module = power_modules[module_id]
                 address = module['address']
-                success &= _bootload(module, address, args.file, is_power_module=args.old)
+                _bootload(module, address, args.file, is_power_module=args.old)
         else:
             address = args.address
             modules = [module for module in power_modules if module['address'] == address]
@@ -279,9 +278,7 @@ def main():
                 logger.info('ERROR: Cannot find a module with address {0}'.format(address))
                 sys.exit(0)
             module = modules[0]
-            success &= _bootload(module, address, args.file, is_power_module=args.old)
-        if not success:
-            sys.exit(1)
+            _bootload(module, address, args.file, is_power_module=args.old)
     else:
         parser.print_help()
 
