@@ -27,6 +27,7 @@ from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
 from bus.om_bus_events import OMBusEvents
 from cloud.client import Client
+from cloud.event_sender import EventSender
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
@@ -160,7 +161,7 @@ class OpenmoticsService(object):
                                                  constants.get_ssl_certificate_file())
 
         web_interface = WebInterface(user_controller, gateway_api, maintenance_service, self._message_client,
-                                     config_controller, scheduling_controller, cloud)
+                                     config_controller, scheduling_controller)
 
         scheduling_controller.set_webinterface(web_interface)
 
@@ -168,6 +169,9 @@ class OpenmoticsService(object):
         plugin_controller = PluginController(web_interface, config_controller)
         web_interface.set_plugin_controller(plugin_controller)
         gateway_api.set_plugin_controller(plugin_controller)
+
+        # Cloud
+        event_sender = EventSender(cloud)
 
         # Metrics
         metrics_cache_controller = MetricsCacheController(constants.get_metrics_database_file(), Lock())
@@ -191,7 +195,8 @@ class OpenmoticsService(object):
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, metrics_collector.on_output)
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
         observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
-        observer.subscribe_events(web_interface.process_observer_event)
+        observer.subscribe_events(web_interface.send_event_websocket)
+        observer.subscribe_events(event_sender.enqueue_event)
 
         led_thread = Thread(target=led_driver, args=(self._message_client, master_communicator, power_communicator))
         led_thread.setName("Serial led driver thread")
@@ -206,6 +211,7 @@ class OpenmoticsService(object):
         metrics_collector.start()
         web_service.start()
         gateway_api.start()
+        event_sender.start()
         plugin_controller.start()
 
         signal_request = {'stop': False}
@@ -217,6 +223,7 @@ class OpenmoticsService(object):
             web_service.stop()
             metrics_collector.stop()
             metrics_controller.stop()
+            event_sender.stop()
             plugin_controller.stop()
             logger.info('Stopping OM core service... Done')
             signal_request['stop'] = True
