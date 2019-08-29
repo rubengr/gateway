@@ -67,10 +67,11 @@ class EventSender(object):
 
     def _send_events(self):
         events = []
-        try:
-            events.append(self._queue.pop())
-        except IndexError:
-            pass
+        while len(events) < 25:
+            try:
+                events.append(self._queue.pop())
+            except IndexError:
+                break
         if len(events) > 0:
             self._cloud_client.send_events(events)
             return True

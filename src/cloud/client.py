@@ -1,5 +1,3 @@
-from platform_utils import System
-System.import_eggs()
 import logging
 import requests
 from requests import ConnectionError

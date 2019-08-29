@@ -17,23 +17,31 @@ Tests for events.
 """
 import unittest
 import xmlrunner
-from mock import Mock
 from cloud.client import Client
 from cloud.event_sender import EventSender
+from gateway.observer import Event
 
 
 class EventsTest(unittest.TestCase):
 
     def test_events_sent_to_cloud(self):
+        container = {}
+
+        def _send_events(events):
+            container['events'] = events
+
         cloud = Client('test.example.com')
-        cloud.send_event = Mock()
+        cloud.send_events = _send_events
         event_sender = EventSender(cloud)  # Don't start, trigger manually
-        self.assertEqual(event_sender._queue, 0)
+        self.assertEqual(len(event_sender._queue), 0)
         self.assertFalse(event_sender._send_events())
-        event_sender.enqueue_event(Mock())
-        self.assertEqual(event_sender._queue, 1)
+        event_sender.enqueue_event(Event(Event.Types.OUTPUT_CHANGE, None))
+        event_sender.enqueue_event(Event(Event.Types.THERMOSTAT_CHANGE, None))
+        event_sender.enqueue_event(Event(Event.Types.INPUT_TRIGGER, None))
+        self.assertEqual(len(event_sender._queue), 2)
         self.assertTrue(event_sender._send_events())
-        cloud.send_event.assert_called_once()
+        self.assertEqual(len(event_sender._queue), 0)
+        self.assertEqual(len(container.get('events', [])), 2)
 
 
 if __name__ == "__main__":
