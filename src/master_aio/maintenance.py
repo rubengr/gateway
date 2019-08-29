@@ -19,12 +19,16 @@ The maintenance module contains the MaintenanceService class.
 import time
 import logging
 from threading import Thread, Lock
+from wiring import provides, inject, SingletonScope, scope
 
 logger = logging.getLogger('openmotics')
 
 
 class MaintenanceService(object):
 
+    @provides('maintenance_service')
+    @scope(SingletonScope)
+    @inject(serial='cli_serial')
     def __init__(self, serial):
         """
         :param serial: Serial port to communicate with

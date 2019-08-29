@@ -18,6 +18,7 @@ Module to communicate with the uCANs.
 
 import logging
 from Queue import Queue, Empty
+from wiring import provides, inject, SingletonScope, scope
 from master_aio.aio_api import AIOAPI
 from master_aio.ucan_command import UCANCommandSpec
 from master_aio.aio_communicator import BackgroundConsumer
@@ -34,6 +35,9 @@ class UCANCommunicator(object):
     # TODO: Validate response checksum. Tricky, since it's always in a different location so the command spec has this metadata
     # TODO: Handle variable-length payloads for bootloading purposes
 
+    @provides('ucan_communicator')
+    @scope(SingletonScope)
+    @inject(aio_communicator='master_communicator')
     def __init__(self, aio_communicator, verbose=False):
         """
         :param aio_communicator: AIOCommunicator

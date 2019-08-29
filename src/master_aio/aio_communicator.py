@@ -21,6 +21,7 @@ import logging
 import time
 from threading import Thread, Lock
 from Queue import Queue, Empty
+from wiring import provides, inject, SingletonScope, scope
 from master_aio.aio_api import AIOAPI
 from master_aio.fields import WordField
 from serial_utils import CommunicationTimedOutException, printable
@@ -42,6 +43,9 @@ class AIOCommunicator(object):
     START_OF_REPLY = 'RTR'
     END_OF_REPLY = '\r\n'
 
+    @provides('master_communicator')
+    @scope(SingletonScope)
+    @inject(serial='controller_serial')
     def __init__(self, serial, verbose=False):
         """
         :param serial: Serial port to communicate with

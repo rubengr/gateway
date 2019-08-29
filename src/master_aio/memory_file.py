@@ -16,6 +16,7 @@
 Contains a memory representation
 """
 import logging
+from wiring import provides, inject, SingletonScope, scope
 from master_aio.aio_api import AIOAPI
 
 LOGGER = logging.getLogger("openmotics")
@@ -28,6 +29,9 @@ class MemoryTypes(object):
 
 class MemoryFile(object):
 
+    @provides('memory_file')
+    @scope(SingletonScope)
+    @inject(aio_communicator='master_communicator')
     def __init__(self, memory_type, aio_communicator):
         """
         Initializes the MemoryFile instance, reprensenting one of the supported memory types
