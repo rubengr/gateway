@@ -18,7 +18,7 @@ Module to handle Events from the AIO
 """
 
 import logging
-from master_aio.aio_command import WordField
+from master_aio.fields import WordField
 
 LOGGER = logging.getLogger('openmotics')
 

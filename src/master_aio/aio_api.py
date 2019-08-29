@@ -16,10 +16,13 @@
 Contains the definition of the AIO API
 """
 
-from aio_command import AIOCommandSpec, ByteField, WordField, ByteArrayField, LiteralBytesField, AddressField, CharField
+from master_aio.aio_command import AIOCommandSpec
+from master_aio.fields import ByteField, WordField, ByteArrayField, WordArrayField, LiteralBytesField, AddressField, CharField, PaddingField, VersionField
 
 
 class AIOAPI(object):
+
+    # Direct control
 
     @staticmethod
     def basic_action():
@@ -27,6 +30,8 @@ class AIOAPI(object):
         return AIOCommandSpec('BA',
                               [ByteField('type'), ByteField('action'), WordField('device_nr'), WordField('extra_parameter')],
                               [ByteField('type'), ByteField('action'), WordField('device_nr'), WordField('extra_parameter')])
+
+    # Events and other messages from AIO to Gateway
 
     @staticmethod
     def event_information():
@@ -41,6 +46,8 @@ class AIOAPI(object):
         return AIOCommandSpec('ER',
                               [],  # No request, only a response
                               [ByteField('type'), ByteField('parameter_a'), WordField('parameter_b'), WordField('parameter_c')])
+
+    # Generic information and configuration
 
     @staticmethod
     def device_information_list_outputs():
@@ -61,21 +68,23 @@ class AIOAPI(object):
         """ Receives general configuration regarding number of modules """
         return AIOCommandSpec('GC',
                               [LiteralBytesField(0)],
-                              [ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('u_can'), ByteField('can_input'), ByteField('can_sensor')])
+                              [ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('ucan'), ByteField('ucan_input'), ByteField('ucan_sensor')])
 
     @staticmethod
     def general_configuration_max_specs():
         """ Receives general configuration regarding maximum specifications (e.g. max number of input modules, max number of basic actions, ...) """
         return AIOCommandSpec('GC',
                               [LiteralBytesField(1)],
-                              [ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('u_can'), WordField('groups'), WordField('basic_actions')])
+                              [ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('ucan'), WordField('groups'), WordField('basic_actions')])
 
     @staticmethod
     def module_information():
         """ Receives module information """
         return AIOCommandSpec('MC',
-                              [ByteField('module_nr'), ByteField('module_type')],
-                              [ByteField('module_nr'), ByteField('module_type'), AddressField('address'), WordField('bus_errors'), ByteField('module_status')])
+                              [ByteField('module_nr'), ByteField('module_family')],
+                              [ByteField('module_nr'), ByteField('module_family'), ByteField('module_type'), AddressField('address'), WordField('bus_errors'), ByteField('module_status')])
+
+    # Memory (EEPROM/FRAM) actions
 
     @staticmethod
     def memory_read():
@@ -90,3 +99,34 @@ class AIOAPI(object):
         return AIOCommandSpec('MW',
                               [CharField('type'), WordField('page'), ByteField('start'), ByteArrayField('data', length)],
                               [CharField('type'), WordField('page'), ByteField('start'), ByteField('length'), CharField('result')])
+
+    # CAN
+
+    @staticmethod
+    def get_amount_of_ucans():
+        """ Receives amount of uCAN modules """
+        return AIOCommandSpec('FS',
+                              [AddressField('cc_address'), LiteralBytesField(0), LiteralBytesField(0)],
+                              [AddressField('cc_address'), PaddingField(2), ByteField('amount'), PaddingField(2)])
+
+    @staticmethod
+    def get_ucan_address():
+        """ Receives the uCAN address of a specific uCAN """
+        return AIOCommandSpec('FS',
+                              [AddressField('cc_address'), LiteralBytesField(1), ByteField('ucan_nr')],
+                              [AddressField('cc_address'), PaddingField(2), AddressField('ucan_address', 3)])
+
+    @staticmethod
+    def ucan_transport_message():
+        """ uCAN transport layer packages """
+        return AIOCommandSpec('FM',
+                              [AddressField('cc_address'), ByteField('nr_can_bytes'), ByteField('sid'), ByteArrayField('payload', 8)],
+                              [AddressField('cc_address'), ByteField('nr_can_bytes'), ByteField('sid'), ByteArrayField('payload', 8)])
+
+    @staticmethod
+    def ucan_module_information():
+        """ Receives information from a uCAN module """
+        return AIOCommandSpec('CD',
+                              [],  # No request, only a response. Triggered by BA 20 35
+                              [AddressField('ucan_address', 3), WordArrayField('input_links', 6), ByteArrayField('sensor_links', 2), ByteField('sensor_type'), VersionField('version'),
+                               ByteField('bootloader'), CharField('new_indicator'), ByteField('min_led_brightness'), ByteField('max_led_brightness')])

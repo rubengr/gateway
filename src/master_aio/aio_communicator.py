@@ -21,9 +21,8 @@ import logging
 import time
 from threading import Thread, Lock
 from Queue import Queue, Empty
-
 from master_aio.aio_api import AIOAPI
-from master_aio.aio_command import WordField
+from master_aio.fields import WordField
 from serial_utils import CommunicationTimedOutException, printable
 
 LOGGER = logging.getLogger('openmotics')
@@ -46,19 +45,20 @@ class AIOCommunicator(object):
     def __init__(self, serial, verbose=False):
         """
         :param serial: Serial port to communicate with
-        :type serial: Instance of :class`serial.Serial`
-        :param verbose: Print all serial communication to stdout.
+        :type serial: serial.Serial
+        :param verbose: Log all serial communication
         :type verbose: boolean.
         """
         self._verbose = verbose
 
         self._serial = serial
         self._serial_write_lock = Lock()
-        self._command_lock = Lock()
+        self._cid_lock = Lock()
         self._serial_bytes_written = 0
         self._serial_bytes_read = 0
 
-        self._cid = 1
+        self._cid = None  # Reserved CIDs: 0, 1
+        self._cids_in_use = set()
         self._consumers = {}
         self._last_success = 0
         self._stop = False
@@ -101,9 +101,19 @@ class AIOCommunicator(object):
             return time.time() - self._last_success
 
     def _get_cid(self):
-        """ Get a communication id """
-        (ret, self._cid) = (self._cid, (self._cid % 255) + 1)
-        return ret
+        """ Get a communication id. 0 and 1 are reserved. """
+        with self._cid_lock:
+            if self._cid is None:
+                cid = 2
+            else:
+                cid = self._cid + 1
+            while cid != self._cid and cid in self._cids_in_use:
+                cid += 1
+                if cid == 256:
+                    cid = 2
+            self._cid = cid
+            self._cids_in_use.add(cid)
+            return cid
 
     def _write_to_serial(self, data):
         """
@@ -128,14 +138,23 @@ class AIOCommunicator(object):
 
     def register_consumer(self, consumer):
         """
-        Register a customer consumer with the communicator. An instance of :class`Consumer`
-        will be removed when consumption is done. An instance of :class`BackgroundConsumer` stays
-        active and is thus able to consume multiple messages.
-
+        Register a consumer
         :param consumer: The consumer to register.
         :type consumer: Consumer or BackgroundConsumer.
         """
         self._consumers.setdefault(consumer.get_header(), []).append(consumer)
+
+    def unregister_consumer(self, consumer):
+        """
+        Unregister a consumer
+        :param consumer: The consumer to register.
+        :type consumer: Consumer or BackgroundConsumer.
+        """
+        consumers = self._consumers.get(consumer.get_header(), [])
+        if consumer in consumers:
+            consumers.remove(consumer)
+        with self._cid_lock:
+            self._cids_in_use.discard(consumer.cid)
 
     def do_basic_action(self, action_type, action, device_nr, extra_parameter=0):
         """
@@ -160,7 +179,7 @@ class AIOCommunicator(object):
              'extra_parameter': extra_parameter}
         )
 
-    def do_command(self, command, fields=None, timeout=2):
+    def do_command(self, command, fields, timeout=2):
         """
         Send a command over the serial port and block until an answer is received.
         If the AIO does not respond within the timeout period, a CommunicationTimedOutException is raised
@@ -171,36 +190,20 @@ class AIOCommunicator(object):
         :type fields dict
         :param timeout: maximum allowed time before a CommunicationTimedOutException is raised
         :type timeout: int
-        :raises: :class`CommunicationTimedOutException` if AIO did not respond in time
+        :raises: serial_utils.CommunicationTimedOutException
         :returns: dict containing the output fields of the command
         """
-        if fields is None:
-            fields = dict()
+        cid = self._get_cid()
+        consumer = Consumer(command, cid)
+        command = consumer.command
 
-        with self._command_lock:
-            cid = self._get_cid()
-            consumer = Consumer(command, cid)
-            payload = command.create_request_payload(fields)
-
-            checked_payload = (str(chr(cid)) +
-                               command.instruction +
-                               WordField.encode(len(payload)) +
-                               payload)
-
-            data = (AIOCommunicator.START_OF_REQUEST +
-                    str(chr(cid)) +
-                    command.instruction +
-                    WordField.encode(len(payload)) +
-                    payload +
-                    'C' +
-                    str(chr(AIOCommunicator._calculate_crc(checked_payload))) +
-                    AIOCommunicator.END_OF_REQUEST)
-
-            self._consumers.setdefault(consumer.get_header(), []).append(consumer)
-            self._write_to_serial(data)
+        self._consumers.setdefault(consumer.get_header(), []).append(consumer)
+        self.send_command(cid, command, fields)
 
         try:
-            result = consumer.get(timeout)
+            result = None
+            if isinstance(consumer, Consumer):
+                result = consumer.get(timeout)
             self._last_success = time.time()
             self._communication_stats['calls_succeeded'].append(time.time())
             self._communication_stats['calls_succeeded'] = self._communication_stats['calls_succeeded'][-50:]
@@ -209,6 +212,38 @@ class AIOCommunicator(object):
             self._communication_stats['calls_timedout'].append(time.time())
             self._communication_stats['calls_timedout'] = self._communication_stats['calls_timedout'][-50:]
             raise
+
+    def send_command(self, cid, command, fields):
+        """
+        Send a command over the serial port and block until an answer is received.
+        If the AIO does not respond within the timeout period, a CommunicationTimedOutException is raised
+
+        :param cid: The command ID
+        :type cid: int
+        :param command: The AIO CommandSpec
+        :type command: master_aio.aio_command.AIOCommandSpec
+        :param fields: A dictionary with the command input field values
+        :type fields dict
+        :raises: serial_utils.CommunicationTimedOutException
+        """
+
+        payload = command.create_request_payload(fields)
+
+        checked_payload = (str(chr(cid)) +
+                           command.instruction +
+                           WordField.encode(len(payload)) +
+                           payload)
+
+        data = (AIOCommunicator.START_OF_REQUEST +
+                str(chr(cid)) +
+                command.instruction +
+                WordField.encode(len(payload)) +
+                payload +
+                'C' +
+                str(chr(AIOCommunicator._calculate_crc(checked_payload))) +
+                AIOCommunicator.END_OF_REQUEST)
+
+        self._write_to_serial(data)
 
     @staticmethod
     def _calculate_crc(data):
@@ -286,7 +321,7 @@ class AIOCommunicator(object):
             # Validate message boundaries
             correct_boundaries = message.startswith(AIOCommunicator.START_OF_REPLY) and message.endswith(AIOCommunicator.END_OF_REPLY)
             if not correct_boundaries:
-                LOGGER.info('Unexpected boundaries: {0}'.format(printable(data)))
+                LOGGER.info('Unexpected boundaries: {0}'.format(printable(message)))
                 # Reset, so we'll wait for the next RTR
                 wait_for_length = None
                 data = message[3:] + data  # Strip the START_OF_REPLY, and restore full data
@@ -311,7 +346,7 @@ class AIOCommunicator(object):
                     LOGGER.info('Delivering payload to consumer {0}.{1}: {2}'.format(command, cid, printable(payload)))
                 consumer.consume(payload)
                 if isinstance(consumer, Consumer):
-                    consumers.remove(consumer)
+                    self.unregister_consumer(consumer)
 
             # Message processed, cleaning up
             wait_for_length = None
@@ -324,17 +359,17 @@ class Consumer(object):
     """
 
     def __init__(self, command, cid):
-        self._command = command
-        self._cid = cid
+        self.cid = cid
+        self.command = command
         self._queue = Queue()
 
     def get_header(self):
         """ Get the prefix of the answer from the AIO. """
-        return 'RTR' + str(chr(self._cid)) + self._command.response_instruction
+        return 'RTR' + str(chr(self.cid)) + self.command.response_instruction
 
     def consume(self, payload):
         """ Consume payload. """
-        data = self._command.consume_response_payload(payload)
+        data = self.command.consume_response_payload(payload)
         self._queue.put(data)
 
     def get(self, timeout):
@@ -365,8 +400,8 @@ class BackgroundConsumer(object):
         :param cid: the communication id.
         :param callback: function to call when an instance was found.
         """
-        self._command = command
-        self._cid = cid
+        self.cid = cid
+        self.command = command
         self._callback = callback
         self._queue = Queue()
 
@@ -376,11 +411,11 @@ class BackgroundConsumer(object):
 
     def get_header(self):
         """ Get the prefix of the answer from the AIO. """
-        return 'RTR' + str(chr(self._cid)) + self._command.response_instruction
+        return 'RTR' + str(chr(self.cid)) + self.command.response_instruction
 
     def consume(self, payload):
         """ Consume payload. """
-        data = self._command.consume_response_payload(payload)
+        data = self.command.consume_response_payload(payload)
         self._queue.put(data)
 
     def deliver(self):
