@@ -25,6 +25,7 @@ from wiring import Graph, SingletonScope
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
 from cloud.cloud_api_client import CloudAPIClient
+from cloud.event_sender import EventSender
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
@@ -95,6 +96,7 @@ class OpenmoticsService(object):
         self.graph.register_factory('metrics_cache_controller', MetricsCacheController, scope=SingletonScope)
         self.graph.register_factory('cloud_api_client', CloudAPIClient)
         self.graph.register_factory('communication_led_controller', CommunicationLedController, scope=SingletonScope)
+        self.graph.register_factory('event_sender', EventSender, scope=SingletonScope)
         self.graph.validate()
 
     def start(self):
@@ -162,6 +164,7 @@ class OpenmoticsService(object):
         metrics_collector = self.graph.get('metrics_collector')
         plugin_controller = self.graph.get('plugin_controller')
         web_service = self.graph.get('web_service')
+        event_sender = self.graph.get('event_sender')
         message_client.add_event_handler(metrics_controller.event_receiver)
         web_interface.set_plugin_controller(plugin_controller)
         web_interface.set_metrics_collector(metrics_collector)
@@ -179,7 +182,8 @@ class OpenmoticsService(object):
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, metrics_collector.on_output)
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
         observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
-        observer.subscribe_events(web_interface.process_observer_event)
+        observer.subscribe_events(web_interface.send_event_websocket)
+        observer.subscribe_events(event_sender.enqueue_event)
 
         if passthrough_serial_port:
             self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
@@ -188,7 +192,7 @@ class OpenmoticsService(object):
 
         services = ['master_communicator', 'observer', 'power_communicator', 'metrics_controller',
                     'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
-                    'communication_led_controller']
+                    'communication_led_controller', 'event_sender']
         for service in services:
             self.graph.get(service).start()
 
@@ -198,7 +202,7 @@ class OpenmoticsService(object):
             """ This function is called on SIGTERM. """
             _ = signum, frame
             logger.info('Stopping OM core service...')
-            services_to_stop = ['web_service', 'metrics_collector', 'metrics_controller', 'plugin_controller']
+            services_to_stop = ['web_service', 'metrics_collector', 'metrics_controller', 'plugin_controller', 'event_sender']
             for service_to_stop in services_to_stop:
                 self.graph.get(service_to_stop).stop()
             logger.info('Stopping OM core service... Done')
