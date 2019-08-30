@@ -439,7 +439,6 @@ class WebInterface(object):
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
         self._message_client = message_client
-        self._cloud_api_client = cloud_api_client
         self._plugin_controller = None
         self._metrics_collector = None
         self._metrics_controller = None
