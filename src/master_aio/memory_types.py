@@ -29,7 +29,6 @@ class MemoryModelDefinition(object):
     Represents a model definition
     """
 
-    # TODO: Remove need for directly pass in eeprom/fram. Use IoC container?
     # TODO: Make id optional
     # TODO: Data composition
     # TODO: Accept `None` and convert it to e.g. 255 and vice versa
@@ -280,7 +279,8 @@ class MemoryAddressField(MemoryField):
         super(MemoryAddressField, self).__init__(memory_type, address_spec, 4)
 
     def encode(self, value):
-        error_message = 'Value should be an address in the format of ID1.ID2.ID3.ID4, where 0 <= ID2-3 <= 255'
+        example = '.'.join(['ID{0}'.format(i) for i in xrange(self._length - 1, -1, -1)])
+        error_message = 'Value should be a string in the format of {0}, where 0 <= IDx <= 255'.format(example)
         parts = str(value).split('.')
         if len(parts) != 4:
             raise ValueError(error_message)
@@ -299,6 +299,17 @@ class MemoryAddressField(MemoryField):
         result = []
         for item in data:
             result.append('{0:03}'.format(item))
+        return '.'.join(result)
+
+
+class MemoryVersionField(MemoryAddressField):
+    def __init__(self, memory_type, address_spec):
+        super(MemoryAddressField, self).__init__(memory_type, address_spec, 3)
+
+    def decode(self, data):
+        result = []
+        for item in data:
+            result.append('{0}'.format(item))
         return '.'.join(result)
 
 

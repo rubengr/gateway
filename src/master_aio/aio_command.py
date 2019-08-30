@@ -31,7 +31,7 @@ class AIOCommandSpec(object):
     # TODO: Add validation callback which is - if not None - is called when the response payload is processed. Arguments are request and response, and it should return a bool indicating whether the validation passed or not.
     # TODO: Add some kind of byte bit field where that byte is represented as a dict or class where every bit can be named and get/set
 
-    def __init__(self, instruction, request_fields, response_fields, response_instruction=None):
+    def __init__(self, instruction, request_fields=None, response_fields=None, response_instruction=None):
         """
         Create a APICommandSpec.
 
@@ -45,8 +45,8 @@ class AIOCommandSpec(object):
         :type response_instruction: str
         """
         self.instruction = instruction
-        self.request_fields = request_fields
-        self.response_fields = response_fields
+        self.request_fields = [] if request_fields is None else request_fields
+        self.response_fields = [] if response_fields is None else response_fields
         self.response_instruction = response_instruction if response_instruction is not None else instruction
 
     def create_request_payload(self, fields):
@@ -87,3 +87,4 @@ class AIOCommandSpec(object):
         if payload != '':
             LOGGER.warning('Payload for instruction {0} could not be consumed completely: {1}'.format(self.instruction, printable(payload)))
         return result
+

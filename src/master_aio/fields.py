@@ -210,6 +210,12 @@ class VersionField(AddressField):
     def __init__(self, name):
         super(VersionField, self).__init__(name, 3)
 
+    def decode_bytes(self, data):
+        result = []
+        for item in data:
+            result.append('{0}'.format(item))
+        return '.'.join(result)
+
 
 class PaddingField(Field):
     def __init__(self, length):

@@ -15,7 +15,7 @@
 """
 Memory models
 """
-from master_aio.memory_types import MemoryModelDefinition, MemoryRelation, MemoryByteField, MemoryWordField, MemoryByteArrayField, MemoryAddressField, MemoryStringField
+from master_aio.memory_types import MemoryModelDefinition, MemoryRelation, MemoryByteField, MemoryWordField, MemoryAddressField, MemoryStringField, MemoryVersionField
 from master_aio.memory_file import MemoryTypes
 
 
@@ -36,7 +36,7 @@ class GlobalConfiguration(MemoryModelDefinition):
 class OutputModuleConfiguration(MemoryModelDefinition):
     device_type = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id, 0), length=1)
     address = MemoryAddressField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id, 0))
-    firmware_version = MemoryByteArrayField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id, 4), length=3)
+    firmware_version = MemoryVersionField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id, 4))
 
 
 class OutputConfiguration(MemoryModelDefinition):
@@ -56,7 +56,7 @@ class OutputConfiguration(MemoryModelDefinition):
 class InputModuleConfiguration(MemoryModelDefinition):
     device_type = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 0), length=1)
     address = MemoryAddressField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 0))
-    firmware_version = MemoryByteArrayField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 4), length=3)
+    firmware_version = MemoryVersionField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 4))
 
 
 class InputConfiguration(MemoryModelDefinition):

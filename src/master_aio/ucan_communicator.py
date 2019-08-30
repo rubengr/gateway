@@ -32,13 +32,12 @@ class UCANCommunicator(object):
     Uses a AIOCommunicator to communicate with uCANs
     """
 
-    # TODO: Validate response checksum. Tricky, since it's always in a different location so the command spec has this metadata
     # TODO: Handle variable-length payloads for bootloading purposes
 
     @provides('ucan_communicator')
     @scope(SingletonScope)
     @inject(aio_communicator='master_communicator')
-    def __init__(self, aio_communicator, verbose=False):
+    def __init__(self, aio_communicator, verbose=True):
         """
         :param aio_communicator: AIOCommunicator
         :type aio_communicator: master_aio.aio_communicator.AIOCommunicator
@@ -48,7 +47,7 @@ class UCANCommunicator(object):
         self._verbose = verbose
         self._communicator = aio_communicator
         self._read_buffer = []
-        self._consumers = []
+        self._consumers = {}
 
         self._background_consumer = BackgroundConsumer(AIOAPI.ucan_transport_message(), 1, self._process_transport_message)
         self._communicator.register_consumer(self._background_consumer)
@@ -59,7 +58,7 @@ class UCANCommunicator(object):
         :param consumer: The consumer to register.
         :type consumer: Consumer or BackgroundConsumer.
         """
-        self._consumers.append(consumer)
+        self._consumers.setdefault(consumer.cc_address, []).append(consumer)
 
     def unregister_consumer(self, consumer):
         """
@@ -67,10 +66,11 @@ class UCANCommunicator(object):
         :param consumer: The consumer to register.
         :type consumer: Consumer or BackgroundConsumer.
         """
-        if consumer in self._consumers:
-            self._consumers.remove(consumer)
+        consumers = self._consumers.get(consumer.cc_address, [])
+        if consumer in consumers:
+            consumers.remove(consumer)
 
-    def do_command(self, cc_address, command, fields, timeout=2):
+    def do_command(self, cc_address, command, identifier, fields, timeout=2):
         """
         Send a uCAN command over the Communicator and block until an answer is received.
         If the AIO does not respond within the timeout period, a CommunicationTimedOutException is raised
@@ -79,6 +79,8 @@ class UCANCommunicator(object):
         :type cc_address: str
         :param command: specification of the command to execute
         :type command: master_aio.ucan_command.UCANCommandSpec
+        :param identifier: The identifier
+        :type identifier: str
         :param fields: A dictionary with the command input field values
         :type fields dict
         :param timeout: maximum allowed time before a CommunicationTimedOutException is raised
@@ -86,19 +88,19 @@ class UCANCommunicator(object):
         :raises: serial_utils.CommunicationTimedOutException
         :returns: dict containing the output fields of the command
         """
-        command.fill_headers(fields)
+        command.fill_headers(identifier)
 
-        payload = command.create_request_payload(fields)
-        payload.append(UCANCommunicator._calculate_crc(payload))
+        payload = command.create_request_payload(identifier, fields)
+        payload.append(UCANCommandSpec.calculate_crc(payload))
         payload_bytes = len(payload)
         payload += [0] * (8 - payload_bytes)
 
-        consumer = Consumer(command)
+        consumer = Consumer(cc_address, command)
 
         if self._verbose:
-            LOGGER.info('Writing to uCAN transport:   {0}'.format(payload))
+            LOGGER.info('Writing to uCAN transport ({0}):   {1}'.format(cc_address, payload))
 
-        self._consumers.append(consumer)
+        self.register_consumer(consumer)
         self._communicator.send_command(1, AIOAPI.ucan_transport_message(), {'cc_address': cc_address,
                                                                              'nr_can_bytes': payload_bytes,
                                                                              'sid': 5,
@@ -107,27 +109,16 @@ class UCANCommunicator(object):
         consumer.check_send_only()
         return consumer.get(timeout)
 
-    @staticmethod
-    def _calculate_crc(data):
-        """
-        Calculate the CRC of the data.
-
-        :param data: Data for which to calculate the CRC
-        :returns: CRC
-        """
-        crc = 0
-        for byte in data:
-            crc += byte
-        return crc % 256
-
     def _process_transport_message(self, package):
         payload = package['payload']
+        cc_address = package['cc_address']
         if self._verbose:
-            LOGGER.info('Reading from uCAN transport: {0}'.format(payload))
+            LOGGER.info('Reading from uCAN transport ({0}): {1}'.format(cc_address, payload))
 
-        for consumer in self._consumers[:]:
+        consumers = self._consumers.get(cc_address, [])
+        for consumer in consumers[:]:
             if consumer.suggest_payload(payload):
-                self._consumers.remove(consumer)
+                self.unregister_consumer(consumer)
 
 
 class Consumer(object):
@@ -136,23 +127,24 @@ class Consumer(object):
     matches the consumer, the output will unblock the get() caller.
     """
 
-    def __init__(self, command):
+    def __init__(self, cc_address, command):
+        self.cc_address = cc_address
         self.command = command
         self._queue = Queue()
         self._payload_set = {}
 
     def suggest_payload(self, payload):
         """ Consume payload if needed """
-        payload_hash = UCANCommandSpec.hash(payload[0:self.command.header_length])
+        payload_hash = self.command.extract_hash(payload)
         if payload_hash in self.command.headers:
-            self._payload_set[payload_hash] = payload[2:]
+            self._payload_set[payload_hash] = payload
         if len(self._payload_set) == len(self.command.headers):
             self._queue.put(self.command.consume_response_payload(self._payload_set))
             return True
         return False
 
     def check_send_only(self):
-        if len(self.command.response_set) == 0:
+        if len(self.command.response_instructions) == 0:
             self._queue.put(None)
 
     def get(self, timeout):
@@ -167,3 +159,9 @@ class Consumer(object):
             return self._queue.get(timeout=timeout)
         except Empty:
             raise CommunicationTimedOutException()
+
+    def __str__(self):
+        return 'Communicator(\'{0}\', {1})'.format(self.cc_address, self.command.instruction.instruction)
+
+    def __repr__(self):
+        return str(self)
