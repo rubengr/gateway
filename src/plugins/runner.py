@@ -73,7 +73,7 @@ class PluginRunner:
         self._out_thread.daemon = True
         self._out_thread.start()
 
-        start_out = self._do_command('start', timeout=30)
+        start_out = self._do_command('start', timeout=120)
         self.name = start_out['name']
         self.version = start_out['version']
         self.interfaces = start_out['interfaces']
