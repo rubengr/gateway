@@ -51,3 +51,6 @@ python2 -m gateway_tests.observer_tests
 
 echo "Running pulse counter controller tests"
 python2 -m gateway_tests.pulses_tests
+
+echo "Running AIO uCAN tests"
+python2 -m master_api_tests.ucan_communicator_tests

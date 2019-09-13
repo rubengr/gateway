@@ -20,7 +20,7 @@ import logging
 from Queue import Queue, Empty
 from wiring import provides, inject, SingletonScope, scope
 from master_aio.aio_api import AIOAPI
-from master_aio.ucan_command import UCANCommandSpec
+from master_aio.ucan_command import SID
 from master_aio.aio_communicator import BackgroundConsumer
 from serial_utils import CommunicationTimedOutException
 
@@ -33,6 +33,8 @@ class UCANCommunicator(object):
     """
 
     # TODO: Handle variable-length payloads for bootloading purposes
+    # TODO: Lock SID.BOOTLOADER_PALLET (=0) mode so there can be only one pallet be transfered at a time
+    # TODO: Raise some CRCException in the .get() function of the consumer(s)
 
     @provides('ucan_communicator')
     @scope(SingletonScope)
@@ -56,7 +58,7 @@ class UCANCommunicator(object):
         """
         Register a consumer
         :param consumer: The consumer to register.
-        :type consumer: Consumer or BackgroundConsumer.
+        :type consumer: Consumer or PalletConsumer.
         """
         self._consumers.setdefault(consumer.cc_address, []).append(consumer)
 
@@ -64,13 +66,13 @@ class UCANCommunicator(object):
         """
         Unregister a consumer
         :param consumer: The consumer to register.
-        :type consumer: Consumer or BackgroundConsumer.
+        :type consumer: Consumer or PalletConsumer.
         """
         consumers = self._consumers.get(consumer.cc_address, [])
         if consumer in consumers:
             consumers.remove(consumer)
 
-    def do_command(self, cc_address, command, identifier, fields, timeout=2):
+    def do_command(self, cc_address, command, identity, fields, timeout=2):
         """
         Send a uCAN command over the Communicator and block until an answer is received.
         If the AIO does not respond within the timeout period, a CommunicationTimedOutException is raised
@@ -79,38 +81,38 @@ class UCANCommunicator(object):
         :type cc_address: str
         :param command: specification of the command to execute
         :type command: master_aio.ucan_command.UCANCommandSpec
-        :param identifier: The identifier
-        :type identifier: str
+        :param identity: The identity
+        :type identity: str
         :param fields: A dictionary with the command input field values
         :type fields dict
         :param timeout: maximum allowed time before a CommunicationTimedOutException is raised
-        :type timeout: int
+        :type timeout: int or None
         :raises: serial_utils.CommunicationTimedOutException
         :returns: dict containing the output fields of the command
         """
-        command.fill_headers(identifier)
+        command.set_identity(identity)
 
-        payload = command.create_request_payload(identifier, fields)
-        payload.append(UCANCommandSpec.calculate_crc(payload))
-        payload_bytes = len(payload)
-        payload += [0] * (8 - payload_bytes)
-
-        consumer = Consumer(cc_address, command)
-
-        if self._verbose:
-            LOGGER.info('Writing to uCAN transport ({0}):   {1}'.format(cc_address, payload))
+        if command.sid == SID.BOOTLOADER_PALLET:
+            consumer = PalletConsumer(cc_address, command)
+        else:
+            consumer = Consumer(cc_address, command)
 
         self.register_consumer(consumer)
-        self._communicator.send_command(1, AIOAPI.ucan_transport_message(), {'cc_address': cc_address,
-                                                                             'nr_can_bytes': payload_bytes,
-                                                                             'sid': 5,
-                                                                             'payload': payload})
+        for payload, length in command.create_request_payloads(identity, fields):
+            if self._verbose:
+                LOGGER.info('Writing to uCAN transport ({0}):   {1}'.format(cc_address, payload))
+            self._communicator.send_command(1, AIOAPI.ucan_transport_message(), {'cc_address': cc_address,
+                                                                                 'nr_can_bytes': length,
+                                                                                 'sid': command.sid,
+                                                                                 'payload': payload})
 
         consumer.check_send_only()
-        return consumer.get(timeout)
+        if timeout is not None:
+            return consumer.get(timeout)
 
     def _process_transport_message(self, package):
-        payload = package['payload']
+        payload_length = package['nr_can_bytes']
+        payload = package['payload'][:payload_length]
         cc_address = package['cc_address']
         if self._verbose:
             LOGGER.info('Reading from uCAN transport ({0}): {1}'.format(cc_address, payload))
@@ -165,3 +167,38 @@ class Consumer(object):
 
     def __repr__(self):
         return str(self)
+
+
+class PalletConsumer(Consumer):
+    """
+    A pallet consumer is registered to the read thread before a command is issued.  If an output
+    matches the consumer, the output will unblock the get() caller.
+    """
+
+    def __init__(self, cc_address, command):
+        super(PalletConsumer, self).__init__(cc_address=cc_address,
+                                             command=command)
+        self._amount_of_segments = None
+
+    def suggest_payload(self, payload):
+        """ Consume payload if needed """
+        header = payload[0]
+        first_segment = bool(header >> 7 & 1)
+        segments_remaining = header & 127
+        if first_segment:
+            self._amount_of_segments = segments_remaining + 1
+        segment_data = payload[1:]
+        self._payload_set[segments_remaining] = segment_data
+        if self._amount_of_segments is not None and sorted(self._payload_set.keys()) == range(self._amount_of_segments):
+            pallet = []
+            for segment in sorted(self._payload_set.keys(), reverse=True):
+                pallet += self._payload_set[segment]
+            self._queue.put(self.command.consume_response_payload(pallet))
+            return True
+        return False
+
+    def check_send_only(self):
+        pass
+
+    def __str__(self):
+        return 'PalletsConsumer(\'{0}\', {1})'.format(self.cc_address, self.command.instruction.instruction)

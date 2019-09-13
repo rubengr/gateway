@@ -16,8 +16,8 @@
 UCANCommandSpec defines payload handling; (de)serialization
 """
 import logging
-from serial_utils import printable
-from master_aio.fields import PaddingField
+import math
+from master_aio.fields import PaddingField, Int32Field
 
 
 LOGGER = logging.getLogger('openmotics')
@@ -69,28 +69,31 @@ class UCANCommandSpec(object):
         self.headers = []
         self._response_instruction_by_hash = {}
 
-    def fill_headers(self, identifier):
+    def set_identity(self, identity):
         self.headers = []
         self._response_instruction_by_hash = {}
         for instruction in self.response_instructions:
-            hash_value = UCANCommandSpec.hash(instruction.instruction + self._identifier.encode_bytes(identifier))
+            hash_value = UCANCommandSpec.hash(instruction.instruction + self._identifier.encode_bytes(identity))
             self.headers.append(hash_value)
             self._response_instruction_by_hash[hash_value] = instruction
 
-    def create_request_payload(self, identifier, fields):
+    def create_request_payloads(self, identity, fields):
         """
-        Create the request payload for the uCAN using this spec and the provided fields.
+        Create the request payloads for the uCAN using this spec and the provided fields.
 
-        :param identifier: The actual identifier
-        :type identifier: str
+        :param identity: The actual identity
+        :type identity: str
         :param fields: dictionary with values for the fields
         :type fields: dict
-        :rtype: list
+        :rtype: generator of tuple(int, list)
         """
-        payload = self.instruction.instruction + self._identifier.encode_bytes(identifier)
+        payload = self.instruction.instruction + self._identifier.encode_bytes(identity)
         for field in self._request_fields:
             payload += field.encode_bytes(fields.get(field.name))
-        return payload
+        payload.append(UCANCommandSpec.calculate_crc(payload))
+        payload_bytes = len(payload)
+        payload += [0] * (8 - payload_bytes)
+        yield payload, payload_bytes
 
     def consume_response_payload(self, payload):
         """
@@ -113,9 +116,12 @@ class UCANCommandSpec(object):
             expected_crc = UCANCommandSpec.calculate_crc(payload_entry[:response_instruction.checksum_byte])
             if crc != expected_crc:
                 LOGGER.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, payload_entry))
+                return None
             usefull_payload = payload_entry[self.header_length:response_instruction.checksum_byte]
             payload_data += usefull_payload
+        return self._parse_payload(payload_data)
 
+    def _parse_payload(self, payload_data):
         result = {}
         payload_length = len(payload_data)
         for field in self._response_fields:
@@ -155,3 +161,100 @@ class UCANCommandSpec(object):
             result += (entry * 256 * times)
             times += 1
         return result
+
+
+class UCANPalletCommandSpec(UCANCommandSpec):
+    """
+    Defines payload handling and de(serialization)
+    """
+
+    def __init__(self, identifier, pallet_type, request_fields=None, response_fields=None):
+        """
+        Create a UCANCommandSpec.
+
+        :param identifier: The field to be used as extra identifier
+        :type identifier: master_aio.fields.Field
+        :param pallet_type: The type of the pallet
+        :type pallet_type: int
+        :param request_fields: Fields in this request
+        :type request_fields: list of master_aio.fields.Field
+        :param response_fields: Fields in the response
+        :type response_fields: list of master_aio.fields.Field
+        """
+        super(UCANPalletCommandSpec, self).__init__(sid=SID.BOOTLOADER_PALLET,
+                                                    instruction=None,
+                                                    identifier=identifier,
+                                                    request_fields=request_fields,
+                                                    response_instructions=[],
+                                                    response_fields=response_fields)
+        self._pallet_type = pallet_type
+
+    def set_identity(self, identity):
+        _ = identity  # Not used for pallet communications
+        pass
+
+    def create_request_payloads(self, identity, fields):
+        """
+        Create the request payloads for the uCAN using this spec and the provided fields.
+
+        :param identity: The actual identity
+        :type identity: str
+        :param fields: dictionary with values for the fields
+        :type fields: dict
+        :rtype: generator of tuple(int, list)
+        """
+        # TODO: Both addresses here might be in little-endian. To be checked
+        payload = self._identifier.encode_bytes('000.000.000') + self._identifier.encode_bytes(identity) + [self._pallet_type]
+        for field in self._request_fields:
+            payload += field.encode_bytes(fields.get(field.name))
+        payload += Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload))
+        segments = int(math.ceil(len(payload) / 7.0))
+        first = True
+        while len(payload) > 0:
+            header = ((1 if first else 0) << 7) + (segments - 1)
+            sub_payload = [header] + payload[:7]
+            payload = payload[7:]
+            sub_payload_bytes = len(sub_payload)
+            sub_payload += [0] * (8 - sub_payload_bytes)
+            yield sub_payload, sub_payload_bytes
+            first = False
+            segments -= 1
+
+    def consume_response_payload(self, payload):
+        """
+        Consumes the payload bytes
+
+        :param payload Payload from the uCAN responses
+        :type payload: list of int
+        :returns: Dictionary containing the parsed response
+        :rtype: dict
+        """
+        crc = UCANPalletCommandSpec.calculate_crc(payload)
+        if crc != 0:
+            LOGGER.info('Unexpected pallet CRC ({0} != 0): {1}'.format(crc, payload))
+            return self._parse_payload(payload[7:-4])  # TODO: Should return None once CRC stuff works
+        return self._parse_payload(payload[7:-4])
+
+    @staticmethod
+    def calculate_crc(data):
+        """
+        Calculate the CRC of the data (including CRC). The algoritm is choosen so the remainder should always be 0
+
+        :param data: Data for which to calculate the CRC
+        :returns: CRC
+        """
+        width = 32
+        topbit = 1 << (width - 1)
+        polynomial = 0x04C11DB7
+        remainder = 0
+        for i in range(len(data)):
+            remainder ^= data[i] << (width - 8)
+            remainder &= 0xFFFFFFFF
+            for _ in range(7, -1, -1):
+                if remainder & topbit:
+                    remainder = (remainder << 1) ^ polynomial
+                    remainder &= 0xFFFFFFFF
+                else:
+                    remainder = (remainder << 1)
+                    remainder &= 0xFFFFFFFF
+        return remainder

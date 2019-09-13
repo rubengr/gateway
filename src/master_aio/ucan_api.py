@@ -23,9 +23,9 @@ from master_aio.fields import AddressField, ByteField, WordField, VersionField
 class UCANAPI(object):
 
     @staticmethod
-    def ping():
+    def ping(sid=SID.NORMAL_COMMAND):
         """ Basic action spec """
-        return UCANCommandSpec(sid=SID.NORMAL_COMMAND,
+        return UCANCommandSpec(sid=sid,
                                instruction=Instruction(instruction=[0, 96]),
                                identifier=AddressField('ucan_address', 3),
                                request_fields=[ByteField('data')],
@@ -36,7 +36,7 @@ class UCANAPI(object):
     def read_ucan_config():
         """ Reads the full uCAN config """
         return UCANCommandSpec(sid=SID.NORMAL_COMMAND,
-                               instruction=Instruction([0, 199]),
+                               instruction=Instruction(instruction=[0, 199]),
                                identifier=AddressField('ucan_address', 3),
                                response_instructions=[Instruction(instruction=[i, 199], checksum_byte=7) for i in xrange(1, 14)],
                                response_fields=[ByteField('input_link_0'), ByteField('input_link_1'), ByteField('input_link_2'),
@@ -62,3 +62,22 @@ class UCANAPI(object):
                                instruction=Instruction(instruction=[0, 247]),
                                identifier=AddressField('ucan_address', 3),
                                request_fields=[ByteField('brightness')])
+
+    @staticmethod
+    def set_bootloader_timeout(sid=SID.NORMAL_COMMAND):
+        """ Sets the bootloader timeout """
+        return UCANCommandSpec(sid=sid,
+                               instruction=Instruction(instruction=[0, 123]),
+                               identifier=AddressField('ucan_address', 3),
+                               request_fields=[ByteField('timeout')],
+                               response_instructions=[Instruction(instruction=[123, 123], checksum_byte=6)],
+                               response_fields=[ByteField('timeout')])
+
+    @staticmethod
+    def reset(sid=SID.NORMAL_COMMAND):
+        """ Resets the uCAN """
+        return UCANCommandSpec(sid=sid,
+                               instruction=Instruction(instruction=[0, 94]),
+                               identifier=AddressField('ucan_address', 3),
+                               response_instructions=[Instruction(instruction=[94, 94], checksum_byte=6)],
+                               response_fields=[ByteField('application_mode')])

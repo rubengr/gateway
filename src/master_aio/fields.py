@@ -15,6 +15,7 @@
 """
 Communication fields
 """
+import struct
 
 
 class Field(object):
@@ -117,6 +118,31 @@ class WordField(Field):
     def encode(cls, value):
         value_bytes = cls.encode_bytes(value)
         return ''.join(str(chr(byte)) for byte in value_bytes)
+
+
+class Int32Field(Field):
+    def __init__(self, name):
+        super(Int32Field, self).__init__(name, 4)
+
+    @classmethod
+    def encode(cls, value):
+        limit = 256 ** 4
+        if not (0 <= value <= limit):
+            raise ValueError('Value out of limits: 0 <= value <= {0}'.format(limit))
+        return struct.pack('>I', value)
+
+    @classmethod
+    def decode(cls, data):
+        return struct.unpack('>I', data)
+
+    @classmethod
+    def decode_bytes(cls, data):
+        return cls.decode(''.join(str(chr(byte)) for byte in data))
+
+    @classmethod
+    def encode_bytes(cls, value):
+        value_string = cls.encode(value)
+        return [ord(item) for item in value_string]
 
 
 class ByteArrayField(Field):
