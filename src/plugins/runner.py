@@ -73,7 +73,7 @@ class PluginRunner:
         self._out_thread.daemon = True
         self._out_thread.start()
 
-        start_out = self._do_command('start', timeout=30)
+        start_out = self._do_command('start', timeout=120)
         self.name = start_out['name']
         self.version = start_out['version']
         self.interfaces = start_out['interfaces']
@@ -159,7 +159,7 @@ class PluginRunner:
         self._do_async('output_status', {'status': status}, should_filter=True)
 
     def process_shutter_status(self, status):
-        self._do_async('shutter_status', {'status': status}, should_filter=True)
+        self._do_async('shutter_status', status, should_filter=True)
 
     def process_event(self, code):
         self._do_async('process_event', {'code': code}, should_filter=True)
@@ -307,6 +307,8 @@ class PluginRunner:
             return score
 
     def get_queue_length(self):
+        if self._async_command_queue is None:
+            return 0
         return self._async_command_queue.qsize()
 
 

@@ -22,9 +22,10 @@ import logging
 import traceback
 import time
 import Queue
-import power.power_api as power_api
+from wiring import inject, scope, SingletonScope, provides
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
+from power import power_api
 from power.power_command import crc7
 from power.time_keeper import TimeKeeper
 
@@ -34,6 +35,9 @@ LOGGER = logging.getLogger("openmotics")
 class PowerCommunicator(object):
     """ Uses a serial port to communicate with the power modules. """
 
+    @provides('power_communicator')
+    @scope(SingletonScope)
+    @inject(serial='power_serial', power_controller='power_controller')
     def __init__(self, serial, power_controller, verbose=False, time_keeper_period=60,
                  address_mode_timeout=300):
         """ Default constructor.
@@ -140,7 +144,7 @@ class PowerCommunicator(object):
                     header, response_data = self.__read_from_serial()
                     if not _cmd.check_header(header, _address, cid):
                         if _cmd.is_nack(header, _address, cid) and response_data == "\x02":
-                            raise UnkownCommandException()
+                            raise UnkownCommandException('Unknown command')
                         tries += 1
                         LOGGER.warning("Header did not match command ({0})".format(tries))
                         if tries == 3:
@@ -316,7 +320,7 @@ class PowerCommunicator(object):
             if crc7(header + data) != crc:
                 raise Exception("CRC doesn't match")
         except Queue.Empty:
-            raise CommunicationTimedOutException()
+            raise CommunicationTimedOutException('Communication timed out')
         finally:
             if self.__verbose:
                 PowerCommunicator.__log('reading from', command)
@@ -326,11 +330,11 @@ class PowerCommunicator(object):
 
 class InAddressModeException(Exception):
     """ Raised when the power communication is in address mode. """
-    def __init__(self):
-        Exception.__init__(self)
+    def __init__(self, message=None):
+        Exception.__init__(self, message)
 
 
 class UnkownCommandException(Exception):
     """ Raised when the power module responds with a NACK indicating an unkown command. """
-    def __init__(self):
-        Exception.__init__(self)
+    def __init__(self, message=None):
+        Exception.__init__(self, message)

@@ -21,6 +21,7 @@ import xmlrunner
 import time
 import fakesleep
 from threading import Lock, Semaphore
+from mock import Mock
 
 from gateway.webservice import WebInterface
 from gateway.scheduling import SchedulingController

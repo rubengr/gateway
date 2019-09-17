@@ -21,6 +21,7 @@ import logging
 import psutil
 from threading import Thread, Event
 from collections import deque
+from wiring import provides, inject, SingletonScope, scope
 from serial_utils import CommunicationTimedOutException
 from master.master_communicator import InMaintenanceModeException
 
@@ -32,6 +33,9 @@ class MetricsCollector(object):
     The Metrics Collector collects OpenMotics metrics and makes them available.
     """
 
+    @provides('metrics_collector')
+    @scope(SingletonScope)
+    @inject(gateway_api='gateway_api', pulse_controller='pulse_controller')
     def __init__(self, gateway_api, pulse_controller):
         """
         :param gateway_api: Gateway API
@@ -101,10 +105,14 @@ class MetricsCollector(object):
         self._plugin_controller = plugin_controller
 
     def set_cloud_interval(self, metric_type, interval):
+        if metric_type not in self._min_intervals:  # e.g. event metric types
+            return
         self._cloud_intervals[metric_type] = interval
         self._update_intervals(metric_type)
 
     def set_websocket_interval(self, client_id, metric_type, interval):
+        if metric_type not in self._min_intervals:  # e.g. event metric types
+            return
         metric_types = self._metrics_controller.get_filter('metric_type', metric_type)
         for mtype in self._websocket_intervals:
             if mtype in metric_types:

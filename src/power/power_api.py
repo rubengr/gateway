@@ -131,9 +131,7 @@ def get_normal_energy(version):
     """ Get the total energy measured by the power module (12x in Wh)
     :param version: power api version (POWER_API_8_PORTS or POWER_API_12_PORTS).
     """
-    if version == POWER_API_8_PORTS:
-        return PowerCommand('G', 'ENO', '', '8L')
-    elif version == POWER_API_12_PORTS:
+    if version == POWER_API_12_PORTS:
         return PowerCommand('G', 'ENE', '', '12L')
     else:
         raise ValueError("Unknown power api version")
@@ -269,6 +267,34 @@ def get_current_sample_frequency(version):
         return PowerCommand('G', 'CSF', '2b', '40f')
     elif version == POWER_API_8_PORTS:
         raise ValueError("Getting a current sample (frequency) is not applicable for the 8 port modules.")
+    else:
+        raise ValueError("Unknown power api version")
+
+
+def read_eeprom(version, length):
+    """
+    Reads data from the eeprom
+    :param version: power api version
+    :param length: Amount of bytes to be read - must be equal to the actual length argument
+    """
+    if version == POWER_API_12_PORTS:
+        return PowerCommand('G', 'EEP', '2H', '{0}B'.format(length))
+    elif version == POWER_API_8_PORTS:
+        raise ValueError("Reading eeprom is not possible for the 8 port modules.")
+    else:
+        raise ValueError("Unknown power api version")
+
+
+def write_eeprom(version, length):
+    """
+    WRite data to the eeprom
+    :param version: power api version
+    :param length: Amount of bytes to be read - must be equal to the actual amount of bytes written
+    """
+    if version == POWER_API_12_PORTS:
+        return PowerCommand('S', 'EEP', '1H{0}B'.format(length), '')
+    elif version == POWER_API_8_PORTS:
+        raise ValueError("Writing eeprom is not possible for the 8 port modules.")
     else:
         raise ValueError("Unknown power api version")
 

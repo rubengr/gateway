@@ -43,8 +43,7 @@ class ActionsTest(OMTestCase):
         response_dict = self.tools.api_testee(api='get_group_action_configurations', token=self.token)
         config = response_dict.get('config')
         self.assertIsNotNone(config, 'Should return the config of the group actions.')
-        self.assertTrue(bool(config),
-                        'The config should not be empty when returned from get group action configurations API. Got: {0}'.format(response_dict))
+        self.assertTrue(self.tools.is_not_empty(config), 'The config should not be empty when returned from get group action configurations API. Got: {0}'.format(response_dict))
         configured_actions = []
         for one in config:
             if one.get('actions', '') != '':
@@ -133,24 +132,21 @@ class ActionsTest(OMTestCase):
         self.tools.api_testee(api='set_startup_action_configuration', params=params, token=self.token)
 
         response_dict = self.tools.api_testee(api='get_startup_action_configuration', token=self.token)
-        self.assertEqual(response_dict.get('config'), config,
-                         'The new config should be the same as the present startup action config. Got{0}'.format(response_dict))
+        self.assertEqual(response_dict.get('config'), config, 'The new config should be the same as the present startup action config. Got{0}'.format(response_dict))
 
         response_dict = json.loads(self.webinterface.get_output_status())
 
         status_list = response_dict.get('status', [])
-        self.assertTrue(bool(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
+        self.assertTrue(self.tools.is_not_empty(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
         if status_list[8].get('status') == 0:
             self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
         else:
             self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
             time.sleep(0.5)
             self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
-        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=1),
-                        'Should execute startup action and turn output 0 on, Tester\'s input will see a press')
+        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=1), 'Should execute startup action and turn output 0 on, Tester\'s input will see a press')
 
-        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=0),
-                        'Should execute startup action and turn output 0 off, Tester\'s input will see a press')
+        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=0), 'Should execute startup action and turn output 0 off, Tester\'s input will see a press')
 
         self.tools.token = self.token = self.tools.get_new_token(self.tools.username, self.tools.password)
         self.tools.configure_thermostat(thermostat_number=0, night_temp=10, day_block1_temp=10.5, day_block2_temp=11)
@@ -240,8 +236,7 @@ class ActionsTest(OMTestCase):
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=0, value=1), 'Should execute a group action to toggle on output 0.')
 
         self.webinterface.set_output(id=input_number, is_on=False)
-        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=0, value=0),
-                        'Should execute a group action to toggle off output 0 after a while.')
+        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=0, value=0), 'Should execute a group action to toggle off output 0 after a while.')
 
     @exception_handler
     def test_toggles_output(self):
@@ -279,7 +274,8 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('onoffINP', output_to_toggle, 161)
 
-        self.webinterface.set_output(id=output_to_toggle, is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
+        self.webinterface.set_output(id=output_to_toggle, is_on=True)
+        # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_to_toggle, value=1),
                         'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
@@ -725,7 +721,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_2m30s(self):
-        """ Testing the execution of an action (toggling output for 2m30s) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 2m30s) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_input_advanced_configuration('timed201', input_output_number, 201)
@@ -757,7 +753,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_7m30s(self):
-        """ Testing the execution of an action (toggling output for 7m30s) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 7m30s) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_input_advanced_configuration('timed202', input_output_number, 202)
@@ -793,7 +789,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_15m(self):
-        """ Testing the execution of an action (toggling output for 15m) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 15m) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_input_advanced_configuration('timed203', input_output_number, 203)
@@ -829,7 +825,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_25(self):
-        """ Testing the execution of an action (toggling output for 25m) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 25m) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_input_advanced_configuration('timed204', input_output_number, 204)
@@ -865,7 +861,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_37m(self):
-        """ Testing the execution of an action (toggling output for 37m) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 37m) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_output_advanced_config(input_output_number)
@@ -901,7 +897,7 @@ class ActionsTest(OMTestCase):
 
     @exception_handler
     def test_time_no_overrule_52m(self):
-        """ Testing the execution of an action (toggling output for 52m) without that does not overrule the timer """
+        """ Testing the execution of an action (toggling output for 52m) - does not overrule the timer """
         input_output_number = randint(0, 7)
 
         self._set_output_advanced_config(input_output_number)

@@ -22,8 +22,8 @@ import logging
 import time
 from threading import Thread, Lock, Event
 from Queue import Queue, Empty
-
-import master_api
+from wiring import inject, provides, scope, SingletonScope
+from master import master_api
 from master_command import Field, printable
 from serial_utils import CommunicationTimedOutException
 
@@ -37,6 +37,9 @@ class MasterCommunicator(object):
     communication is not working properly and watchdog callback is called.
     """
 
+    @provides('master_communicator')
+    @scope(SingletonScope)
+    @inject(serial='controller_serial')
     def __init__(self, serial, init_master=True, verbose=False, passthrough_timeout=0.2):
         """
         :param serial: Serial port to communicate with
@@ -186,7 +189,7 @@ class MasterCommunicator(object):
              'action_number': action_number}
         )
 
-    def do_command(self, cmd, fields=None, timeout=2):
+    def do_command(self, cmd, fields=None, timeout=2, extended_crc=False):
         """ Send a command over the serial port and block until an answer is received.
         If the master does not respond within the timeout period, a CommunicationTimedOutException
         is raised
@@ -209,14 +212,14 @@ class MasterCommunicator(object):
 
         cid = self.__get_cid()
         consumer = Consumer(cmd, cid)
-        inp = cmd.create_input(cid, fields)
+        inp = cmd.create_input(cid, fields, extended_crc)
 
         with self.__command_lock:
             self.__consumers.append(consumer)
             self.__write_to_serial(inp)
             try:
                 result = consumer.get(timeout).fields
-                if cmd.output_has_crc() and not MasterCommunicator.__check_crc(cmd, result):
+                if cmd.output_has_crc() and not MasterCommunicator.__check_crc(cmd, result, extended_crc):
                     raise CrcCheckFailedException()
                 else:
                     self.__last_success = time.time()
@@ -229,14 +232,18 @@ class MasterCommunicator(object):
                 raise
 
     @staticmethod
-    def __check_crc(cmd, result):
+    def __check_crc(cmd, result, extended_crc=False):
         """ Calculate the CRC of the data for a certain master command.
 
         :param cmd: instance of MasterCommandSpec.
         :param result: A dict containing the result of the master command.
+        :param extended_crc: Indicates whether the action should be included in the crc
         :returns: boolean
         """
         crc = 0
+        if extended_crc:
+            crc += ord(cmd.action[0])
+            crc += ord(cmd.action[1])
         for field in cmd.output_fields:
             if Field.is_crc(field):
                 break

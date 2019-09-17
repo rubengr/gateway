@@ -20,6 +20,7 @@ import inspect
 import types
 import logging
 from threading import Lock
+from wiring import inject, provides, SingletonScope, scope
 from master_api import eeprom_list, write_eeprom, activate_eeprom
 
 LOGGER = logging.getLogger("openmotics")
@@ -28,6 +29,9 @@ LOGGER = logging.getLogger("openmotics")
 class EepromController(object):
     """ The controller takes EepromModels and reads or writes them from and to an EepromFile. """
 
+    @provides('eeprom_controller')
+    @scope(SingletonScope)
+    @inject(eeprom_file='eeprom_file', eeprom_extension='eeprom_extension')
     def __init__(self, eeprom_file, eeprom_extension):
         """
         Constructor takes the eeprom_file (for reading and writes from the eeprom) and the
@@ -71,6 +75,16 @@ class EepromController(object):
             entry.load_from_system(self._eeprom_file, self._eeprom_extension, fields)
             return_data.append(entry)
         return return_data
+
+    def read_address(self, address):
+        """
+        Reads a given address (+length) from the eeprom
+        :param address: Address to read
+        :type address: master.eeprom_controller.EepromAddress
+        :returns: Eeprom data
+        :rtype: master.eeprom_controller.EepromData
+        """
+        return self._eeprom_file.read([address])[address]
 
     def read_all(self, eeprom_model, fields=None):
         """
@@ -119,6 +133,9 @@ class EepromFile(object):
 
     BATCH_SIZE = 10
 
+    @provides('eeprom_file')
+    @scope(SingletonScope)
+    @inject(master_communicator='master_communicator')
     def __init__(self, master_communicator):
         """
         Create an EepromFile.
@@ -1005,6 +1022,22 @@ class EextByte(EextDataType):
 
     def default_value(self):
         return 255
+
+    def decode(self, value):
+        return int(value)
+
+    def encode(self, value):
+        return str(value)
+
+
+class EextWord(EextDataType):
+    """ An word field, stored in the eeprom extension database. """
+
+    def get_name(self):
+        return 'Word'
+
+    def default_value(self):
+        return 65535
 
     def decode(self, value):
         return int(value)

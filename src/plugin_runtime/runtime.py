@@ -6,6 +6,9 @@ from threading import Thread
 
 sys.path.insert(0, '/opt/openmotics/python')
 
+from platform_utils import System
+System.import_eggs()
+
 from plugin_runtime import base
 from plugin_runtime.utils import get_plugin_class, check_plugin, get_special_methods
 from plugin_runtime.interfaces import has_interface
@@ -29,7 +32,7 @@ class PluginRuntime:
         self._event_receivers = []
 
         self._name = None
-        self._vesion = None
+        self._version = None
         self._interfaces = []
         self._receivers = []
         self._exposes = []
@@ -142,7 +145,7 @@ class PluginRuntime:
                 elif action == 'output_status':
                     ret = self._handle_output_status(command['status'])
                 elif action == 'shutter_status':
-                    ret = self._handle_shutter_status(command['status'])
+                    ret = self._handle_shutter_status(command)
                 elif action == 'process_event':
                     ret = self._handle_process_event(command['code'])
                 elif action == 'get_metric_definitions':
@@ -202,7 +205,10 @@ class PluginRuntime:
 
     def _handle_shutter_status(self, status):
         for receiver in self._shutter_status_receivers:
-            IO._with_catch('shutter status', receiver, [status])
+            if receiver.shutter_status['add_detail']:
+                IO._with_catch('shutter status', receiver, [status['status'], status['detail']])
+            else:
+                IO._with_catch('shutter status', receiver, [status['status']])
 
     def _handle_process_event(self, code):
         for receiver in self._event_receivers:
