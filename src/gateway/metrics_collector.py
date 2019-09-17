@@ -288,7 +288,7 @@ class MetricsCollector(object):
                     values['cpu_load_5'] = cpu_load[1]
                     values['cpu_load_15'] = cpu_load[2]
                 except Exception as ex:
-                    logging.log('error loading cpu metrics {0}'.format(ex))
+                    LOGGER.error('error loading cpu metrics {0}'.format(ex))
 
                 try:
                     memory = dict(psutil.virtual_memory()._asdict())
@@ -301,7 +301,7 @@ class MetricsCollector(object):
                     values['memory_active'] = memory.get('active', None)
                     values['memory_total'] = memory.get('total', None)
                 except Exception as ex:
-                    logging.log('error loading memory metrics {0}'.format(ex))
+                    LOGGER.error('error loading memory metrics {0}'.format(ex))
 
                 try:
                     disk = psutil.disk_usage('/')
@@ -311,12 +311,12 @@ class MetricsCollector(object):
                     values['disk_percent'] = disk.get('percent', None)
 
                     disk_io = psutil.disk_io_counters()
-                    values['disk_read_count'] = memory.get('read_count', None)
-                    values['disk_write_count'] = memory.get('write_count', None)
-                    values['disk_read_bytes'] = memory.get('read_bytes', None)
-                    values['disk_write_bytes'] = memory.get('write_bytes', None)
+                    values['disk_read_count'] = disk_io.get('read_count', None)
+                    values['disk_write_count'] = disk_io.get('write_count', None)
+                    values['disk_read_bytes'] = disk_io.get('read_bytes', None)
+                    values['disk_write_bytes'] = disk_io.get('write_bytes', None)
                 except Exception as ex:
-                    logging.log('error loading disk metrics {0}'.format(ex))
+                    LOGGER.error('error loading disk metrics {0}'.format(ex))
 
                 try:
                     disk = psutil.net_io_counters()
@@ -325,7 +325,7 @@ class MetricsCollector(object):
                     values['net_packets_sent'] = disk.get('packets_sent', None)
                     values['net_packets_recv'] = disk.get('packets_recv', None)
                 except Exception as ex:
-                    logging.log('error loading network metrics {0}'.format(ex))
+                    LOGGER.error('error loading network metrics {0}'.format(ex))
 
                 self._enqueue_metrics(metric_type=metric_type,
                                       values=values,
