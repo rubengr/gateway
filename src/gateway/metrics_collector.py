@@ -312,13 +312,13 @@ class MetricsCollector(object):
                     LOGGER.error('error loading memory metrics {0}'.format(ex))
 
                 try:
-                    disk = psutil.disk_usage('/')
+                    disk = dict(psutil.disk_usage('/')._asdict())
                     values['disk_total'] = disk.get('total', None)
                     values['disk_used'] = disk.get('used', None)
                     values['disk_free'] = disk.get('free', None)
                     values['disk_percent'] = disk.get('percent', None)
 
-                    disk_io = psutil.disk_io_counters()
+                    disk_io = dict(psutil.disk_io_counters()._asdict())
                     values['disk_read_count'] = disk_io.get('read_count', None)
                     values['disk_write_count'] = disk_io.get('write_count', None)
                     values['disk_read_bytes'] = disk_io.get('read_bytes', None)
@@ -327,11 +327,11 @@ class MetricsCollector(object):
                     LOGGER.error('error loading disk metrics {0}'.format(ex))
 
                 try:
-                    disk = psutil.net_io_counters()
-                    values['net_bytes_sent'] = disk.get('bytes_sent', None)
-                    values['net_bytes_recv'] = disk.get('bytes_recv', None)
-                    values['net_packets_sent'] = disk.get('packets_sent', None)
-                    values['net_packets_recv'] = disk.get('packets_recv', None)
+                    network = dict(psutil.net_io_counters()._asdict())
+                    values['net_bytes_sent'] = network.get('bytes_sent', None)
+                    values['net_bytes_recv'] = network.get('bytes_recv', None)
+                    values['net_packets_sent'] = network.get('packets_sent', None)
+                    values['net_packets_recv'] = network.get('packets_recv', None)
                 except Exception as ex:
                     LOGGER.error('error loading network metrics {0}'.format(ex))
 
