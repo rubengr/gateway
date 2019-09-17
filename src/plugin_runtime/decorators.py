@@ -14,6 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """ The OpenMotics plugin decorators. """
 
+import inspect
+
 
 def om_expose(method=None, auth=True, content_type='application/json'):
     """
@@ -81,7 +83,10 @@ def shutter_status(method):
     Important! This method should not block, as this will result in an unresponsive system.
     Please use a separate thread to perform complex actions on shutten status messages.
     """
-    method.shutter_status = True
+    args, varargs, kwargs, _ = inspect.getargspec(method)
+    args.pop(0)
+
+    method.shutter_status = {'add_detail': len(args) > 1 or (varargs is not None and len(varargs) >= 1) or kwargs is not None}
     return method
 
 

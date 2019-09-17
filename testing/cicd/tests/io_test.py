@@ -40,9 +40,7 @@ class IoTest(OMTestCase):
     def test_toggle_all_outputs_testee(self):
         """ Testing toggling on all outputs on the Testee. """
         config = self.tools.api_testee(api='get_output_configurations', token=self.token).get('config', [])
-        self.assertTrue(bool(config),
-                        'Should not be empty and should have the output configurations of the testee. But got {0}'.format(
-                            config))
+        self.assertTrue(self.tools.is_not_empty(config), 'Should not be empty and should have the output configurations of the testee. But got {0}'.format(config))
         for one in config:
             self.tools.clicker_releaser(one['id'], self.token, True)
             result = self.tools.check_if_event_is_captured(toggled_output=one['id'], value=1)
@@ -65,7 +63,7 @@ class IoTest(OMTestCase):
             self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
         response_dict = self.tools.api_testee(api='get_input_configurations', token=self.token)
         response_config = response_dict.get('config')
-        self.assertEqual(response_config, initial_config, 'If the link is established, both configs should be the same')
+        self.assertEqual(response_config, initial_config, 'Expected the configuration and actual configuration to match, but got: {0}, {1}'.format(initial_config, response_config))
 
     @exception_handler
     def test_discovery(self):
@@ -73,25 +71,29 @@ class IoTest(OMTestCase):
         self.tools.api_testee(api='module_discover_start', token=self.token)
         time.sleep(0.3)
         response_dict = self.tools.api_testee(api='module_discover_status', token=self.token)
-        self.assertEqual(response_dict.get('running'), True, 'Should be true to indicate discovery mode has started.')
+        self.assertEqual(response_dict.get('running'), True, 'Expected discovery mode to be running, but got: {0}'.format(response_dict.get('running')))
 
         self.tools.human_click(toolbox.DISCOVER_TESTEE_OUTPUT_ID, True, self.webinterface)
         self.tools.human_click(toolbox.DISCOVER_TESTEE_INPUT_ID, True, self.webinterface)
+        self.tools.human_click(toolbox.DISCOVER_TESTEE_DIMMER_ID, True, self.webinterface)
+        self.tools.human_click(toolbox.DISCOVER_TESTEE_TEMPERATURE_ID, True, self.webinterface)
+        self.tools.human_click(toolbox.DISCOVER_TESTEE_CAN_ID, True, self.webinterface)
 
         self.tools.api_testee(api='module_discover_stop', token=self.token)
         response_dict = self.tools.api_testee(api='module_discover_status', token=self.token)
-        self.assertEqual(response_dict.get('running'), False, 'Should be true to indicate discovery mode has stopped.')
+        self.assertEqual(response_dict.get('running'), False, 'Expected discovery mode to be stopped, but got: {0}'.format(response_dict.get('running')))
 
         response_dict = self.tools.api_testee(api='get_modules', token=self.token)
         if response_dict is None:
             self.tools.discovery_success = False
-        if len(response_dict.get('outputs', [])) != 1 or len(response_dict.get('inputs', [])) != 1:
-            self.tools.discovery_success = False
 
-        self.assertTrue(len(response_dict.get('outputs', [])) == 1,
-                        'Should be true to indicate that the testee has only 1 output module.')
-        self.assertTrue(len(response_dict.get('inputs', [])) == 1,
-                        'Should be true to indicate that the testee has only 1 input module.')
+        if not ('outputs' in response_dict and 'inputs' in response_dict):
+            self.tools.discovery_success = False
+            self.tools.initialisation_success = False
+            self.fail('response was not none but not expected: {0}'.format(response_dict))
+
+        self.assertEquals(sorted(response_dict['outputs']), ['D', 'O'], 'Got different output modules than expected: {0}'.format(response_dict['outputs']))
+        self.assertEquals(sorted(response_dict['inputs']), ['C', 'I', 'T'], 'Got different input modules than expected: {0}'.format(response_dict['inputs']))
 
     @exception_handler
     def test_discovery_authorization(self):
@@ -116,7 +118,7 @@ class IoTest(OMTestCase):
             params = {'username': 'openmotics', 'password': '123456', 'accept_terms': True}
             self.token = self.tools.api_testee(api='login', params=params).get('token', False)
             self.assertIsNot(self.token, False)
-            self.assertTrue(bool(self.token), ' Should not have an empty token or None.')
+            self.assertTrue(self.tools.is_not_empty(self.token), 'Should not have an empty token or None.')
         health = self.tools.api_testee(api='health_check').get('health', {})
         for one in health.values():
             self.assertEqual(one.get('state'), True)
@@ -130,8 +132,7 @@ class IoTest(OMTestCase):
         """ Testing stress toggling all outputs on the Testee. """
         response_dict = self.tools.api_testee(api='get_output_configurations', token=self.token)
         config = response_dict.get('config')
-        self.assertTrue(bool(config),
-                        'Should not be empty and should have the output configurations of the testee. Got: {0}'.format(config))
+        self.assertTrue(self.tools.is_not_empty(config), 'Should not be empty and should have the output configurations of the testee. Got: {0}'.format(config))
         for one in config:
             for _ in xrange(30):
                 self.tools.clicker_releaser(one['id'], self.token, True)
@@ -162,8 +163,8 @@ class IoTest(OMTestCase):
         self.assertEqual(response_dict, 'invalid_token')
 
         response_dict = self.tools.api_testee(api='get_version', token=self.token)
-        self.assertTrue(response_dict.get('gateway') is not None, 'Should be true and have the gateway\'s version.')
-        self.assertTrue(response_dict.get('version') is not None, 'SShould be true and have the firmware version.')
+        self.assertTrue(response_dict.get('gateway') is not None, 'Should be true and have the gateway\'s version. Got: {0}'.format(response_dict.get('gateway')))
+        self.assertTrue(response_dict.get('version') is not None, 'SShould be true and have the firmware version. Got: {0}'.format(response_dict.get('version')))
 
     @exception_handler
     def test_get_modules(self):
@@ -172,10 +173,10 @@ class IoTest(OMTestCase):
         self.assertEqual(response_dict, 'invalid_token')
 
         response_dict = self.tools.api_testee(api='get_modules', token=self.token)
-        self.assertTrue(len(response_dict.get('outputs', [])) == 1,
-                        'Should be true to indicate that the testee has only 1 output module.')
-        self.assertTrue(len(response_dict.get('inputs', [])) == 1,
-                        'Should be true to indicate that the testee has only 1 input module.')
+        self.assertTrue(len(response_dict.get('outputs', [])) == 2,
+                        'Should be true to indicate that the testee has only 2 output module. Got: {0}'.format(response_dict.get('outputs')))
+        self.assertTrue(len(response_dict.get('inputs', [])) == 3,
+                        'Should be true to indicate that the testee has only 3 input module. Got: {0}'.format(response_dict.get('inputs')))
 
     @exception_handler
     def test_validate_master_status(self):
@@ -227,8 +228,7 @@ class IoTest(OMTestCase):
     def test_get_features(self):
         """ Testing whether or not the API call does return the features list. """
         response_dict = self.tools.api_testee(api='get_features', token=self.token)
-        self.assertTrue(bool(response_dict.get('features')),
-                        'Should have the list of features after the API call. Got: {0}'.format(response_dict))
+        self.assertTrue(self.tools.is_not_empty(response_dict.get('features')), 'Should have the list of features after the API call. Got: {0}'.format(response_dict))
 
     @exception_handler
     def test_get_features_authorization(self):
@@ -247,7 +247,7 @@ class IoTest(OMTestCase):
     def test_open_maintenance(self):
         """ Testing API call to open maintenance and get the port. """
         response_dict = self.tools.api_testee(api='open_maintenance', token=self.token)
-        self.assertTrue(bool(response_dict.get('port')), 'The open_maintenance API call should return the port of the maintenance socket.')
+        self.assertTrue(self.tools.is_not_empty(response_dict.get('port')), 'The open_maintenance API call should return the port of the maintenance socket.')
 
     @exception_handler
     def test_open_maintenance_authorization(self):
@@ -260,8 +260,11 @@ class IoTest(OMTestCase):
         """ Testing how healthy the services are after power cycle. """
         response_dict = json.loads(self.webinterface.get_output_status())
         status_list = response_dict.get('status', [])
-        self.assertTrue(bool(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
-        if status_list[8].get('status') == 0:
+        self.assertTrue(self.tools.is_not_empty(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
+
+        # if it's already off, turn on. Else, turn off and back on.
+
+        if status_list[self.TESTEE_POWER].get('status') == 0:
             self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
         else:
             self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
@@ -272,13 +275,10 @@ class IoTest(OMTestCase):
 
         if response_dict is None:
             self.tools.healthy_status = False
-            self.fail(
-                'Failed to report health check. Service openmotics might have crashed. Please run \'supervisorctl restart openmotics\' or see logs for more details.')
+            self.fail('Failed to report health check. Service openmotics might have crashed. Please run \'supervisorctl restart openmotics\' or see logs for more details.')
 
-        self.assertIsNotNone(response_dict,
-                             'Should not be none and should have the response back from the API call. Got: {0}'.format(response_dict))
-        self.assertTrue(response_dict.get('health_version') > 0,
-                        'Should have a health_version int to indicate the health check API version.')
+        self.assertIsNotNone(response_dict, 'Should not be none and should have the response back from the API call. Got: {0}'.format(response_dict))
+        self.assertTrue(response_dict.get('health_version') > 0, 'Should have a health_version int to indicate the health check API version.')
 
         health = response_dict.get('health', None)
         self.assertIsNotNone(health, 'Should not be none and should have health dict object. Got: {0}'.format(health))

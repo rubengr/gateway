@@ -26,8 +26,8 @@ from Queue import Queue
 
 class CommunicationTimedOutException(Exception):
     """ An exception that is raised when the master did not respond in time. """
-    def __init__(self):
-        Exception.__init__(self)
+    def __init__(self, message=None):
+        Exception.__init__(self, message)
 
 
 def printable(string):

@@ -195,8 +195,12 @@ def read_input():
                               Field.str('input_name', 8), Field.crc(), Field.lit('\r\n')])
 
 
-def shutter_status():
+def shutter_status(master_version):
     """ Read the status of a shutter module. """
+    if master_version >= (3, 143, 78):
+        return MasterCommandSpec("SO",
+                                 [Field.byte("module_nr"), Field.padding(12)],
+                                 [Field.byte("module_nr"), Field.padding(3), Field.byte("status"), Field.byte("shutter_lock"), Field.lit('\r\n')])
     return MasterCommandSpec("SO",
                              [Field.byte("module_nr"), Field.padding(12)],
                              [Field.byte("module_nr"), Field.padding(3), Field.byte("status"), Field.lit('\r\n')])
@@ -421,6 +425,13 @@ def clear_error_list():
                              [Field.str("resp", 2), Field.padding(11), Field.lit("\r\n")])
 
 
+def write_dimmer():
+    """ Writes a dimmer value directly """
+    return MasterCommandSpec("wd",
+                             [Field.byte("output_nr"), Field.byte("dimmer_value"), Field.padding(11)],
+                             [Field.byte("output_nr"), Field.byte("dimmer_value"), Field.padding(11), Field.lit('\r\n')])
+
+
 def write_airco_status_bit():
     """ Write the airco status bit. """
     return MasterCommandSpec("AW",
@@ -485,6 +496,15 @@ def write_timer():
                              [Field.byte("id"), Field.int("timer"), Field.padding(10)],
                              [Field.byte("id"), Field.int("timer"), Field.padding(10), Field.lit("\r\n")],
                              "RT")
+
+
+def get_module_version():
+    """ Get the version of the module. """
+    return MasterCommandSpec("FV",
+                             [Field.str('addr', 4), Field.crc(), Field.padding(6)],
+                             [Field.str('addr', 4), Field.byte("error_code"), Field.byte("hw_version"),
+                              Field.byte("f1"), Field.byte("f2"), Field.byte("f3"), Field.byte("status"),
+                              Field.crc(), Field.lit("\r\n")])
 
 
 # Below are the asynchronous messages, sent by the master to the gateway

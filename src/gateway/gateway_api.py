@@ -35,13 +35,15 @@ try:
     import json
 except ImportError:
     import simplejson as json
+from wiring import inject, scope, SingletonScope, provides
 from subprocess import check_output
 from threading import Timer, Thread
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
-from bus.dbus_events import DBusEvents
-import master.master_api as master_api
+from master import master_api
+from power import power_api
 from master.master_communicator import BackgroundConsumer
+from master.eeprom_controller import EepromAddress
 from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
     SensorConfiguration, PumpGroupConfiguration, GroupActionConfiguration, \
     ScheduledActionConfiguration, StartupActionConfiguration, \
@@ -49,7 +51,7 @@ from master.eeprom_models import OutputConfiguration, InputConfiguration, Thermo
     GlobalThermostatConfiguration, CoolingConfiguration, CoolingPumpGroupConfiguration, \
     GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
     CanLedConfiguration, RoomConfiguration
-import power.power_api as power_api
+from bus.om_bus_events import OMBusEvents
 
 LOGGER = logging.getLogger('openmotics')
 
@@ -70,7 +72,13 @@ def check_basic_action(ret_dict):
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
-    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, dbus_service, observer, config_controller):
+    @provides('gateway_api')
+    @scope(SingletonScope)
+    @inject(master_communicator='master_communicator', power_communicator='power_communicator',
+            power_controller='power_controller', eeprom_controller='eeprom_controller',
+            pulse_controller='pulse_controller', message_client='message_client', observer='observer',
+            config_controller='config_controller', shutter_controller='shutter_controller')
+    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -82,12 +90,14 @@ class GatewayApi(object):
         :type eeprom_controller: master.eeprom_controller.EepromController
         :param pulse_controller: Pulse controller
         :type pulse_controller: gateway.pulses.PulseCounterController
-        :param dbus_service: DBus Service
-        :type dbus_service: bus.dbus_service.DBusService
+        :param message_client: Om Message Client
+        :type message_client: bus.om_bus_client.MessageClient
         :param observer: Observer
         :type observer: gateway.observer.Observer
         :param config_controller: Configuration controller
         :type config_controller: gateway.config.ConfigurationController
+        :param shutter_controller: Shutter Controller
+        :type shutter_controller: gateway.shutters.ShutterController
         """
         self.__master_communicator = master_communicator
         self.__config_controller = config_controller
@@ -96,8 +106,9 @@ class GatewayApi(object):
         self.__power_controller = power_controller
         self.__pulse_controller = pulse_controller
         self.__plugin_controller = None
-        self.__dbus_service = dbus_service
+        self.__message_client = message_client
         self.__observer = observer
+        self.__shutter_controller = shutter_controller
 
         self.__last_maintenance_send_time = 0
         self.__maintenance_timeout_timer = None
@@ -128,6 +139,10 @@ class GatewayApi(object):
         :type plugin_controller: plugins.base.PluginController
         """
         self.__plugin_controller = plugin_controller
+
+    def master_online_event(self, online):
+        if online:
+            self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def __master_checker(self):
         """
@@ -302,6 +317,14 @@ class GatewayApi(object):
             )
             write = True
 
+        if eeprom_data[13] != chr(0):
+            LOGGER.info('Configure master startup mode to: API')
+            self.__master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 13, 'data': chr(0)}
+            )
+            write = True
+
         if write:
             self.__master_communicator.do_command(master_api.activate_eeprom(), {'eep': 0})
         self.set_master_status_leds(True)
@@ -417,7 +440,7 @@ class GatewayApi(object):
         self.__observer.invalidate_cache()
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__eeprom_controller.dirty = True
-        self.__dbus_service.send_event(DBusEvents.DIRTY_EEPROM, None)
+        self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
 
     def get_status(self):
         """ Get the status of the Master.
@@ -431,6 +454,11 @@ class GatewayApi(object):
                 'mode': out_dict['mode'],
                 'version': '%d.%d.%d' % (out_dict['f1'], out_dict['f2'], out_dict['f3']),
                 'hw_version': out_dict['h']}
+
+    def get_master_version(self):
+        """ Returns the master firmware version as tuple """
+        master_version = self.get_status()['version']
+        return tuple([int(x) for x in master_version.split('.')])
 
     def get_main_version(self):
         """ Gets reported main version """
@@ -510,7 +538,7 @@ class GatewayApi(object):
         self.__module_log = []
         self.__eeprom_controller.invalidate_cache()
         self.__eeprom_controller.dirty = True
-        self.__dbus_service.send_event(DBusEvents.DIRTY_EEPROM, None)
+        self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
         self.__observer.invalidate_cache()
 
         return {'status': ret['resp']}
@@ -571,10 +599,75 @@ class GatewayApi(object):
         for shutter in range(mods['shutter']):
             shutters.append('S')
 
-        if len(can_inputs) > 0 and 'C' not in inputs:
-            inputs.append('C')  # First CAN enabled installations didn't had this in the eeprom yet
+        if len(can_inputs) > 0 and 'C' not in can_inputs:
+            can_inputs.append('C')  # First CAN enabled installations didn't had this in the eeprom yet
 
         return {'outputs': outputs, 'inputs': inputs, 'shutters': shutters, 'can_inputs': can_inputs}
+
+    def get_modules_information(self):
+        """ Gets module information """
+
+        def get_master_version(eeprom_address, _is_can=False):
+            _module_address = self.__eeprom_controller.read_address(eeprom_address)
+            formatted_address = '{0:03}.{1:03}.{2:03}.{3:03}'.format(ord(_module_address.bytes[0]),
+                                                                     ord(_module_address.bytes[1]),
+                                                                     ord(_module_address.bytes[2]),
+                                                                     ord(_module_address.bytes[3]))
+            try:
+                if _is_can or _module_address.bytes[0].lower() == _module_address.bytes[0]:
+                    return formatted_address, None, None
+                _module_version = self.__master_communicator.do_command(master_api.get_module_version(),
+                                                                        {'addr': _module_address.bytes},
+                                                                        extended_crc=True,
+                                                                        timeout=1)
+                _firmware_version = '{0}.{1}.{2}'.format(_module_version['f1'], _module_version['f2'], _module_version['f3'])
+                return formatted_address, _module_version['hw_version'], _firmware_version
+            except CommunicationTimedOutException:
+                return formatted_address, None, None
+
+        information = {'master': {}, 'energy': {}}
+
+        # Master slave modules
+        no_modules = self.__master_communicator.do_command(master_api.number_of_io_modules())
+        for i in range(no_modules['in']):
+            is_can = self.__eeprom_controller.read_address(EepromAddress(2 + i, 252, 1)).bytes == 'C'
+            version_info = get_master_version(EepromAddress(2 + i, 0, 4), is_can)
+            module_address, hardware_version, firmware_version = version_info
+            module_type = self.__eeprom_controller.read_address(EepromAddress(2 + i, 0, 1)).bytes
+            information['master'][module_address] = {'type': module_type,
+                                                     'hardware': hardware_version,
+                                                     'firmware': firmware_version,
+                                                     'address': module_address,
+                                                     'is_can': is_can}
+        for i in range(no_modules['out']):
+            version_info = get_master_version(EepromAddress(33 + i, 0, 4))
+            module_address, hardware_version, firmware_version = version_info
+            module_type = self.__eeprom_controller.read_address(EepromAddress(33 + i, 0, 1)).bytes
+            information['master'][module_address] = {'type': module_type,
+                                                     'hardware': hardware_version,
+                                                     'firmware': firmware_version,
+                                                     'address': module_address}
+        for i in range(no_modules['shutter']):
+            version_info = get_master_version(EepromAddress(33 + i, 173, 4))
+            module_address, hardware_version, firmware_version = version_info
+            module_type = self.__eeprom_controller.read_address(EepromAddress(33 + i, 173, 1)).bytes
+            information['master'][module_address] = {'type': module_type,
+                                                     'hardware': hardware_version,
+                                                     'firmware': firmware_version,
+                                                     'address': module_address}
+
+        # Energy/power modules
+        modules = self.__power_controller.get_power_modules().values()
+        for module in modules:
+            module_address = module['address']
+            raw_version = self.__power_communicator.do_command(module_address, power_api.get_version())[0]
+            version_info = raw_version.split('\x00', 1)[0].split('_')
+            firmware_version = '{0}.{1}.{2}'.format(version_info[1], version_info[2], version_info[3])
+            information['energy'][module_address] = {'type': 'P' if module['version'] == 8 else 'E',
+                                                     'firmware': firmware_version,
+                                                     'address': module_address}
+
+        return information
 
     def flash_leds(self, led_type, led_id):
         """ Flash the leds on the module for an output/input/sensor.
@@ -663,8 +756,8 @@ class GatewayApi(object):
 
         :param output_id: The id of the output to set
         :type output_id: Integer [0, 240]
-        :param dimmer: The dimmer value to set, None if unchanged
-        :type dimmer: Integer [0, 100] or None
+        :param dimmer: The dimmer value to set
+        :type dimmer: Integer [0, 100]
         :returns: empty dict.
         """
         if output_id < 0 or output_id > 240:
@@ -673,21 +766,30 @@ class GatewayApi(object):
         if dimmer < 0 or dimmer > 100:
             raise ValueError('Dimmer value not in [0, 100]: %d' % dimmer)
 
-        dimmer = int(dimmer) / 10 * 10
+        master_version = self.get_master_version()
+        if master_version >= (3, 143, 79):
+            dimmer = int(0.63 * dimmer)
 
-        if dimmer == 0:
-            dimmer_action = master_api.BA_DIMMER_MIN
-        elif dimmer == 100:
-            dimmer_action = master_api.BA_DIMMER_MAX
+            self.__master_communicator.do_command(
+                master_api.write_dimmer(),
+                {'output_nr': output_id, 'dimmer_value': dimmer}
+            )
         else:
-            dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_' + str(dimmer)]
+            dimmer = int(dimmer) / 10 * 10
 
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': dimmer_action, 'action_number': output_id}
-        )
+            if dimmer == 0:
+                dimmer_action = master_api.BA_DIMMER_MIN
+            elif dimmer == 100:
+                dimmer_action = master_api.BA_DIMMER_MAX
+            else:
+                dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_' + str(dimmer)]
 
-        return dict()
+            self.__master_communicator.do_command(
+                master_api.basic_action(),
+                {'action_type': dimmer_action, 'action_number': output_id}
+            )
+
+        return {}
 
     def set_output_timer(self, output_id, timer):
         """ Set the timer of an output.
@@ -758,57 +860,73 @@ class GatewayApi(object):
         """
         return self.__observer.get_shutter_status()
 
-    def do_shutter_down(self, shutter_id):
-        """ Make a shutter go down. The shutter stops automatically when the down position is
-        reached (after the predefined number of seconds).
+    def do_shutter_down(self, shutter_id, position):
+        """
+        Make a shutter go down. The shutter stops automatically when the down or specified position is reached
 
         :param shutter_id: The id of the shutter.
-        :type shutter_id: Byte
+        :type shutter_id: int
+        :param position: The desired end position
+        :type position: int
         :returns:'status': 'OK'.
+        :rtype: dict
         """
-        if shutter_id < 0 or shutter_id > 120:
-            raise ValueError('id not in [0, 120]: %d' % shutter_id)
-
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': master_api.BA_SHUTTER_DOWN, 'action_number': shutter_id}
-        )
-
+        self.__shutter_controller.shutter_down(shutter_id, position)
         return {'status': 'OK'}
 
-    def do_shutter_up(self, shutter_id):
-        """ Make a shutter go up. The shutter stops automatically when the up position is
-        reached (after the predefined number of seconds).
+    def do_shutter_up(self, shutter_id, position):
+        """
+        Make a shutter go up. The shutter stops automatically when the up or specified position is reached
 
         :param shutter_id: The id of the shutter.
-        :type shutter_id: Byte
+        :type shutter_id: int
+        :param position: The desired end position
+        :type position: int
         :returns:'status': 'OK'.
+        :rtype: dict
         """
-        if shutter_id < 0 or shutter_id > 120:
-            raise ValueError('id not in [0, 120]: %d' % shutter_id)
-
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': master_api.BA_SHUTTER_UP, 'action_number': shutter_id}
-        )
-
+        self.__shutter_controller.shutter_up(shutter_id, position)
         return {'status': 'OK'}
 
     def do_shutter_stop(self, shutter_id):
-        """ Make a shutter stop.
+        """
+        Make a shutter stop.
 
         :param shutter_id: The id of the shutter.
         :type shutter_id: Byte
         :returns:'status': 'OK'.
         """
-        if shutter_id < 0 or shutter_id > 120:
-            raise ValueError('id not in [0, 120]: %d' % shutter_id)
+        self.__shutter_controller.shutter_stop(shutter_id)
+        return {'status': 'OK'}
 
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': master_api.BA_SHUTTER_STOP, 'action_number': shutter_id}
-        )
+    def do_shutter_goto(self, shutter_id, position):
+        """
+        Make a shutter go to the desired position
 
+        :param shutter_id: The id of the shutter.
+        :type shutter_id: int
+        :param position: The desired end position
+        :type position: int
+        :returns:'status': 'OK'.
+        :rtype: dict
+        """
+        self.__shutter_controller.shutter_goto(shutter_id, position)
+        return {'status': 'OK'}
+
+    def shutter_report_position(self, shutter_id, position, direction=None):
+        """
+        Report the actual position of a shutter
+
+        :param shutter_id: The id of the shutter.
+        :type shutter_id: int
+        :param position: The actual position
+        :type position: int
+        :param direction: The direction
+        :type direction: str
+        :returns:'status': 'OK'.
+        :rtype: dict
+        """
+        self.__shutter_controller.report_shutter_position(shutter_id, position, direction)
         return {'status': 'OK'}
 
     def do_shutter_group_down(self, group_id):
@@ -1332,20 +1450,32 @@ class GatewayApi(object):
             threading.Timer(1, lambda: os._exit(0)).start()
 
     def get_master_backup(self):
-        """ Get a backup of the eeprom of the master.
+        """
+        Get a backup of the eeprom of the master.
 
         :returns: String of bytes (size = 64kb).
         """
+        retry = None
         output = ""
-        for bank in range(0, 256):
-            output += self.__master_communicator.do_command(
-                master_api.eeprom_list(),
-                {'bank': bank}
-            )['data']
+        bank = 0
+        while bank < 256:
+            try:
+                output += self.__master_communicator.do_command(
+                    master_api.eeprom_list(),
+                    {'bank': bank}
+                )['data']
+                bank += 1
+            except CommunicationTimedOutException:
+                if retry == bank:
+                    raise
+                retry = bank
+                LOGGER.warning('Got timeout reading bank {0}. Retrying...'.format(bank))
+                time.sleep(2)  # Doing heavy reads on eeprom can exhaust the master. Give it a bit room to breathe.
         return output
 
     def master_restore(self, data):
-        """ Restore a backup of the eeprom of the master.
+        """
+        Restore a backup of the eeprom of the master.
 
         :param data: The eeprom backup to restore.
         :type data: string of bytes (size = 64 kb).
@@ -1370,6 +1500,7 @@ class GatewayApi(object):
 
         self.__master_communicator.do_command(master_api.activate_eeprom(), {'eep': 0})
         ret.append('Activated eeprom')
+        self.__eeprom_controller.invalidate_cache()
 
         return {'output': ret}
 
@@ -1583,6 +1714,7 @@ class GatewayApi(object):
         """
         self.__eeprom_controller.write(ShutterConfiguration.deserialize(config))
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
+        self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def set_shutter_configurations(self, config):
         """
@@ -1593,6 +1725,7 @@ class GatewayApi(object):
         """
         self.__eeprom_controller.write_batch([ShutterConfiguration.deserialize(o) for o in config])
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
+        self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def get_shutter_group_configuration(self, group_id, fields=None):
         """
