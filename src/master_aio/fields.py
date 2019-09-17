@@ -232,6 +232,24 @@ class AddressField(Field):
         return '.'.join(result)
 
 
+class StringField(Field):
+    def __init__(self, name):
+        super(StringField, self).__init__(name, length=None)
+
+    def encode(self, value):
+        return '{0}\x00'.format(value)
+
+    def encode_bytes(self, value):
+        value_string = self.encode(value)
+        return [ord(item) for item in value_string]
+
+    def decode(self, data):
+        return data.strip('\x00')
+
+    def decode_bytes(self, data):
+        return self.decode(''.join(str(chr(byte)) for byte in data))
+
+
 class VersionField(AddressField):
     def __init__(self, name):
         super(VersionField, self).__init__(name, 3)

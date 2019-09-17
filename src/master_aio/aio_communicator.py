@@ -45,8 +45,8 @@ class AIOCommunicator(object):
 
     @provides('master_communicator')
     @scope(SingletonScope)
-    @inject(serial='controller_serial')
-    def __init__(self, serial, verbose=False):
+    @inject(serial='controller_serial', verbose='aio_communicator_verbose')
+    def __init__(self, serial, verbose):
         """
         :param serial: Serial port to communicate with
         :type serial: serial.Serial

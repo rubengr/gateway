@@ -21,8 +21,8 @@ import xmlrunner
 import logging
 from mock import Mock
 from master_aio.ucan_communicator import UCANCommunicator, SID
-from master_aio.ucan_command import UCANPalletCommandSpec
-from master_aio.fields import AddressField, ByteArrayField, ByteField, Int32Field
+from master_aio.ucan_command import UCANPalletCommandSpec, PalletType
+from master_aio.fields import AddressField, ByteArrayField, ByteField, Int32Field, StringField
 
 
 class UCANCommunicatorTest(unittest.TestCase):
@@ -49,37 +49,74 @@ class UCANCommunicatorTest(unittest.TestCase):
         ucan_communicator = UCANCommunicator(aio_communicator=aio_communicator, verbose=True)
         cc_address = '000.000.000.000'
         ucan_address = '000.000.000'
+        pallet_type = PalletType.MCU_ID_REQUEST  # Not important for this test
 
         for length in [1, 3]:
-            pallet_type = 1  # TODO: Use enum
+            # Build command
             command = UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
                                             pallet_type=pallet_type,
                                             request_fields=[ByteField('foo'), ByteField('bar')],
                                             response_fields=[ByteArrayField('other', length)])
+
+            # Send command to mocked AIO communicator
             received_commands = []
-            ucan_communicator.do_command(cc_address, command, ucan_address, {'foo': 1,
-                                                                             'bar': 2}, timeout=None)
+            ucan_communicator.do_command(cc_address, command, ucan_address, {'foo': 1, 'bar': 2}, timeout=None)
+
+            # Validate whether the correct data was send to the AIO
             self.assertEqual(len(received_commands), 2)
             self.assertDictEqual(received_commands[0], {'cc_address': cc_address,
                                                         'nr_can_bytes': 8,
                                                         'payload': [129, 0, 0, 0, 0, 0, 0, pallet_type],
+                                                        #                +--------------+ = source and destination uCAN address
                                                         'sid': SID.BOOTLOADER_PALLET})
             self.assertDictEqual(received_commands[1], {'cc_address': cc_address,
                                                         'nr_can_bytes': 7,
-                                                        'payload': [0, 1, 2, 218, 67, 86, 53, 0],
-                                                        #                    +-------------+ = checksum
+                                                        'payload': [0, 1, 2, 219, 155, 250, 178, 0],
+                                                        #              |  |  +----------------+ = checksum
+                                                        #              |  + = bar
+                                                        #              + = foo
                                                         'sid': SID.BOOTLOADER_PALLET})
 
+            # Build fake reply from AIO
             consumer = ucan_communicator._consumers[cc_address][0]
-            payload = [0, 1, 2, 3, 4, 5, 6] + range(7, 7 + length)
-            crc_payload = Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload))
+            fixed_payload = [0, 0, 0, 0, 0, 0, pallet_type]
+            variable_payload = range(7, 7 + length)  # [7] or [7, 8, 9]
+            crc_payload = Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(fixed_payload + variable_payload))
             ucan_communicator._process_transport_message({'cc_address': cc_address,
                                                           'nr_can_bytes': 8,
-                                                          'payload': [129, 0, 1, 2, 3, 4, 5, 6]})
+                                                          'payload': [129] + fixed_payload})
             ucan_communicator._process_transport_message({'cc_address': cc_address,
                                                           'nr_can_bytes': length + 5,
-                                                          'payload': [0] + range(7, 7 + length) + crc_payload})
-            self.assertDictEqual(consumer.get(1), {'other': range(7, 7 + length)})
+                                                          'payload': [0] + variable_payload + crc_payload})
+            self.assertDictEqual(consumer.get(1), {'other': variable_payload})
+
+    def test_string_parsing(self):
+        aio_communicator = Mock()
+        ucan_communicator = UCANCommunicator(aio_communicator=aio_communicator, verbose=True)
+        cc_address = '000.000.000.000'
+        ucan_address = '000.000.000'
+        pallet_type = PalletType.MCU_ID_REQUEST  # Not important for this test
+        foo = 'XY'  # 2 chars max, otherwise more segments are needed and the test might get too complex
+
+        # Build response-only command
+        command = UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
+                                        pallet_type=pallet_type,
+                                        response_fields=[StringField('foo')])
+        ucan_communicator.do_command(cc_address, command, ucan_address, {}, timeout=None)
+        consumer = ucan_communicator._consumers[cc_address][0]
+
+        # Build and validate fake reply from AIO
+        payload_segment_1 = [0, 0, 0, 0, 0, 0, PalletType.MCU_ID_REPLY]
+        payload_segment_2 = [ord(x) for x in '{0}\x00'.format(foo)]
+        crc_payload = Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload_segment_1 + payload_segment_2))
+        payload_segment_2 += crc_payload
+        ucan_communicator._process_transport_message({'cc_address': cc_address,
+                                                      'nr_can_bytes': 8,
+                                                      'payload': [129] + payload_segment_1})
+        ucan_communicator._process_transport_message({'cc_address': cc_address,
+                                                      'nr_can_bytes': 8,
+                                                      'payload': [0] + payload_segment_2})
+        self.assertDictEqual(consumer.get(1), {'foo': foo})
 
 
 if __name__ == "__main__":

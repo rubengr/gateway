@@ -22,7 +22,7 @@ from wiring import provides, inject, SingletonScope, scope
 from master_aio.aio_api import AIOAPI
 from master_aio.ucan_command import SID
 from master_aio.aio_communicator import BackgroundConsumer
-from serial_utils import CommunicationTimedOutException
+from serial_utils import CommunicationTimedOutException, printable
 
 LOGGER = logging.getLogger('openmotics')
 
@@ -38,8 +38,8 @@ class UCANCommunicator(object):
 
     @provides('ucan_communicator')
     @scope(SingletonScope)
-    @inject(aio_communicator='master_communicator')
-    def __init__(self, aio_communicator, verbose=True):
+    @inject(aio_communicator='master_communicator', verbose='ucan_communicator_verbose')
+    def __init__(self, aio_communicator, verbose):
         """
         :param aio_communicator: AIOCommunicator
         :type aio_communicator: master_aio.aio_communicator.AIOCommunicator
@@ -100,7 +100,7 @@ class UCANCommunicator(object):
         self.register_consumer(consumer)
         for payload, length in command.create_request_payloads(identity, fields):
             if self._verbose:
-                LOGGER.info('Writing to uCAN transport ({0}):   {1}'.format(cc_address, payload))
+                LOGGER.info('Writing to uCAN transport ({0}):   {1}'.format(cc_address, printable(payload)))
             self._communicator.send_command(1, AIOAPI.ucan_transport_message(), {'cc_address': cc_address,
                                                                                  'nr_can_bytes': length,
                                                                                  'sid': command.sid,
@@ -115,7 +115,7 @@ class UCANCommunicator(object):
         payload = package['payload'][:payload_length]
         cc_address = package['cc_address']
         if self._verbose:
-            LOGGER.info('Reading from uCAN transport ({0}): {1}'.format(cc_address, payload))
+            LOGGER.info('Reading from uCAN transport ({0}): {1}'.format(cc_address, printable(payload)))
 
         consumers = self._consumers.get(cc_address, [])
         for consumer in consumers[:]:

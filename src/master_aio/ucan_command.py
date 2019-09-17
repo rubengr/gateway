@@ -17,7 +17,8 @@ UCANCommandSpec defines payload handling; (de)serialization
 """
 import logging
 import math
-from master_aio.fields import PaddingField, Int32Field
+from master_aio.fields import PaddingField, Int32Field, StringField
+from serial_utils import printable
 
 
 LOGGER = logging.getLogger('openmotics')
@@ -27,6 +28,23 @@ class SID(object):
     NORMAL_COMMAND = 5
     BOOTLOADER_COMMAND = 1
     BOOTLOADER_PALLET = 0
+
+
+class PalletType(object):
+    MCU_ID_REQUEST = 0x00
+    MCU_ID_REPLY = 0x01
+    BOOTLOADER_ID_REQUEST = 0x02
+    BOOTLOADER_ID_REPLY = 0x03
+    FLASH_WRITE_REQUEST = 0x04
+    FLASH_WRITE_REPLY = 0x05
+    FLASH_READ_REQUEST = 0x06
+    FLASH_READ_REPLY = 0x07
+    EEPROM_WRITE_REQUEST = 0x08
+    EEPROM_WRITE_REPLY = 0x09
+    EEPROM_READ_REQUEST = 0x0A
+    EEPROM_READ_REPLY = 0x0B
+    RESET_REQUEST = 0x0C
+    RESET_REPLY = 0x0D
 
 
 class Instruction(object):
@@ -108,14 +126,14 @@ class UCANCommandSpec(object):
         for response_hash in self.headers:
             # Headers are ordered
             if response_hash not in payload:
-                LOGGER.warning('Payload did not contain all the expected data: {0}'.format(payload))
+                LOGGER.warning('Payload did not contain all the expected data: {0}'.format(printable(payload)))
                 return None
             response_instruction = self._response_instruction_by_hash[response_hash]
             payload_entry = payload[response_hash]
             crc = payload_entry[response_instruction.checksum_byte]
             expected_crc = UCANCommandSpec.calculate_crc(payload_entry[:response_instruction.checksum_byte])
             if crc != expected_crc:
-                LOGGER.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, payload_entry))
+                LOGGER.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, printable(payload_entry)))
                 return None
             usefull_payload = payload_entry[self.header_length:response_instruction.checksum_byte]
             payload_data += usefull_payload
@@ -125,11 +143,14 @@ class UCANCommandSpec(object):
         result = {}
         payload_length = len(payload_data)
         for field in self._response_fields:
-            field_length = field.length
+            if isinstance(field, StringField):
+                field_length = payload_data.index(0) + 1
+            else:
+                field_length = field.length
             if callable(field_length):
                 field_length = field_length(payload_length)
             if len(payload_data) < field_length:
-                LOGGER.warning('Payload did not contain all the expected data: {0}'.format(payload_data))
+                LOGGER.warning('Payload did not contain all the expected data: {0}'.format(printable(payload_data)))
                 break
             data = payload_data[:field_length]
             if not isinstance(field, PaddingField):
@@ -203,7 +224,6 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         :type fields: dict
         :rtype: generator of tuple(int, list)
         """
-        # TODO: Both addresses here might be in little-endian. To be checked
         payload = self._identifier.encode_bytes('000.000.000') + self._identifier.encode_bytes(identity) + [self._pallet_type]
         for field in self._request_fields:
             payload += field.encode_bytes(fields.get(field.name))
@@ -231,14 +251,15 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         """
         crc = UCANPalletCommandSpec.calculate_crc(payload)
         if crc != 0:
-            LOGGER.info('Unexpected pallet CRC ({0} != 0): {1}'.format(crc, payload))
-            return self._parse_payload(payload[7:-4])  # TODO: Should return None once CRC stuff works
+            LOGGER.info('Unexpected pallet CRC ({0} != 0): {1}'.format(crc, printable(payload)))
+            return None
         return self._parse_payload(payload[7:-4])
 
     @staticmethod
     def calculate_crc(data):
         """
-        Calculate the CRC of the data (including CRC). The algoritm is choosen so the remainder should always be 0
+        Calculates the CRC of data. The algorithm is designed to make sure flowing statement is True:
+        > crc(data + crc(data)) == 0
 
         :param data: Data for which to calculate the CRC
         :returns: CRC
@@ -247,10 +268,10 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         topbit = 1 << (width - 1)
         polynomial = 0x04C11DB7
         remainder = 0
-        for i in range(len(data)):
+        for i in xrange(len(data)):
             remainder ^= data[i] << (width - 8)
             remainder &= 0xFFFFFFFF
-            for _ in range(7, -1, -1):
+            for _ in xrange(7, -1, -1):
                 if remainder & topbit:
                     remainder = (remainder << 1) ^ polynomial
                     remainder &= 0xFFFFFFFF

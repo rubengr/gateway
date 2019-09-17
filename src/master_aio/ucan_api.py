@@ -16,8 +16,8 @@
 Contains the definition of the AIO API
 """
 
-from master_aio.ucan_command import UCANCommandSpec, SID, Instruction
-from master_aio.fields import AddressField, ByteField, WordField, VersionField
+from master_aio.ucan_command import UCANCommandSpec, UCANPalletCommandSpec, SID, PalletType, Instruction
+from master_aio.fields import AddressField, ByteField, WordField, VersionField, StringField, Int32Field, ByteArrayField
 
 
 class UCANAPI(object):
@@ -81,3 +81,44 @@ class UCANAPI(object):
                                identifier=AddressField('ucan_address', 3),
                                response_instructions=[Instruction(instruction=[94, 94], checksum_byte=6)],
                                response_fields=[ByteField('application_mode')])
+
+    @staticmethod
+    def get_mcu_id():
+        """
+        Gets the uCAN mcu ID
+        Note: uCAN needs to be in bootloader
+        """
+        return UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
+                                     pallet_type=PalletType.MCU_ID_REQUEST,
+                                     response_fields=[StringField('mcu_id')])
+
+    @staticmethod
+    def get_bootloader_id():
+        """
+        Gets the uCAN bootloader ID
+        Note: uCAN needs to be in bootloader
+        """
+        return UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
+                                     pallet_type=PalletType.BOOTLOADER_ID_REQUEST,
+                                     response_fields=[StringField('bootloader_id')])
+
+    @staticmethod
+    def write_flash(data_length):
+        """
+        Writes uCAN flash
+        Note: uCAN needs to be in bootloader
+        """
+        return UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
+                                     pallet_type=PalletType.FLASH_WRITE_REQUEST,
+                                     request_fields=[Int32Field('start_address'), ByteArrayField('data', data_length)])
+
+    @staticmethod
+    def read_flash(data_length):
+        """
+        Reads uCAN flash
+        Note: uCAN needs to be in bootloader
+        """
+        return UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
+                                     pallet_type=PalletType.FLASH_READ_REQUEST,
+                                     request_fields=[Int32Field('start_address'), ByteField('data_length')],
+                                     response_fields=[ByteArrayField('data', data_length)])
