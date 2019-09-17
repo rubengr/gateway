@@ -35,9 +35,7 @@ class AIOCommunicator(object):
     Provides methods to send AIOCommands.
     """
 
-    # TODO: Use the length of the below constants instead of hardcoding e.g. 3 or 8, ...
-
-    # Message constants. There are here for better code readability, no not change them without checking the other code.
+    # Message constants. There are here for better code readability, you can't just simply change them
     START_OF_REQUEST = 'STR'
     END_OF_REQUEST = '\r\n\r\n'
     START_OF_REPLY = 'RTR'
@@ -273,6 +271,8 @@ class AIOCommunicator(object):
         """
         data = ''
         wait_for_length = None
+        header_length = len(AIOCommunicator.START_OF_REPLY) + 1 + 2 + 2  # RTR + CID (1 byte) + command (2 bytes) + length (2 bytes)
+        footer_length = 1 + 1 + len(AIOCommunicator.END_OF_REPLY)  # 'C' + checksum (1 byte) + \r\n
 
         while not self._stop:
 
@@ -285,8 +285,8 @@ class AIOCommunicator(object):
             self._serial_bytes_read += num_bytes
             self._communication_stats['bytes_read'] += num_bytes
 
-            # Wait for a speicific number of bytes, or the minimum of 8
-            if (wait_for_length is None and len(data) < 8) or len(data) < wait_for_length:
+            # Wait for a speicific number of bytes, or the header length
+            if (wait_for_length is None and len(data) < header_length) or len(data) < wait_for_length:
                 continue
 
             # Check if the data contains the START_OF_REPLY
@@ -296,14 +296,11 @@ class AIOCommunicator(object):
             if wait_for_length is None:
                 # Flush everything before the START_OF_REPLY
                 data = AIOCommunicator.START_OF_REPLY + data.split(AIOCommunicator.START_OF_REPLY, 1)[-1]
-                if len(data) < 8:
+                if len(data) < header_length:
                     continue  # Not enough data
 
-            cid = ord(data[3])
-            command = data[4:6]
-            header = data[:6]
-            length = ord(data[6]) * 256 + ord(data[7])
-            message_length = length + 8 + 4  # `length` payload, 8 header, 4 footer
+            header_fields = AIOCommunicator._parse_header(data)
+            message_length = header_fields['length'] + header_length + footer_length
 
             # If not all data is present, wait for more data
             if len(data) < message_length:
@@ -344,16 +341,24 @@ class AIOCommunicator(object):
                 continue
 
             # A valid message is received, reliver it to the correct consumer
-            consumers = self._consumers.get(header, [])
+            consumers = self._consumers.get(header_fields['header'], [])
             for consumer in consumers[:]:
                 if self._verbose:
-                    LOGGER.info('Delivering payload to consumer {0}.{1}: {2}'.format(command, cid, printable(payload)))
+                    LOGGER.info('Delivering payload to consumer {0}.{1}: {2}'.format(header_fields['command'], header_fields['cid'], printable(payload)))
                 consumer.consume(payload)
                 if isinstance(consumer, Consumer):
                     self.unregister_consumer(consumer)
 
             # Message processed, cleaning up
             wait_for_length = None
+
+    @staticmethod
+    def _parse_header(data):
+        base = len(AIOCommunicator.START_OF_REPLY)
+        return {'cid': ord(data[base]),
+                'command': data[base + 1:base + 3],
+                'header': data[:base + 3],
+                'length': ord(data[base + 3]) * 256 + ord(data[base + 4])}
 
 
 class Consumer(object):
@@ -369,7 +374,7 @@ class Consumer(object):
 
     def get_header(self):
         """ Get the prefix of the answer from the AIO. """
-        return 'RTR' + str(chr(self.cid)) + self.command.response_instruction
+        return AIOCommunicator.START_OF_REPLY + str(chr(self.cid)) + self.command.response_instruction
 
     def consume(self, payload):
         """ Consume payload. """
@@ -415,7 +420,7 @@ class BackgroundConsumer(object):
 
     def get_header(self):
         """ Get the prefix of the answer from the AIO. """
-        return 'RTR' + str(chr(self.cid)) + self.command.response_instruction
+        return AIOCommunicator.START_OF_REPLY + str(chr(self.cid)) + self.command.response_instruction
 
     def consume(self, payload):
         """ Consume payload. """

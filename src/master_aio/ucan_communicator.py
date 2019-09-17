@@ -20,8 +20,9 @@ import logging
 from Queue import Queue, Empty
 from wiring import provides, inject, SingletonScope, scope
 from master_aio.aio_api import AIOAPI
-from master_aio.ucan_command import SID
 from master_aio.aio_communicator import BackgroundConsumer
+from master_aio.exceptions import BootloadingException
+from master_aio.ucan_command import SID
 from serial_utils import CommunicationTimedOutException, printable
 
 LOGGER = logging.getLogger('openmotics')
@@ -31,10 +32,6 @@ class UCANCommunicator(object):
     """
     Uses a AIOCommunicator to communicate with uCANs
     """
-
-    # TODO: Handle variable-length payloads for bootloading purposes
-    # TODO: Lock SID.BOOTLOADER_PALLET (=0) mode so there can be only one pallet be transfered at a time
-    # TODO: Raise some CRCException in the .get() function of the consumer(s)
 
     @provides('ucan_communicator')
     @scope(SingletonScope)
@@ -50,6 +47,7 @@ class UCANCommunicator(object):
         self._communicator = aio_communicator
         self._read_buffer = []
         self._consumers = {}
+        self._cc_pallet_mode = {}
 
         self._background_consumer = BackgroundConsumer(AIOAPI.ucan_transport_message(), 1, self._process_transport_message)
         self._communicator.register_consumer(self._background_consumer)
@@ -90,10 +88,14 @@ class UCANCommunicator(object):
         :raises: serial_utils.CommunicationTimedOutException
         :returns: dict containing the output fields of the command
         """
+        if self._cc_pallet_mode.get(cc_address, False) is True:
+            raise BootloadingException('CC {0} is currently bootloading'.format(cc_address))
+
         command.set_identity(identity)
 
         if command.sid == SID.BOOTLOADER_PALLET:
-            consumer = PalletConsumer(cc_address, command)
+            consumer = PalletConsumer(cc_address, command, self._release_pallet_mode)
+            self._cc_pallet_mode[cc_address] = True
         else:
             consumer = Consumer(cc_address, command)
 
@@ -109,6 +111,10 @@ class UCANCommunicator(object):
         consumer.check_send_only()
         if timeout is not None:
             return consumer.get(timeout)
+
+    def _release_pallet_mode(self, cc_address):
+        print('releaseing for {0}'.format(cc_address))
+        self._cc_pallet_mode[cc_address] = False
 
     def _process_transport_message(self, package):
         payload_length = package['nr_can_bytes']
@@ -158,7 +164,11 @@ class Consumer(object):
         :returns: dict containing the output fields of the command
         """
         try:
-            return self._queue.get(timeout=timeout)
+            value = self._queue.get(timeout=timeout)
+            if value is None:
+                # No valid data could be received
+                raise CommunicationTimedOutException()
+            return value
         except Empty:
             raise CommunicationTimedOutException()
 
@@ -175,10 +185,11 @@ class PalletConsumer(Consumer):
     matches the consumer, the output will unblock the get() caller.
     """
 
-    def __init__(self, cc_address, command):
+    def __init__(self, cc_address, command, finished_callback):
         super(PalletConsumer, self).__init__(cc_address=cc_address,
                                              command=command)
         self._amount_of_segments = None
+        self._finished_callback = finished_callback
 
     def suggest_payload(self, payload):
         """ Consume payload if needed """
@@ -196,6 +207,12 @@ class PalletConsumer(Consumer):
             self._queue.put(self.command.consume_response_payload(pallet))
             return True
         return False
+
+    def get(self, timeout):
+        try:
+            return super(PalletConsumer, self).get(timeout=timeout)
+        finally:
+            self._finished_callback(self.cc_address)
 
     def check_send_only(self):
         pass

@@ -20,8 +20,9 @@ import unittest
 import xmlrunner
 import logging
 from mock import Mock
+from master_aio.exceptions import BootloadingException
 from master_aio.ucan_communicator import UCANCommunicator, SID
-from master_aio.ucan_command import UCANPalletCommandSpec, PalletType
+from master_aio.ucan_command import UCANCommandSpec, UCANPalletCommandSpec, PalletType, Instruction
 from master_aio.fields import AddressField, ByteArrayField, ByteField, Int32Field, StringField
 
 
@@ -117,6 +118,43 @@ class UCANCommunicatorTest(unittest.TestCase):
                                                       'nr_can_bytes': 8,
                                                       'payload': [0] + payload_segment_2})
         self.assertDictEqual(consumer.get(1), {'foo': foo})
+
+    def test_bootload_lock(self):
+        aio_communicator = Mock()
+        ucan_communicator = UCANCommunicator(aio_communicator=aio_communicator, verbose=True)
+        cc_address = '000.000.000.000'
+        ucan_address = '000.000.000'
+
+        command = UCANCommandSpec(sid=SID.NORMAL_COMMAND,
+                                  instruction=Instruction(instruction=[0, 0]),
+                                  identifier=AddressField('ucan_address', 3))
+        ucan_communicator.do_command(cc_address, command, ucan_address, {}, timeout=None)
+
+        command = UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
+                                        pallet_type=PalletType.MCU_ID_REPLY)
+        ucan_communicator.do_command(cc_address, command, ucan_address, {}, timeout=None)
+        pallet_consumer = ucan_communicator._consumers[cc_address][-1]  # Load last consumer
+
+        command = UCANCommandSpec(sid=SID.NORMAL_COMMAND,
+                                  instruction=Instruction(instruction=[0, 0]),
+                                  identifier=AddressField('ucan_address', 3))
+        with self.assertRaises(BootloadingException):
+            ucan_communicator.do_command(cc_address, command, ucan_address, {}, timeout=None)
+
+        command = UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
+                                        pallet_type=PalletType.MCU_ID_REPLY)
+        with self.assertRaises(BootloadingException):
+            ucan_communicator.do_command(cc_address, command, ucan_address, {}, timeout=None)
+
+        try:
+            pallet_consumer.get(0.1)
+        except Exception:
+            pass  #
+
+        command = UCANCommandSpec(sid=SID.NORMAL_COMMAND,
+                                  instruction=Instruction(instruction=[0, 0]),
+                                  identifier=AddressField('ucan_address', 3))
+        ucan_communicator.do_command(cc_address, command, ucan_address, {}, timeout=None)
 
 
 if __name__ == "__main__":
