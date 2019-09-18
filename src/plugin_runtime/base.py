@@ -229,7 +229,7 @@ class PluginConfigChecker(object):
                                    'password': (basestring, 'a string'),
                                    'section': (list, 'a list')}.iteritems():
                 if item['type'] == key and not isinstance(config[name], type_info[0]):
-                        raise PluginException(PluginConfigChecker.CONFIG_INVALID_TYPE.format(name, config[name], type_info[1]))
+                    raise PluginException(PluginConfigChecker.CONFIG_INVALID_TYPE.format(name, config[name], type_info[1]))
 
             if item['type'] == 'enum':
                 if config[name] not in item['choices']:
