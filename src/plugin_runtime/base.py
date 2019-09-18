@@ -228,8 +228,11 @@ class PluginConfigChecker(object):
                                    'bool': (bool, 'a bool'),
                                    'password': (basestring, 'a string'),
                                    'section': (list, 'a list')}.iteritems():
-                if item['type'] == key and not isinstance(config[name], type_info[0]):
-                    raise PluginException(PluginConfigChecker.CONFIG_INVALID_TYPE.format(name, config[name], type_info[1]))
+                if item['type'] == key:
+                    if key == 'section' and not config['repeat'] and isinstance(config[name], dict):
+                        continue
+                    if not isinstance(config[name], type_info[0]):
+                        raise PluginException(PluginConfigChecker.CONFIG_INVALID_TYPE.format(name, config[name], type_info[1]))
 
             if item['type'] == 'enum':
                 if config[name] not in item['choices']:
