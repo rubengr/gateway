@@ -200,7 +200,8 @@ class System(object):
     def import_eggs():
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         operating_system = System._get_operating_system()
-        blacklisted_eggs = {'debian': ['requests-2.5.3-py2.7.egg']}.get(operating_system['ID'], [])
+        blacklisted_eggs = {'debian': ['requests-2.5.3-py2.7.egg', 'angstrom-psutil-5.6.3-py2.7-linux-armv7l.egg'],
+                            'angstrom': ['debian-psutil-5.6.3-py2.7-linux-armv7l.egg']}.get(operating_system['ID'], [])
         os.environ['PYTHON_EGG_CACHE'] = '/tmp/.eggs-cache/'
         for egg in os.listdir('{0}/eggs'.format(current_file_path)):
             if egg.endswith('.egg') and egg not in blacklisted_eggs:

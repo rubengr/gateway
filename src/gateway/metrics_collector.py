@@ -305,7 +305,7 @@ class MetricsCollector(object):
                     values['memory_percent'] = memory.get('percent', None)
                     values['memory_free'] = memory.get('free', None)
                     values['memory_inactive'] = memory.get('inactive', None)
-                    values['memory_wired'] = memory.get('wired', None)
+                    values['memory_shared'] = memory.get('shared', None)
                     values['memory_active'] = memory.get('active', None)
                     values['memory_total'] = memory.get('total', None)
                 except Exception as ex:
@@ -831,7 +831,7 @@ class MetricsCollector(object):
                           'description': 'Inactive memory',
                           'type': 'gauge',
                           'unit': 'bytes'},
-                         {'name': 'memory_wired',
+                         {'name': 'memory_shared',
                           'description': 'Wired memory',
                           'type': 'gauge',
                           'unit': 'bytes'},
