@@ -109,9 +109,7 @@ class UCANCommandSpec(object):
         for field in self._request_fields:
             payload += field.encode_bytes(fields.get(field.name))
         payload.append(UCANCommandSpec.calculate_crc(payload))
-        payload_bytes = len(payload)
-        payload += [0] * (8 - payload_bytes)
-        yield payload, payload_bytes
+        yield payload
 
     def consume_response_payload(self, payload):
         """
@@ -234,9 +232,7 @@ class UCANPalletCommandSpec(UCANCommandSpec):
             header = ((1 if first else 0) << 7) + (segments - 1)
             sub_payload = [header] + payload[:7]
             payload = payload[7:]
-            sub_payload_bytes = len(sub_payload)
-            sub_payload += [0] * (8 - sub_payload_bytes)
-            yield sub_payload, sub_payload_bytes
+            yield sub_payload
             first = False
             segments -= 1
 

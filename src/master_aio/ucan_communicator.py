@@ -100,13 +100,13 @@ class UCANCommunicator(object):
             consumer = Consumer(cc_address, command)
 
         self.register_consumer(consumer)
-        for payload, length in command.create_request_payloads(identity, fields):
+        for payload in command.create_request_payloads(identity, fields):
             if self._verbose:
                 LOGGER.info('Writing to uCAN transport ({0}):   {1}'.format(cc_address, printable(payload)))
             self._communicator.send_command(1, AIOAPI.ucan_transport_message(), {'cc_address': cc_address,
-                                                                                 'nr_can_bytes': length,
+                                                                                 'nr_can_bytes': len(payload),
                                                                                  'sid': command.sid,
-                                                                                 'payload': payload})
+                                                                                 'payload': payload + [0] * (8 - len(payload))})
 
         consumer.check_send_only()
         if timeout is not None:
