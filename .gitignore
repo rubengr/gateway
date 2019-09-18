@@ -1,5 +1,6 @@
 .idea/
 .DS_Store/
+**/.DS_Store
 *.pyc
 .vscode/
 testing/gw-unit-reports

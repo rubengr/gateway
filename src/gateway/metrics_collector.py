@@ -300,38 +300,46 @@ class MetricsCollector(object):
 
                 try:
                     memory = dict(psutil.virtual_memory()._asdict())
-                    values['memory_available'] = memory.get('available', None)
-                    values['memory_used'] = memory.get('used', None)
-                    values['memory_percent'] = memory.get('percent', None)
-                    values['memory_free'] = memory.get('free', None)
-                    values['memory_inactive'] = memory.get('inactive', None)
-                    values['memory_shared'] = memory.get('shared', None)
-                    values['memory_active'] = memory.get('active', None)
-                    values['memory_total'] = memory.get('total', None)
+                    for reading in ['available', 'used', 'percent', 'free', 'inactive', 'shared', 'active', 'total']:
+                        try:
+                            key = 'memory_{0}'.format(reading)
+                            value = memory[reading]
+                            values[key] = value
+                        except Exception as ex:
+                            LOGGER.error('error loading memory metric {0}'.format(ex))
                 except Exception as ex:
                     LOGGER.error('error loading memory metrics {0}'.format(ex))
 
                 try:
                     disk = dict(psutil.disk_usage('/')._asdict())
-                    values['disk_total'] = disk.get('total', None)
-                    values['disk_used'] = disk.get('used', None)
-                    values['disk_free'] = disk.get('free', None)
-                    values['disk_percent'] = disk.get('percent', None)
+                    for reading in ['total', 'used', 'percent', 'free']:
+                        try:
+                            key = 'disk_{0}'.format(reading)
+                            value = disk[reading]
+                            values[key] = value
+                        except Exception as ex:
+                            LOGGER.error('error loading disk metric {0}'.format(ex))
 
                     disk_io = dict(psutil.disk_io_counters()._asdict())
-                    values['disk_read_count'] = disk_io.get('read_count', None)
-                    values['disk_write_count'] = disk_io.get('write_count', None)
-                    values['disk_read_bytes'] = disk_io.get('read_bytes', None)
-                    values['disk_write_bytes'] = disk_io.get('write_bytes', None)
+                    for reading in ['read_count', 'write_count', 'read_bytes', 'write_bytes']:
+                        try:
+                            key = 'disk_{0}'.format(reading)
+                            value = disk_io[reading]
+                            values[key] = value
+                        except Exception as ex:
+                            LOGGER.error('error loading disk io metric {0}'.format(ex))
                 except Exception as ex:
                     LOGGER.error('error loading disk metrics {0}'.format(ex))
 
                 try:
                     network = dict(psutil.net_io_counters()._asdict())
-                    values['net_bytes_sent'] = network.get('bytes_sent', None)
-                    values['net_bytes_recv'] = network.get('bytes_recv', None)
-                    values['net_packets_sent'] = network.get('packets_sent', None)
-                    values['net_packets_recv'] = network.get('packets_recv', None)
+                    for reading in ['bytes_sent', 'bytes_recv', 'packets_sent', 'packets_recv']:
+                        try:
+                            key = 'net_{0}'.format(reading)
+                            value = network[reading]
+                            values[key] = value
+                        except Exception as ex:
+                            LOGGER.error('error loading network metric {0}'.format(ex))
                 except Exception as ex:
                     LOGGER.error('error loading network metrics {0}'.format(ex))
 
