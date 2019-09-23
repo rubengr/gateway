@@ -105,7 +105,10 @@ class UCANCommandSpec(object):
         :type fields: dict
         :rtype: generator of tuple(int, list)
         """
-        payload = self.instruction.instruction + self._identifier.encode_bytes(identity)
+        destination_address = self._identifier.encode_bytes(identity)
+        if self.sid == SID.BOOTLOADER_COMMAND:
+            destination_address = list(reversed(destination_address))  # Little endian
+        payload = self.instruction.instruction + destination_address
         for field in self._request_fields:
             payload += field.encode_bytes(fields.get(field.name))
         payload.append(UCANCommandSpec.calculate_crc(payload))
@@ -222,7 +225,9 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         :type fields: dict
         :rtype: generator of tuple(int, list)
         """
-        payload = self._identifier.encode_bytes('000.000.000') + self._identifier.encode_bytes(identity) + [self._pallet_type]
+        destination_address = list(reversed(self._identifier.encode_bytes(identity)))  # Little endian
+        source_address = self._identifier.encode_bytes('000.000.000')  # Little endian, but doesn't matter here
+        payload = source_address  + destination_address + [self._pallet_type]
         for field in self._request_fields:
             payload += field.encode_bytes(fields.get(field.name))
         payload += Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload))

@@ -102,7 +102,7 @@ class UCANCommunicator(object):
         self.register_consumer(consumer)
         for payload in command.create_request_payloads(identity, fields):
             if self._verbose:
-                LOGGER.info('Writing to uCAN transport ({0}):   {1}'.format(cc_address, printable(payload)))
+                LOGGER.info('Writing to uCAN transport:   CC {0} - SID {1} - Data: {2}'.format(cc_address, command.sid, printable(payload)))
             self._communicator.send_command(1, AIOAPI.ucan_transport_message(), {'cc_address': cc_address,
                                                                                  'nr_can_bytes': len(payload),
                                                                                  'sid': command.sid,
@@ -119,9 +119,10 @@ class UCANCommunicator(object):
     def _process_transport_message(self, package):
         payload_length = package['nr_can_bytes']
         payload = package['payload'][:payload_length]
+        sid = package['sid']
         cc_address = package['cc_address']
         if self._verbose:
-            LOGGER.info('Reading from uCAN transport ({0}): {1}'.format(cc_address, printable(payload)))
+            LOGGER.info('Reading from uCAN transport: CC {0} - SID {1} - Data: {2}'.format(cc_address, sid, printable(payload)))
 
         consumers = self._consumers.get(cc_address, [])
         for consumer in consumers[:]:
