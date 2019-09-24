@@ -51,3 +51,6 @@ python2 -m gateway_tests.observer_tests
 
 echo "Running pulse counter controller tests"
 python2 -m gateway_tests.pulses_tests
+
+echo "Running metrics tests"
+python2 -m gateway_tests.metrics_tests
