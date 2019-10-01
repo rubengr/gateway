@@ -21,9 +21,9 @@ class PluginRunner:
     def __init__(self, name, runtime_path, plugin_path, logger, command_timeout=5):
         self.runtime_path = runtime_path
         self.plugin_path = plugin_path
-        self.logger = logger
         self.command_timeout = command_timeout
 
+        self._logger = logger
         self._cid = 0
         self._proc = None
         self._running = False
@@ -95,6 +95,10 @@ class PluginRunner:
 
         self._running = True
 
+    def logger(self, message):
+        self._logger(message)
+        LOGGER.info('Plugin {0} - {1}'.format(self.name, message))
+
     def get_webservice(self, webinterface):
         class Service:
             def __init__(self, runner):
@@ -162,7 +166,7 @@ class PluginRunner:
         self._do_async('shutter_status', status, should_filter=True)
 
     def process_event(self, code):
-        self._do_async('process_event', {'code': code}, should_filter=True)
+        self._do_async('receive_events', {'code': code}, should_filter=True)
 
     def collect_metrics(self):
         for mc in self._metric_collectors:
