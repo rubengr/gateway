@@ -299,6 +299,9 @@ class PluginController(object):
         return {'msg': 'Plugin successfully removed'}
 
     def __iter_running_runners(self):
+        """
+        :rtype: list of plugins.runner.PluginRunner
+        """
         for runner_name in self.__runners.keys():
             runner = self.__runners.get(runner_name)
             if runner is not None and runner.is_running():
