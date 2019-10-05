@@ -1234,14 +1234,14 @@ class GatewayApi(object):
         return {'status': module.get('resp')}
 
     def add_virtual_dim_module(self):
-        """ Adds a virtual output module.
+        """ Adds a virtual dim module.
         :returns: dict with 'status'.
         """
         module = self.__master_communicator.do_command(master_api.add_virtual_module(), {'vmt': 'd'})
         return {'status': module.get('resp')}
 
     def add_virtual_input_module(self):
-        """ Adds a virtual output module.
+        """ Adds a virtual input module.
         :returns: dict with 'status'.
         """
         module = self.__master_communicator.do_command(master_api.add_virtual_module(), {'vmt': 'i'})

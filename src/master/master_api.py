@@ -399,7 +399,7 @@ def set_virtual_sensor():
 
 
 def add_virtual_module():
-    """ Adds a virtual output module """
+    """ Adds a virtual module """
     return MasterCommandSpec("AV",
                              [Field.str('vmt', 1), Field.padding(12)],
                              [Field.str("resp", 2), Field.padding(11), Field.lit('\r\n')])
