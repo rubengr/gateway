@@ -398,6 +398,13 @@ def set_virtual_sensor():
                               Field.padding(9), Field.lit('\r\n')])
 
 
+def add_virtual_module():
+    """ Adds a virtual output module """
+    return MasterCommandSpec("AV",
+                             [Field.str('vmt', 1), Field.padding(12)],
+                             [Field.str("resp", 2), Field.padding(11), Field.lit('\r\n')])
+
+
 def pulse_list():
     """ List the pulse counter values. """
     return MasterCommandSpec("PL",
