@@ -90,8 +90,11 @@ class UCANCommandSpec(object):
     def set_identity(self, identity):
         self.headers = []
         self._response_instruction_by_hash = {}
+        destination_address = self._identifier.encode_bytes(identity)
+        if self.sid == SID.BOOTLOADER_COMMAND:
+            destination_address = list(reversed(destination_address))  # Little endian
         for instruction in self.response_instructions:
-            hash_value = UCANCommandSpec.hash(instruction.instruction + self._identifier.encode_bytes(identity))
+            hash_value = UCANCommandSpec.hash(instruction.instruction + destination_address)
             self.headers.append(hash_value)
             self._response_instruction_by_hash[hash_value] = instruction
 
@@ -227,7 +230,7 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         """
         destination_address = list(reversed(self._identifier.encode_bytes(identity)))  # Little endian
         source_address = self._identifier.encode_bytes('000.000.000')  # Little endian, but doesn't matter here
-        payload = source_address  + destination_address + [self._pallet_type]
+        payload = source_address + destination_address + [self._pallet_type]
         for field in self._request_fields:
             payload += field.encode_bytes(fields.get(field.name))
         payload += Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload))

@@ -113,7 +113,7 @@ class UCANCommunicator(object):
             return consumer.get(timeout)
 
     def _release_pallet_mode(self, cc_address):
-        print('releaseing for {0}'.format(cc_address))
+        print('Releasing pallet mode for {0}'.format(cc_address))
         self._cc_pallet_mode[cc_address] = False
 
     def _process_transport_message(self, package):
@@ -219,4 +219,4 @@ class PalletConsumer(Consumer):
         pass
 
     def __str__(self):
-        return 'PalletsConsumer(\'{0}\', {1})'.format(self.cc_address, self.command.instruction.instruction)
+        return 'PalletsConsumer(\'{0}\')'.format(self.cc_address)

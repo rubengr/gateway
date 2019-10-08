@@ -73,7 +73,7 @@ class AIOAPI(object):
         """ Receives general configuration regarding maximum specifications (e.g. max number of input modules, max number of basic actions, ...) """
         return AIOCommandSpec(instruction='GC',
                               request_fields=[LiteralBytesField(1)],
-                              response_fields=[ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('ucan'), WordField('groups'), WordField('basic_actions')])
+                              response_fields=[ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('ucan'), WordField('groups'), WordField('basic_actions'), ByteField('shutters'), ByteField('shutter_groups')])
 
     @staticmethod
     def module_information():
