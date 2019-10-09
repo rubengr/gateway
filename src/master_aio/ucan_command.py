@@ -256,20 +256,20 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         return self._parse_payload(payload[7:-4])
 
     @staticmethod
-    def calculate_crc(data):
+    def calculate_crc(data, remainder=0):
         """
         Calculates the CRC of data. The algorithm is designed to make sure flowing statement is True:
         > crc(data + crc(data)) == 0
 
         :param data: Data for which to calculate the CRC
+        :param remainder: Optional initial remainder of CRC calculation
         :returns: CRC
         """
         width = 32
         topbit = 1 << (width - 1)
         polynomial = 0x04C11DB7
-        remainder = 0
-        for i in xrange(len(data)):
-            remainder ^= data[i] << (width - 8)
+        for data_item in data:
+            remainder ^= data_item << (width - 8)
             remainder &= 0xFFFFFFFF
             for _ in xrange(7, -1, -1):
                 if remainder & topbit:

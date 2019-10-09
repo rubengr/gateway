@@ -17,6 +17,7 @@ Module to communicate with the uCANs.
 """
 
 import logging
+import time
 from Queue import Queue, Empty
 from wiring import provides, inject, SingletonScope, scope
 from master_aio.aio_api import AIOAPI
@@ -122,6 +123,7 @@ class UCANCommunicator(object):
                                                                                  'nr_can_bytes': len(payload),
                                                                                  'sid': command.sid,
                                                                                  'payload': payload + [0] * (8 - len(payload))})
+            time.sleep(0.01)
 
         consumer.check_send_only()
         if timeout is not None:
@@ -183,10 +185,10 @@ class Consumer(object):
             value = self._queue.get(timeout=timeout)
             if value is None:
                 # No valid data could be received
-                raise CommunicationTimedOutException()
+                raise CommunicationTimedOutException('Empty or invalid uCAN data received')
             return value
         except Empty:
-            raise CommunicationTimedOutException()
+            raise CommunicationTimedOutException('No uCAN data received in {0}s'.format(timeout))
 
     def __str__(self):
         return 'Communicator(\'{0}\', {1})'.format(self.cc_address, self.command.instruction.instruction)

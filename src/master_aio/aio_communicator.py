@@ -392,7 +392,7 @@ class Consumer(object):
         try:
             return self._queue.get(timeout=timeout)
         except Empty:
-            raise CommunicationTimedOutException()
+            raise CommunicationTimedOutException('No AIO data received in {0}s'.format(timeout))
 
 
 class BackgroundConsumer(object):
