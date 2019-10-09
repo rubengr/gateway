@@ -23,6 +23,7 @@ from master_aio.aio_api import AIOAPI
 from master_aio.aio_communicator import BackgroundConsumer
 from master_aio.exceptions import BootloadingException
 from master_aio.ucan_command import SID
+from master_aio.ucan_api import UCANAPI
 from serial_utils import CommunicationTimedOutException, printable
 
 LOGGER = logging.getLogger('openmotics')
@@ -51,6 +52,20 @@ class UCANCommunicator(object):
 
         self._background_consumer = BackgroundConsumer(AIOAPI.ucan_transport_message(), 1, self._process_transport_message)
         self._communicator.register_consumer(self._background_consumer)
+
+    def is_ucan_in_bootloader(self, cc_address, ucan_address):
+        """
+        Figures out whether a uCAN is in bootloader or application mode. This can be a rather slow call since it might rely on a communication timeout
+        :param cc_address: The address of the CAN Control
+        :param ucan_address:  The address of the uCAN
+        :return: Boolean, indicating whether the uCAN is in bootloader or not
+        """
+        try:
+            self.do_command(cc_address, UCANAPI.ping(SID.NORMAL_COMMAND), ucan_address, {'data': 1})
+            return False
+        except CommunicationTimedOutException:
+            self.do_command(cc_address, UCANAPI.ping(SID.BOOTLOADER_COMMAND), ucan_address, {'data': 1})
+            return True
 
     def register_consumer(self, consumer):
         """

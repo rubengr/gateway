@@ -91,8 +91,6 @@ class UCANCommandSpec(object):
         self.headers = []
         self._response_instruction_by_hash = {}
         destination_address = self._identifier.encode_bytes(identity)
-        if self.sid == SID.BOOTLOADER_COMMAND:
-            destination_address = list(reversed(destination_address))  # Little endian
         for instruction in self.response_instructions:
             hash_value = UCANCommandSpec.hash(instruction.instruction + destination_address)
             self.headers.append(hash_value)
@@ -109,8 +107,6 @@ class UCANCommandSpec(object):
         :rtype: generator of tuple(int, list)
         """
         destination_address = self._identifier.encode_bytes(identity)
-        if self.sid == SID.BOOTLOADER_COMMAND:
-            destination_address = list(reversed(destination_address))  # Little endian
         payload = self.instruction.instruction + destination_address
         for field in self._request_fields:
             payload += field.encode_bytes(fields.get(field.name))
@@ -228,8 +224,8 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         :type fields: dict
         :rtype: generator of tuple(int, list)
         """
-        destination_address = list(reversed(self._identifier.encode_bytes(identity)))  # Little endian
-        source_address = self._identifier.encode_bytes('000.000.000')  # Little endian, but doesn't matter here
+        destination_address = self._identifier.encode_bytes(identity)
+        source_address = self._identifier.encode_bytes('000.000.000')
         payload = source_address + destination_address + [self._pallet_type]
         for field in self._request_fields:
             payload += field.encode_bytes(fields.get(field.name))
