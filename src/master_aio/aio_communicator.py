@@ -216,12 +216,41 @@ class AIOCommunicator(object):
         command = consumer.command
 
         self._consumers.setdefault(consumer.get_header(), []).append(consumer)
+        self._send_command(cid, command, fields)
+
+        try:
+            result = None
+            if isinstance(consumer, Consumer) and timeout is not None:
+                result = consumer.get(timeout)
+            self._last_success = time.time()
+            self._communication_stats['calls_succeeded'].append(time.time())
+            self._communication_stats['calls_succeeded'] = self._communication_stats['calls_succeeded'][-50:]
+            return result
+        except CommunicationTimedOutException:
+            self._communication_stats['calls_timedout'].append(time.time())
+            self._communication_stats['calls_timedout'] = self._communication_stats['calls_timedout'][-50:]
+            raise
+
+    def _send_command(self, cid, command, fields):
+        """
+        Send a command over the serial port
+
+        :param cid: The command ID
+        :type cid: int
+        :param command: The AIO CommandSpec
+        :type command: master_aio.aio_command.AIOCommandSpec
+        :param fields: A dictionary with the command input field values
+        :type fields dict
+        :raises: serial_utils.CommunicationTimedOutException
+        """
 
         payload = command.create_request_payload(fields)
+
         checked_payload = (str(chr(cid)) +
                            command.instruction +
                            WordField.encode(len(payload)) +
                            payload)
+
         data = (AIOCommunicator.START_OF_REQUEST +
                 str(chr(cid)) +
                 command.instruction +
@@ -232,19 +261,6 @@ class AIOCommunicator(object):
                 AIOCommunicator.END_OF_REQUEST)
 
         self._write_to_serial(data)
-
-        try:
-            result = None
-            if isinstance(consumer, Consumer):
-                result = consumer.get(timeout)
-            self._last_success = time.time()
-            self._communication_stats['calls_succeeded'].append(time.time())
-            self._communication_stats['calls_succeeded'] = self._communication_stats['calls_succeeded'][-50:]
-            return result
-        except CommunicationTimedOutException:
-            self._communication_stats['calls_timedout'].append(time.time())
-            self._communication_stats['calls_timedout'] = self._communication_stats['calls_timedout'][-50:]
-            raise
 
     @staticmethod
     def _calculate_crc(data):

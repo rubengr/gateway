@@ -20,6 +20,7 @@ import unittest
 import xmlrunner
 import logging
 from mock import Mock
+from master_aio.aio_communicator import AIOCommunicator
 from master_aio.exceptions import BootloadingException
 from master_aio.ucan_communicator import UCANCommunicator, SID
 from master_aio.ucan_command import UCANCommandSpec, UCANPalletCommandSpec, PalletType, Instruction
@@ -45,8 +46,8 @@ class UCANCommunicatorTest(unittest.TestCase):
         def send_command(_cid, _command, _fields):
             received_commands.append(_fields)
 
-        aio_communicator = Mock()
-        aio_communicator.send_command = send_command
+        aio_communicator = AIOCommunicator(serial=Mock(), verbose=True)
+        aio_communicator._send_command = send_command
         ucan_communicator = UCANCommunicator(aio_communicator=aio_communicator, verbose=True)
         cc_address = '000.000.000.000'
         ucan_address = '000.000.000'

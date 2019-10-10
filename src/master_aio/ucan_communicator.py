@@ -119,10 +119,12 @@ class UCANCommunicator(object):
         for payload in command.create_request_payloads(identity, fields):
             if self._verbose:
                 LOGGER.info('Writing to uCAN transport:   CC {0} - SID {1} - Data: {2}'.format(cc_address, command.sid, printable(payload)))
-            self._communicator.do_command(AIOAPI.ucan_transport_message(), {'cc_address': cc_address,
-                                                                            'nr_can_bytes': len(payload),
-                                                                            'sid': command.sid,
-                                                                            'payload': payload + [0] * (8 - len(payload))})
+            self._communicator.do_command(command=AIOAPI.ucan_transport_message(),
+                                          fields={'cc_address': cc_address,
+                                                  'nr_can_bytes': len(payload),
+                                                  'sid': command.sid,
+                                                  'payload': payload + [0] * (8 - len(payload))},
+                                          timeout=timeout)
 
         consumer.check_send_only()
         if timeout is not None:
