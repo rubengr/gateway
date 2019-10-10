@@ -104,15 +104,31 @@ class AIOCommunicator(object):
 
     def _get_cid(self):
         """ Get a communication id. 0 and 1 are reserved. """
-        with self._cid_lock:
-            if self._cid is None:
-                cid = 2
+        def _increment_cid(current_cid):
+            if current_cid is None:
+                new_cid = 2
             else:
-                cid = self._cid + 1
-            while cid != self._cid and cid in self._cids_in_use:
-                cid += 1
-                if cid == 256:
-                    cid = 2
+                new_cid = current_cid + 1
+            if new_cid == 256:
+                new_cid = 2
+            return new_cid
+
+        def _available(candidate_cid):
+            if candidate_cid is None:
+                return False
+            if candidate_cid == self._cid:
+                return False
+            if candidate_cid in self._cids_in_use:
+                return False
+            return True
+
+        with self._cid_lock:
+            cid = self._cid  # Initial value
+            while not _available(cid):
+                cid = _increment_cid(cid)
+                if cid == self._cid:
+                    # Seems there is no CID available at this moment
+                    raise RuntimeError('No available CID')
             self._cid = cid
             self._cids_in_use.add(cid)
             return cid
