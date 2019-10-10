@@ -85,9 +85,11 @@ class UCANCommunicatorTest(unittest.TestCase):
             crc_payload = Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(fixed_payload + variable_payload))
             ucan_communicator._process_transport_message({'cc_address': cc_address,
                                                           'nr_can_bytes': 8,
+                                                          'sid': 1,
                                                           'payload': [129] + fixed_payload})
             ucan_communicator._process_transport_message({'cc_address': cc_address,
                                                           'nr_can_bytes': length + 5,
+                                                          'sid': 1,
                                                           'payload': [0] + variable_payload + crc_payload})
             self.assertDictEqual(consumer.get(1), {'other': variable_payload})
 
@@ -113,9 +115,11 @@ class UCANCommunicatorTest(unittest.TestCase):
         payload_segment_2 += crc_payload
         ucan_communicator._process_transport_message({'cc_address': cc_address,
                                                       'nr_can_bytes': 8,
+                                                      'sid': 1,
                                                       'payload': [129] + payload_segment_1})
         ucan_communicator._process_transport_message({'cc_address': cc_address,
                                                       'nr_can_bytes': 8,
+                                                      'sid': 1,
                                                       'payload': [0] + payload_segment_2})
         self.assertDictEqual(consumer.get(1), {'foo': foo})
 
