@@ -216,7 +216,22 @@ class AIOCommunicator(object):
         command = consumer.command
 
         self._consumers.setdefault(consumer.get_header(), []).append(consumer)
-        self.send_command(cid, command, fields)
+
+        payload = command.create_request_payload(fields)
+        checked_payload = (str(chr(cid)) +
+                           command.instruction +
+                           WordField.encode(len(payload)) +
+                           payload)
+        data = (AIOCommunicator.START_OF_REQUEST +
+                str(chr(cid)) +
+                command.instruction +
+                WordField.encode(len(payload)) +
+                payload +
+                'C' +
+                str(chr(AIOCommunicator._calculate_crc(checked_payload))) +
+                AIOCommunicator.END_OF_REQUEST)
+
+        self._write_to_serial(data)
 
         try:
             result = None
@@ -230,38 +245,6 @@ class AIOCommunicator(object):
             self._communication_stats['calls_timedout'].append(time.time())
             self._communication_stats['calls_timedout'] = self._communication_stats['calls_timedout'][-50:]
             raise
-
-    def send_command(self, cid, command, fields):
-        """
-        Send a command over the serial port and block until an answer is received.
-        If the AIO does not respond within the timeout period, a CommunicationTimedOutException is raised
-
-        :param cid: The command ID
-        :type cid: int
-        :param command: The AIO CommandSpec
-        :type command: master_aio.aio_command.AIOCommandSpec
-        :param fields: A dictionary with the command input field values
-        :type fields dict
-        :raises: serial_utils.CommunicationTimedOutException
-        """
-
-        payload = command.create_request_payload(fields)
-
-        checked_payload = (str(chr(cid)) +
-                           command.instruction +
-                           WordField.encode(len(payload)) +
-                           payload)
-
-        data = (AIOCommunicator.START_OF_REQUEST +
-                str(chr(cid)) +
-                command.instruction +
-                WordField.encode(len(payload)) +
-                payload +
-                'C' +
-                str(chr(AIOCommunicator._calculate_crc(checked_payload))) +
-                AIOCommunicator.END_OF_REQUEST)
-
-        self._write_to_serial(data)
 
     @staticmethod
     def _calculate_crc(data):

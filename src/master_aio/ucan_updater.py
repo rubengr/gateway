@@ -21,7 +21,7 @@ import os
 import struct
 from intelhex import IntelHex
 from master_aio.ucan_api import UCANAPI
-from master_aio.ucan_command import UCANPalletCommandSpec
+from master_aio.ucan_command import UCANPalletCommandSpec, SID
 from master_aio.fields import Int32Field
 
 LOGGER = logging.getLogger('openmotics')
@@ -39,6 +39,10 @@ class UCANUpdater(object):
     # In this data stream is also the address (4 bytes) and the CRC (4 bytes) leaving 41 usefull bytes.
     MAX_FLASH_BYTES = 41
 
+    # Bootloader timeouts
+    BOOTLOADER_TIMEOUT_UPDATE = 255
+    BOOTLOADER_TIMEOUT_RUNTIME = 0  # Currently needed to switch to application mode
+
     @staticmethod
     def update(cc_address, ucan_address, ucan_communicator, hex_filename):
         """
@@ -49,61 +53,78 @@ class UCANUpdater(object):
         :type ucan_communicator: master_aio.ucan_communicator.UCANCommunicator
         :param hex_filename: The filename of the hex file to flash
         """
+        try:
+            # TODO: Check version and skip update if the version is already active
 
-        # TODO: Check version and skip update if the version is already active
+            LOGGER.info('Updating uCAN {0} at CC {1}'.format(ucan_address, cc_address))
 
-        LOGGER.info('Updating uCAN {0} at CC {1}'.format(ucan_address, cc_address))
+            if not os.path.exists(hex_filename):
+                raise RuntimeError('The given path does not point to an existing file')
+            intel_hex = IntelHex(hex_filename)
 
-        if not os.path.exists(hex_filename):
-            raise RuntimeError('The given path does not point to an existing file')
-        intel_hex = IntelHex(hex_filename)
-        LOGGER.info('Flashing contents of {0}'.format(os.path.basename(hex_filename)))
-
-        in_bootloader = ucan_communicator.is_ucan_in_bootloader(cc_address, ucan_address)
-        if in_bootloader:
-            LOGGER.info('Bootloader active')
-        else:
-            LOGGER.info('Bootloader not active, switching to bootloader')
-            # TODO: Set bootloader timeout to large value
-            # TODO: Switch to bootloader
             in_bootloader = ucan_communicator.is_ucan_in_bootloader(cc_address, ucan_address)
-            if not in_bootloader:
-                raise RuntimeError('Could not enter bootloader for uCAN {0} at CC {1}'.format(ucan_address, cc_address))
+            if in_bootloader:
+                LOGGER.info('Bootloader active')
+            else:
+                LOGGER.info('Bootloader not active, switching to bootloader')
+                ucan_communicator.do_command(cc_address, UCANAPI.set_bootloader_timeout(SID.NORMAL_COMMAND), ucan_address, {'timeout': UCANUpdater.BOOTLOADER_TIMEOUT_UPDATE})
+                response = ucan_communicator.do_command(cc_address, UCANAPI.reset(SID.NORMAL_COMMAND), ucan_address, {})
+                if response is None:
+                    raise RuntimeError('Error resettings uCAN before flashing')
+                if response.get('application_mode', 1) != 0:
+                    raise RuntimeError('uCAN didn\'t enter bootloader after reset')
+                in_bootloader = ucan_communicator.is_ucan_in_bootloader(cc_address, ucan_address)
+                if not in_bootloader:
+                    raise RuntimeError('Could not enter bootloader')
+                LOGGER.info('Bootloader active')
 
-        LOGGER.info('Start flashing...')
-        address_blocks = range(UCANUpdater.ADDRESS_START, UCANUpdater.ADDRESS_END, UCANUpdater.MAX_FLASH_BYTES)
-        total_amount = float(len(address_blocks))
-        crc = 0
-        total_payload = []
-        logged_percentage = -1
-        for index, start_address in enumerate(address_blocks):
-            end_address = min(UCANUpdater.ADDRESS_END, start_address + UCANUpdater.MAX_FLASH_BYTES)
+            LOGGER.info('Flashing contents of {0}'.format(os.path.basename(hex_filename)))
+            LOGGER.info('Flashing...')
+            address_blocks = range(UCANUpdater.ADDRESS_START, UCANUpdater.ADDRESS_END, UCANUpdater.MAX_FLASH_BYTES)
+            total_amount = float(len(address_blocks))
+            crc = 0
+            total_payload = []
+            logged_percentage = -1
+            for index, start_address in enumerate(address_blocks):
+                end_address = min(UCANUpdater.ADDRESS_END, start_address + UCANUpdater.MAX_FLASH_BYTES)
 
-            payload = []
-            for i in xrange(start_address, end_address):
-                payload.append(intel_hex[i])
+                payload = []
+                for i in xrange(start_address, end_address):
+                    payload.append(intel_hex[i])
 
-            crc = UCANPalletCommandSpec.calculate_crc(payload, crc)
-            if start_address == address_blocks[-1]:
-                payload += Int32Field.encode_bytes(crc)
+                crc = UCANPalletCommandSpec.calculate_crc(payload, crc)
+                if start_address == address_blocks[-1]:
+                    payload += Int32Field.encode_bytes(crc)
 
-            little_start_address = struct.unpack('<I', struct.pack('>I', start_address))[0]  # TODO: Handle endianness in API definition using Field endianness
-            ucan_communicator.do_command(cc_address, UCANAPI.write_flash(len(payload)), ucan_address, {'start_address': little_start_address,
-                                                                                                       'data': payload})
-            total_payload += payload
+                little_start_address = struct.unpack('<I', struct.pack('>I', start_address))[0]  # TODO: Handle endianness in API definition using Field endianness
+                ucan_communicator.do_command(cc_address, UCANAPI.write_flash(len(payload)), ucan_address, {'start_address': little_start_address,
+                                                                                                           'data': payload})
+                total_payload += payload
 
-            percentage = int(index / total_amount * 100)
-            if percentage > logged_percentage:
-                LOGGER.info('* {0}%'.format(percentage))
-                logged_percentage = percentage
+                percentage = int(index / total_amount * 100)
+                if percentage > logged_percentage:
+                    LOGGER.info('Flashing... {0}%'.format(percentage))
+                    logged_percentage = percentage
 
-        LOGGER.info('Flashing complete.')
-        crc = UCANPalletCommandSpec.calculate_crc(total_payload)
-        if crc != 0:
-            message = 'Unexpected error in CRC calculation ({0})'.format(crc)
-            LOGGER.info(message)
-            raise RuntimeError(message)
-        LOGGER.info('Flashing successful')
+            LOGGER.info('Flashing... Done')
+            crc = UCANPalletCommandSpec.calculate_crc(total_payload)
+            if crc != 0:
+                raise RuntimeError('Unexpected error in CRC calculation ({0})'.format(crc))
 
-        # TODO: Reduce bootloader timeout
-        # TODO: Switch to application
+            # Recude bootloader timeout
+            LOGGER.info('Reduce bootloader timeout to {0}s'.format(UCANUpdater.BOOTLOADER_TIMEOUT_RUNTIME))
+            ucan_communicator.do_command(cc_address, UCANAPI.set_bootloader_timeout(SID.BOOTLOADER_COMMAND), ucan_address, {'timeout': UCANUpdater.BOOTLOADER_TIMEOUT_RUNTIME})
+
+            # Switch to application mode
+            LOGGER.info('Reset to application mode')
+            response = ucan_communicator.do_command(cc_address, UCANAPI.reset(SID.BOOTLOADER_COMMAND), ucan_address, {})
+            if response is None:
+                raise RuntimeError('Error resettings uCAN after flashing')
+            if response.get('application_mode', 0) != 1:
+                raise RuntimeError('uCAN didn\'t enter application mode after reset')
+
+            LOGGER.info('Update completed')
+            return True
+        except Exception as ex:
+            LOGGER.info('Error flashing: {0}'.format(ex))
+            return False
