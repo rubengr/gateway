@@ -160,6 +160,16 @@ class UCANCommunicatorTest(unittest.TestCase):
                                   identifier=AddressField('ucan_address', 3))
         ucan_communicator.do_command(cc_address, command, ucan_address, {}, timeout=None)
 
+    def test_crc(self):
+        payload = [10, 50, 250]
+        total_payload = payload + Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload))
+        self.assertEqual(0, UCANPalletCommandSpec.calculate_crc(total_payload))
+        crc = 0
+        for part in payload:
+            crc = UCANPalletCommandSpec.calculate_crc([part], crc)
+        total_payload = payload + Int32Field.encode_bytes(crc)
+        self.assertEqual(0, UCANPalletCommandSpec.calculate_crc(total_payload))
+
 
 if __name__ == "__main__":
     unittest.main(testRunner=xmlrunner.XMLTestRunner(output='../gw-unit-reports'))

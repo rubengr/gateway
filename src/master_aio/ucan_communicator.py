@@ -123,7 +123,7 @@ class UCANCommunicator(object):
                                                                                  'nr_can_bytes': len(payload),
                                                                                  'sid': command.sid,
                                                                                  'payload': payload + [0] * (8 - len(payload))})
-            time.sleep(0.01)
+            time.sleep(0.005)
 
         consumer.check_send_only()
         if timeout is not None:

@@ -33,7 +33,7 @@ class UCANUpdater(object):
     """
 
     ADDRESS_START = 0x4
-    ADDRESS_END = 0xCFFB  # The 4-byte CRC is appended after this address
+    ADDRESS_END = 0xCFFC  # Not including the end address. Technically the 4-byte CRC starts at this address.
 
     # There's a buffer of 8 segments on the uCAN. This means 7 data segments with a 1-byte header, so 49 bytes.
     # In this data stream is also the address (4 bytes) and the CRC (4 bytes) leaving 41 usefull bytes.
@@ -50,22 +50,60 @@ class UCANUpdater(object):
         :param hex_filename: The filename of the hex file to flash
         """
 
+        # TODO: Check version and skip update if the version is already active
+
+        LOGGER.info('Updating uCAN {0} at CC {1}'.format(ucan_address, cc_address))
+
         if not os.path.exists(hex_filename):
             raise RuntimeError('The given path does not point to an existing file')
         intel_hex = IntelHex(hex_filename)
+        LOGGER.info('Flashing contents of {0}'.format(os.path.basename(hex_filename)))
 
+        in_bootloader = ucan_communicator.is_ucan_in_bootloader(cc_address, ucan_address)
+        if in_bootloader:
+            LOGGER.info('Bootloader active')
+        else:
+            LOGGER.info('Bootloader not active, switching to bootloader')
+            # TODO: Set bootloader timeout to large value
+            # TODO: Switch to bootloader
+            in_bootloader = ucan_communicator.is_ucan_in_bootloader(cc_address, ucan_address)
+            if not in_bootloader:
+                raise RuntimeError('Could not enter bootloader for uCAN {0} at CC {1}'.format(ucan_address, cc_address))
+
+        LOGGER.info('Start flashing...')
         address_blocks = range(UCANUpdater.ADDRESS_START, UCANUpdater.ADDRESS_END, UCANUpdater.MAX_FLASH_BYTES)
+        total_amount = float(len(address_blocks))
         crc = 0
-        for start_address in address_blocks:
+        total_payload = []
+        logged_percentage = -1
+        for index, start_address in enumerate(address_blocks):
             end_address = min(UCANUpdater.ADDRESS_END, start_address + UCANUpdater.MAX_FLASH_BYTES)
+
             payload = []
             for i in xrange(start_address, end_address):
                 payload.append(intel_hex[i])
+
+            crc = UCANPalletCommandSpec.calculate_crc(payload, crc)
             if start_address == address_blocks[-1]:
                 payload += Int32Field.encode_bytes(crc)
-            else:
-                crc = UCANPalletCommandSpec.calculate_crc(payload, crc)
 
             little_start_address = struct.unpack('<I', struct.pack('>I', start_address))[0]  # TODO: Handle endianness in API definition using Field endianness
             ucan_communicator.do_command(cc_address, UCANAPI.write_flash(len(payload)), ucan_address, {'start_address': little_start_address,
                                                                                                        'data': payload})
+            total_payload += payload
+
+            percentage = int(index / total_amount * 100)
+            if percentage > logged_percentage:
+                LOGGER.info('* {0}%'.format(percentage))
+                logged_percentage = percentage
+
+        LOGGER.info('Flashing complete.')
+        crc = UCANPalletCommandSpec.calculate_crc(total_payload)
+        if crc != 0:
+            message = 'Unexpected error in CRC calculation ({0})'.format(crc)
+            LOGGER.info(message)
+            raise RuntimeError(message)
+        LOGGER.info('Flashing successful')
+
+        # TODO: Reduce bootloader timeout
+        # TODO: Switch to application
