@@ -34,7 +34,7 @@ class UCANUpdater(object):
     """
 
     ADDRESS_START = 0x4
-    ADDRESS_END = 0xCFFC  # Not including the end address. Technically the 4-byte CRC starts at this address.
+    ADDRESS_END = 0xCFF8  # End of application space. After this, 4 bytes hold the original reset vector, 4 bytes hold the CRC
 
     # There's a buffer of 8 segments on the uCAN. This means 7 data segments with a 1-byte header, so 49 bytes.
     # In this data stream is also the address (4 bytes) and the CRC (4 bytes) leaving 41 usefull bytes.
@@ -90,6 +90,7 @@ class UCANUpdater(object):
             crc = 0
             total_payload = []
             logged_percentage = -1
+            reset_vector = [intel_hex[i] for i in xrange(4)]
             for index, start_address in enumerate(address_blocks):
                 end_address = min(UCANUpdater.ADDRESS_END, start_address + UCANUpdater.MAX_FLASH_BYTES)
 
@@ -99,6 +100,8 @@ class UCANUpdater(object):
 
                 crc = UCANPalletCommandSpec.calculate_crc(payload, crc)
                 if start_address == address_blocks[-1]:
+                    crc = UCANPalletCommandSpec.calculate_crc(reset_vector, crc)
+                    payload += reset_vector
                     payload += Int32Field.encode_bytes(crc)
 
                 little_start_address = struct.unpack('<I', struct.pack('>I', start_address))[0]  # TODO: Handle endianness in API definition using Field endianness
@@ -119,9 +122,11 @@ class UCANUpdater(object):
             if crc != 0:
                 raise RuntimeError('Unexpected error in CRC calculation ({0})'.format(crc))
 
-            # Recude bootloader timeout
+            # Prepare reset to application mode
             LOGGER.info('Reduce bootloader timeout to {0}s'.format(UCANUpdater.BOOTLOADER_TIMEOUT_RUNTIME))
             ucan_communicator.do_command(cc_address, UCANAPI.set_bootloader_timeout(SID.BOOTLOADER_COMMAND), ucan_address, {'timeout': UCANUpdater.BOOTLOADER_TIMEOUT_RUNTIME})
+            LOGGER.info('Set safety bit allowing the application to immediately start on reset')
+            ucan_communicator.do_command(cc_address, UCANAPI.set_bootloader_safety_flag(), ucan_address, {'safety_flag': 1})
 
             # Switch to application mode
             LOGGER.info('Reset to application mode')

@@ -83,6 +83,16 @@ class UCANAPI(object):
                                response_fields=[ByteField('application_mode')])
 
     @staticmethod
+    def set_bootloader_safety_flag():
+        """ Sets the bootloader's safety flag """
+        return UCANCommandSpec(sid=SID.BOOTLOADER_COMMAND,
+                               instruction=Instruction(instruction=[0, 125]),
+                               identifier=AddressField('ucan_address', 3),
+                               request_fields=[ByteField('safety_flag')],
+                               response_instructions=[Instruction(instruction=[125, 125], checksum_byte=6)],
+                               response_fields=[ByteField('safety_flag')])
+
+    @staticmethod
     def get_mcu_id():
         """
         Gets the uCAN mcu ID
