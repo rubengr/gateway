@@ -122,3 +122,12 @@ class UCANAPI(object):
                                      pallet_type=PalletType.FLASH_READ_REQUEST,
                                      request_fields=[Int32Field('start_address'), ByteField('data_length')],
                                      response_fields=[ByteArrayField('data', data_length)])
+
+    @staticmethod
+    def erase_flash():
+        """
+        Erases uCAN flash
+        Note: uCAN needs to be in bootloader
+        """
+        return UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
+                                     pallet_type=PalletType.FLASH_ERASE_REQUEST)

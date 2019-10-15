@@ -51,7 +51,7 @@ class UCANCommunicator(object):
         self._consumers = {}
         self._cc_pallet_mode = {}
 
-        self._background_consumer = BackgroundConsumer(AIOAPI.ucan_transport_message(), 1, self._process_transport_message)
+        self._background_consumer = BackgroundConsumer(AIOAPI.ucan_rx_transport_message(), 1, self._process_transport_message)
         self._communicator.register_consumer(self._background_consumer)
 
     def is_ucan_in_bootloader(self, cc_address, ucan_address):
@@ -119,7 +119,7 @@ class UCANCommunicator(object):
         for payload in command.create_request_payloads(identity, fields):
             if self._verbose:
                 LOGGER.info('Writing to uCAN transport:   CC {0} - SID {1} - Data: {2}'.format(cc_address, command.sid, printable(payload)))
-            self._communicator.do_command(command=AIOAPI.ucan_transport_message(),
+            self._communicator.do_command(command=AIOAPI.ucan_tx_transport_message(),
                                           fields={'cc_address': cc_address,
                                                   'nr_can_bytes': len(payload),
                                                   'sid': command.sid,

@@ -45,6 +45,9 @@ class PalletType(object):
     EEPROM_READ_REPLY = 0x0B
     RESET_REQUEST = 0x0C
     RESET_REPLY = 0x0D
+    FLASH_ERASE_REQUEST = 0x0E
+    FLASH_ERASE_REPLY = 0x0F
+    INVALID_PALETTE_TYPE = 0x10
 
 
 class Instruction(object):
@@ -65,7 +68,7 @@ class UCANCommandSpec(object):
         :param sid: SID
         :type sid: master_aio.ucan_command.UCANCommandSpec.SID
         :param instruction: Instruction object for this command
-        :type instruction: master_aio.ucan_command.Instruction
+        :type instruction: master_aio.ucan_command.Instruction or None
         :param identifier: The field to be used as extra identifier
         :type identifier: master_aio.fields.Field
         :param request_fields: Fields in this request

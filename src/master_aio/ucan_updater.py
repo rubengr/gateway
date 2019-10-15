@@ -19,6 +19,7 @@ Module to work update an uCAN
 import logging
 import os
 import struct
+import time
 from intelhex import IntelHex
 from master_aio.ucan_api import UCANAPI
 from master_aio.ucan_command import UCANPalletCommandSpec, SID
@@ -68,7 +69,7 @@ class UCANUpdater(object):
             else:
                 LOGGER.info('Bootloader not active, switching to bootloader')
                 ucan_communicator.do_command(cc_address, UCANAPI.set_bootloader_timeout(SID.NORMAL_COMMAND), ucan_address, {'timeout': UCANUpdater.BOOTLOADER_TIMEOUT_UPDATE})
-                response = ucan_communicator.do_command(cc_address, UCANAPI.reset(SID.NORMAL_COMMAND), ucan_address, {})
+                response = ucan_communicator.do_command(cc_address, UCANAPI.reset(SID.NORMAL_COMMAND), ucan_address, {}, timeout=10)
                 if response is None:
                     raise RuntimeError('Error resettings uCAN before flashing')
                 if response.get('application_mode', 1) != 0:
@@ -77,6 +78,10 @@ class UCANUpdater(object):
                 if not in_bootloader:
                     raise RuntimeError('Could not enter bootloader')
                 LOGGER.info('Bootloader active')
+
+            LOGGER.info('Erasing flash...')
+            ucan_communicator.do_command(cc_address, UCANAPI.erase_flash(), ucan_address, {})
+            LOGGER.info('Erasing flash... Done')
 
             LOGGER.info('Flashing contents of {0}'.format(os.path.basename(hex_filename)))
             LOGGER.info('Flashing...')
@@ -97,8 +102,11 @@ class UCANUpdater(object):
                     payload += Int32Field.encode_bytes(crc)
 
                 little_start_address = struct.unpack('<I', struct.pack('>I', start_address))[0]  # TODO: Handle endianness in API definition using Field endianness
-                ucan_communicator.do_command(cc_address, UCANAPI.write_flash(len(payload)), ucan_address, {'start_address': little_start_address,
-                                                                                                           'data': payload})
+
+                if payload != [255] * UCANUpdater.MAX_FLASH_BYTES:
+                    # Since the uCAN flash area is erased, skip empty blocks
+                    ucan_communicator.do_command(cc_address, UCANAPI.write_flash(len(payload)), ucan_address, {'start_address': little_start_address,
+                                                                                                               'data': payload})
                 total_payload += payload
 
                 percentage = int(index / total_amount * 100)
@@ -117,7 +125,7 @@ class UCANUpdater(object):
 
             # Switch to application mode
             LOGGER.info('Reset to application mode')
-            response = ucan_communicator.do_command(cc_address, UCANAPI.reset(SID.BOOTLOADER_COMMAND), ucan_address, {})
+            response = ucan_communicator.do_command(cc_address, UCANAPI.reset(SID.BOOTLOADER_COMMAND), ucan_address, {}, timeout=10)
             if response is None:
                 raise RuntimeError('Error resettings uCAN after flashing')
             if response.get('application_mode', 0) != 1:
@@ -126,5 +134,5 @@ class UCANUpdater(object):
             LOGGER.info('Update completed')
             return True
         except Exception as ex:
-            LOGGER.info('Error flashing: {0}'.format(ex))
+            LOGGER.error('Error flashing: {0}'.format(ex))
             return False

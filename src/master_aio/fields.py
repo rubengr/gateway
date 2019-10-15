@@ -74,7 +74,7 @@ class ByteField(Field):
 
     def encode_bytes(self, value):
         if not (0 <= value <= 255):
-            raise ValueError('Value out of limits: 0 <= value <= 255')
+            raise ValueError('Value `{0}` out of limits: 0 <= value <= 255'.format(value))
         return [value]
 
     def decode_bytes(self, data):
@@ -88,7 +88,7 @@ class CharField(Field):
     def encode_bytes(self, value):
         value = str(value)
         if len(value) != 1:
-            raise ValueError('Value must be a single-character string')
+            raise ValueError('Value `{0}` must be a single-character string'.format(value))
         return [ord(value[0])]
 
     def decode_bytes(self, data):
@@ -102,7 +102,7 @@ class WordField(Field):
     @classmethod
     def encode_bytes(cls, value):
         if not (0 <= value <= 65535):
-            raise ValueError('Value out of limits: 0 <= value <= 65535')
+            raise ValueError('Value `{0}` out of limits: 0 <= value <= 65535'.format(value))
         return [value / 256, value % 256]
 
     @classmethod
@@ -128,7 +128,7 @@ class Int32Field(Field):
     def encode(cls, value):
         limit = 256 ** 4
         if not (0 <= value <= limit):
-            raise ValueError('Value out of limits: 0 <= value <= {0}'.format(limit))
+            raise ValueError('Value `{0}` out of limits: 0 <= value <= {1}'.format(value, limit))
         return struct.pack('>I', value)
 
     @classmethod
@@ -151,7 +151,7 @@ class ByteArrayField(Field):
 
     def encode_bytes(self, value):
         if len(value) != self.length:
-            raise ValueError('Value should be an array of {0} items with 0 <= item <= 255'.format(self.length))
+            raise ValueError('Value `{0}` should be an array of {1} items with 0 <= item <= 255'.format(value, self.length))
         data = []
         for item in value:
             if not (0 <= item <= 255):
@@ -170,7 +170,7 @@ class WordArrayField(Field):
 
     def encode_bytes(self, value):
         if len(value) != self._word_length:
-            raise ValueError('Value should be an array of {0} items with 0 <= item <= 65535'.format(self._word_length))
+            raise ValueError('Value `{0}` should be an array of {1} items with 0 <= item <= 65535'.format(value, self._word_length))
         data = []
         for item in value:
             if not (0 <= item <= 65535):
@@ -210,7 +210,7 @@ class AddressField(Field):
 
     def encode_bytes(self, value):
         example = '.'.join(['ID{0}'.format(i) for i in xrange(self.length - 1, -1, -1)])
-        error_message = 'Value should be a string in the format of {0}, where 0 <= IDx <= 255'.format(example)
+        error_message = 'Value `{0}` should be a string in the format of {1}, where 0 <= IDx <= 255'.format(value, example)
         parts = str(value).split('.')
         if len(parts) != self.length:
             raise ValueError(error_message)

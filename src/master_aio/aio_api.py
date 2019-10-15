@@ -115,10 +115,16 @@ class AIOAPI(object):
                               response_fields=[AddressField('cc_address'), PaddingField(2), AddressField('ucan_address', 3)])
 
     @staticmethod
-    def ucan_transport_message():
+    def ucan_tx_transport_message():
         """ uCAN transport layer packages """
         return AIOCommandSpec(instruction='FM',
                               request_fields=[AddressField('cc_address'), ByteField('nr_can_bytes'), ByteField('sid'), ByteArrayField('payload', 8)],
+                              response_fields=[AddressField('cc_address')])
+
+    @staticmethod
+    def ucan_rx_transport_message():
+        """ uCAN transport layer packages """
+        return AIOCommandSpec(instruction='FM',
                               response_fields=[AddressField('cc_address'), ByteField('nr_can_bytes'), ByteField('sid'), ByteArrayField('payload', 8)])
 
     @staticmethod
