@@ -692,7 +692,7 @@ class WebInterface(object):
             'dirty_flag',  # A dirty flag that can be used to trigger syncs on power & master
             'scheduling',  # Gateway backed scheduling
             'factory_reset',  # The gateway can be complete reset to factory standard
-            'isolated_plugins',  # Plugins run in a separate process, so allow fine-graded control
+            'isolated_plugins',  # Plugins start in a separate process, so allow fine-graded control
         ]
 
         master_version = self._gateway_api.get_master_version()

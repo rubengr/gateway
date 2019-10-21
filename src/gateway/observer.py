@@ -83,8 +83,8 @@ class Observer(object):
 
     @provides('observer')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', message_client='message_client', shutter_controller='shutter_controller')
-    def __init__(self, master_communicator, message_client, shutter_controller):
+    @inject(master_communicator='master_communicator', message_client='message_client', shutter_controller='shutter_controller', thermostat_controller='thermostat_controller',)
+    def __init__(self, master_communicator, message_client, shutter_controller, thermostat_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -105,6 +105,8 @@ class Observer(object):
 
         self._input_status = InputStatus()
         self._output_status = OutputStatus(on_output_change=self._output_changed)
+
+        self._thermostat_controller = thermostat_controller
         self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed,
                                                    on_thermostat_group_change=self._thermostat_group_changed)
         self._shutter_controller = shutter_controller
@@ -353,53 +355,7 @@ class Observer(object):
         """
         Get basic information about all thermostats and pushes it in to the Thermostat Status tracker
         """
-        def get_automatic_setpoint(_mode):
-            _automatic = bool(_mode & 1 << 3)
-            return _automatic, 0 if _automatic else (_mode & 0b00000111)
-
-        thermostat_info = self._master_communicator.do_command(master_api.thermostat_list())
-        thermostat_mode = self._master_communicator.do_command(master_api.thermostat_mode_list())
-        aircos = self._master_communicator.do_command(master_api.read_airco_status_bits())
-        outputs = self.get_outputs()
-
-        mode = thermostat_info['mode']
-        thermostats_on = bool(mode & 1 << 7)
-        cooling = bool(mode & 1 << 4)
-        automatic, setpoint = get_automatic_setpoint(thermostat_mode['mode0'])
-
-        fields = ['sensor', 'output0', 'output1', 'name', 'room']
-        if cooling:
-            self._thermostats_config = self._gateway_api.get_cooling_configurations(fields=fields)
-        else:
-            self._thermostats_config = self._gateway_api.get_thermostat_configurations(fields=fields)
-
-        thermostats = []
-        for thermostat_id in xrange(32):
-            config = self._thermostats_config[thermostat_id]
-            if (config['sensor'] <= 31 or config['sensor'] == 240) and config['output0'] <= 240:
-                t_mode = thermostat_mode['mode{0}'.format(thermostat_id)]
-                t_automatic, t_setpoint = get_automatic_setpoint(t_mode)
-                thermostat = {'id': thermostat_id,
-                              'act': thermostat_info['tmp{0}'.format(thermostat_id)].get_temperature(),
-                              'csetp': thermostat_info['setp{0}'.format(thermostat_id)].get_temperature(),
-                              'outside': thermostat_info['outside'].get_temperature(),
-                              'mode': t_mode,
-                              'automatic': t_automatic,
-                              'setpoint': t_setpoint,
-                              'name': config['name'],
-                              'sensor_nr': config['sensor'],
-                              'airco': aircos['ASB{0}'.format(thermostat_id)]}
-                for output in [0, 1]:
-                    output_nr = config['output{0}'.format(output)]
-                    if output_nr < len(outputs) and outputs[output_nr]['status']:
-                        thermostat['output{0}'.format(output)] = outputs[output_nr]['dimmer']
-                    else:
-                        thermostat['output{0}'.format(output)] = 0
-                thermostats.append(thermostat)
-
-        self._thermostat_status.full_update({'thermostats_on': thermostats_on,
-                                             'automatic': automatic,
-                                             'setpoint': setpoint,
-                                             'cooling': cooling,
-                                             'status': thermostats})
+        thermostats_config, thermostats_status = self._thermostat_controller.get_thermostats_status()
+        self._thermostats_config = thermostats_config
+        self._thermostat_status.full_update(thermostats_status)
         self._thermostats_last_updated = time.time()
