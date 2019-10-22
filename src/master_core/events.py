@@ -13,11 +13,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-Module to handle Events from the AIO
+Module to handle Events from the Core
 """
 
 import logging
-from master_aio.fields import WordField
+from master_core.fields import WordField
 
 LOGGER = logging.getLogger('openmotics')
 

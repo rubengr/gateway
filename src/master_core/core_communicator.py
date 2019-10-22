@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-Module to communicate with the AIO.
+Module to communicate with the Core.
 
 """
 
@@ -22,17 +22,17 @@ import time
 from threading import Thread, Lock
 from Queue import Queue, Empty
 from wiring import provides, inject, SingletonScope, scope
-from master_aio.aio_api import AIOAPI
-from master_aio.fields import WordField
+from master_core.core_api import CoreAPI
+from master_core.fields import WordField
 from serial_utils import CommunicationTimedOutException, printable
 
 LOGGER = logging.getLogger('openmotics')
 
 
-class AIOCommunicator(object):
+class CoreCommunicator(object):
     """
-    Uses a serial port to communicate with the AIO and updates the output state.
-    Provides methods to send AIOCommands.
+    Uses a serial port to communicate with the Core and updates the output state.
+    Provides methods to send CoreCommands.
     """
 
     # Message constants. There are here for better code readability, you can't just simply change them
@@ -43,7 +43,7 @@ class AIOCommunicator(object):
 
     @provides('master_communicator')
     @scope(SingletonScope)
-    @inject(serial='controller_serial', verbose='aio_communicator_verbose')
+    @inject(serial='controller_serial', verbose='core_communicator_verbose')
     def __init__(self, serial, verbose):
         """
         :param serial: Serial port to communicate with
@@ -65,7 +65,7 @@ class AIOCommunicator(object):
         self._last_success = 0
         self._stop = False
 
-        self._read_thread = Thread(target=self._read, name='AIOCommunicator read thread')
+        self._read_thread = Thread(target=self._read, name='CoreCommunicator read thread')
         self._read_thread.setDaemon(True)
 
         self._communication_stats = {'calls_succeeded': [],
@@ -77,16 +77,16 @@ class AIOCommunicator(object):
         self._debug_buffer_duration = 300
 
     def start(self):
-        """ Start the AIOComunicator, this starts the background read thread. """
+        """ Start the CoreComunicator, this starts the background read thread. """
         self._stop = False
         self._read_thread.start()
 
     def get_bytes_written(self):
-        """ Get the number of bytes written to the AIO. """
+        """ Get the number of bytes written to the Core. """
         return self._serial_bytes_written
 
     def get_bytes_read(self):
-        """ Get the number of bytes read from the AIO. """
+        """ Get the number of bytes read from the Core. """
         return self._serial_bytes_read
 
     def get_communication_statistics(self):
@@ -142,7 +142,7 @@ class AIOCommunicator(object):
         """
         with self._serial_write_lock:
             if self._verbose:
-                LOGGER.info('Writing to AIO serial:   {0}'.format(printable(data)))
+                LOGGER.info('Writing to Core serial:   {0}'.format(printable(data)))
 
             threshold = time.time() - self._debug_buffer_duration
             self._debug_buffer['write'][time.time()] = printable(data)
@@ -176,7 +176,7 @@ class AIOCommunicator(object):
 
     def do_basic_action(self, action_type, action, device_nr, extra_parameter=0):
         """
-        Sends a basic action to the AIO with the given action type and action number
+        Sends a basic action to the Core with the given action type and action number
         :param action_type: The action type to execute
         :type action_type: int
         :param action: The action number to execute
@@ -185,12 +185,12 @@ class AIOCommunicator(object):
         :type device_nr: int
         :param extra_parameter: Optional extra argument
         :type extra_parameter: int
-        :raises: :class`CommunicationTimedOutException` if AIO did not respond in time
+        :raises: :class`CommunicationTimedOutException` if Core did not respond in time
         :returns: dict containing the output fields of the command
         """
         LOGGER.info('BA: Execute {0} {1} {2} {3}'.format(action_type, action, device_nr, extra_parameter))
         return self.do_command(
-            AIOAPI.basic_action(),
+            CoreAPI.basic_action(),
             {'type': action_type,
              'action': action,
              'device_nr': device_nr,
@@ -200,10 +200,10 @@ class AIOCommunicator(object):
     def do_command(self, command, fields, timeout=2):
         """
         Send a command over the serial port and block until an answer is received.
-        If the AIO does not respond within the timeout period, a CommunicationTimedOutException is raised
+        If the Core does not respond within the timeout period, a CommunicationTimedOutException is raised
 
         :param command: specification of the command to execute
-        :type command: master_aio.aio_command.AIOCommandSpec
+        :type command: master_core.core_command.CoreCommandSpec
         :param fields: A dictionary with the command input field values
         :type fields dict
         :param timeout: maximum allowed time before a CommunicationTimedOutException is raised
@@ -237,8 +237,8 @@ class AIOCommunicator(object):
 
         :param cid: The command ID
         :type cid: int
-        :param command: The AIO CommandSpec
-        :type command: master_aio.aio_command.AIOCommandSpec
+        :param command: The Core CommandSpec
+        :type command: master_core.core_command.CoreCommandSpec
         :param fields: A dictionary with the command input field values
         :type fields dict
         :raises: serial_utils.CommunicationTimedOutException
@@ -251,14 +251,14 @@ class AIOCommunicator(object):
                            WordField.encode(len(payload)) +
                            payload)
 
-        data = (AIOCommunicator.START_OF_REQUEST +
+        data = (CoreCommunicator.START_OF_REQUEST +
                 str(chr(cid)) +
                 command.instruction +
                 WordField.encode(len(payload)) +
                 payload +
                 'C' +
-                str(chr(AIOCommunicator._calculate_crc(checked_payload))) +
-                AIOCommunicator.END_OF_REQUEST)
+                str(chr(CoreCommunicator._calculate_crc(checked_payload))) +
+                CoreCommunicator.END_OF_REQUEST)
 
         self._write_to_serial(data)
 
@@ -286,8 +286,8 @@ class AIOCommunicator(object):
         """
         data = ''
         wait_for_length = None
-        header_length = len(AIOCommunicator.START_OF_REPLY) + 1 + 2 + 2  # RTR + CID (1 byte) + command (2 bytes) + length (2 bytes)
-        footer_length = 1 + 1 + len(AIOCommunicator.END_OF_REPLY)  # 'C' + checksum (1 byte) + \r\n
+        header_length = len(CoreCommunicator.START_OF_REPLY) + 1 + 2 + 2  # RTR + CID (1 byte) + command (2 bytes) + length (2 bytes)
+        footer_length = 1 + 1 + len(CoreCommunicator.END_OF_REPLY)  # 'C' + checksum (1 byte) + \r\n
 
         while not self._stop:
 
@@ -305,16 +305,16 @@ class AIOCommunicator(object):
                 continue
 
             # Check if the data contains the START_OF_REPLY
-            if AIOCommunicator.START_OF_REPLY not in data:
+            if CoreCommunicator.START_OF_REPLY not in data:
                 continue
 
             if wait_for_length is None:
                 # Flush everything before the START_OF_REPLY
-                data = AIOCommunicator.START_OF_REPLY + data.split(AIOCommunicator.START_OF_REPLY, 1)[-1]
+                data = CoreCommunicator.START_OF_REPLY + data.split(CoreCommunicator.START_OF_REPLY, 1)[-1]
                 if len(data) < header_length:
                     continue  # Not enough data
 
-            header_fields = AIOCommunicator._parse_header(data)
+            header_fields = CoreCommunicator._parse_header(data)
             message_length = header_fields['length'] + header_length + footer_length
 
             # If not all data is present, wait for more data
@@ -327,7 +327,7 @@ class AIOCommunicator(object):
 
             # A possible message is received, log where appropriate
             if self._verbose:
-                LOGGER.info('Reading from AIO serial: {0}'.format(printable(message)))
+                LOGGER.info('Reading from Core serial: {0}'.format(printable(message)))
             threshold = time.time() - self._debug_buffer_duration
             self._debug_buffer['read'][time.time()] = printable(message)
             for t in self._debug_buffer['read'].keys():
@@ -335,7 +335,7 @@ class AIOCommunicator(object):
                     del self._debug_buffer['read'][t]
 
             # Validate message boundaries
-            correct_boundaries = message.startswith(AIOCommunicator.START_OF_REPLY) and message.endswith(AIOCommunicator.END_OF_REPLY)
+            correct_boundaries = message.startswith(CoreCommunicator.START_OF_REPLY) and message.endswith(CoreCommunicator.END_OF_REPLY)
             if not correct_boundaries:
                 LOGGER.info('Unexpected boundaries: {0}'.format(printable(message)))
                 # Reset, so we'll wait for the next RTR
@@ -347,7 +347,7 @@ class AIOCommunicator(object):
             crc = ord(message[-3])
             payload = message[8:-4]
             checked_payload = message[3:-4]
-            expected_crc = AIOCommunicator._calculate_crc(checked_payload)
+            expected_crc = CoreCommunicator._calculate_crc(checked_payload)
             if crc != expected_crc:
                 LOGGER.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, printable(checked_payload)))
                 # Reset, so we'll wait for the next RTR
@@ -369,7 +369,7 @@ class AIOCommunicator(object):
 
     @staticmethod
     def _parse_header(data):
-        base = len(AIOCommunicator.START_OF_REPLY)
+        base = len(CoreCommunicator.START_OF_REPLY)
         return {'cid': ord(data[base]),
                 'command': data[base + 1:base + 3],
                 'header': data[:base + 3],
@@ -388,8 +388,8 @@ class Consumer(object):
         self._queue = Queue()
 
     def get_header(self):
-        """ Get the prefix of the answer from the AIO. """
-        return AIOCommunicator.START_OF_REPLY + str(chr(self.cid)) + self.command.response_instruction
+        """ Get the prefix of the answer from the Core. """
+        return CoreCommunicator.START_OF_REPLY + str(chr(self.cid)) + self.command.response_instruction
 
     def consume(self, payload):
         """ Consume payload. """
@@ -398,16 +398,16 @@ class Consumer(object):
 
     def get(self, timeout):
         """
-        Wait until the AIO replies or the timeout expires.
+        Wait until the Core replies or the timeout expires.
 
         :param timeout: timeout in seconds
-        :raises: :class`CommunicationTimedOutException` if AIO did not respond in time
+        :raises: :class`CommunicationTimedOutException` if Core did not respond in time
         :returns: dict containing the output fields of the command
         """
         try:
             return self._queue.get(timeout=timeout)
         except Empty:
-            raise CommunicationTimedOutException('No AIO data received in {0}s'.format(timeout))
+            raise CommunicationTimedOutException('No Core data received in {0}s'.format(timeout))
 
 
 class BackgroundConsumer(object):
@@ -420,7 +420,7 @@ class BackgroundConsumer(object):
         """
         Create a background consumer using a cmd, cid and callback.
 
-        :param command: the AIOCommand to consume.
+        :param command: the CoreCommand to consume.
         :param cid: the communication id.
         :param callback: function to call when an instance was found.
         """
@@ -429,13 +429,13 @@ class BackgroundConsumer(object):
         self._callback = callback
         self._queue = Queue()
 
-        self._callback_thread = Thread(target=self.deliver, name='AIOCommunicator BackgroundConsumer delivery thread')
+        self._callback_thread = Thread(target=self.deliver, name='CoreCommunicator BackgroundConsumer delivery thread')
         self._callback_thread.setDaemon(True)
         self._callback_thread.start()
 
     def get_header(self):
-        """ Get the prefix of the answer from the AIO. """
-        return AIOCommunicator.START_OF_REPLY + str(chr(self.cid)) + self.command.response_instruction
+        """ Get the prefix of the answer from the Core. """
+        return CoreCommunicator.START_OF_REPLY + str(chr(self.cid)) + self.command.response_instruction
 
     def consume(self, payload):
         """ Consume payload. """

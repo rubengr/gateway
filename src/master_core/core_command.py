@@ -13,17 +13,17 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-AIOCommandSpec defines payload handling; (de)serialization
+CoreCommandSpec defines payload handling; (de)serialization
 """
 import logging
 from serial_utils import printable
-from master_aio.fields import PaddingField
+from master_core.fields import PaddingField
 
 
 LOGGER = logging.getLogger('openmotics')
 
 
-class AIOCommandSpec(object):
+class CoreCommandSpec(object):
     """
     Defines payload handling and de(serialization)
     """
@@ -35,12 +35,12 @@ class AIOCommandSpec(object):
         """
         Create a APICommandSpec.
 
-        :param instruction: name of the instruction as described in the AIO api.
+        :param instruction: name of the instruction as described in the Core api.
         :type instruction: str
         :param request_fields: Fields in this request
-        :type request_fields: list of master_aio.fields.Field
+        :type request_fields: list of master_core.fields.Field
         :param response_fields: Fields in the response
-        :type response_fields: list of master_aio.fields.Field
+        :type response_fields: list of master_core.fields.Field
         :param response_instruction: name of the instruction of the answer in case it would be different from the response
         :type response_instruction: str
         """
@@ -51,7 +51,7 @@ class AIOCommandSpec(object):
 
     def create_request_payload(self, fields):
         """
-        Create the request payload for the AIO using this spec and the provided fields.
+        Create the request payload for the Core using this spec and the provided fields.
 
         :param fields: dictionary with values for the fields
         :type fields: dict
@@ -66,7 +66,7 @@ class AIOCommandSpec(object):
         """
         Consumes the payload bytes
 
-        :param payload Payload from the AIO response
+        :param payload Payload from the Core response
         :type payload: str
         :returns: Dictionary containing the parsed response
         :rtype: dict

@@ -13,11 +13,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-Contains the definition of the AIO API
+Contains the definition of the Core API
 """
 
-from master_aio.ucan_command import UCANCommandSpec, UCANPalletCommandSpec, SID, PalletType, Instruction
-from master_aio.fields import AddressField, ByteField, WordField, VersionField, StringField, Int32Field, ByteArrayField
+from master_core.ucan_command import UCANCommandSpec, UCANPalletCommandSpec, SID, PalletType, Instruction
+from master_core.fields import AddressField, ByteField, WordField, VersionField, StringField, Int32Field, ByteArrayField
 
 
 class UCANAPI(object):

@@ -15,8 +15,8 @@
 """
 Memory models
 """
-from master_aio.memory_types import MemoryModelDefinition, MemoryRelation, MemoryByteField, MemoryWordField, MemoryAddressField, MemoryStringField, MemoryVersionField
-from master_aio.memory_file import MemoryTypes
+from master_core.memory_types import MemoryModelDefinition, MemoryRelation, MemoryByteField, MemoryWordField, MemoryAddressField, MemoryStringField, MemoryVersionField
+from master_core.memory_file import MemoryTypes
 
 
 class GlobalConfiguration(MemoryModelDefinition):

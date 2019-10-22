@@ -41,7 +41,7 @@ class MaintenanceService(object):
         self._maintenance_active = False
         self._stopped = True
 
-        self._read_data_thread = Thread(target=self._read_data, name='AIO maintenance read thread')
+        self._read_data_thread = Thread(target=self._read_data, name='Core maintenance read thread')
         self._read_data_thread.setDaemon(True)
 
     def start(self):

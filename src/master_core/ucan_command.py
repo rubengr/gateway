@@ -17,7 +17,7 @@ UCANCommandSpec defines payload handling; (de)serialization
 """
 import logging
 import math
-from master_aio.fields import PaddingField, Int32Field, StringField
+from master_core.fields import PaddingField, Int32Field, StringField
 from serial_utils import printable
 
 
@@ -66,17 +66,17 @@ class UCANCommandSpec(object):
         Create a UCANCommandSpec.
 
         :param sid: SID
-        :type sid: master_aio.ucan_command.UCANCommandSpec.SID
+        :type sid: master_core.ucan_command.UCANCommandSpec.SID
         :param instruction: Instruction object for this command
-        :type instruction: master_aio.ucan_command.Instruction or None
+        :type instruction: master_core.ucan_command.Instruction or None
         :param identifier: The field to be used as extra identifier
-        :type identifier: master_aio.fields.Field
+        :type identifier: master_core.fields.Field
         :param request_fields: Fields in this request
-        :type request_fields: list of master_aio.fields.Field
+        :type request_fields: list of master_core.fields.Field
         :param response_instructions: List of all the response instruction bytes
-        :type response_instructions: list of master_aio.ucan_command.Instruction
+        :type response_instructions: list of master_core.ucan_command.Instruction
         :param response_fields: Fields in the response
-        :type response_fields: list of master_aio.fields.Field
+        :type response_fields: list of master_core.fields.Field
         """
         self.sid = sid
         self.instruction = instruction
@@ -197,13 +197,13 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         Create a UCANCommandSpec.
 
         :param identifier: The field to be used as extra identifier
-        :type identifier: master_aio.fields.Field
+        :type identifier: master_core.fields.Field
         :param pallet_type: The type of the pallet
         :type pallet_type: int
         :param request_fields: Fields in this request
-        :type request_fields: list of master_aio.fields.Field
+        :type request_fields: list of master_core.fields.Field
         :param response_fields: Fields in the response
-        :type response_fields: list of master_aio.fields.Field
+        :type response_fields: list of master_core.fields.Field
         """
         super(UCANPalletCommandSpec, self).__init__(sid=SID.BOOTLOADER_PALLET,
                                                     instruction=None,

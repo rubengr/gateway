@@ -20,11 +20,11 @@ import logging
 import time
 from Queue import Queue, Empty
 from wiring import provides, inject, SingletonScope, scope
-from master_aio.aio_api import AIOAPI
-from master_aio.aio_communicator import BackgroundConsumer
-from master_aio.exceptions import BootloadingException
-from master_aio.ucan_command import SID
-from master_aio.ucan_api import UCANAPI
+from master_core.core_api import CoreAPI
+from master_core.core_communicator import BackgroundConsumer
+from master_core.exceptions import BootloadingException
+from master_core.ucan_command import SID
+from master_core.ucan_api import UCANAPI
 from serial_utils import CommunicationTimedOutException, printable
 
 LOGGER = logging.getLogger('openmotics')
@@ -32,26 +32,26 @@ LOGGER = logging.getLogger('openmotics')
 
 class UCANCommunicator(object):
     """
-    Uses a AIOCommunicator to communicate with uCANs
+    Uses a CoreCommunicator to communicate with uCANs
     """
 
     @provides('ucan_communicator')
     @scope(SingletonScope)
-    @inject(aio_communicator='master_communicator', verbose='ucan_communicator_verbose')
-    def __init__(self, aio_communicator, verbose):
+    @inject(core_communicator='master_communicator', verbose='ucan_communicator_verbose')
+    def __init__(self, core_communicator, verbose):
         """
-        :param aio_communicator: AIOCommunicator
-        :type aio_communicator: master_aio.aio_communicator.AIOCommunicator
+        :param core_communicator: CoreCommunicator
+        :type core_communicator: master_core.core_communicator.CoreCommunicator
         :param verbose: Log all communication
         :type verbose: boolean.
         """
         self._verbose = verbose
-        self._communicator = aio_communicator
+        self._communicator = core_communicator
         self._read_buffer = []
         self._consumers = {}
         self._cc_pallet_mode = {}
 
-        self._background_consumer = BackgroundConsumer(AIOAPI.ucan_rx_transport_message(), 1, self._process_transport_message)
+        self._background_consumer = BackgroundConsumer(CoreAPI.ucan_rx_transport_message(), 1, self._process_transport_message)
         self._communicator.register_consumer(self._background_consumer)
 
     def is_ucan_in_bootloader(self, cc_address, ucan_address):
@@ -89,12 +89,12 @@ class UCANCommunicator(object):
     def do_command(self, cc_address, command, identity, fields, timeout=2):
         """
         Send a uCAN command over the Communicator and block until an answer is received.
-        If the AIO does not respond within the timeout period, a CommunicationTimedOutException is raised
+        If the Core does not respond within the timeout period, a CommunicationTimedOutException is raised
 
         :param cc_address: An address of the CC connected to the uCAN
         :type cc_address: str
         :param command: specification of the command to execute
-        :type command: master_aio.ucan_command.UCANCommandSpec
+        :type command: master_core.ucan_command.UCANCommandSpec
         :param identity: The identity
         :type identity: str
         :param fields: A dictionary with the command input field values
@@ -119,7 +119,7 @@ class UCANCommunicator(object):
         for payload in command.create_request_payloads(identity, fields):
             if self._verbose:
                 LOGGER.info('Writing to uCAN transport:   CC {0} - SID {1} - Data: {2}'.format(cc_address, command.sid, printable(payload)))
-            self._communicator.do_command(command=AIOAPI.ucan_tx_transport_message(),
+            self._communicator.do_command(command=CoreAPI.ucan_tx_transport_message(),
                                           fields={'cc_address': cc_address,
                                                   'nr_can_bytes': len(payload),
                                                   'sid': command.sid,
@@ -179,7 +179,7 @@ class Consumer(object):
         Wait until the uCAN (or CC) replies or the timeout expires.
 
         :param timeout: timeout in seconds
-        :raises: :class`CommunicationTimedOutException` if AIO did not respond in time
+        :raises: :class`CommunicationTimedOutException` if Core did not respond in time
         :returns: dict containing the output fields of the command
         """
         try:

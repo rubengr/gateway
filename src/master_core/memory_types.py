@@ -138,8 +138,8 @@ class MemoryFieldContainer(object):
 
     def __init__(self, memory_field, memory_address, memory_files):
         """
-        :type memory_field: master_aio.memory_types.MemoryField
-        :type memory_address: master_aio.memory_types.MemoryAddress
+        :type memory_field: master_core.memory_types.MemoryField
+        :type memory_address: master_core.memory_types.MemoryAddress
         """
         self._memory_field = memory_field
         self._memory_address = memory_address
@@ -194,7 +194,7 @@ class MemoryField(object):
         """
         Calculate the address for this field.
 
-        :rtype: master_aio.memory_types.MemoryAddress
+        :rtype: master_core.memory_types.MemoryAddress
         """
         if id is None:
             if self._address_tuple is None:

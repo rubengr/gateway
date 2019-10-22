@@ -17,7 +17,7 @@ Contains a memory representation
 """
 import logging
 from wiring import provides, inject, SingletonScope, scope
-from master_aio.aio_api import AIOAPI
+from master_core.core_api import CoreAPI
 
 LOGGER = logging.getLogger("openmotics")
 
@@ -31,15 +31,15 @@ class MemoryFile(object):
 
     @provides('memory_file')
     @scope(SingletonScope)
-    @inject(aio_communicator='master_communicator')
-    def __init__(self, memory_type, aio_communicator):
+    @inject(core_communicator='master_communicator')
+    def __init__(self, memory_type, core_communicator):
         """
         Initializes the MemoryFile instance, reprensenting one of the supported memory types
 
-        :type aio_communicator: master_aio.aio_communicator.AIOCommunicator
+        :type core_communicator: master_core.core_communicator.CoreCommunicator
         """
 
-        self._aio_communicator = aio_communicator
+        self._core_communicator = core_communicator
         self.type = memory_type
         if memory_type == MemoryTypes.EEPROM:
             self._pages = 512
@@ -51,7 +51,7 @@ class MemoryFile(object):
 
     def read(self, addresses):
         """
-        :type addresses: list of master_aio.memory_types.MemoryAddress
+        :type addresses: list of master_core.memory_types.MemoryAddress
         """
         data = {}
         for address in addresses:
@@ -63,8 +63,8 @@ class MemoryFile(object):
         if page not in self._cache:
             page_data = []
             for i in xrange(self._page_length / 32):
-                page_data += self._aio_communicator.do_command(
-                    AIOAPI.memory_read(),
+                page_data += self._core_communicator.do_command(
+                    CoreAPI.memory_read(),
                     {'type': self.type, 'page': page, 'start': i * 32, 'length': 32}
                 )['data']
             self._cache[page] = page_data
@@ -73,8 +73,8 @@ class MemoryFile(object):
     def write_page(self, page, data):
         self._cache[page] = data
         for i in xrange(self._page_length / 32):
-            self._aio_communicator.do_command(
-                AIOAPI.memory_write(32),
+            self._core_communicator.do_command(
+                CoreAPI.memory_write(32),
                 {'type': self.type, 'page': page, 'start': i * 32, 'data': data}
             )
 

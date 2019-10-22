@@ -21,9 +21,9 @@ import os
 import struct
 import time
 from intelhex import IntelHex
-from master_aio.ucan_api import UCANAPI
-from master_aio.ucan_command import UCANPalletCommandSpec, SID
-from master_aio.fields import Int32Field
+from master_core.ucan_api import UCANAPI
+from master_core.ucan_command import UCANPalletCommandSpec, SID
+from master_core.fields import Int32Field
 
 LOGGER = logging.getLogger('openmotics')
 
@@ -51,7 +51,7 @@ class UCANUpdater(object):
         :param cc_address: CC address
         :param ucan_address: uCAN address
         :param ucan_communicator: uCAN commnicator
-        :type ucan_communicator: master_aio.ucan_communicator.UCANCommunicator
+        :type ucan_communicator: master_core.ucan_communicator.UCANCommunicator
         :param hex_filename: The filename of the hex file to flash
         """
         try:
