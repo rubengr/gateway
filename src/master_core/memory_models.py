@@ -46,9 +46,6 @@ class OutputConfiguration(MemoryModelDefinition):
     min_output_level = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 39 + id % 8))
     max_output_level = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 47 + id % 8))
     output_groupaction_follow = MemoryWordField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 55 + (id % 8) * 2))
-    shutter_up_timer = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 64 + (id % 8) * 2))
-    shutter_down_timer = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 65 + (id % 8) * 2))
-    shutter_config = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 72 + id % 8))
     name = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 128 + (id % 8) * 16), length=16)
     module = MemoryRelation(OutputModuleConfiguration, id_spec=lambda id: id / 8)
 

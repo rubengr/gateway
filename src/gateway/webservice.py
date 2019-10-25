@@ -281,7 +281,8 @@ class WebInterface(object):
         self._power_dirty = False
 
     def in_authorized_mode(self):
-        return self._message_client.get_state('led_service', {}).get('authorized_mode', False)
+        return True
+        # TODO: return self._message_client.get_state('led_service', {}).get('authorized_mode', False)
 
     def distribute_metric(self, metric):
         try:
@@ -2386,7 +2387,7 @@ class WebInterface(object):
     @cherrypy.tools.cors()
     @cherrypy.tools.authenticated(pass_token=True)
     def ws_maintenance(self, token):
-        # TODO: Handle non-AIO maintenance mode
+        # TODO: Handle non-Core maintenance mode
         cherrypy.request.ws_handler.metadata = {'token': token,
                                                 'client_id': uuid.uuid4().hex,
                                                 'interface': self}
