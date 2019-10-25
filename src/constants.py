@@ -49,6 +49,11 @@ def get_metrics_database_file():
     return "/opt/openmotics/etc/metrics.db"
 
 
+def get_events_database_file():
+    """ Get the filename of the events database file. This file is in sqlite format. """
+    return "/opt/openmotics/etc/events.db"
+
+
 def get_pulse_counter_database_file():
     """ Get the filename of the pulse counter database file. This file is in sqlite format. """
     return "/opt/openmotics/etc/pulse.db"

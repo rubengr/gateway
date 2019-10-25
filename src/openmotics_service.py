@@ -25,7 +25,7 @@ from wiring import Graph, SingletonScope
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
 from cloud.cloud_api_client import CloudAPIClient
-from cloud.event_sender import EventSender
+from cloud.events import EventSender
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
