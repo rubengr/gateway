@@ -64,7 +64,7 @@ class CloudAPIClient(object):
         return '{0}://{1}:{2}/{3}'.format('https' if self._ssl else 'http', self._hostname, self._port, path)
 
     def send_event(self, event):
-        self.send_event([event])
+        self.send_events([event])
 
     def send_events(self, events):
         # sending events over REST is only supported in the v0 API
