@@ -96,8 +96,6 @@ class OutputConfiguration(EepromModel):
     can_led_4_id = EepromByte(gen_address(221, 32, 6))
     can_led_4_function = EepromEnum(gen_address(221, 32, 7), get_led_functions())
     room = EextByte()
-    event_enabled = EextByte()
-    event_redelivery = EextByte()
 
 
 class InputConfiguration(EepromModel):
@@ -114,7 +112,6 @@ class InputConfiguration(EepromModel):
     room = EextByte()
     can = EepromString(1, lambda mid: (2 + mid / 8, 252), read_only=True, shared=True)
     event_enabled = EextByte()
-    event_redelivery = EextByte()
 
 
 class CanLedConfiguration(EepromModel):

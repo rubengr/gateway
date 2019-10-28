@@ -34,12 +34,12 @@ class EventsTest(unittest.TestCase):
         cloud.send_events = _send_events
         event_sender = EventSender(cloud)  # Don't start, trigger manually
         self.assertEqual(len(event_sender._queue), 0)
-        self.assertFalse(event_sender._send_events())
+        self.assertFalse(event_sender._batch_send_events())
         event_sender.enqueue_event(Event(Event.Types.OUTPUT_CHANGE, None))
         event_sender.enqueue_event(Event(Event.Types.THERMOSTAT_CHANGE, None))
         event_sender.enqueue_event(Event(Event.Types.INPUT_TRIGGER, None))
         self.assertEqual(len(event_sender._queue), 2)
-        self.assertTrue(event_sender._send_events())
+        self.assertTrue(event_sender._batch_send_events())
         self.assertEqual(len(event_sender._queue), 0)
         self.assertEqual(len(container.get('events', [])), 2)
 
