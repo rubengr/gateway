@@ -132,7 +132,7 @@ class Error(object):
     def _extract_command(word):
         first = word >> 8 & 0xFF
         second = word & 0xFF
-        return ''.join([c if 32 < ord(c) <= 126 else '.' for c in [first, second]])
+        return ''.join([str(chr(c)) if 32 < c <= 126 else '.' for c in [first, second]])
 
     @staticmethod
     def _decode_address(first_word, second_word):

@@ -213,9 +213,9 @@ class MasterCoreController(MasterController):
         data = {'id': output.id,
                 'module_type': output.module.device_type,  # TODO: Proper translation
                 'name': output.name,
-                'timer': timer,
+                'timer': timer,  # TODO: Proper calculation
                 'floor': 255,
-                'type': output.output_type,
+                'type': output.output_type,  # TODO: Proper translation
                 'can_led_1_id': 255,
                 'can_led_1_function': 'UNKNOWN',
                 'can_led_2_id': 255,
@@ -237,7 +237,11 @@ class MasterCoreController(MasterController):
         return outputs
 
     def save_outputs(self, outputs, fields=None):
-        raise NotImplementedError()  # TODO: Create eeprom write logic
+        for output_data in outputs:
+            new_data = {'id': output_data['id'],
+                        'name': output_data['name']}  # TODO: Rest of the mapping
+            output = OutputConfiguration.deserialize(new_data, self._memory_files)
+            output.save()
 
     def get_output_statuses(self):
         return self._output_states.values()
