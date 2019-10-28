@@ -15,15 +15,21 @@
 """
 The io_test.py file contains tests related to input and output configurations.
 """
+
 import unittest
 import time
 import datetime
 import simplejson as json
 import logging
 import toolbox
-from pytz import timezone
 from toolbox import exception_handler, OMTestCase
 from random import randint
+try:
+    from pytz import timezone
+except ImportError:
+    from platform_utils import System
+    System.import_eggs()
+    from pytz import timezone
 
 LOGGER = logging.getLogger('openmotics')
 
@@ -87,13 +93,14 @@ class IoTest(OMTestCase):
         if response_dict is None:
             self.tools.discovery_success = False
 
-        if not ('outputs' in response_dict and 'inputs' in response_dict):
+        if not {'outputs', 'inputs', 'can_inputs'}.issubset(response_dict):
             self.tools.discovery_success = False
             self.tools.initialisation_success = False
             self.fail('response was not none but not expected: {0}'.format(response_dict))
 
-        self.assertEquals(sorted(response_dict['outputs']), ['D', 'O'], 'Got different output modules than expected: {0}'.format(response_dict['outputs']))
-        self.assertEquals(sorted(response_dict['inputs']), ['C', 'I', 'T'], 'Got different input modules than expected: {0}'.format(response_dict['inputs']))
+        self.assertEquals(sorted(response_dict['outputs']), ['D', 'O'])
+        self.assertEquals(sorted(response_dict['inputs']), ['I', 'T'])
+        self.assertEquals(sorted(response_dict['can_inputs']), ['C'])
 
     @exception_handler
     def test_discovery_authorization(self):
