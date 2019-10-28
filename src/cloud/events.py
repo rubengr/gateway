@@ -17,14 +17,9 @@ Sends events to the cloud
 """
 import logging
 import time
-import persistqueue
 from collections import deque
 from threading import Thread
-
-from persistqueue import Empty
 from wiring import inject, provides, scope, SingletonScope
-
-import constants
 from cloud.cloud_api_client import APIException
 from gateway.observer import Event
 
@@ -33,7 +28,7 @@ logger = logging.getLogger('openmotics')
 
 class EventSender(object):
 
-    @provides('event_manager')
+    @provides('event_sender')
     @scope(SingletonScope)
     @inject(cloud_client='cloud_api_client', gateway_api='gateway_api')
     def __init__(self, cloud_client, gateway_api):
