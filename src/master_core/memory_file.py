@@ -51,13 +51,23 @@ class MemoryFile(object):
 
     def read(self, addresses):
         """
-        :type addresses: list of master_core.memory_types.MemoryAddress
+        :type addresses: list[master_core.memory_types.MemoryAddress]
         """
         data = {}
         for address in addresses:
             page_data = self.read_page(address.page)
             data[address] = page_data[address.offset:address.offset + address.length]
         return data
+
+    def write(self, data_map):
+        """
+        :type data_map: dict[master_core.memory_types.MemoryAddress, list[int]]
+        """
+        for address, data in data_map.iteritems():
+            page_data = self.read_page(address.page)
+            for index, data_byte in enumerate(data):
+                page_data[address.offset + index] = data_byte
+            self.write_page(address.page, page_data)
 
     def read_page(self, page):
         if page not in self._cache:
@@ -72,10 +82,12 @@ class MemoryFile(object):
 
     def write_page(self, page, data):
         self._cache[page] = data
-        for i in xrange(self._page_length / 32):
+        length = 32
+        for i in xrange(self._page_length / length):
+            start = i * length
             self._core_communicator.do_command(
-                CoreAPI.memory_write(32),
-                {'type': self.type, 'page': page, 'start': i * 32, 'data': data}
+                CoreAPI.memory_write(length),
+                {'type': self.type, 'page': page, 'start': start, 'data': data[start:start + length]}
             )
 
     def invalidate_cache(self, page=None):

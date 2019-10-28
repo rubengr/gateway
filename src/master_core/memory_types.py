@@ -43,6 +43,7 @@ class MemoryModelDefinition(object):
         self.id = id
         self._memory_files = memory_files
         self._fields = []
+        self._loaded_fields = set()
         self._relations = []
         address_cache = self.__class__.get_address_cache(self.id)
         for field_name, field_type in self.__class__.get_field_dict().iteritems():
@@ -72,10 +73,12 @@ class MemoryModelDefinition(object):
                                                      lambda s, v: s._set_property(field_name, v)))
 
     def _get_property(self, field_name):
+        self._loaded_fields.add(field_name)
         field = getattr(self, '_{0}'.format(field_name))
         return field.decode()
 
     def _set_property(self, field_name, value):
+        self._loaded_fields.add(field_name)
         field = getattr(self, '_{0}'.format(field_name))
         field.encode(value)
 
@@ -85,6 +88,20 @@ class MemoryModelDefinition(object):
     def _get_relation(self, field_name):
         relation = getattr(self, '_{0}'.format(field_name))
         return relation.yield_instance(self.id, self._memory_files)
+
+    def save(self):
+        for field_name in self._loaded_fields:
+            field_container = getattr(self, '_{0}'.format(field_name))
+            field_container.save()
+
+    @classmethod
+    def deserialize(cls, data, memory_files):
+        instance_id = data['id']
+        instance = cls(instance_id, memory_files)
+        for field_name, value in data.iteritems():
+            if field_name != 'id' and field_name in instance._fields:
+                setattr(instance, field_name, value)
+        return instance
 
     @classmethod
     def get_fields(cls):
@@ -158,6 +175,9 @@ class MemoryFieldContainer(object):
         if self._data is None:
             self._read_data()
         return self._memory_field.decode(self._data)
+
+    def save(self):
+        self._memory_files[self._memory_address.memory_type].write({self._memory_address: self._data})
 
 
 class MemoryField(object):
