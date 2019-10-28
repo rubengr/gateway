@@ -243,9 +243,9 @@ class WebInterface(object):
     @scope(SingletonScope)
     @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_service='maintenance_service',
             message_client='message_client', config_controller='config_controller',
-            scheduling_controller='scheduling_controller', cloud_api_client='cloud_api_client')
+            scheduling_controller='scheduling_controller')
     def __init__(self, user_controller, gateway_api, maintenance_service,
-                 message_client, config_controller, scheduling_controller, cloud_api_client):
+                 message_client, config_controller, scheduling_controller):
         """
         Constructor for the WebInterface.
 
@@ -261,8 +261,6 @@ class WebInterface(object):
         :type config_controller: gateway.config.ConfigController
         :param scheduling_controller: Scheduling Controller
         :type scheduling_controller: gateway.scheduling.SchedulingController
-        :param cloud: The cloud API object
-        :type cloud: cloud.client.OmApiClient
         """
         self._user_controller = user_controller
         self._config_controller = config_controller
@@ -272,7 +270,6 @@ class WebInterface(object):
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
         self._message_client = message_client
-        self._cloud_api_client = cloud_api_client
         self._plugin_controller = None
         self._metrics_collector = None
         self._metrics_controller = None
@@ -308,7 +305,7 @@ class WebInterface(object):
         except Exception as ex:
             logger.error('Failed to distribute metrics to WebSockets: %s', ex)
 
-    def _send_event_websocket(self, event):
+    def send_event_websocket(self, event):
         try:
             answers = cherrypy.engine.publish('get-events-receivers')
             if not answers:
@@ -331,18 +328,6 @@ class WebInterface(object):
                     cherrypy.engine.publish('remove-events-receiver', client_id)
         except Exception as ex:
             logger.error('Failed to distribute events to WebSockets: %s', ex)
-
-    def process_observer_event(self, event):
-        """ Processes an observer event, pushing it forward to the upstream components (e.g. local websockets, cloud) """
-        self._send_event_websocket(event)
-        if event.type not in [Event.Types.INPUT_TRIGGER,
-                              Event.Types.ACTION,
-                              Event.Types.PING,
-                              Event.Types.PONG]:  # Some events are not relevant (yet) to send
-            try:
-                self._cloud.send_event(event)
-            except APIException as api_exception:
-                logger.error(api_exception)
 
     def set_plugin_controller(self, plugin_controller):
         """
@@ -2078,7 +2063,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.12.0'}
+                'gateway': '2.12.2'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
