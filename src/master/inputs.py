@@ -40,9 +40,9 @@ class InputStatus(object):
         for input_nr, current_state in self._inputs_status.iteritems():
             last_status_change = current_state.get('last_status_change')
             if last_status_change > threshold:
-                last_inputs.append((current_state['id'], current_state['output']))
+                last_inputs.append(current_state['id'])
         # limit result size
-        return last_inputs[:self._num_inputs]
+        return last_inputs[-self._num_inputs:]
 
     def set_input(self, data):
         """ Set the input status. """
@@ -55,7 +55,7 @@ class InputStatus(object):
             current_state['last_updated'] = now
             if current_state.get('status') != data['status']:
                 current_state['last_status_change'] = now
-                current_state['status'] = data['status']
+                current_state['status'] = bool(data['status'])
             # optional values (can be None)
             current_state['output'] = data.get('output')
             # store in memory

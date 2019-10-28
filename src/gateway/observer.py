@@ -249,7 +249,7 @@ class Observer(object):
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.INPUT_TRIGGER,
                            data={'id': data['input'],
-                                 'status': data.get('status', True),
+                                 'status': bool(data.get('status', 1)),
                                  'location': {}}))
         # Update status tracker
         self._input_status.set_input(data)
