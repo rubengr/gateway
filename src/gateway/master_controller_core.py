@@ -75,7 +75,7 @@ class MasterCoreController(MasterController):
         if core_event.type == MasterEvent.Types.OUTPUT:
             # Update internal state cache
             self._output_states[core_event.data['output']] = {'id': core_event.data['output'],
-                                                              'status': core_event.data['status'],
+                                                              'status': 1 if core_event.data['status'] else 0,
                                                               'ctimer': core_event.data['timer_value'],
                                                               'dimmer': core_event.data['dimmer_value']}
             # Generate generic event
