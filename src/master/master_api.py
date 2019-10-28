@@ -517,14 +517,14 @@ def output_list():
 
 
 def input_list(master_version):
-    """ The message sent by the master whenever an input is enabled. """
-    if master_version >= (3, 143, 88):
-        MasterCommandSpec("IL",
-                          [],
-                          [Field.byte('input'), Field.byte('output'), Field.lit("\r\n")])
+    """ The message sent by the master whenever an input changes. """
+    if master_version < (3, 143, 88):
+        return MasterCommandSpec("IL",
+                                 [],
+                                 [Field.byte('input'), Field.byte('output'), Field.lit("\r\n")])
     return MasterCommandSpec("IL",
                              [],
-                             [Field.byte('input'), Field.byte('output'), Field.byte('press_state'), Field.lit("\r\n")])
+                             [Field.byte('input'), Field.byte('output'), Field.byte('status'), Field.lit("\r\n")])
 
 
 def module_initialize():

@@ -984,11 +984,22 @@ class GatewayApi(object):
 
     # Input functions
 
+    def get_input_status(self):
+        """
+        Get a list containing the status of the Inputs.
+
+        :returns: A list is a dicts containing the following keys: id, status, ctimer and dimmer.
+        """
+        inputs = self.__observer.get_inputs()
+        return [{'id': input['id'],
+                 'status': input['status']}
+                for input in inputs]
+
     def get_last_inputs(self):
         """ Get the X last pressed inputs during the last Y seconds.
         :returns: a list of tuples (input, output).
         """
-        return self.__observer.get_input_status()
+        return self.__observer.get_recent()
 
     # Thermostat functions
 

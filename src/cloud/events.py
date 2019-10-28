@@ -82,16 +82,7 @@ class EventSender(object):
             id = event.data['id']
             config = self._gateway_api.get_input_configuration(id)
             config_code = config.get('event_enabled')
-            if config_code == 255 or config_code == 0:
-                return False
-            elif config_code == 1:
-                return True
-            elif config_code == 2 and event.data['press_type'] == 'P':
-                return True
-            elif config_code == 3 and event.data['press_type'] == 'R':
-                return True
-            else:
-                return False
+            return not (config_code == 255 or config_code == 0)
         else:
             return False
 

@@ -729,6 +729,15 @@ class WebInterface(object):
         return self._gateway_api.get_status()
 
     @openmotics_api(auth=True)
+    def get_input_status(self):
+        """
+        Get the status of the inputs.
+
+        :returns: 'status': list of dictionaries with the following keys: id, status.
+        """
+        return {'status': self._gateway_api.get_input_status()}
+
+    @openmotics_api(auth=True)
     def get_output_status(self):
         """
         Get the status of the outputs.

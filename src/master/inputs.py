@@ -17,6 +17,7 @@ Input status keeps track of the last X pressed inputs, pressed in the last X sec
 """
 
 import time
+from threading import Lock
 
 
 class InputStatus(object):
@@ -29,21 +30,41 @@ class InputStatus(object):
         """
         self._num_inputs = num_inputs
         self._seconds = seconds
-        self._inputs = []
+        self._inputs_status = {}
+        self.__state_change_lock = Lock()
 
-    def _clean(self):
-        """ Remove the old input data. """
+    def get_recent(self):
+        """ Get the last n triggered inputs. """
+        last_inputs = []
         threshold = time.time() - self._seconds
-        self._inputs = [i for i in self._inputs if i[0] > threshold]
+        for input_nr, current_state in self._inputs_status.iteritems():
+            last_status_change = current_state.get('last_status_change')
+            if last_status_change > threshold:
+                last_inputs.append((current_state['id'], current_state['output']))
+        # limit result size
+        return last_inputs[:self._num_inputs]
 
-    def add_data(self, data):
-        """ Add input data. """
-        self._clean()
-        while len(self._inputs) >= self._num_inputs:
-            self._inputs.pop(0)
-        self._inputs.append((time.time(), data))
+    def set_input(self, data):
+        """ Set the input status. """
+        with self.__state_change_lock:
+            now = time.time()
+            # parse data
+            input_nr = data['input']
+            current_state = self._inputs_status.get(input_nr, {})
+            current_state['id'] = input_nr
+            current_state['last_updated'] = now
+            if current_state.get('status') != data['status']:
+                current_state['last_status_change'] = now
+                current_state['status'] = data['status']
+            # optional values (can be None)
+            current_state['output'] = data.get('output')
+            # store in memory
+            self._inputs_status[input_nr] = current_state
 
-    def get_status(self):
-        """ Get the last inputs. """
-        self._clean()
-        return [i[1] for i in self._inputs]
+    def get_inputs(self):
+        """ Get the inputs status. """
+        inputs = []
+        for input_nr, current_state in self._inputs_status.iteritems():
+            inputs.append(current_state)
+        return inputs
+

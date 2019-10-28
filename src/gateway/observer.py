@@ -110,6 +110,8 @@ class Observer(object):
         self._shutter_controller = shutter_controller
         self._shutter_controller.set_shutter_changed_callback(self._shutter_changed)
 
+        self._input_interval = 300
+        self._input_last_updated = 0
         self._output_interval = 600
         self._output_last_updated = 0
         self._output_config = {}
@@ -191,6 +193,9 @@ class Observer(object):
                 if self._shutters_last_updated + self._shutters_interval < time.time():
                     self._refresh_shutters()
                     self._set_master_state(True)
+                if self._input_last_updated + self._input_interval < time.time():
+                    self._refresh_inputs()
+                    self._set_master_state(True)
                 # Restore interval if required
                 if self._thermostats_restore < time.time():
                     self._thermostats_interval = self._thermostats_original_interval
@@ -237,17 +242,17 @@ class Observer(object):
         self._output_status.partial_update(on_outputs)
 
     def _on_input(self, data):
-        """ Triggers when the master informs us of an Input press """
+        """ Triggers when the master informs us of an input change """
         # Notify subscribers
         for callback in self._master_subscriptions[Observer.MasterEvents.INPUT_TRIGGER]:
             callback(data)
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.INPUT_TRIGGER,
                            data={'id': data['input'],
-                                 'press_type': data.get('press_type', 'P'),
+                                 'status': data.get('status', True),
                                  'location': {}}))
         # Update status tracker
-        self._input_status.add_data((data['input'], data['output']))
+        self._input_status.set_input(data)
 
     def _on_shutter_update(self, data):
         """ Triggers when the master informs us of an Shutter state change """
@@ -290,9 +295,25 @@ class Observer(object):
 
     # Inputs
 
-    def get_input_status(self):
+    def get_inputs(self):
+        """ Returns a list of Inputs with their status """
         self._ensure_gateway_api()
-        return self._input_status.get_status()
+        return self._input_status.get_inputs()
+
+    def get_recent(self):
+        """ Returns a list of recently changed inputs """
+        self._ensure_gateway_api()
+        return self._input_status.get_recent()
+
+    def _refresh_inputs(self):
+        """ Refreshes the Input Status tracker """
+        # TODO: implement using relevant master API
+        #number_of_inputs = self._master_communicator.do_command(master_api.number_of_io_modules())['in'] * 8
+        #inputs = []
+        #for i in xrange(number_of_inputs):
+        #    inputs.append(self._master_communicator.do_command(master_api.read_input(), {'id': i}))
+        #self._input_status.update(inputs)
+        self._input_last_updated = time.time()
 
     # Shutters
 
