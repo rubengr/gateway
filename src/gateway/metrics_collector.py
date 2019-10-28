@@ -18,6 +18,7 @@ This module collects OpenMotics metrics and makes them available to the MetricsC
 
 import time
 import logging
+import psutil
 from threading import Thread, Event
 from collections import deque
 from wiring import provides, inject, SingletonScope, scope
@@ -276,6 +277,7 @@ class MetricsCollector(object):
             start = time.time()
             now = time.time()
             try:
+                values = {}
                 with open('/proc/uptime', 'r') as f:
                     system_uptime = float(f.readline().split()[0])
                 service_uptime = time.time() - self._start
@@ -283,9 +285,66 @@ class MetricsCollector(object):
                     self._start = time.time()
                     service_uptime = 0
                 self._last_service_uptime = service_uptime
+
+                values['service_uptime'] = service_uptime
+                values['system_uptime'] = system_uptime
+
+                try:
+                    values['cpu_percent'] = psutil.cpu_percent()
+                    cpu_load = [x / psutil.cpu_count() * 100 for x in psutil.getloadavg()]
+                    values['cpu_load_1'] = cpu_load[0]
+                    values['cpu_load_5'] = cpu_load[1]
+                    values['cpu_load_15'] = cpu_load[2]
+                except Exception as ex:
+                    LOGGER.error('error loading cpu metrics {0}'.format(ex))
+
+                try:
+                    memory = dict(psutil.virtual_memory()._asdict())
+                    for reading in ['available', 'used', 'percent', 'free', 'inactive', 'shared', 'active', 'total']:
+                        try:
+                            key = 'memory_{0}'.format(reading)
+                            value = memory[reading]
+                            values[key] = value
+                        except Exception as ex:
+                            LOGGER.error('error loading memory metric {0}'.format(ex))
+                except Exception as ex:
+                    LOGGER.error('error loading memory metrics {0}'.format(ex))
+
+                try:
+                    disk = dict(psutil.disk_usage('/')._asdict())
+                    for reading in ['total', 'used', 'percent', 'free']:
+                        try:
+                            key = 'disk_{0}'.format(reading)
+                            value = disk[reading]
+                            values[key] = value
+                        except Exception as ex:
+                            LOGGER.error('error loading disk metric {0}'.format(ex))
+
+                    disk_io = dict(psutil.disk_io_counters()._asdict())
+                    for reading in ['read_count', 'write_count', 'read_bytes', 'write_bytes']:
+                        try:
+                            key = 'disk_{0}'.format(reading)
+                            value = disk_io[reading]
+                            values[key] = value
+                        except Exception as ex:
+                            LOGGER.error('error loading disk io metric {0}'.format(ex))
+                except Exception as ex:
+                    LOGGER.error('error loading disk metrics {0}'.format(ex))
+
+                try:
+                    network = dict(psutil.net_io_counters()._asdict())
+                    for reading in ['bytes_sent', 'bytes_recv', 'packets_sent', 'packets_recv']:
+                        try:
+                            key = 'net_{0}'.format(reading)
+                            value = network[reading]
+                            values[key] = value
+                        except Exception as ex:
+                            LOGGER.error('error loading network metric {0}'.format(ex))
+                except Exception as ex:
+                    LOGGER.error('error loading network metrics {0}'.format(ex))
+
                 self._enqueue_metrics(metric_type=metric_type,
-                                      values={'service_uptime': service_uptime,
-                                              'system_uptime': system_uptime},
+                                      values=values,
                                       tags={'name': 'gateway',
                                             'section': 'main'},
                                       timestamp=now)
@@ -668,13 +727,21 @@ class MetricsCollector(object):
                         continue
                     output_id = config['id']
                     ids.append(output_id)
+                    type_mapping = {0: 'outlet',
+                                    1: 'valve',
+                                    2: 'alarm',
+                                    3: 'appliance',
+                                    4: 'pump',
+                                    5: 'hvac',
+                                    6: 'generic',
+                                    255: 'light'}
                     self._environment['outputs'][output_id] = {'name': config['name'],
                                                                'module_type': {'o': 'output',
                                                                                'O': 'output',
                                                                                'd': 'dimmer',
                                                                                'D': 'dimmer'}[config['module_type']],
                                                                'floor': config['floor'],
-                                                               'type': 'relay' if config['type'] == 0 else 'light'}
+                                                               'type': type_mapping.get(config['type'], 'generic')}
                 for output_id in self._environment['outputs'].keys():
                     if output_id not in ids:
                         del self._environment['outputs'][output_id]
@@ -744,6 +811,102 @@ class MetricsCollector(object):
                           'description': 'System uptime',
                           'type': 'gauge',
                           'unit': 's'},
+                         {'name': 'cpu_percent',
+                          'description': 'System cpu percentage',
+                          'type': 'gauge',
+                          'unit': 'percent'},
+                         {'name': 'cpu_load_1',
+                          'description': 'System cpu load over 1 minute',
+                          'type': 'gauge',
+                          'unit': ''},
+                         {'name': 'cpu_load_5',
+                          'description': 'System cpu load over 5 minutes',
+                          'type': 'gauge',
+                          'unit': ''},
+                         {'name': 'cpu_load_15',
+                          'description': 'System cpu load over 15 minutes',
+                          'type': 'gauge',
+                          'unit': ''},
+                         {'name': 'memory_available',
+                          'description': 'Available memory',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'memory_used',
+                          'description': 'Used memory',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'memory_percent',
+                          'description': 'Memory percentage',
+                          'type': 'gauge',
+                          'unit': 'percent'},
+                         {'name': 'memory_free',
+                          'description': 'Free memory',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'memory_inactive',
+                          'description': 'Inactive memory',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'memory_shared',
+                          'description': 'Wired memory',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'memory_active',
+                          'description': 'Active memory',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'memory_total',
+                          'description': 'Total memory',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'disk_total',
+                          'description': 'Total disk',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'disk_used',
+                          'description': 'Disk used',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'disk_free',
+                          'description': 'Free disk',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'disk_percent',
+                          'description': 'Disk percentage',
+                          'type': 'gauge',
+                          'unit': 'percent'},
+                         {'name': 'disk_read_count',
+                          'description': 'Disk read count',
+                          'type': 'gauge',
+                          'unit': ''},
+                         {'name': 'disk_write_count',
+                          'description': 'Disk write count',
+                          'type': 'gauge',
+                          'unit': ''},
+                         {'name': 'disk_read_bytes',
+                          'description': 'Disk read bytes',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'disk_write_bytes',
+                          'description': 'Disk write bytes',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'net_bytes_sent',
+                          'description': 'Network bytes sent',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'net_bytes_recv',
+                          'description': 'Network bytes received',
+                          'type': 'gauge',
+                          'unit': 'bytes'},
+                         {'name': 'net_packets_sent',
+                          'description': 'Network packets sent',
+                          'type': 'gauge',
+                          'unit': ''},
+                         {'name': 'net_packets_recv',
+                          'description': 'Network packets received',
+                          'type': 'gauge',
+                          'unit': ''},
                          {'name': 'metrics_in',
                           'description': 'Inbound metrics processed',
                           'type': 'counter',

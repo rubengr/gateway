@@ -54,3 +54,6 @@ python2 -m gateway_tests.pulses_tests
 
 echo "Running Core uCAN tests"
 python2 -m master_core_tests.ucan_communicator_tests
+
+echo "Running metrics tests"
+python2 -m gateway_tests.metrics_tests

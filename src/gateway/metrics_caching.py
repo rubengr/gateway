@@ -89,13 +89,16 @@ class MetricsCacheController(object):
     def buffer_counter(self, source, mtype, tags, counters, timestamp):
         with self._lock:
             identifier = json.dumps(tags, sort_keys=True)
-            timestamp = int(timestamp) - (int(timestamp) % (60 * 60 * 24))
             id = self._get_counter_id(source, mtype, identifier)
             data = self._execute_unlocked("SELECT timestamp FROM counters_buffer WHERE source_id=? ORDER BY timestamp DESC LIMIT 1;", (id,)).fetchone()
-            if data is None or data[0] < timestamp:
+            if data is None or MetricsCacheController._floored_timestamp(data[0]) < MetricsCacheController._floored_timestamp(timestamp):
                 self._execute_unlocked("INSERT INTO counters_buffer (source_id, counters, timestamp) VALUES (?, ?, ?);", (id, json.dumps(counters), timestamp))
                 return True
             return False
+
+    @staticmethod
+    def _floored_timestamp(timestamp, window=60 * 60 * 24):
+        return int(timestamp) - (int(timestamp) % window)
 
     def load_buffer(self, before):
         with self._lock:
