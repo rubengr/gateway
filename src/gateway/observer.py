@@ -123,14 +123,13 @@ class Observer(object):
         self._shutters_interval = 600
         self._shutters_last_updated = 0
         self._master_online = False
-        self._master_shutter_status_registered = False
+        self._background_consumers_registered = False
         self._master_version = None
 
         self._thread = Thread(target=self._monitor)
         self._thread.daemon = True
 
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.output_list(), 0, self._on_output, True))
-        self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(), 0, self._on_input))
 
     def set_gateway_api(self, gateway_api):
         """
@@ -199,7 +198,7 @@ class Observer(object):
                 # Restore interval if required
                 if self._thermostats_restore < time.time():
                     self._thermostats_interval = self._thermostats_original_interval
-                self._register_consumer_shutter_status()
+                self._register_background_consumers()
                 time.sleep(1)
             except CommunicationTimedOutException:
                 LOGGER.error('Got communication timeout during monitoring, waiting 10 seconds.')
@@ -225,10 +224,13 @@ class Observer(object):
             for callback in self._master_subscriptions[Observer.MasterEvents.ONLINE]:
                 callback(online)
 
-    def _register_consumer_shutter_status(self):
-        if self._master_version and not self._master_shutter_status_registered:
+    # Handle master "events"
+
+    def _register_background_consumers(self):
+        if self._master_version and not self._background_consumers_registered:
+            self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(self._master_version), 0, self._on_input))
             self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(self._master_version), 0, self._on_shutter_update))
-            self._master_shutter_status_registered = True
+            self._background_consumers_registered = True
 
     # Handle master "events"
 
