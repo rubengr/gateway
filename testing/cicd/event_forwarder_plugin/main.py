@@ -33,7 +33,7 @@ except ImportError:  # When running in IDE
 
 class EventForwarder(OMPluginBase):
     name = 'EventForwarder'
-    version = '0.0.8'
+    version = '0.0.10'
     interfaces = [('config', '1.0')]
 
     config_description = [
@@ -52,26 +52,25 @@ class EventForwarder(OMPluginBase):
         super(EventForwarder, self).__init__(webinterface, logger)
         self.config = self.read_config(self.default_config)
         self.config_checker = PluginConfigChecker(self.config_description)
-        self.connection = None
-        self._connected = False
+        self.connections = {}
 
     @background_task
     def listen(self):
         port = self.config['port']
         listener = Listener(('localhost', port))
+        self.logger('Listening on port localhost:%s' % port)
         while True:
-            if self._connected:
-                time.sleep(1)
-            else:
-                if port != self.config['port']:
-                    listener.close()
-                    port = self.config['port']
-                    listener = Listener('localhost', port)
-                self.logger('Listening on port %s' % port)
-                self.connection = listener.accept()
-                # Hangs until a client connects
-                self.logger('Client connected on port %s' % port)
-                self._connected = True
+            if port != self.config['port']:
+                listener.close()
+                self.connections = {}
+                port = self.config['port']
+                listener = Listener('localhost', port)
+            connection = listener.accept()
+            # Hangs until a client connects
+            client_address = listener.last_accepted
+            self.connections[client_address] = connection
+            self.logger('Connection accepted on port %s from %s:%s'
+                        % (port, client_address[0], client_address[1]))
 
     @receive_events
     def forward_master_events(self, event):
@@ -81,16 +80,19 @@ class EventForwarder(OMPluginBase):
         :param event: Event number sent by the master
         :type event: int
         """
-        if not self._connected:
+        if not self.connections:
             self.logger('Received event: %s (silent)' % event)
             return
         self.logger('Received event: %s (forwarding)' % event)
-        try:
-            self.connection.send(event)
-        except IOError:
-            self.logger('Failed to forward event, closing connection')
-            self.connection.close()
-            self._connected = False
+        for address, connection in self.connections.items():  # Yes, a copy!
+            try:
+                connection.send(event)
+            except IOError:
+                self.logger(
+                    'Failed to forward event, closing connection for %s:%s'
+                    % (address[0], address[1]))
+                connection.close()
+                del self.connections[address]
 
     @om_expose
     def get_config_description(self):
