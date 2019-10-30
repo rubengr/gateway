@@ -33,7 +33,7 @@ except ImportError:  # When running in IDE
 
 class EventForwarder(OMPluginBase):
     name = 'EventForwarder'
-    version = '0.0.7'
+    version = '0.0.8'
     interfaces = [('config', '1.0')]
 
     config_description = [
@@ -67,8 +67,10 @@ class EventForwarder(OMPluginBase):
                     listener.close()
                     port = self.config['port']
                     listener = Listener('localhost', port)
+                self.logger('Listening on port %s' % port)
                 self.connection = listener.accept()
                 # Hangs until a client connects
+                self.logger('Client connected on port %s' % port)
                 self._connected = True
 
     @receive_events
@@ -79,13 +81,14 @@ class EventForwarder(OMPluginBase):
         :param event: Event number sent by the master
         :type event: int
         """
-        self.logger('Received event: %s' % event)
         if not self._connected:
+            self.logger('Received event: %s (silent)' % event)
             return
+        self.logger('Received event: %s (forwarding)' % event)
         try:
             self.connection.send(event)
         except IOError:
-            self.logger('Failed to forward event')
+            self.logger('Failed to forward event, closing connection')
             self.connection.close()
             self._connected = False
 
