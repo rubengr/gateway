@@ -22,7 +22,7 @@ import datetime
 import simplejson as json
 import logging
 import toolbox
-from toolbox import exception_handler, OMTestCase
+from toolbox import exception_handler, OMTestCase, EventListener
 from random import randint
 try:
     from pytz import timezone
@@ -45,16 +45,20 @@ class IoTest(OMTestCase):
     @exception_handler
     def test_toggle_all_outputs_testee(self):
         """ Testing toggling on all outputs on the Testee. """
-        config = self.tools.api_testee(api='get_output_configurations', token=self.token).get('config', [])
-        self.assertTrue(self.tools.is_not_empty(config), 'Should not be empty and should have the output configurations of the testee. But got {0}'.format(config))
-        for one in config:
-            self.tools.clicker_releaser(one['id'], self.token, True)
-            result = self.tools.check_if_event_is_captured(toggled_output=one['id'], value=1)
-            self.assertTrue(result, 'Should confirm that the Tester\'s input saw a press. Got: {0}'.format(result))
-
-            self.tools.clicker_releaser(one['id'], self.token, False)
-            result = self.tools.check_if_event_is_captured(toggled_output=one['id'], value=0)
-            self.assertTrue(result, 'Should confirm that the Tester\'s input saw a release. Got: {0}'.format(result))
+        configs = self.tools.api_testee(api='get_output_configurations', token=self.token).get('config', [])
+        self.assertTrue(self.tools.is_not_empty(configs), 'Should not be empty and should have the output configurations of the testee. But got {0}'.format(configs))
+        for config in configs:
+            if config['module_type'] != 'O':
+                continue
+            self.tools.clicker_releaser(config['id'], self.token, False)
+            with self.tools.listen_for_events() as event_listener:
+                self.tools.clicker_releaser(config['id'], self.token, True)
+                result = event_listener.wait_for_output(output=config['id'], value=1)
+                self.assertTrue(result, 'Should confirm that the Tester\'s input saw a press. Got: {0}'.format(result))
+            with self.tools.listen_for_events() as event_listener:
+                self.tools.clicker_releaser(config['id'], self.token, False)
+                result = event_listener.wait_for_output(output=config['id'], value=0)
+                self.assertTrue(result, 'Should confirm that the Tester\'s input saw a release. Got: {0}'.format(result))
 
     @exception_handler
     def test_set_input_configuration(self):

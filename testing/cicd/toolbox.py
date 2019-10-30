@@ -24,10 +24,12 @@ import string
 import time
 import logging
 import functools
+import math
 import simplejson as json
 import requests
 import subprocess
-import sys
+from contextlib import contextmanager
+from multiprocessing.connection import Client
 from requests.exceptions import ConnectionError
 from plugin_runtime.web import WebInterfaceDispatcher
 
@@ -46,14 +48,12 @@ class Toolbox(object):
     The Toolbox is a helper with several methods that the test cases will use.
     """
 
-    def __init__(self, testee_ip, timeout, healthy_status, discovery_success, initialisation_success, input_status, input_record, username, password):
+    def __init__(self, testee_ip, timeout, healthy_status, discovery_success, initialisation_success, username, password):
         self.testee_ip = testee_ip
         self.TIMEOUT = timeout
         self.healthy_status = healthy_status
         self.discovery_success = discovery_success
         self.initialisation_success = initialisation_success
-        self.input_status = input_status
-        self.input_record = input_record
         self.username = username
         self.password = password
         self.SSH_LOGGER_COMMAND = "ssh root@{0} 'echo {1} >> /var/log/supervisor/openmotics_stderr.log'"
@@ -257,25 +257,10 @@ class Toolbox(object):
                 return False
             return True
 
-    def check_if_event_is_captured(self, toggled_output, value):
-        """
-        Checks if the toggled output has turned an input on.
-        :param toggled_output: the id of the toggled output
-        :type toggled_output: int
-
-        :param value: the expected is_on value of the input.
-        :type value: int
-
-        :return: if the the toggled output has turned an input on
-        :rtype: bool
-        """
-        start = time.time()
-        while self.input_status.get(str(toggled_output)) is not str(value):
-            if time.time() - start < self.TIMEOUT:
-                time.sleep(1)
-            else:
-                return False
-        return True
+    @contextmanager
+    def listen_for_events(self):
+        with EventListener(self.TIMEOUT) as event_listener:
+            yield event_listener
 
     def configure_thermostat(self, thermostat_number, night_temp, day_block1_temp, day_block2_temp):
         """
@@ -478,6 +463,32 @@ class Toolbox(object):
         return True if anything else False
 
 
+class EventListener(object):
+    def __init__(self, timeout, hostname='localhost', port=6666):
+        self.timeout = timeout
+        self.address = (hostname, port)
+        self.conn = None
+
+    def __enter__(self):
+        self.conn = Client(self.address)
+        return self
+
+    def __exit__(self, *args):
+        self.conn.close()
+
+    def wait_for_event(self, event_id):
+        start_time = time.time()
+        max_time = start_time + self.timeout
+        while self.conn.poll(max(0, math.ceil(max_time - time.time()))):
+            if self.conn.recv() == event_id:
+                return True
+        return False
+
+    def wait_for_output(self, output, value):
+        expected_event = 10*output + value
+        return self.wait_for_event(expected_event)
+
+
 class OMTestCase(unittest.TestCase):
     webinterface = None
     tools = None
@@ -488,12 +499,10 @@ class OMTestCase(unittest.TestCase):
         # TODO: move to some config
         cls.tools = Toolbox(
             testee_ip='gateway-testee-debian.qa.openmotics.com',
-            timeout=180,
+            timeout=10,
             healthy_status=True,
             discovery_success=True,
             initialisation_success=True,
-            input_status={},
-            input_record={},
             username='openmotics',
             password='123456',
         )
