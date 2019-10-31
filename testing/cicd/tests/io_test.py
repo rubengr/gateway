@@ -53,12 +53,18 @@ class IoTest(OMTestCase):
             self.tools.clicker_releaser(config['id'], self.token, False)
             with self.tools.listen_for_events() as event_listener:
                 self.tools.clicker_releaser(config['id'], self.token, True)
-                result = event_listener.wait_for_output(output=config['id'], value=1)
-                self.assertTrue(result, 'Should confirm that the Tester\'s input saw a press. Got: {0}'.format(result))
+                result = event_listener.wait_for_output(config['id'], 1)
+                self.assertTrue(
+                    result,
+                    'Should confirm that the Tester\'s input saw a press. Got: {0}'.format(
+                        event_listener.received_outputs))
             with self.tools.listen_for_events() as event_listener:
                 self.tools.clicker_releaser(config['id'], self.token, False)
-                result = event_listener.wait_for_output(output=config['id'], value=0)
-                self.assertTrue(result, 'Should confirm that the Tester\'s input saw a release. Got: {0}'.format(result))
+                result = event_listener.wait_for_output(config['id'], 0)
+                self.assertTrue(
+                    result,
+                    'Should confirm that the Tester\'s input saw a release. Got: {0}'.format(
+                        event_listener.received_outputs))
 
     @exception_handler
     def test_set_input_configuration(self):
@@ -137,22 +143,6 @@ class IoTest(OMTestCase):
         self.test_discovery()
         self.test_set_input_configuration()
         self.test_output_stress_toggling()
-
-    @exception_handler
-    def test_output_stress_toggling(self):
-        """ Testing stress toggling all outputs on the Testee. """
-        response_dict = self.tools.api_testee(api='get_output_configurations', token=self.token)
-        config = response_dict.get('config')
-        self.assertTrue(self.tools.is_not_empty(config), 'Should not be empty and should have the output configurations of the testee. Got: {0}'.format(config))
-        for one in config:
-            for _ in xrange(30):
-                self.tools.clicker_releaser(one['id'], self.token, True)
-                self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=one['id'], value=1),
-                                'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
-
-                self.tools.clicker_releaser(one['id'], self.token, False)
-                self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=one['id'], value=0),
-                                'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
 
     @exception_handler
     def test_output_stress_toggling_authorization(self):
@@ -343,9 +333,12 @@ class IoTest(OMTestCase):
         self.assertTrue(output_statuses[output_number]['status'] == 0,
                         'Should be off by default. Got: {0}'.format(output_statuses))
 
-        self.tools.clicker_releaser(output_number, token, True)
-        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_number, value=1),
-                        'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
+        with self.tools.listen_for_events() as event_listener:
+            self.tools.clicker_releaser(output_number, token, True)
+            self.assertTrue(
+                event_listener.wait_for_output(output_number, 1),
+                 'Toggled output must show input press. Got: {0}'.format(
+                     event_listener.received_outputs))
 
         output_statuses = self.tools.api_testee(api='get_output_status', token=token).get('status')
 
@@ -354,9 +347,12 @@ class IoTest(OMTestCase):
         self.assertTrue(output_statuses[output_number]['status'] == 1,
                         'Should return status with value 1 after turning on the output.. Got: {0}'.format(output_statuses[output_number]))
 
-        self.tools.clicker_releaser(output_number, token, False)
-        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_number, value=0),
-                        'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
+        with self.tools.listen_for_events() as event_listener:
+            self.tools.clicker_releaser(output_number, token, False)
+            self.assertTrue(
+                event_listener.wait_for_output(output_number, 0),
+                'Untoggled output must show input release. Got: {0}'.format(
+                    event_listener.received_outputs))
 
         output_statuses = self.tools.api_testee(api='get_output_status', token=token).get('status')
 

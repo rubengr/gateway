@@ -468,6 +468,7 @@ class EventListener(object):
         self.timeout = timeout
         self.address = (hostname, port)
         self.conn = None
+        self.received_events = []
 
     def __enter__(self):
         self.conn = Client(self.address)
@@ -477,16 +478,36 @@ class EventListener(object):
         self.conn.close()
 
     def wait_for_event(self, event_id):
+        """
+        Capture events until an given event_id has occurred
+        """
         start_time = time.time()
         max_time = start_time + self.timeout
         while self.conn.poll(max(0, math.ceil(max_time - time.time()))):
-            if self.conn.recv() == event_id:
+            event = self.conn.recv()
+            self.received_events.append({'value': event, 'timestamp': time.time()})
+            if event == event_id:
                 return True
         return False
 
-    def wait_for_output(self, output, value):
-        expected_event = 10*output + value
+    def wait_for_output(self, output_id, value):
+        """
+        Capture output events until an given output_id reaches a given value
+        """
+        expected_event = 10*output_id + value
         return self.wait_for_event(expected_event)
+
+    @property
+    def received_outputs(self):
+        received_outputs = [
+            {
+                'output_id': event['value'] // 10,
+                'status': event['value'] % 10,
+                'timestamp': event['value'],
+            }
+            for event in self.received_events
+        ]
+        return received_outputs
 
 
 class OMTestCase(unittest.TestCase):

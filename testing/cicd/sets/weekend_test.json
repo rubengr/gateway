@@ -13,7 +13,6 @@
       "io_test.test_discovery",
       "io_test.test_discovery_authorization",
       "io_test.test_set_input_configuration",
-      "io_test.test_output_stress_toggling",
       "io_test.test_output_stress_toggling_authorization",
       "io_test.test_get_version",
       "io_test.test_validate_master_status",
