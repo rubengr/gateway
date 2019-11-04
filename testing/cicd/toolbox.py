@@ -477,7 +477,7 @@ class EventListener(object):
     def __exit__(self, *args):
         self.conn.close()
 
-    def wait_for_event(self, event_id):
+    def wait_for_event(self, event_id, enforce_order=False):
         """
         Capture events until the given event_id has occurred. Multiple event_id
         can be provided and all should occur. This happens until
@@ -485,6 +485,9 @@ class EventListener(object):
 
         :param event_id: One or more event IDs to wait for
         :type event_id: int or list of int
+
+        :param enforce_order: The given event IDs should occur in given order
+        :type enforce_order: bool
 
         :return: Whether or not the event_id has been received before timeout
         :type: bool
@@ -498,10 +501,14 @@ class EventListener(object):
         while self.conn.poll(max(0, math.ceil(max_time - time.time()))):
             event = self.conn.recv()
             self.received_events.append({'value': event, 'timestamp': time.time()})
-            try:
-                remaining_events.remove(event)
-            except ValueError:
-                pass
+            if enforce_order:
+                if remaining_events[0] == event:
+                    del remaining_events[0]
+            else:
+                try:
+                    remaining_events.remove(event)
+                except ValueError:
+                    pass
             if not remaining_events:
                 return True
         return False
@@ -518,7 +525,7 @@ class EventListener(object):
         """
         return self.wait_for_outputs([(output_id, status)])
 
-    def wait_for_outputs(self, output_statuses):
+    def wait_for_outputs(self, output_statuses, enforce_order=False):
         """
         Capture output events until the given output_id reaches a given status.
         Multiple output_id, value pairs can be provided and all should occur.
@@ -527,11 +534,14 @@ class EventListener(object):
         :param output_statuses: [(output_id, status), (output_id, status), ...]
         :type output_statuses: list of tuple of int
 
+        :param enforce_order: The given output_statuses should occur in given order
+        :type enforce_order: bool
+
         :return: Whether or not the output_id/status has been received before timeout
         :type: bool
         """
         expected_events = [10*output_id + status for output_id, status in output_statuses]
-        return self.wait_for_event(expected_events)
+        return self.wait_for_event(expected_events, enforce_order)
 
     @property
     def received_outputs(self):

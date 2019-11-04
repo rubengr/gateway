@@ -90,14 +90,14 @@ class ActionsTest(OMTestCase):
         self.assertEqual(response_dict.get('config'), one_group_action_config,
                          'The new config should be the same as the present group action config. Got: returned: {0} configured: {1}'.format(response_dict.get('config'), one_group_action_config))
 
-        params = {'group_action_id': i}
-        self.tools.api_testee(api='do_group_action', params=params, token=self.token)
-
-        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=1),
-                        'Should return true after calling do_group_action API. Got: {0}'.format(self.tools.input_status))
-
-        self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=0),
-                        'Should untoggled output 0 after a moment and must show input releases. Got: {0}'.format(self.tools.input_status))
+        with self.tools.listen_for_events() as event_listener:
+            params = {'group_action_id': i}
+            self.tools.api_testee(api='do_group_action', params=params, token=self.token)
+            result = event_listener.wait_for_outputs(
+                [(self.GROUP_ACTION_TARGET_ID, 1), (self.GROUP_ACTION_TARGET_ID, 0)],
+                enforce_order=True)
+            self.assertTrue(result, 'Output {0} should have toggled on and off after a moment, but got: {1}'.format(
+                self.GROUP_ACTION_TARGET_ID, event_listener.received_outputs))
 
     @exception_handler
     def test_set_group_action_configuration_authorization(self):
