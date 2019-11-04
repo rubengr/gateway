@@ -123,18 +123,14 @@ class RoomsTest(OMTestCase):
         """ Testing turning all lights off for a specific floor number. """
         self._set_room_floor_configuration(room_number=self.ROOM_NUMBER)  # Setting up configuration first. Room: 5, Floor 3
         params = {'floor': self.FLOOR_NUMBER}
+
         self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token)
-
-        for i in xrange(self.INPUT_COUNT):
-            output_is_on = self.tools.check_if_event_is_captured(toggled_output=i, value=1)
-            if not output_is_on:
-                self.fail('failed to initialise state, output {0} should be on!'.format(i))
-
-        self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token)
-
-        for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=0),
-                            'Untoggled outputs must show input releases. Got: {0}'.format(self.tools.input_status))
+        with self.tools.listen_for_events() as event_listener:
+            self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token)
+            expected_events = [(i, 0) for i in xrange(self.INPUT_COUNT)]
+            result = event_listener.wait_for_output(expected_events)
+            self.assertTrue(result, 'Not all {0} outputs toggled to 0. Got: {1}'.format(
+                self.INPUT_COUNT, event_listener.received_outputs))
 
     @exception_handler
     def test_set_all_lights_floor_authorization(self):
@@ -164,16 +160,12 @@ class RoomsTest(OMTestCase):
 
         params = {'floor': self.FLOOR_NUMBER}
         self.tools.api_testee(api='set_all_lights_floor_off', params=params, token=self.token)
-
-        for i in xrange(self.INPUT_COUNT):
-            output_is_off = self.tools.check_if_event_is_captured(toggled_output=i, value=0)
-            if not output_is_off:
-                self.fail('failed to initialise state, output {0} should be off!'.format(i))
-
-        self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token)
-        for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=1),
-                            'Toggled outputs must show input presses on the Tester. Got: {0}'.format(self.tools.input_status))
+        with self.tools.listen_for_events() as event_listener:
+            self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token)
+            expected_events = [(i, 1) for i in xrange(self.INPUT_COUNT)]
+            result = event_listener.wait_for_output(expected_events)
+            self.assertTrue(result, 'Not all {0} outputs toggled to 1. Got: {1}'.format(
+                self.INPUT_COUNT, event_listener.received_outputs))
 
     def _set_room_floor_configuration(self, room_number):
         """ Setting room floor and room configurations: Used to eliminate dependencies between tests. """
