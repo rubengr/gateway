@@ -94,10 +94,12 @@ class RoomsTest(OMTestCase):
         """ Testing turning all lights off. """
         params = {'floor': self.FLOOR_NUMBER}
         self.tools.api_testee(api='set_all_lights_floor_on', params=params, token=self.token)
-
-        self.tools.api_testee(api='set_all_lights_off', token=self.token)
-        for i in xrange(self.INPUT_COUNT):
-            self.assertTrue(self.tools.check_if_event_is_captured(i, 0), 'Untoggled outputs must show input releases. Got: {0}'.format(self.tools.input_status))
+        with self.tools.listen_for_events() as event_listener:
+            self.tools.api_testee(api='set_all_lights_off', token=self.token)
+            expected_events = [(i, 0) for i in xrange(self.INPUT_COUNT)]
+            result = event_listener.wait_for_output(expected_events)
+            self.assertTrue(result, 'Not all {0} outputs toggled to 0. Got: {1}'.format(
+                self.INPUT_COUNT, event_listener.received_outputs))
 
     @exception_handler
     def test_set_all_lights_off_force_checked(self):
