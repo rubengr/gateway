@@ -477,7 +477,7 @@ class EventListener(object):
     def __exit__(self, *args):
         self.conn.close()
 
-    def wait_for_event(self, *event_id):
+    def wait_for_event(self, event_id):
         """
         Capture events until the given event_id has occurred. Multiple event_id
         can be provided and all should occur. This happens until
@@ -489,10 +489,10 @@ class EventListener(object):
         :return: Whether or not the event_id has been received before timeout
         :type: bool
         """
-        if len(event_id) == 1 and isinstance(event_id[0], list):
-            remaining_events = event_id[0]
+        if isinstance(event_id, list):
+            remaining_events = list(event_id)  # Copy to avoid modifications
         else:
-            remaining_events = list(event_id)
+            remaining_events = [event_id]
         start_time = time.time()
         max_time = start_time + self.timeout
         while self.conn.poll(max(0, math.ceil(max_time - time.time()))):
@@ -506,30 +506,31 @@ class EventListener(object):
                 return True
         return False
 
-    def wait_for_output(self, *args):
+    def wait_for_output(self, output_id, status):
+        """
+        Capture output events until the given output_id reaches a given status.
+        This happens until EventListener.timeout.
+
+        :type output_id: int
+        :type status: int
+        :return: Whether or not the output_id/status has been received before timeout
+        :type: bool
+        """
+        return self.wait_for_outputs([(output_id, status)])
+
+    def wait_for_outputs(self, output_statuses):
         """
         Capture output events until the given output_id reaches a given status.
         Multiple output_id, value pairs can be provided and all should occur.
         This happens until EventListener.timeout.
 
-        :param args: multiple formats are allowed:
-                        - output_id, status
-                        - output_id, status, output_id, status, ...
-                        - [(output_id, status), (output_id, status), ...]
-        :type args: tuple of int or list of tuple of int
+        :param output_statuses: [(output_id, status), (output_id, status), ...]
+        :type output_statuses: list of tuple of int
 
         :return: Whether or not the output_id/status has been received before timeout
         :type: bool
         """
-        if len(args) == 1 and isinstance(args[0], list):
-            expected_events = [10*output_id + status
-                               for output_id, status in args[0]]
-        elif not len(args) % 2 and all(isinstance(arg, int) for arg in args):
-            expected_events = [10*output_id + status
-                               for output_id, status
-                               in zip(args[::2], args[1::2])]
-        else:
-            raise ValueError('Invalid arguments for wait_for_output: {}'.format(args))
+        expected_events = [10*output_id + status for output_id, status in output_statuses]
         return self.wait_for_event(expected_events)
 
     @property
