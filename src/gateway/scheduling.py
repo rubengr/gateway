@@ -24,6 +24,7 @@ from datetime import datetime
 from croniter import croniter
 from random import randint
 from threading import Thread
+from wiring import inject, provides, SingletonScope, scope
 from gateway.webservice import params_parser
 from master.master_communicator import CommunicationTimedOutException
 try:
@@ -116,6 +117,9 @@ class SchedulingController(object):
     * String: Cron format, docs at https://github.com/kiorky/croniter
     """
 
+    @provides('scheduling_controller')
+    @scope(SingletonScope)
+    @inject(db_filename='scheduling_db', lock='scheduling_db_lock', gateway_api='gateway_api')
     def __init__(self, db_filename, lock, gateway_api):
         """
         Constructs a new ConfigController.

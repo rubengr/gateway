@@ -21,15 +21,14 @@ import time
 import copy
 import logging
 import requests
-from threading import Thread
-from collections import deque
-
-from bus.om_bus_events import OMBusEvents
-
 try:
     import json
 except ImportError:
     import simplejson as json
+from threading import Thread
+from collections import deque
+from wiring import inject, provides, SingletonScope, scope
+from bus.om_bus_events import OMBusEvents
 
 logger = logging.getLogger("openmotics")
 
@@ -39,6 +38,10 @@ class MetricsController(object):
     The Metrics Controller collects all metrics and pushses them to all subscribers
     """
 
+    @provides('metrics_controller')
+    @scope(SingletonScope)
+    @inject(plugin_controller='plugin_controller', metrics_collector='metrics_collector',
+            metrics_cache_controller='metrics_cache_controller', config_controller='config_controller', gateway_uuid='gateway_uuid')
     def __init__(self, plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid):
         """
         :param plugin_controller: Plugin Controller
@@ -83,7 +86,7 @@ class MetricsController(object):
         self._cloud_retry_interval = None
         self._gateway_uuid = gateway_uuid
         self.cloud_stats = {'queue': 0,
-                            'buffer': 0,
+                            'buffer': self._cloud_buffer_length,
                             'time_ago_send': 0,
                             'time_ago_try': 0}
 
@@ -218,7 +221,7 @@ class MetricsController(object):
         self._definition_filters['metric_type'] = {}
 
     def _load_cloud_buffer(self):
-        oldest_queue_timestamp = max([-1] + [metric[0]['timestamp'] for metric in self._cloud_queue])
+        oldest_queue_timestamp = min([time.time()] + [metric[0]['timestamp'] for metric in self._cloud_queue])
         self._cloud_buffer = [[metric] for metric in self._metrics_cache_controller.load_buffer(before=oldest_queue_timestamp)]
         self._cloud_buffer_length = len(self._cloud_buffer)
 
@@ -340,7 +343,7 @@ class MetricsController(object):
         time_ago_try = int(now - self._cloud_last_try)
         outstanding_data_length = len(self._cloud_buffer) + len(self._cloud_queue)
         send = (outstanding_data_length > 0 and  # There must be outstanding data
-                ((outstanding_data_length > cloud_batch_size and time_ago_send == time_ago_try) or  # Last send was successful, but the buffer length > batch size
+                ((outstanding_data_length >= cloud_batch_size and time_ago_send == time_ago_try) or  # Last send was successful, but the buffer length > batch size
                  (time_ago_send > cloud_min_interval and time_ago_send == time_ago_try) or  # Last send was successful, but it has been too long ago
                  (time_ago_send > time_ago_try > self._cloud_retry_interval)))  # Last send was unsuccessful, and it has been a while
         self.cloud_stats['queue'] = len(self._cloud_queue)

@@ -18,13 +18,12 @@ import logging
 import os
 import pkgutil
 import traceback
-from datetime import datetime
-
 try:
     import json
 except ImportError:
     import simplejson as json
-
+from datetime import datetime
+from wiring import inject, provides, SingletonScope, scope
 from plugins.runner import PluginRunner
 
 LOGGER = logging.getLogger("openmotics")
@@ -33,6 +32,9 @@ LOGGER = logging.getLogger("openmotics")
 class PluginController(object):
     """ The controller keeps track of all plugins in the system. """
 
+    @provides('plugin_controller')
+    @scope(SingletonScope)
+    @inject(webinterface='web_interface', config_controller='config_controller')
     def __init__(
         self, webinterface, config_controller,
         runtime_path='/opt/openmotics/python/plugin_runtime',
@@ -297,6 +299,9 @@ class PluginController(object):
         return {'msg': 'Plugin successfully removed'}
 
     def __iter_running_runners(self):
+        """
+        :rtype: list of plugins.runner.PluginRunner
+        """
         for runner_name in self.__runners.keys():
             runner = self.__runners.get(runner_name)
             if runner is not None and runner.is_running():

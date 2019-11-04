@@ -19,7 +19,8 @@ import logging
 import time
 from collections import deque
 from threading import Thread
-from cloud.client import APIException
+from wiring import inject, provides, scope, SingletonScope
+from cloud.cloud_api_client import APIException
 from gateway.observer import Event
 
 logger = logging.getLogger('openmotics')
@@ -27,6 +28,9 @@ logger = logging.getLogger('openmotics')
 
 class EventSender(object):
 
+    @provides('event_sender')
+    @scope(SingletonScope)
+    @inject(cloud_client='cloud_api_client')
     def __init__(self, cloud_client):
         """
         :param cloud_client: The cloud API object
