@@ -20,11 +20,6 @@ import pkgutil
 import traceback
 from datetime import datetime
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
-
 from plugins.runner import PluginRunner
 
 LOGGER = logging.getLogger("openmotics")

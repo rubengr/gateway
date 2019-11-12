@@ -1,11 +1,7 @@
 import os
 import re
 import requests
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 
 
 def _load_webinterface():

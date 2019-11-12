@@ -28,7 +28,7 @@ import sys
 import threading
 import time
 import uuid
-
+import ujson as json
 from cherrypy.lib.static import serve_file
 from decorator import decorator
 from ws4py import WS_VERSION
@@ -41,11 +41,6 @@ from gateway.shutters import ShutterController
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
 
 logger = logging.getLogger("openmotics")
 

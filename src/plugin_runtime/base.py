@@ -1,10 +1,6 @@
 import logging
 import os
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 
 from decorators import *  # Import for backwards compatibility
 

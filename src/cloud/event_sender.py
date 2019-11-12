@@ -57,7 +57,8 @@ class EventSender(object):
         while not self._stopped:
             try:
                 if not self._send_events():
-                    time.sleep(0.25)
+                    time.sleep(0.20)
+                time.sleep(0.05)
             except APIException as ex:
                 logger.error(ex)
                 time.sleep(1)

@@ -21,8 +21,8 @@ Module to communicate with the power modules.
 import logging
 import traceback
 import time
-import Queue
 import power.power_api as power_api
+from toolbox import Empty
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
 from power.power_command import crc7
@@ -315,7 +315,7 @@ class PowerCommunicator(object):
                         raise Exception("Unexpected character")
             if crc7(header + data) != crc:
                 raise Exception("CRC doesn't match")
-        except Queue.Empty:
+        except Empty:
             raise CommunicationTimedOutException('Communication timed out')
         finally:
             if self.__verbose:

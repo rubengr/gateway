@@ -1,9 +1,6 @@
 import logging
 import time
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 from multiprocessing.connection import Client
 from threading import Thread, Lock
 from om_bus_events import OMBusEvents

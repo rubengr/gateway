@@ -32,10 +32,7 @@ import subprocess
 import tempfile
 import ConfigParser
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 import master.master_api as master_api
 import power.power_api as power_api
 from subprocess import check_output

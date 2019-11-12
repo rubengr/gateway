@@ -20,10 +20,7 @@ import time
 import sqlite3
 import logging
 from random import randint
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 
 LOGGER = logging.getLogger("openmotics")
 
