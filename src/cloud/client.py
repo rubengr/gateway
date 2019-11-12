@@ -2,10 +2,7 @@ import logging
 import requests
 from requests import ConnectionError
 from requests.adapters import HTTPAdapter
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 
 logger = logging.getLogger('openmotics')
 
