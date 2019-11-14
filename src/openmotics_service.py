@@ -175,6 +175,8 @@ class OpenmoticsService(object):
         scheduling_controller.set_webinterface(web_interface)
         metrics_collector.set_controllers(metrics_controller, plugin_controller)
         plugin_controller.set_webservice(web_service)
+        plugin_controller.set_metrics_controller(metrics_controller)
+        plugin_controller.set_metrics_collector(metrics_collector)
         observer.set_gateway_api(gateway_api)
 
         observer.subscribe_master(Observer.MasterEvents.INPUT_TRIGGER, metrics_collector.on_input)
