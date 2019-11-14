@@ -115,58 +115,6 @@ class MasterCoreController(MasterController):
         super(MasterCoreController, self).start()
         self._monitor_thread.start()
 
-    def debug(self):
-        logger.info('---------')
-        gc = GlobalConfiguration(None, self._memory_files)
-        logger.info('Global config: {0}'.format(gc))
-        mc = OutputModuleConfiguration(1, self._memory_files)
-        logger.info('Output module configuration 1: {0}'.format(mc))
-        oc = OutputConfiguration(0, self._memory_files)
-        logger.info('Output configuration 0: {0}'.format(oc))
-        logger.info('Output module configuration 0: {0}'.format(oc.module))
-        imc = InputModuleConfiguration(1, self._memory_files)
-        logger.info('Input module configuration 1: {0}'.format(imc))
-        ic = InputConfiguration(0, self._memory_files)
-        logger.info('Input configuration 0: {0}'.format(ic))
-        logger.info('Input module configuration 0: {0}'.format(ic.module))
-
-        logger.info('---------')
-        response = self._master_communicator.do_command(CoreAPI.device_information_list_outputs(), {})
-        logger.info('Device information list (outputs): {0}'.format(response))
-        response = self._master_communicator.do_command(CoreAPI.device_information_list_outputs(), {})
-        logger.info('Device information list (outputs): {0}'.format(response))
-        response = self._master_communicator.do_command(CoreAPI.device_information_list_inputs(), {})
-        logger.info('Device information list (inputs): {0}'.format(response))
-        response = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})
-        logger.info('General configuration: number of modules: {0}'.format(response))
-        response = self._master_communicator.do_command(CoreAPI.general_configuration_max_specs(), {})
-        logger.info('General configuration: max specs: {0}'.format(response))
-        for ftype, mnrs in {0: 3, 1: 1}.iteritems():
-            for mnr in xrange(mnrs):
-                response = self._master_communicator.do_command(CoreAPI.module_information(), {'module_family': ftype, 'module_nr': mnr})
-                logger.info('Module information {0}.{1}: {2}'.format(ftype, mnr, response))
-
-        logger.info('---------')
-        cc_address = '000.000.000.000'
-        response = self._master_communicator.do_command(CoreAPI.get_amount_of_ucans(), {'cc_address': cc_address})
-        if response is not None:
-            logger.info('Amount of ucans: {0}'.format(response))
-            amount = response['amount']
-            for ucan_nr in xrange(amount):
-                logger.info('---------')
-                response = self._master_communicator.do_command(CoreAPI.get_ucan_address(), {'cc_address': cc_address, 'ucan_nr': ucan_nr})
-                if response is None:
-                    logger.info('Could not load uCAN address')
-                    continue
-                logger.info('uCAN {0} address: {1}'.format(ucan_nr, response))
-                ucan_address = response['ucan_address']
-                if ucan_address == '071.024.222':
-                    pass  # UCANUpdater.update(cc_address, ucan_address, self._ucan_communicator, '/opt/openmotics/ucan_2.hex')
-                else:
-                    response = self._ucan_communicator.do_command(cc_address, UCANAPI.ping(), ucan_address, {'data': 1})
-                    logger.info('uCAN ping response AP : {0}'.format(response))
-        logger.info('---------')
-
     ##############
     # Public API #
     ##############
