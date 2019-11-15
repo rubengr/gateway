@@ -3,6 +3,7 @@ cherrypy == 3.2.2
 requests == 2.5.3
 intelhex == 1.5
 xmlrunner == 1.7.7
+unittest-xml-reporting == 2.5.2
 ws4py == 0.5.1
 msgpack == 0.6.1
 decorator == 4.4.0
