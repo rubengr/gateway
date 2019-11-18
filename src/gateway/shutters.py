@@ -18,6 +18,7 @@ This module contains logic to handle shutters with their state/position
 import logging
 import time
 from threading import Lock
+from wiring import inject, provides, SingletonScope, scope
 from master.master_api import BA_SHUTTER_DOWN, BA_SHUTTER_STOP, BA_SHUTTER_UP
 
 LOGGER = logging.getLogger('openmotics')
@@ -57,6 +58,9 @@ class ShutterController(object):
                            State.GOING_DOWN: Direction.DOWN,
                            State.STOPPED: Direction.STOP}
 
+    @provides('shutter_controller')
+    @scope(SingletonScope)
+    @inject(master_communicator='master_communicator')
     def __init__(self, master_communicator, verbose=False):
         """
         Initializes a ShutterController

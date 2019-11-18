@@ -170,6 +170,7 @@ class P1(OMPluginBase):
         self._bg_running = False
         self._input_data = None
         self._output_data = None
+        self._event_data = None
 
     @om_expose(auth=True)
     def html_index(self):
@@ -179,7 +180,8 @@ class P1(OMPluginBase):
     def get_log(self):
         return {'bg_running': self._bg_running,
                 'input_data': self._input_data,
-                'output_data': self._output_data}
+                'output_data': self._output_data,
+                'event_data': self._event_data}
 
     @input_status
     def input(self, input_status_inst):
@@ -188,6 +190,10 @@ class P1(OMPluginBase):
     @output_status
     def output(self, output_status_inst):
         self._output_data = output_status_inst
+        
+    @receive_events
+    def recv_events(self, code):
+        self._event_data = code
 
     @background_task
     def run(self):
@@ -205,16 +211,19 @@ class P1(OMPluginBase):
             controller.process_input_status({'input': 'INPUT',
                                              'output': 'OUTPUT'})
             controller.process_output_status('OUTPUT')
+            controller.process_event(1)
 
+            keys = ['input_data', 'output_data', 'event_data']
             start = time.time()
             while time.time() - start < 2:
                 response = controller._request('P1', 'get_log')
-                if response['input_data'] is not None and response['output_data'] is not None:
+                if all(response[key] is not None for key in keys):
                     break
                 time.sleep(0.1)
             self.assertEqual(response, {'bg_running': True,
                                         'input_data': ['INPUT', 'OUTPUT'],
-                                        'output_data': 'OUTPUT'})
+                                        'output_data': 'OUTPUT',
+                                        'event_data': 1})
         finally:
             if controller is None:
                 controller.stop()

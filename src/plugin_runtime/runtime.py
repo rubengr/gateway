@@ -10,6 +10,7 @@ from platform_utils import System
 System.import_eggs()
 
 from toolbox import PluginIPCStream
+import ujson as json
 from plugin_runtime import base
 from plugin_runtime.utils import get_plugin_class, check_plugin, get_special_methods
 from plugin_runtime.interfaces import has_interface
@@ -142,8 +143,8 @@ class PluginRuntime:
                     ret = self._handle_output_status(command['status'])
                 elif action == 'shutter_status':
                     ret = self._handle_shutter_status(command)
-                elif action == 'process_event':
-                    ret = self._handle_process_event(command['code'])
+                elif action == 'receive_events':
+                    ret = self._handle_receive_events(command['code'])
                 elif action == 'get_metric_definitions':
                     ret = self._handle_get_metric_definitions()
                 elif action == 'collect_metrics':
@@ -206,7 +207,7 @@ class PluginRuntime:
             else:
                 IO._with_catch('shutter status', receiver, [status['status']])
 
-    def _handle_process_event(self, code):
+    def _handle_receive_events(self, code):
         for receiver in self._event_receivers:
             IO._with_catch('process event', receiver, [code])
 

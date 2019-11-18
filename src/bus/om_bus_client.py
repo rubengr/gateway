@@ -1,9 +1,28 @@
+# Copyright (C) 2019 OpenMotics BVBA
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+IPC Bus messaging client
+"""
+
 import logging
 import time
 import ujson as json
 from multiprocessing.connection import Client
 from threading import Thread, Lock
-from om_bus_events import OMBusEvents
+from signal import signal, SIGTERM
+from bus.om_bus_events import OMBusEvents
 
 logger = logging.getLogger('openmotics')
 
@@ -20,7 +39,7 @@ class MessageClient(object):
         self.latest_state_received = {}
         self._connected = False
         self._get_state_lock = Lock()
-
+        self._stop = False
         self._start()
 
     def _send_state(self, source):
@@ -53,12 +72,13 @@ class MessageClient(object):
 
     def _message_receiver(self):
         self._connect()
-        while True:
+        self._stop = False
+        while not self._stop:
             try:
                 msg = self.client.recv_bytes()
                 self._process_message(msg)
             except EOFError:
-                logger.exception('Client connection closed unexpectedly')
+                logger.error('Client connection closed unexpectedly')
                 self.client.close()
                 self._connected = False
                 self._connect()
@@ -83,11 +103,20 @@ class MessageClient(object):
                 self.client = Client(self.address, authkey=self.authkey)
                 self._connected = True
                 self.send_event(OMBusEvents.CLIENT_DISCOVERY, None)
+            except IOError as io_error:
+                logger.error('Could not connect to message server: {}'.format(io_error))
+                time.sleep(1)
             except Exception as e:
-                logger.exception('Could not connect to message server.'.format(e))
+                logger.exception('Unknown error connecting to message server: {}'.format(e))
                 time.sleep(1)
 
     def _start(self):
+        def stop(signum, frame):
+            """ This function is called on SIGTERM. """
+            _ = signum, frame
+            self._stop = True
+        signal(SIGTERM, stop)
+
         receiver = Thread(target=self._message_receiver)
         receiver.daemon = True
         receiver.start()

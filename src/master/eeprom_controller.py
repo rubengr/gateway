@@ -20,6 +20,7 @@ import inspect
 import types
 import logging
 from threading import Lock
+from wiring import inject, provides, SingletonScope, scope
 from master_api import eeprom_list, write_eeprom, activate_eeprom
 
 LOGGER = logging.getLogger("openmotics")
@@ -28,6 +29,9 @@ LOGGER = logging.getLogger("openmotics")
 class EepromController(object):
     """ The controller takes EepromModels and reads or writes them from and to an EepromFile. """
 
+    @provides('eeprom_controller')
+    @scope(SingletonScope)
+    @inject(eeprom_file='eeprom_file', eeprom_extension='eeprom_extension')
     def __init__(self, eeprom_file, eeprom_extension):
         """
         Constructor takes the eeprom_file (for reading and writes from the eeprom) and the
@@ -129,6 +133,9 @@ class EepromFile(object):
 
     BATCH_SIZE = 10
 
+    @provides('eeprom_file')
+    @scope(SingletonScope)
+    @inject(master_communicator='master_communicator')
     def __init__(self, master_communicator):
         """
         Create an EepromFile.

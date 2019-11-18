@@ -1,8 +1,27 @@
+# Copyright (C) 2019 OpenMotics BVBA
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+IPC Bus messaging service
+"""
+
 import logging
 import time
 import ujson as json
 from multiprocessing.connection import Listener
 from threading import Thread
+from signal import signal, SIGTERM
 
 logger = logging.getLogger('openmotics')
 
@@ -14,6 +33,7 @@ class MessageService(object):
         self.address = (ip, port)  # family is deduced to be 'AF_INET'
         self.authkey = authkey
         self.listener = Listener(self.address, authkey=self.authkey)
+        self._stop = False
 
     def _multicast(self, source, msg):
         for connection, client_name in self.connections.iteritems():
@@ -58,6 +78,9 @@ class MessageService(object):
                 payload = conn.recv_bytes()
                 msg = json.loads(payload)
                 self._process_message(conn, msg)
+            except IOError as io_error:
+                logger.exception('Error receiving message from client {0}: {1}'.format(self.connections.get(conn, None), io_error))
+                self._close(conn)
             except ValueError:
                 logger.exception('Error decoding payload from client {0}'.format(self.connections.get(conn, None)))
             except EOFError as e:
@@ -75,7 +98,8 @@ class MessageService(object):
 
     def _server(self):
         logger.info('Starting OM messaging service...')
-        while True:
+        self._stop = False
+        while not self._stop:
             try:
                 conn = self.listener.accept()
                 logger.info('connection accepted from {0}'.format(self.listener.last_accepted))
@@ -91,6 +115,14 @@ class MessageService(object):
                 self.listener = Listener(self.address, authkey=self.authkey)
 
     def start(self):
+        def stop(signum, frame):
+            """ This function is called on SIGTERM. """
+            _ = signum, frame
+            logger.info('Stopping OM messaging service...')
+            self._stop = True
+            logger.info('Stopping OM messaging service... Done')
+        signal(SIGTERM, stop)
+
         server = Thread(target=self._server)
         server.daemon = True
         server.start()

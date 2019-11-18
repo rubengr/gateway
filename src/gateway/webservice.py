@@ -29,12 +29,13 @@ import threading
 import time
 import uuid
 import ujson as json
+from wiring import inject, provides, SingletonScope, scope
 from cherrypy.lib.static import serve_file
 from decorator import decorator
 from ws4py import WS_VERSION
 from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
 from ws4py.websocket import WebSocket
-from cloud.client import APIException
+from cloud.cloud_api_client import APIException
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Event
 from gateway.shutters import ShutterController
@@ -403,6 +404,11 @@ class EventsSocket(OMSocket):
 class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
+    @provides('web_interface')
+    @scope(SingletonScope)
+    @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_service='maintenance_service',
+            message_client='message_client', config_controller='config_controller',
+            scheduling_controller='scheduling_controller')
     def __init__(self, user_controller, gateway_api, maintenance_service,
                  message_client, config_controller, scheduling_controller):
         """
@@ -425,13 +431,14 @@ class WebInterface(object):
         self._config_controller = config_controller
         self._scheduling_controller = scheduling_controller
         self._plugin_controller = None
-        self._metrics_controller = None
 
         self._gateway_api = gateway_api
         self._maintenance_service = maintenance_service
         self._message_client = message_client
+        self._plugin_controller = None
+        self._metrics_collector = None
+        self._metrics_controller = None
 
-        self.metrics_collector = None
         self._ws_metrics_registered = False
         self._power_dirty = False
 
@@ -497,7 +504,7 @@ class WebInterface(object):
 
     def set_metrics_collector(self, metrics_collector):
         """ Set the metrics collector """
-        self.metrics_collector = metrics_collector
+        self._metrics_collector = metrics_collector
 
     def set_metrics_controller(self, metrics_controller):
         """ Sets the metrics controller """
@@ -2221,7 +2228,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.12.1'}
+                'gateway': '2.12.4'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
@@ -2531,6 +2538,9 @@ class WebService(object):
 
     name = 'web'
 
+    @provides('web_service')
+    @scope(SingletonScope)
+    @inject(webinterface='web_interface', config_controller='config_controller')
     def __init__(self, webinterface, config_controller, verbose=False):
         self._webinterface = webinterface
         self._config_controller = config_controller
