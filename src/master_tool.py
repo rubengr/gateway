@@ -17,6 +17,8 @@ Tool to control the master from the command line.
 
 @author: fryckbos
 """
+from platform_utils import System
+System.import_eggs()
 
 import argparse
 import sys

@@ -727,13 +727,21 @@ class MetricsCollector(object):
                         continue
                     output_id = config['id']
                     ids.append(output_id)
+                    type_mapping = {0: 'outlet',
+                                    1: 'valve',
+                                    2: 'alarm',
+                                    3: 'appliance',
+                                    4: 'pump',
+                                    5: 'hvac',
+                                    6: 'generic',
+                                    255: 'light'}
                     self._environment['outputs'][output_id] = {'name': config['name'],
                                                                'module_type': {'o': 'output',
                                                                                'O': 'output',
                                                                                'd': 'dimmer',
                                                                                'D': 'dimmer'}[config['module_type']],
                                                                'floor': config['floor'],
-                                                               'type': 'relay' if config['type'] == 0 else 'light'}
+                                                               'type': type_mapping.get(config['type'], 'generic')}
                 for output_id in self._environment['outputs'].keys():
                     if output_id not in ids:
                         del self._environment['outputs'][output_id]
