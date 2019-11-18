@@ -20,13 +20,13 @@ import sqlite3
 import logging
 import time
 import pytz
-import ujson as json
 from datetime import datetime
 from croniter import croniter
 from random import randint
 from threading import Thread
 from gateway.webservice import params_parser
 from master.master_communicator import CommunicationTimedOutException
+import ujson as json
 
 LOGGER = logging.getLogger('openmotics')
 

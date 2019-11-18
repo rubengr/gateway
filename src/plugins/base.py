@@ -19,6 +19,7 @@ import os
 import pkgutil
 import traceback
 from datetime import datetime
+import ujson as json
 
 from plugins.runner import PluginRunner
 

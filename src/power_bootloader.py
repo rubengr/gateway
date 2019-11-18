@@ -273,7 +273,7 @@ def main():
                 _bootload(module, address, args.file, is_power_module=args.old)
         else:
             address = args.address
-            modules = [module for module in power_modules if module['address'] == address]
+            modules = [module for module in power_modules.values() if module['address'] == address]
             if len(modules) != 1:
                 logger.info('ERROR: Cannot find a module with address {0}'.format(address))
                 sys.exit(0)
