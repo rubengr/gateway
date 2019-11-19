@@ -10,7 +10,6 @@ from platform_utils import System
 System.import_eggs()
 
 from toolbox import PluginIPCStream
-import ujson as json
 from plugin_runtime import base
 from plugin_runtime.utils import get_plugin_class, check_plugin, get_special_methods
 from plugin_runtime.interfaces import has_interface

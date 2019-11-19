@@ -1,6 +1,11 @@
 import logging
 import os
-import ujson as json
+
+try:
+    import ujson as json
+except ImportError:
+    # This is the case when the plugin runtime is unittested
+    import json
 
 from decorators import *  # Import for backwards compatibility
 

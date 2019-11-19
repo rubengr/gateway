@@ -1,7 +1,11 @@
-import os
 import re
 import requests
-import ujson as json
+
+try:
+    import ujson as json
+except ImportError:
+    # This is the case when the plugin runtime is unittested
+    import json
 
 
 def _load_webinterface():
