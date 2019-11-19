@@ -15,6 +15,7 @@
 """"
 The hardware_utils module contains various classes helping with Hardware and System abstraction
 """
+import glob
 import os
 import sys
 import subprocess
@@ -198,27 +199,16 @@ class System(object):
 
     @staticmethod
     def import_eggs():
-        operating_system = System._get_operating_system()
-        blacklisted_eggs = {
-            'debian': ['requests-2.5.3-py2.7.egg',
-                       'angstrom-psutil-5.6.3-py2.7-linux-armv7l.egg',
-                       'angstrom-ujson-1.35-py2.7-linux-armv7l.egg'],
-            'angstrom': ['debian-psutil-5.6.3-py2.7-linux-armv7l.egg',
-                         'debian-ujson-1.35-py2.7-linux-armv7l.egg']
-        }.get(operating_system['ID'])
-
-        def _is_blacklisted(_egg):
-            if blacklisted_eggs is not None:
-                return _egg in blacklisted_eggs
-            return _egg.startswith('angstrom-') or _egg.startswith('debian-')
-
+        operating_system = System._get_operating_system()['ID']
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         os.environ['PYTHON_EGG_CACHE'] = '/tmp/.eggs-cache/'
-        for egg in os.listdir('{0}/eggs'.format(current_file_path)):
-            if egg.endswith('.egg') and not _is_blacklisted(egg):
-                sys.path.insert(0, '{0}/eggs/{1}'.format(current_file_path, egg))
-                # Patching where/if required
-                if egg == 'requests-2.5.3-py2.7.egg':
-                    from pkg_resources import resource_filename, resource_stream, Requirement
-                    resource_stream(Requirement.parse('requests'), 'requests/cacert.pem')
-                    os.environ['REQUESTS_CA_BUNDLE'] = resource_filename(Requirement.parse('requests'), 'requests/cacert.pem')
+
+        eggs = (glob.glob('{0}/eggs/*.egg'.format(current_file_path)) +
+                glob.glob('{0}/eggs/{1}/*.egg'.format(current_file_path, operating_system)))
+        for egg in eggs:
+            sys.path.insert(0, egg)
+            # Patching where/if required
+            if egg.endswith('/requests-2.5.3-py2.7.egg'):
+                from pkg_resources import resource_filename, resource_stream, Requirement
+                resource_stream(Requirement.parse('requests'), 'requests/cacert.pem')
+                os.environ['REQUESTS_CA_BUNDLE'] = resource_filename(Requirement.parse('requests'), 'requests/cacert.pem')
