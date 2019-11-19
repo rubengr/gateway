@@ -207,8 +207,9 @@ class System(object):
                 glob.glob('{0}/eggs/{1}/*.egg'.format(current_file_path, operating_system)))
         for egg in eggs:
             sys.path.insert(0, egg)
-            # Patching where/if required
-            if egg.endswith('/requests-2.5.3-py2.7.egg'):
-                from pkg_resources import resource_filename, resource_stream, Requirement
-                resource_stream(Requirement.parse('requests'), 'requests/cacert.pem')
-                os.environ['REQUESTS_CA_BUNDLE'] = resource_filename(Requirement.parse('requests'), 'requests/cacert.pem')
+
+        # Patching where/if required
+        if operating_system == 'angstrom':
+            from pkg_resources import resource_filename, resource_stream, Requirement
+            resource_stream(Requirement.parse('requests'), 'requests/cacert.pem')
+            os.environ['REQUESTS_CA_BUNDLE'] = resource_filename(Requirement.parse('requests'), 'requests/cacert.pem')
