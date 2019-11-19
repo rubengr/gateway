@@ -198,7 +198,6 @@ class System(object):
 
     @staticmethod
     def import_eggs():
-        current_file_path = os.path.dirname(os.path.abspath(__file__))
         operating_system = System._get_operating_system()
         blacklisted_eggs = {
             'debian': ['requests-2.5.3-py2.7.egg',
@@ -206,10 +205,17 @@ class System(object):
                        'angstrom-ujson-1.35-py2.7-linux-armv7l.egg'],
             'angstrom': ['debian-psutil-5.6.3-py2.7-linux-armv7l.egg',
                          'debian-ujson-1.35-py2.7-linux-armv7l.egg']
-        }.get(operating_system['ID'], [])
+        }.get(operating_system['ID'])
+
+        def _is_blacklisted(_egg):
+            if blacklisted_eggs is not None:
+                return _egg in blacklisted_eggs
+            return _egg.startswith('angstrom-') or _egg.startswith('debian-')
+
+        current_file_path = os.path.dirname(os.path.abspath(__file__))
         os.environ['PYTHON_EGG_CACHE'] = '/tmp/.eggs-cache/'
         for egg in os.listdir('{0}/eggs'.format(current_file_path)):
-            if egg.endswith('.egg') and egg not in blacklisted_eggs:
+            if egg.endswith('.egg') and not _is_blacklisted(egg):
                 sys.path.insert(0, '{0}/eggs/{1}'.format(current_file_path, egg))
                 # Patching where/if required
                 if egg == 'requests-2.5.3-py2.7.egg':
