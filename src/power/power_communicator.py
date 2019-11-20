@@ -22,6 +22,7 @@ import logging
 import traceback
 import time
 import Queue
+from toolbox import Empty
 from wiring import inject, scope, SingletonScope, provides
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
@@ -319,7 +320,7 @@ class PowerCommunicator(object):
                         raise Exception("Unexpected character")
             if crc7(header + data) != crc:
                 raise Exception("CRC doesn't match")
-        except Queue.Empty:
+        except Empty:
             raise CommunicationTimedOutException('Communication timed out')
         finally:
             if self.__verbose:

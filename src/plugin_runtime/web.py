@@ -1,11 +1,11 @@
-import os
 import re
 import requests
 
 try:
-    import json
+    import ujson as json
 except ImportError:
-    import simplejson as json
+    # This is the case when the plugin runtime is unittested
+    import json
 
 
 def _load_webinterface():

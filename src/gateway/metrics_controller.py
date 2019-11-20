@@ -21,10 +21,7 @@ import time
 import copy
 import logging
 import requests
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 from threading import Thread
 from collections import deque
 from wiring import inject, provides, SingletonScope, scope
@@ -407,8 +404,9 @@ class MetricsController(object):
         self.inbound_rates[rate_key] += 1
         self.inbound_rates['total'] += 1
         self._transform_counters(metric)  # Convert counters to "ever increasing counters"
-        self.metrics_queue_plugins.appendleft(copy.deepcopy(metric))
-        self.metrics_queue_openmotics.appendleft(copy.deepcopy(metric))
+        # No need to make a deep copy; openmotics doesn't alter the object, and for the plugins the metric gets (de)serialized
+        self.metrics_queue_plugins.appendleft(metric)
+        self.metrics_queue_openmotics.appendleft(metric)
 
     def _transform_counters(self, metric):
         source = metric['source']

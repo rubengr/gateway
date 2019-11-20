@@ -9,11 +9,7 @@ sys.path.insert(0, '/opt/openmotics/python')
 from platform_utils import System
 System.import_eggs()
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
-
+from toolbox import PluginIPCStream
 from plugin_runtime import base
 from plugin_runtime.utils import get_plugin_class, check_plugin, get_special_methods
 from plugin_runtime.interfaces import has_interface
@@ -264,17 +260,24 @@ class IO(object):
 
     @staticmethod
     def _wait_and_read_command():
-        data = ''
-        while data == '':
-            data = sys.stdin.readline().strip()
-        try:
-            return json.loads(data)
-        except ValueError:
-            IO._log('Exception in _wait_and_read_command: Could not decode stdin: {0}'.format(data))
+        stream = PluginIPCStream()
+        while True:
+            try:
+                line = sys.stdin.readline()
+                if line is None:
+                    line = ''
+            except Exception:
+                continue
+            try:
+                response = stream.feed(line)
+                if response is not None:
+                    return response
+            except Exception as ex:
+                IO._log('Exception in _wait_and_read_command: Could not decode stdin: {0}'.format(ex))
 
     @staticmethod
     def _write(msg):
-        sys.stdout.write(json.dumps(msg) + '\n')
+        sys.stdout.write(PluginIPCStream.encode(msg))
         sys.stdout.flush()
 
 
