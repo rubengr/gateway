@@ -18,7 +18,6 @@ import logging
 import os
 import pkgutil
 import traceback
-import ujson as json
 from datetime import datetime
 from wiring import inject, provides, SingletonScope, scope
 from plugins.runner import PluginRunner
