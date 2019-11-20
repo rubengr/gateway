@@ -108,6 +108,10 @@ class System(object):
     Abstracts the system related functions
     """
 
+    class OS(object):
+        ANGSTROM = 'angstrom'
+        DEBIAN = 'debian'
+
     @staticmethod
     def _get_operating_system():
         operating_system = {}
@@ -116,6 +120,7 @@ class System(object):
             for line in lines:
                 k, v = line.strip().split('=')
                 operating_system[k] = v
+        operating_system['ID'] = operating_system['ID'].lower()
         return operating_system
 
     @staticmethod
@@ -125,9 +130,9 @@ class System(object):
         operating_system = System._get_operating_system()
         try:
             lines = subprocess.check_output('ifconfig {0}'.format(interface), shell=True)
-            if operating_system['ID'] == 'angstrom':
+            if operating_system['ID'] == System.OS.ANGSTROM:
                 return lines.split('\n')[1].strip().split(' ')[1].split(':')[1]
-            elif operating_system['ID'] == 'debian':
+            elif operating_system['ID'] == System.OS.DEBIAN:
                 return lines.split('\n')[1].strip().split(' ')[1]
             else:
                 return
@@ -136,11 +141,11 @@ class System(object):
 
     @staticmethod
     def get_vpn_service():
-        return 'openvpn.service' if System._get_operating_system()['ID'] == 'angstrom' else 'openvpn-client@omcloud'
+        return 'openvpn.service' if System._get_operating_system()['ID'] == System.OS.ANGSTROM else 'openvpn-client@omcloud'
 
     @staticmethod
     def _use_pyopenssl():
-        return System._get_operating_system()['ID'] == 'angstrom'
+        return System._get_operating_system()['ID'] == System.OS.ANGSTROM
 
     @staticmethod
     def get_ssl_socket(sock, private_key_filename, certificate_filename):
@@ -209,7 +214,7 @@ class System(object):
             sys.path.insert(0, egg)
 
         # Patching where/if required
-        if operating_system == 'angstrom':
+        if operating_system == System.OS.ANGSTROM:
             from pkg_resources import resource_filename, resource_stream, Requirement
             resource_stream(Requirement.parse('requests'), 'requests/cacert.pem')
             os.environ['REQUESTS_CA_BUNDLE'] = resource_filename(Requirement.parse('requests'), 'requests/cacert.pem')
