@@ -342,6 +342,8 @@ class P2(OMPluginBase):
             self.assertEqual('P1', p1_metric['metric'].get('foo'))
             self.assertIsNotNone(p2_metric['metric'])
             self.assertEqual('P2', p2_metric['metric'].get('foo'))
+            # Compare the addresses to make sure it's a different instance
+            self.assertNotEqual(id(p1_metric['metric']), id(p2_metric['metric']))
 
         finally:
             if controller is not None:
