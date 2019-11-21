@@ -25,9 +25,9 @@ except ImportError:
 from wiring import provides, inject, SingletonScope, scope
 from threading import Thread
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
-from master.outputs import OutputStatus
+from gateway.outputs import OutputStatus
 from master.thermostats import ThermostatStatus
-from master.inputs import InputStatus
+from gateway.inputs import InputStatus
 from master import master_api
 from bus.om_bus_events import OMBusEvents
 
@@ -41,7 +41,7 @@ class Event(object):
     """
 
     class Types(object):
-        INPUT_TRIGGER = 'INPUT_TRIGGER'
+        INPUT_CHANGE = 'INPUT_CHANGE'
         OUTPUT_CHANGE = 'OUTPUT_CHANGE'
         SHUTTER_CHANGE = 'SHUTTER_CHANGE'
         THERMOSTAT_CHANGE = 'THERMOSTAT_CHANGE'
@@ -73,7 +73,7 @@ class Observer(object):
     class MasterEvents(object):
         ON_OUTPUTS = 'ON_OUTPUTS'
         ON_SHUTTER_UPDATE = 'ON_SHUTTER_UPDATE'
-        INPUT_TRIGGER = 'INPUT_TRIGGER'
+        INPUT_CHANGE = 'INPUT_CHANGE'
         ONLINE = 'ONLINE'
 
     class Types(object):
@@ -99,11 +99,11 @@ class Observer(object):
 
         self._master_subscriptions = {Observer.MasterEvents.ON_OUTPUTS: [],
                                       Observer.MasterEvents.ON_SHUTTER_UPDATE: [],
-                                      Observer.MasterEvents.INPUT_TRIGGER: [],
+                                      Observer.MasterEvents.INPUT_CHANGE: [],
                                       Observer.MasterEvents.ONLINE: []}
         self._event_subscriptions = []
 
-        self._input_status = InputStatus()
+        self._input_status = InputStatus(on_input_change=self._input_changed)
         self._output_status = OutputStatus(on_output_change=self._output_changed)
         self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed,
                                                    on_thermostat_group_change=self._thermostat_group_changed)
@@ -112,6 +112,7 @@ class Observer(object):
 
         self._input_interval = 300
         self._input_last_updated = 0
+        self._input_config = {}
         self._output_interval = 600
         self._output_last_updated = 0
         self._output_config = {}
@@ -244,15 +245,11 @@ class Observer(object):
         self._output_status.partial_update(on_outputs)
 
     def _on_input(self, data):
+        LOGGER.info('_on_input triggered with data: {}'.format(data))
         """ Triggers when the master informs us of an input change """
         # Notify subscribers
-        for callback in self._master_subscriptions[Observer.MasterEvents.INPUT_TRIGGER]:
+        for callback in self._master_subscriptions[Observer.MasterEvents.INPUT_CHANGE]:
             callback(data)
-        for callback in self._event_subscriptions:
-            callback(Event(event_type=Event.Types.INPUT_TRIGGER,
-                           data={'id': data['input'],
-                                 'status': bool(data.get('status', 1)),
-                                 'location': {}}))
         # Update status tracker
         self._input_status.set_input(data)
 
@@ -307,14 +304,29 @@ class Observer(object):
         self._ensure_gateway_api()
         return self._input_status.get_recent()
 
+    def _input_changed(self, input_id, status):
+        """ Executed by the Input Status tracker when an input changed state """
+        for callback in self._event_subscriptions:
+            resp_data = {'id': input_id,
+                         'status': status,
+                         'location': {'room_id': self._input_config[input_id]['room']}}
+            callback(Event(event_type=Event.Types.INPUT_CHANGE, data=resp_data))
+
     def _refresh_inputs(self):
         """ Refreshes the Input Status tracker """
-        # TODO: implement using relevant master API
-        #number_of_inputs = self._master_communicator.do_command(master_api.number_of_io_modules())['in'] * 8
-        #inputs = []
-        #for i in xrange(number_of_inputs):
-        #    inputs.append(self._master_communicator.do_command(master_api.read_input(), {'id': i}))
-        #self._input_status.update(inputs)
+        self._input_config = self._gateway_api.get_input_configurations()
+        number_of_input_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['in']
+        inputs = []
+        for i in xrange(number_of_input_modules):
+            result = self._master_communicator.do_command(master_api.read_input_module(), {'input_module_nr': i})
+            module_status = result['input_status']
+            # module_status byte contains bits for each individual input, use mask and bitshift to get status
+            for n in xrange(8):
+                input_nr = i * 8 + n
+                input_status = module_status & 1 << n != 0
+                data = {'input': input_nr, 'status': input_status}
+                inputs.append(data)
+        self._input_status.full_update(inputs)
         self._input_last_updated = time.time()
 
     # Shutters

@@ -17,13 +17,16 @@ Input status keeps track of the last X pressed inputs, pressed in the last X sec
 """
 
 import time
+import logging
 from threading import Lock
+
+LOGGER = logging.getLogger("openmotics")
 
 
 class InputStatus(object):
     """ Contains the last Y inputs pressed the last Y seconds. """
 
-    def __init__(self, num_inputs=5, seconds=10):
+    def __init__(self, num_inputs=5, seconds=10, on_input_change=None):
         """
         Create an InputStatus, specifying the number of inputs to track and
         the number of seconds to keep the data.
@@ -32,6 +35,7 @@ class InputStatus(object):
         self._seconds = seconds
         self._inputs_status = {}
         self.__state_change_lock = Lock()
+        self._on_input_change = on_input_change
 
     def get_recent(self):
         """ Get the last n triggered inputs. """
@@ -46,6 +50,7 @@ class InputStatus(object):
 
     def set_input(self, data):
         """ Set the input status. """
+        LOGGER.info('set_input {}'.format(data))
         with self.__state_change_lock:
             now = time.time()
             # parse data
@@ -53,11 +58,15 @@ class InputStatus(object):
             current_state = self._inputs_status.get(input_nr, {})
             current_state['id'] = input_nr
             current_state['last_updated'] = now
-            if current_state.get('status') != data['status']:
-                current_state['last_status_change'] = now
-                current_state['status'] = bool(data['status'])
             # optional values (can be None)
             current_state['output'] = data.get('output')
+            # status update
+            state_changed = current_state.get('status') != data['status']
+            if state_changed:
+                LOGGER.info('state_changed {}'.format(state_changed))
+                current_state['last_status_change'] = now
+                current_state['status'] = bool(data['status'])
+                self._report_change(data['input'], data['status'])
             # store in memory
             self._inputs_status[input_nr] = current_state
 
@@ -68,3 +77,19 @@ class InputStatus(object):
             inputs.append(current_state)
         return inputs
 
+    def full_update(self, inputs):
+        LOGGER.info('inputs {}'.format(inputs))
+        """ Update the status of the inputs using a list of Inputs. """
+        obsolete_ids = self._inputs_status.keys()
+        for input in inputs:
+            input_id = input['input']
+            if input_id in obsolete_ids:
+                obsolete_ids.remove(input_id)
+            self.set_input(input)
+        for input_id in obsolete_ids:
+            del self._inputs_status[input_id]
+
+    def _report_change(self, input_id, status):
+        LOGGER.info('_report_change {}, {}'.format(input_id, status))
+        if self._on_input_change is not None:
+            self._on_input_change(input_id, status)

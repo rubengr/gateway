@@ -195,6 +195,14 @@ def read_input():
                               Field.str('input_name', 8), Field.crc(), Field.lit('\r\n')])
 
 
+def read_input_module():
+    """ Read the status about all inputs of an input module """
+    return MasterCommandSpec("RI",
+                             [Field.byte("input_module_nr"), Field.padding(12)],
+                             [Field.byte('input_module_nr'), Field.byte('input_status'), Field.padding(8),
+                              Field.crc(), Field.lit('\r\n')])
+
+
 def shutter_status(master_version):
     """ Read the status of a shutter module. """
     if master_version >= (3, 143, 78):

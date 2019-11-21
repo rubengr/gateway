@@ -18,9 +18,8 @@ Tests for the outputs module.
 
 import unittest
 import xmlrunner
-import time
 
-from master.outputs import OutputStatus
+from gateway.outputs import OutputStatus
 
 
 class OutputStatusTest(unittest.TestCase):
