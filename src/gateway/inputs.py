@@ -50,7 +50,6 @@ class InputStatus(object):
 
     def set_input(self, data):
         """ Set the input status. """
-        LOGGER.info('set_input {}'.format(data))
         with self.__state_change_lock:
             now = time.time()
             # parse data
@@ -63,7 +62,6 @@ class InputStatus(object):
             # status update
             state_changed = current_state.get('status') != data['status']
             if state_changed:
-                LOGGER.info('state_changed {}'.format(state_changed))
                 current_state['last_status_change'] = now
                 current_state['status'] = bool(data['status'])
                 self._report_change(data['input'], data['status'])
@@ -78,7 +76,6 @@ class InputStatus(object):
         return inputs
 
     def full_update(self, inputs):
-        LOGGER.info('inputs {}'.format(inputs))
         """ Update the status of the inputs using a list of Inputs. """
         obsolete_ids = self._inputs_status.keys()
         for input in inputs:
@@ -90,6 +87,5 @@ class InputStatus(object):
             del self._inputs_status[input_id]
 
     def _report_change(self, input_id, status):
-        LOGGER.info('_report_change {}, {}'.format(input_id, status))
         if self._on_input_change is not None:
             self._on_input_change(input_id, status)
