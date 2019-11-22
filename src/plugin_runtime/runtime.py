@@ -197,7 +197,16 @@ class PluginRuntime:
 
     def _handle_input_status(self, status):
         for receiver in self._input_status_receivers:
-            IO._with_catch('input status', receiver, [status])
+            version = receiver.input_status.get('version', 1)
+            if version == 1:
+                # Backwards compatibility: only send rising edges of the input (no releases)
+                if status['status']:
+                    IO._with_catch('input status', receiver, [(status['input'], status['output'])])
+            elif version == 2:
+                # Version 2 will send ALL input status changes
+                IO._with_catch('input status', receiver, [status])
+            else:
+                raise NotImplementedError('Version {} is not supported for input status decorators'.format(version))
 
     def _handle_output_status(self, status):
         for receiver in self._output_status_receivers:

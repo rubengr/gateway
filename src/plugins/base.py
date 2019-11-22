@@ -307,10 +307,10 @@ class PluginController(object):
             if runner is not None and runner.is_running():
                 yield runner
 
-    def process_input_status(self, data):
+    def process_input_status(self, input_status_inst):
         """ Should be called when the input status changes, notifies all plugins. """
         for runner in self.__iter_running_runners():
-            runner.process_input_status((data['input'], data['output']))
+            runner.process_input_status(input_status_inst)
 
     def process_output_status(self, output_status_inst):
         """ Should be called when the output status changes, notifies all plugins. """

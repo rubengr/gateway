@@ -179,8 +179,8 @@ class OpenmoticsService(object):
         plugin_controller.set_metrics_collector(metrics_collector)
         observer.set_gateway_api(gateway_api)
 
-        observer.subscribe_master(Observer.MasterEvents.INPUT_CHANGE, metrics_collector.on_input)
-        observer.subscribe_master(Observer.MasterEvents.INPUT_CHANGE, plugin_controller.process_input_status)
+        observer.subscribe_master(Observer.MasterEvents.ON_INPUT_CHANGE, metrics_collector.on_input)
+        observer.subscribe_master(Observer.MasterEvents.ON_INPUT_CHANGE, plugin_controller.process_input_status)
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, metrics_collector.on_output)
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
         observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)

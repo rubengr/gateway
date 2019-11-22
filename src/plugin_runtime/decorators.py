@@ -48,7 +48,7 @@ def om_expose(method=None, auth=True, content_type='application/json'):
     return decorate
 
 
-def input_status(method):
+def input_status(method=None, version=1):
     """
     Decorator to indicate that the method should receive input status messages.
     The receiving method should accept one parameter, a tuple of (input, output).
@@ -57,8 +57,14 @@ def input_status(method):
     Important! This method should not block, as this will result in an unresponsive system.
     Please use a separate thread to perform complex actions on input status messages.
     """
-    method.input_status = True
-    return method
+    if method is not None:
+        method.input_status = {'version': 1}
+        return method
+
+    def wrapper(_method):
+        _method.input_status = {'version': version}
+        return _method
+    return wrapper
 
 
 def output_status(method):
@@ -72,6 +78,7 @@ def output_status(method):
     """
     method.output_status = True
     return method
+output_status = input_status(version=2)(output_status)
 
 
 def shutter_status(method):

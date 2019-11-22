@@ -73,7 +73,7 @@ class Observer(object):
     class MasterEvents(object):
         ON_OUTPUTS = 'ON_OUTPUTS'
         ON_SHUTTER_UPDATE = 'ON_SHUTTER_UPDATE'
-        INPUT_CHANGE = 'INPUT_CHANGE'
+        ON_INPUT_CHANGE = 'INPUT_CHANGE'
         ONLINE = 'ONLINE'
 
     class Types(object):
@@ -99,7 +99,7 @@ class Observer(object):
 
         self._master_subscriptions = {Observer.MasterEvents.ON_OUTPUTS: [],
                                       Observer.MasterEvents.ON_SHUTTER_UPDATE: [],
-                                      Observer.MasterEvents.INPUT_CHANGE: [],
+                                      Observer.MasterEvents.ON_INPUT_CHANGE: [],
                                       Observer.MasterEvents.ONLINE: []}
         self._event_subscriptions = []
 
@@ -245,10 +245,9 @@ class Observer(object):
         self._output_status.partial_update(on_outputs)
 
     def _on_input(self, data):
-        LOGGER.info('_on_input triggered with data: {}'.format(data))
-        """ Triggers when the master informs us of an input change """
+        """ Triggers when the master informs us of an Input state change """
         # Notify subscribers
-        for callback in self._master_subscriptions[Observer.MasterEvents.INPUT_CHANGE]:
+        for callback in self._master_subscriptions[Observer.MasterEvents.ON_INPUT_CHANGE]:
             callback(data)
         # Update status tracker
         self._input_status.set_input(data)
