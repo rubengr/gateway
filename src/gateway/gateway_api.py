@@ -1839,7 +1839,7 @@ class GatewayApi(object):
         Set multiple input_configurations.
 
         :param config: The list of input_configurations to set
-        :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte)
+        :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte), 'event_enabled' (Bool)
         """
         self.__eeprom_controller.write_batch([InputConfiguration.deserialize(o) for o in config])
 
