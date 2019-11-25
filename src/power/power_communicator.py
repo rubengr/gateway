@@ -21,7 +21,6 @@ Module to communicate with the power modules.
 import logging
 import traceback
 import time
-import Queue
 from toolbox import Empty
 from wiring import inject, scope, SingletonScope, provides
 from threading import Thread, RLock
@@ -192,6 +191,10 @@ class PowerCommunicator(object):
 
     def __do_address_mode(self):
         """ This code is running in a thread when in address mode. """
+        if self.__power_controller is None:
+            self.__address_mode = False
+            self.__address_thread = None
+
         expire = time.time() + self.__address_mode_timeout
         address_mode = power_api.set_addressmode()
         want_an_address_8 = power_api.want_an_address(power_api.POWER_API_8_PORTS)
