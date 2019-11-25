@@ -21,7 +21,7 @@ Serial tools contains the RS485 wrapper, printable and CommunicationTimedOutExce
 import struct
 import fcntl
 from threading import Thread
-from Queue import Queue
+from toolbox import Queue
 
 
 class CommunicationTimedOutException(Exception):

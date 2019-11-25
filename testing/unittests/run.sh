@@ -2,58 +2,58 @@
 export PYTHONPATH=$PYTHONPATH:`pwd`/../../src
 
 echo "Running master api tests"
-python2 -m master_tests.master_api_tests
+python2 master_tests/master_api_tests.py
 
 echo "Running master command tests"
-python2 -m master_tests.master_command_tests
+python2 master_tests/master_command_tests.py
 
 echo "Running master communicator tests"
-python2 -m master_tests.master_communicator_tests
+python2 master_tests/master_communicator_tests.py
 
 echo "Running outputs tests"
-python2 -m master_tests.outputs_tests
+python2 master_tests/outputs_tests.py
 
 echo "Running inputs tests"
-python2 -m master_tests.inputs_tests
+python2 master_tests/inputs_tests.py
 
 echo "Running passthrough tests"
-python2 -m master_tests.passthrough_tests
+python2 master_tests/passthrough_tests.py
 
 echo "Running eeprom controller tests"
-python2 -m master_tests.eeprom_controller_tests
+python2 master_tests/eeprom_controller_tests.py
 
 echo "Running eeprom extension tests"
-python2 -m master_tests.eeprom_extension_tests
+python2 master_tests/eeprom_extension_tests.py
 
 echo "Running users tests"
-python2 -m gateway_tests.users_tests
+python2 gateway_tests/users_tests.py
 
 echo "Running scheduling tests"
-python2 -m gateway_tests.scheduling_tests
+python2 gateway_tests/scheduling_tests.py
 
 echo "Running power controller tests"
-python2 -m power_tests.power_controller_tests
+python2 power_tests/power_controller_tests.py
 
 echo "Running power communicator tests"
-python2 -m power_tests.power_communicator_tests
+python2 power_tests/power_communicator_tests.py
 
 echo "Running time keeper tests"
-python2 -m power_tests.time_keeper_tests
+python2 power_tests/time_keeper_tests.py
 
 echo "Running plugin base tests"
-python2 -m plugins_tests.base_tests
+python2 plugins_tests/base_tests.py
 
 echo "Running plugin interfaces tests"
-python2 -m plugins_tests.interfaces_tests
+python2 plugins_tests/interfaces_tests.py
 
 echo "Running observer tests"
-python2 -m gateway_tests.observer_tests
+python2 gateway_tests/observer_tests.py
 
 echo "Running pulse counter controller tests"
-python2 -m gateway_tests.pulses_tests
+python2 gateway_tests/pulses_tests.py
 
 echo "Running Core uCAN tests"
 python2 -m master_core_tests.ucan_communicator_tests
 
 echo "Running metrics tests"
-python2 -m gateway_tests.metrics_tests
+python2 gateway_tests/metrics_tests.py

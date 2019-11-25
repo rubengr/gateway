@@ -19,10 +19,7 @@ Configuration controller
 import time
 import sqlite3
 import logging
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 from random import randint
 from wiring import inject, provides, SingletonScope, scope
 

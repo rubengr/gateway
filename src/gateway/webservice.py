@@ -28,6 +28,7 @@ import sys
 import threading
 import time
 import uuid
+import ujson as json
 from wiring import inject, provides, SingletonScope, scope
 from cherrypy.lib.static import serve_file
 from decorator import decorator
@@ -38,11 +39,6 @@ from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
 from gateway.websockets import OMPlugin, OMSocketTool, MetricsSocket, EventsSocket, MaintenanceSocket
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
 
 logger = logging.getLogger("openmotics")
 
@@ -2063,7 +2059,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.12.4'}
+                'gateway': '2.13.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
