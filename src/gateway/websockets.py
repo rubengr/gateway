@@ -149,9 +149,9 @@ class MetricsSocket(OMSocket):
                                  'metric_type': self.metadata['metric_type'],
                                  'token': self.metadata['token'],
                                  'socket': self})
-        self.metadata['interface'].metrics_collector.set_websocket_interval(self.metadata['client_id'],
-                                                                            self.metadata['metric_type'],
-                                                                            self.metadata['interval'])
+        self.metadata['interface']._metrics_collector.set_websocket_interval(self.metadata['client_id'],
+                                                                             self.metadata['metric_type'],
+                                                                             self.metadata['interval'])
 
     def closed(self, *args, **kwargs):
         _ = args, kwargs
@@ -159,7 +159,7 @@ class MetricsSocket(OMSocket):
             return
         client_id = self.metadata['client_id']
         cherrypy.engine.publish('remove-metrics-receiver', client_id)
-        self.metadata['interface'].metrics_collector.set_websocket_interval(client_id, self.metadata['metric_type'], None)
+        self.metadata['interface']._metrics_collector.set_websocket_interval(client_id, self.metadata['metric_type'], None)
 
 
 # noinspection PyUnresolvedReferences

@@ -21,7 +21,7 @@ Module to communicate with the power modules.
 import logging
 import traceback
 import time
-import Queue
+from toolbox import Empty
 from wiring import inject, scope, SingletonScope, provides
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
@@ -191,6 +191,10 @@ class PowerCommunicator(object):
 
     def __do_address_mode(self):
         """ This code is running in a thread when in address mode. """
+        if self.__power_controller is None:
+            self.__address_mode = False
+            self.__address_thread = None
+
         expire = time.time() + self.__address_mode_timeout
         address_mode = power_api.set_addressmode()
         want_an_address_8 = power_api.want_an_address(power_api.POWER_API_8_PORTS)
@@ -319,7 +323,7 @@ class PowerCommunicator(object):
                         raise Exception("Unexpected character")
             if crc7(header + data) != crc:
                 raise Exception("CRC doesn't match")
-        except Queue.Empty:
+        except Empty:
             raise CommunicationTimedOutException('Communication timed out')
         finally:
             if self.__verbose:
