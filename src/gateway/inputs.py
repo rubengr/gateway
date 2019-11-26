@@ -34,7 +34,7 @@ class InputStatus(object):
         self._num_inputs = num_inputs
         self._seconds = seconds
         self._inputs_status = {}
-        self.__state_change_lock = Lock()
+        self._state_change_lock = Lock()
         self._on_input_change = on_input_change
 
     def get_recent(self):
@@ -50,7 +50,7 @@ class InputStatus(object):
 
     def set_input(self, data):
         """ Set the input status. """
-        with self.__state_change_lock:
+        with self._state_change_lock:
             now = time.time()
             # parse data
             input_nr = data['input']

@@ -66,7 +66,7 @@ class EventSender(object):
         elif event.type == Event.Types.INPUT_CHANGE:
             input_id = event.data['id']
             config = self._gateway_api.get_input_configuration(input_id)
-            return config.get('event_enabled', False)
+            return config['event_enabled']
         else:
             return False
 
