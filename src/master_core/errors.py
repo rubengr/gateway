@@ -48,10 +48,10 @@ class Error(object):
         COMMAND_ERROR = 'COMMAND_ERROR'
         UNKNOWN = 'UNKNOWN'
 
-    StateMachiineTypes = [Types.SM_UPDATE_TIME_DATE, Types.SM_IMMEDIATE_QUEUE, Types.SM_GROUP_QUEUE, Types.SM_TIMER,
-                          Types.SM_EEPROM_ACTIVATE_STATE, Types.SM_PERFORM_EEPROM_ACTIVATE, Types.SM_CLI_PRINT,
-                          Types.SM_CAN_QUEUE, Types.SM_CAN, Types.SM_EXECUTE_EVERY_MINUTE, Types.SM_EXECUTE_GROUP_ACTION,
-                          Types.SM_GROUP_DELAY_QUEUE, Types.SM_CAN_TX_QUEUE]
+    StateMachineTypes = [Types.SM_UPDATE_TIME_DATE, Types.SM_IMMEDIATE_QUEUE, Types.SM_GROUP_QUEUE, Types.SM_TIMER,
+                         Types.SM_EEPROM_ACTIVATE_STATE, Types.SM_PERFORM_EEPROM_ACTIVATE, Types.SM_CLI_PRINT,
+                         Types.SM_CAN_QUEUE, Types.SM_CAN, Types.SM_EXECUTE_EVERY_MINUTE, Types.SM_EXECUTE_GROUP_ACTION,
+                         Types.SM_GROUP_DELAY_QUEUE, Types.SM_CAN_TX_QUEUE]
 
     def __init__(self, data):
         self._parameter_a = data['parameter_a']
@@ -113,7 +113,7 @@ class Error(object):
             return 'Detected {0} I2C error(s) on state machine phase {1} on port {2}'.format(self._parameter_c, self._parameter_a, self._parameter_b)
         if self.type == Error.Types.UART_ERROR:
             return 'UART receiving error detected on state machine phase {0} on port {1}'.format(self._parameter_a, self._parameter_b)
-        if self.type in Error.StateMachiineTypes:
+        if self.type in Error.StateMachineTypes:
             return 'State machine {0} blocked. Parameters {1} / {2} / {3}'.format(self.type.replace('SM_', ''), self._parameter_a, self._parameter_b, self._parameter_c)
         if self.type == Error.Types.MICRO_CAN_WATCHDOG_RESET:
             return 'Watchdog reset on uCAN. Parameters {0} / {1} / {2}'.format(self._parameter_a, self._parameter_b, self._parameter_c)

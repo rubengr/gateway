@@ -238,6 +238,8 @@ class Platform(object):
         config = ConfigParser()
         config.read(constants.get_config_file())
 
-        if config.has_option('OpenMotics', 'cli_serial'):
-            return Platform.Type.CORE_PLUS
+        if config.has_option('OpenMotics', 'platform'):
+            platform = config.get('OpenMotics', 'platform')
+            if platform in Platform.Types:
+                return platform
         return Platform.Type.CLASSIC
