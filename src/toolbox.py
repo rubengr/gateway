@@ -18,7 +18,6 @@ A few helper classes
 
 import time
 from collections import deque
-from gateway.observer import Event
 
 
 try:
@@ -63,14 +62,6 @@ class Queue(object):
         return len(self._queue)
 
 
-class OMEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Event):
-            return obj.serialize()
-        # Let the base class default method raise the TypeError
-        return json.JSONEncoder.default(self, obj)
-
-
 class PluginIPCStream(object):
 
     def __init__(self):
@@ -101,7 +92,7 @@ class PluginIPCStream(object):
 
     @staticmethod
     def encode(data):
-        return '{0}\n'.format(json.dumps(data, cls=OMEncoder))
+        return '{0}\n'.format(json.dumps(data))
 
         # Netstring format for binary data:
         # encoded_data = cPickle.dumps(data)

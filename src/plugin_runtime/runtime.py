@@ -139,7 +139,7 @@ class PluginRuntime:
                 elif action == 'stop':
                     ret = self._handle_stop()
                 elif action == 'input_status':
-                    ret = self._handle_input_status(command['status'])
+                    ret = self._handle_input_status(command['event'])
                 elif action == 'output_status':
                     ret = self._handle_output_status(command['status'])
                 elif action == 'shutter_status':
