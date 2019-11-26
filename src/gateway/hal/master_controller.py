@@ -15,7 +15,33 @@
 """
 Module for communicating with the Master
 """
+import ujson as json
 from exceptions import NotImplementedError
+
+
+class MasterEvent(object):
+    """
+    MasterEvent object
+    """
+
+    class Types(object):
+        OUTPUT_CHANGE = 'OUTPUT_CHANGE'
+
+    def __init__(self, event_type, data):
+        self.type = event_type
+        self.data = data
+
+    def serialize(self):
+        return {'type': self.type,
+                'data': self.data}
+
+    def __str__(self):
+        return json.dumps(self.serialize())
+
+    @staticmethod
+    def deserialize(data):
+        return MasterEvent(event_type=data['type'],
+                           data=data['data'])
 
 
 class MasterController(object):

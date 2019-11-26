@@ -19,11 +19,10 @@ import logging
 import time
 from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
-from gateway.hal.master_controller import MasterController
-from gateway.observer import Event as ObserverEvent
+from gateway.hal.master_controller import MasterController, MasterEvent
 from master_core.core_api import CoreAPI
 from master_core.core_communicator import BackgroundConsumer
-from master_core.events import Event as MasterEvent
+from master_core.events import Event as MasterCoreEvent
 from master_core.errors import Error
 from master_core.memory_file import MemoryFile, MemoryTypes
 from master_core.memory_models import OutputConfiguration
@@ -68,20 +67,20 @@ class MasterCoreController(MasterController):
     #################
 
     def _handle_event(self, data):
-        core_event = MasterEvent(data)
+        core_event = MasterCoreEvent(data)
         logger.info('Got master event: {0}'.format(core_event))
-        if core_event.type == MasterEvent.Types.OUTPUT:
+        if core_event.type == MasterCoreEvent.Types.OUTPUT:
             # Update internal state cache
             self._output_states[core_event.data['output']] = {'id': core_event.data['output'],
                                                               'status': 1 if core_event.data['status'] else 0,
                                                               'ctimer': core_event.data['timer_value'],
                                                               'dimmer': core_event.data['dimmer_value']}
             # Generate generic event
-            event = ObserverEvent(event_type=ObserverEvent.Types.OUTPUT_CHANGE,
-                                  data={'id': core_event.data['output'],
-                                        'status': {'on': core_event.data['status'],
-                                                   'value': core_event.data['dimmer_value']},
-                                        'location': {'room_id': 255}})  # TODO: Missing room
+            event = MasterEvent(event_type=MasterEvent.Types.OUTPUT_CHANGE,
+                                data={'id': core_event.data['output'],
+                                      'status': {'on': core_event.data['status'],
+                                                 'value': core_event.data['dimmer_value']},
+                                      'location': {'room_id': 255}})  # TODO: Missing room
             for callback in self._event_callbacks:
                 callback(event)
 

@@ -19,8 +19,7 @@ import logging
 import time
 from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
-from gateway.hal.master_controller import MasterController
-from gateway.observer import Event as ObserverEvent
+from gateway.hal.master_controller import MasterController, MasterEvent
 from master import master_api, eeprom_models
 from master.outputs import OutputStatus
 from master.master_communicator import BackgroundConsumer
@@ -188,7 +187,7 @@ class MasterClassicController(MasterController):
                       'status': event_status,
                       'location': {'room_id': self._output_config[output_id]['room']}}
         for callback in self._event_callbacks:
-            callback(ObserverEvent(event_type=ObserverEvent.Types.OUTPUT_CHANGE, data=event_data))
+            callback(MasterEvent(event_type=MasterEvent.Types.OUTPUT_CHANGE, data=event_data))
 
     def _on_master_output_change(self, data):
         """ Triggers when the master informs us of an Output state change """

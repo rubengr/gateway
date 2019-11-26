@@ -21,6 +21,7 @@ import logging
 import ujson as json
 from wiring import provides, inject, SingletonScope, scope
 from threading import Thread
+from gateway.hal.master_controller import MasterEvent
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.thermostats import ThermostatStatus
 from master.inputs import InputStatus
@@ -71,7 +72,7 @@ class Observer(object):
 
     # TODO: Part of the observer must be moved to the MasterController
 
-    class MasterEvents(object):
+    class LegacyMasterEvents(object):
         ON_OUTPUTS = 'ON_OUTPUTS'
         ON_SHUTTER_UPDATE = 'ON_SHUTTER_UPDATE'
         INPUT_TRIGGER = 'INPUT_TRIGGER'
@@ -100,10 +101,10 @@ class Observer(object):
         self._message_client = message_client
         self._gateway_api = None
 
-        self._master_subscriptions = {Observer.MasterEvents.ON_OUTPUTS: [],
-                                      Observer.MasterEvents.ON_SHUTTER_UPDATE: [],
-                                      Observer.MasterEvents.INPUT_TRIGGER: [],
-                                      Observer.MasterEvents.ONLINE: []}
+        self._master_subscriptions = {Observer.LegacyMasterEvents.ON_OUTPUTS: [],
+                                      Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE: [],
+                                      Observer.LegacyMasterEvents.INPUT_TRIGGER: [],
+                                      Observer.LegacyMasterEvents.ONLINE: []}
         self._event_subscriptions = []
 
         self._input_status = InputStatus()
@@ -213,7 +214,7 @@ class Observer(object):
         if online != self._master_online:
             self._master_online = online
             # Notify subscribers
-            for callback in self._master_subscriptions[Observer.MasterEvents.ONLINE]:
+            for callback in self._master_subscriptions[Observer.LegacyMasterEvents.ONLINE]:
                 callback(online)
 
     def _register_consumer_shutter_status(self):
@@ -226,13 +227,13 @@ class Observer(object):
     def _on_output(self, data):
         """ Triggers when the master informs us of an Output state change """
         on_outputs = data['outputs']
-        for callback in self._master_subscriptions[Observer.MasterEvents.ON_OUTPUTS]:
+        for callback in self._master_subscriptions[Observer.LegacyMasterEvents.ON_OUTPUTS]:
             callback(on_outputs)
 
     def _on_input(self, data):
         """ Triggers when the master informs us of an Input press """
         # Notify subscribers
-        for callback in self._master_subscriptions[Observer.MasterEvents.INPUT_TRIGGER]:
+        for callback in self._master_subscriptions[Observer.LegacyMasterEvents.INPUT_TRIGGER]:
             callback(data)
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.INPUT_TRIGGER,
@@ -246,15 +247,15 @@ class Observer(object):
         # Update status tracker
         self._shutter_controller.update_from_master_state(data)
         # Notify subscribers
-        for callback in self._master_subscriptions[Observer.MasterEvents.ON_SHUTTER_UPDATE]:
+        for callback in self._master_subscriptions[Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE]:
             callback(self._shutter_controller.get_states())
 
     def _master_event(self, event):
         """
         Triggers when the MasterController generates events
-        :type event: gateway.observer.Event
+        :type event: gateway.hal.master_controller.MasterEvent
         """
-        if event.type == Event.Types.OUTPUT_CHANGE:
+        if event.type == MasterEvent.Types.OUTPUT_CHANGE:
             self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': event.data['id']})
 
     # Inputs
