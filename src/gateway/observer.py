@@ -246,11 +246,11 @@ class Observer(object):
 
     def _on_input(self, data):
         """ Triggers when the master informs us of an Input state change """
+        # Update status tracker
+        self._input_status.set_input(data)
         # Notify subscribers
         for callback in self._master_subscriptions[Observer.MasterEvents.ON_INPUT_CHANGE]:
             callback(data)
-        # Update status tracker
-        self._input_status.set_input(data)
 
     def _on_shutter_update(self, data):
         """ Triggers when the master informs us of an Shutter state change """

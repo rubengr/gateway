@@ -8,6 +8,8 @@ import traceback
 from threading import Thread, Lock
 from Queue import Queue, Empty, Full
 
+from gateway.observer import Event
+
 try:
     import json
 except ImportError:
@@ -15,6 +17,13 @@ except ImportError:
 
 LOGGER = logging.getLogger("openmotics")
 
+
+class OMEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Event):
+            return obj.serialize()
+        # Let the base class default method raise the TypeError
+        return json.JSONEncoder.default(self, obj)
 
 class PluginRunner:
 
@@ -276,7 +285,7 @@ class PluginRunner:
 
         with self._command_lock:
             command = self._create_command(action, fields)
-            self._proc.stdin.write(json.dumps(command) + '\n')
+            self._proc.stdin.write(json.dumps(command, cls=OMEncoder) + '\n')
             self._proc.stdin.flush()
 
             try:

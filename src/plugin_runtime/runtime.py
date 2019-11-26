@@ -4,6 +4,8 @@ import traceback
 import time
 from threading import Thread
 
+from gateway.observer import Event
+
 sys.path.insert(0, '/opt/openmotics/python')
 
 from platform_utils import System
@@ -195,16 +197,21 @@ class PluginRuntime:
 
         self._stopped = True
 
-    def _handle_input_status(self, status):
+    def _handle_input_status(self, event_json):
+        event = Event.deserialize(event_json)
+        # get relevant event details
+        input_id = event.data['id']
+        status = event.data['status']
         for receiver in self._input_status_receivers:
             version = receiver.input_status.get('version', 1)
             if version == 1:
-                # Backwards compatibility: only send rising edges of the input (no releases)
-                if status['status']:
-                    IO._with_catch('input status', receiver, [(status['input'], status['output'])])
+                # Backwards compatibility: only send rising edges of the input (no input releases)
+                if status:
+                    IO._with_catch('input status', receiver, [(input_id, None)])
             elif version == 2:
-                # Version 2 will send ALL input status changes
-                IO._with_catch('input status', receiver, [status])
+                # Version 2 will send ALL input status changes AND in a dict format
+                data = {'input_id': input_id, 'status': status}
+                IO._with_catch('input status', receiver, [data])
             else:
                 raise NotImplementedError('Version {} is not supported for input status decorators'.format(version))
 

@@ -60,7 +60,7 @@ class InputStatus(object):
             # optional values (can be None)
             current_state['output'] = data.get('output')
             # status update
-            state_changed = current_state.get('status') != data['status']
+            state_changed = current_state.get('status') != data.get('status', False)
             if state_changed:
                 current_state['last_status_change'] = now
                 current_state['status'] = bool(data['status'])

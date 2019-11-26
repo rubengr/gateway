@@ -41,7 +41,7 @@ from gateway.metrics_caching import MetricsCacheController
 from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
-from gateway.observer import Observer
+from gateway.observer import Observer, Event
 from gateway.shutters import ShutterController
 from urlparse import urlparse
 from master.eeprom_controller import EepromController, EepromFile
@@ -179,11 +179,19 @@ class OpenmoticsService(object):
         plugin_controller.set_metrics_collector(metrics_collector)
         observer.set_gateway_api(gateway_api)
 
+        # TODO: make sure all subscribers only subscribe to the observer, not master directly
+
+        # send master events to metrics collector
         observer.subscribe_master(Observer.MasterEvents.ON_INPUT_CHANGE, metrics_collector.on_input)
-        observer.subscribe_master(Observer.MasterEvents.ON_INPUT_CHANGE, plugin_controller.process_input_status)
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, metrics_collector.on_output)
+
+        # send state changes to plugin_controller
+        observer.subscribe_events(plugin_controller.process_observer_event)
+        # TODO: move output and shutter also to plugin_controller.process_observer_event
         observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
         observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
+
+        # send all other events
         observer.subscribe_events(web_interface.send_event_websocket)
         observer.subscribe_events(event_sender.enqueue_event)
 
