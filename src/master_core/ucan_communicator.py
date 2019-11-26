@@ -114,8 +114,9 @@ class UCANCommunicator(object):
             self._cc_pallet_mode[cc_address] = True
         else:
             consumer = Consumer(cc_address, command)
-
         self.register_consumer(consumer)
+
+        master_timeout = False
         for payload in command.create_request_payloads(identity, fields):
             if self._verbose:
                 LOGGER.info('Writing to uCAN transport:   CC {0} - SID {1} - Data: {2}'.format(cc_address, command.sid, printable(payload)))
@@ -127,13 +128,15 @@ class UCANCommunicator(object):
                                                       'payload': payload + [0] * (8 - len(payload))},
                                               timeout=timeout)
             except CommunicationTimedOutException as ex:
-                # When there's a communication timeout with the Core, catch this exception and timeout the consumer
-                # so it uses a flow expected by the caller
                 LOGGER.error('Internal timeout during uCAN transport to CC {0}: {1}'.format(cc_address, ex))
-                timeout = 0
+                master_timeout = True
                 break
 
         consumer.check_send_only()
+        if master_timeout:
+            # When there's a communication timeout with the master, catch this exception and timeout the consumer
+            # so it uses a flow expected by the caller
+            return consumer.get(0)
         if timeout is not None:
             return consumer.get(timeout)
 
