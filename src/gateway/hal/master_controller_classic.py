@@ -43,7 +43,7 @@ class MasterClassicController(MasterController):
         self._eeprom_controller = eeprom_controller
 
         self._output_status = OutputStatus(on_output_change=self._output_changed)
-        self._monitor_thread = Thread(target=self._monitor, name='ClassicMasterMonitor')
+        self._synchronization_thread = Thread(target=self._synchronize, name='ClassicMasterSynchronization')
         self._master_version = None
         self._master_online = False
         self._output_interval = 600
@@ -58,7 +58,7 @@ class MasterClassicController(MasterController):
     # Private stuff #
     #################
 
-    def _monitor(self):
+    def _synchronize(self):
         while True:
             try:
                 self._get_master_version()
@@ -68,11 +68,11 @@ class MasterClassicController(MasterController):
                     self._set_master_state(True)
                 time.sleep(1)
             except CommunicationTimedOutException:
-                logger.error('Got communication timeout during monitoring, waiting 10 seconds.')
+                logger.error('Got communication timeout during synchronization, waiting 10 seconds.')
                 self._set_master_state(False)
                 time.sleep(10)
             except Exception as ex:
-                logger.exception('Unexpected error during monitoring: {0}'.format(ex))
+                logger.exception('Unexpected error during synchronization: {0}'.format(ex))
                 time.sleep(10)
 
     def _get_master_version(self):
@@ -91,7 +91,7 @@ class MasterClassicController(MasterController):
 
     def start(self):
         super(MasterClassicController, self).start()
-        self._monitor_thread.start()
+        self._synchronization_thread.start()
 
     ##############
     # Public API #
