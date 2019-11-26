@@ -700,6 +700,8 @@ class WebInterface(object):
             features.append('default_timer_disabled')
         if master_version >= (3, 143, 79):
             features.append('100_steps_dimmer')
+        if master_version >= (3, 143, 88):
+            features.append('input_states')
 
         return {'features': features}
 
