@@ -19,7 +19,7 @@ import logging
 import time
 from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
-from gateway.master_controller import MasterController
+from gateway.hal.master_controller import MasterController
 from gateway.observer import Event as ObserverEvent
 from master import master_api, eeprom_models
 from master.outputs import OutputStatus
@@ -179,15 +179,15 @@ class MasterClassicController(MasterController):
 
     def _output_changed(self, output_id, status):
         """ Executed by the Output Status tracker when an output changed state """
+        event_status = {'on': status['on']}
+        # 1. only add value to status when handling dimmers
+        if self._output_config[output_id]['module_type'] in ['d', 'D']:
+            event_status['value'] = status['value']
+        # 2. format response data
+        event_data = {'id': output_id,
+                      'status': event_status,
+                      'location': {'room_id': self._output_config[output_id]['room']}}
         for callback in self._event_callbacks:
-            event_status = {'on': status['on']}
-            # 1. only add value to status when handling dimmers
-            if self._output_config[output_id]['module_type'] in ['d', 'D']:
-                event_status['value'] = status['value']
-            # 2. format response data
-            event_data = {'id': output_id,
-                          'status': event_status,
-                          'location': {'room_id': self._output_config[output_id]['room']}}
             callback(ObserverEvent(event_type=ObserverEvent.Types.OUTPUT_CHANGE, data=event_data))
 
     def _on_master_output_change(self, data):

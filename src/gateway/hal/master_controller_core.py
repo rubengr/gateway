@@ -19,16 +19,14 @@ import logging
 import time
 from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
-from gateway.master_controller import MasterController
+from gateway.hal.master_controller import MasterController
 from gateway.observer import Event as ObserverEvent
 from master_core.core_api import CoreAPI
 from master_core.core_communicator import BackgroundConsumer
 from master_core.events import Event as MasterEvent
 from master_core.errors import Error
 from master_core.memory_file import MemoryFile, MemoryTypes
-from master_core.memory_models import OutputModuleConfiguration, OutputConfiguration, GlobalConfiguration, InputModuleConfiguration, InputConfiguration
-from master_core.ucan_api import UCANAPI
-from master_core.ucan_updater import UCANUpdater
+from master_core.memory_models import OutputConfiguration
 from serial_utils import CommunicationTimedOutException
 
 logger = logging.getLogger("openmotics")
