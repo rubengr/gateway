@@ -110,8 +110,7 @@ class System(object):
     @staticmethod
     def _get_operating_system():
         operating_system = {}
-        with open('/Users/rednas/Desktop/os-release', 'r') as osfh:
-        #with open('/etc/os-release', 'r') as osfh:
+        with open('/etc/os-release', 'r') as osfh:
             lines = osfh.readlines()
             for line in lines:
                 k, v = line.strip().split('=')
