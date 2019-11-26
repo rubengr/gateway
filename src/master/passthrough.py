@@ -35,7 +35,7 @@ class PassthroughService(object):
 
     @provides('passthrough_service')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', passthrough_serial='passthrough_serial')
+    @inject(master_communicator='master_classic_communicator', passthrough_serial='passthrough_serial')
     def __init__(self, master_communicator, passthrough_serial, verbose=False):
         self.__master_communicator = master_communicator
         self.__passthrough_serial = passthrough_serial

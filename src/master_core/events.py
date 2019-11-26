@@ -23,6 +23,12 @@ LOGGER = logging.getLogger('openmotics')
 
 
 class Event(object):
+    class Types(object):
+        OUTPUT = 'OUTPUT'
+        INPUT = 'INPUT'
+        SENSOR = 'SENSOR'
+        UNKNOWN = 'UNKNOWN'
+
     def __init__(self, data):
         self._type = data['type']
         self._action = data['action']
@@ -31,17 +37,14 @@ class Event(object):
 
     @property
     def type(self):
-        if self._type == 0:
-            return 'OUTPUT'
-        if self._type == 1:
-            return 'INPUT'
-        if self._type == 2:
-            return 'SENSOR'
-        return 'UNKNOWN'
+        type_map = {0: Event.Types.OUTPUT,
+                    1: Event.Types.INPUT,
+                    2: Event.Types.SENSOR}
+        return type_map.get(self._type, Event.Types.UNKNOWN)
 
     @property
     def data(self):
-        if self._type == 0:
+        if self.type == Event.Types.OUTPUT:
             timer_type = 'NO_TIMER'
             timer_factor = None
             if self._data[1] == 1:
@@ -59,10 +62,10 @@ class Event(object):
                     'timer_type': timer_type,
                     'timer_factor': timer_factor,
                     'timer_value': Event._word_decode(self._data[2:])}
-        if self._type == 1:
+        if self.type == Event.Types.INPUT:
             return {'input': self._device_nr,
                     'status': self._action == 1}
-        if self._type == 2:
+        if self.type == Event.Types.SENSOR:
             sensor_type = 'UNKNOWN'
             sensor_value = None
             if self._action == 0:

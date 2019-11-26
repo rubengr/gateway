@@ -15,6 +15,7 @@
 
 """ Module contains all websocket related logic """
 
+import msgpack
 import cherrypy
 import logging
 from ws4py import WS_VERSION

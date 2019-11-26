@@ -41,7 +41,7 @@ from master import master_api
 from power import power_api
 from master.master_communicator import BackgroundConsumer
 from master.eeprom_controller import EepromAddress
-from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
+from master.eeprom_models import ThermostatConfiguration, \
     SensorConfiguration, PumpGroupConfiguration, GroupActionConfiguration, \
     ScheduledActionConfiguration, StartupActionConfiguration, \
     ShutterConfiguration, ShutterGroupConfiguration, DimmerConfiguration, \
@@ -71,14 +71,16 @@ class GatewayApi(object):
 
     @provides('gateway_api')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', power_communicator='power_communicator',
+    @inject(master_communicator='master_communicator', master_controller='master_controller', power_communicator='power_communicator',
             power_controller='power_controller', eeprom_controller='eeprom_controller',
             pulse_controller='pulse_controller', message_client='message_client', observer='observer',
             config_controller='config_controller', shutter_controller='shutter_controller')
-    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
+    def __init__(self, master_communicator, master_controller, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
+        :param master_controller: Master controller
+        :type master_controller: gateway.master_controller.MasterController
         :param power_communicator: Power communicator
         :type power_communicator: power.power_communicator.PowerCommunicator
         :param power_controller: Power controller
@@ -97,6 +99,7 @@ class GatewayApi(object):
         :type shutter_controller: gateway.shutters.ShutterController
         """
         self.__master_communicator = master_communicator
+        self.__master_controller = master_controller
         self.__config_controller = config_controller
         self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
@@ -116,12 +119,13 @@ class GatewayApi(object):
 
         self.__previous_on_outputs = set()
 
-        self.__master_communicator.register_consumer(
-            BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
-        )
-        self.__master_communicator.register_consumer(
-            BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
-        )
+        # TODO
+        # self.__master_communicator.register_consumer(
+        #     BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
+        # )
+        # self.__master_communicator.register_consumer(
+        #     BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
+        # )
 
         self.__master_checker_thread = Thread(target=self.__master_checker)
         self.__master_checker_thread.daemon = True
@@ -688,7 +692,7 @@ class GatewayApi(object):
 
         :returns: A list is a dicts containing the following keys: id, status, ctimer and dimmer.
         """
-        outputs = self.__observer.get_outputs()
+        outputs = self.__master_controller.get_output_statuses()
         return [{'id': output['id'],
                  'status': output['status'],
                  'ctimer': output['ctimer'],
@@ -715,12 +719,12 @@ class GatewayApi(object):
                 self.set_output_status(output_id, False)
         else:
             if dimmer is not None:
-                self.set_output_dimmer(output_id, dimmer)
+                pass  # TODO: self.set_output_dimmer(output_id, dimmer)
 
             self.set_output_status(output_id, True)
 
             if timer is not None:
-                self.set_output_timer(output_id, timer)
+                pass  # TODO: self.set_output_timer(output_id, timer)
 
         return dict()
 
@@ -733,21 +737,8 @@ class GatewayApi(object):
         :type is_on: Boolean
         :returns: empty dict.
         """
-        if output_id < 0 or output_id > 240:
-            raise ValueError('id not in [0, 240]: %d' % output_id)
-
-        if is_on:
-            self.__master_communicator.do_command(
-                master_api.basic_action(),
-                {'action_type': master_api.BA_LIGHT_ON, 'action_number': output_id}
-            )
-        else:
-            self.__master_communicator.do_command(
-                master_api.basic_action(),
-                {'action_type': master_api.BA_LIGHT_OFF, 'action_number': output_id}
-            )
-
-        return dict()
+        self.__master_controller.set_output(output_id=output_id, state=is_on)
+        return {}
 
     def set_output_dimmer(self, output_id, dimmer):
         """ Set the dimmer of an output.
@@ -1659,7 +1650,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'module_type' (String[1]), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
         """
-        return self.__eeprom_controller.read(OutputConfiguration, output_id, fields).serialize()
+        return self.__master_controller.load_output(output_id, fields)
 
     def get_output_configurations(self, fields=None):
         """
@@ -1669,7 +1660,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'module_type' (String[1]), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(OutputConfiguration, fields)]
+        return self.__master_controller.load_outputs(fields)
 
     def set_output_configuration(self, config):
         """
@@ -1678,14 +1669,7 @@ class GatewayApi(object):
         :param config: The output_configuration to set
         :type config: output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
         """
-        output_nr, timer = config['id'], config.get('timer')
-        self.__eeprom_controller.write(OutputConfiguration.deserialize(config))
-        if timer is not None:
-            self.__master_communicator.do_command(
-                master_api.write_timer(),
-                {'id': output_nr, 'timer': timer}
-            )
-        self.__observer.invalidate_cache(Observer.Types.OUTPUTS)
+        self.__master_controller.save_outputs([config])
 
     def set_output_configurations(self, config):
         """
@@ -1694,15 +1678,7 @@ class GatewayApi(object):
         :param config: The list of output_configurations to set
         :type config: list of output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
         """
-        timers = dict((o['id'], o.get('timer')) for o in config)
-        self.__eeprom_controller.write_batch([OutputConfiguration.deserialize(o) for o in config])
-        for output_nr, timer in timers.iteritems():
-            if timer is not None:
-                self.__master_communicator.do_command(
-                    master_api.write_timer(),
-                    {'id': output_nr, 'timer': timer}
-                )
-        self.__observer.invalidate_cache(Observer.Types.OUTPUTS)
+        self.__master_controller.save_outputs(config)
 
     def get_shutter_configuration(self, shutter_id, fields=None):
         """
@@ -1798,10 +1774,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'module_type' (String[1]), 'name' (String[8]), 'room' (Byte), 'can' (String[1])
         """
-        o = self.__eeprom_controller.read(InputConfiguration, input_id, fields)
-        if o.module_type not in ['i', 'I']:  # Only return 'real' inputs
-            raise TypeError('The given id is not an input')
-        return o.serialize()
+        return self.__master_controller.load_input(input_id, fields)
 
     def get_input_configurations(self, fields=None):
         """
@@ -1811,8 +1784,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'module_type' (String[1]), 'name' (String[8]), 'room' (Byte), 'can' (String[1])
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(InputConfiguration, fields)
-                if o.module_type in ['i', 'I']]  # Only return 'real' inputs
+        return self.__master_controller.load_inputs(fields)
 
     def set_input_configuration(self, config):
         """
@@ -1821,7 +1793,7 @@ class GatewayApi(object):
         :param config: The input_configuration to set
         :type config: input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte)
         """
-        self.__eeprom_controller.write(InputConfiguration.deserialize(config))
+        return self.__master_controller.save_inputs([config])
 
     def set_input_configurations(self, config):
         """
@@ -1830,7 +1802,7 @@ class GatewayApi(object):
         :param config: The list of input_configurations to set
         :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte)
         """
-        self.__eeprom_controller.write_batch([InputConfiguration.deserialize(o) for o in config])
+        return self.__master_controller.save_inputs(config)
 
     def get_thermostat_configuration(self, thermostat_id, fields=None):
         """

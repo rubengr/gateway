@@ -67,21 +67,36 @@ class CoreAPI(object):
         """ Receives general configuration regarding number of modules """
         return CoreCommandSpec(instruction='GC',
                                request_fields=[LiteralBytesField(0)],
-                               response_fields=[ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('ucan'), ByteField('ucan_input'), ByteField('ucan_sensor')])
+                               response_fields=[ByteField('type'), ByteField('output'), ByteField('input'),
+                                                ByteField('sensor'), ByteField('ucan'), ByteField('ucan_input'), ByteField('ucan_sensor')])
 
     @staticmethod
     def general_configuration_max_specs():
         """ Receives general configuration regarding maximum specifications (e.g. max number of input modules, max number of basic actions, ...) """
         return CoreCommandSpec(instruction='GC',
                                request_fields=[LiteralBytesField(1)],
-                               response_fields=[ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'), ByteField('ucan'), WordField('groups'), WordField('basic_actions'), ByteField('shutters'), ByteField('shutter_groups')])
+                               response_fields=[ByteField('type'), ByteField('output'), ByteField('input'), ByteField('sensor'),
+                                                ByteField('ucan'), WordField('groups'), WordField('basic_actions'),
+                                                ByteField('shutters'), ByteField('shutter_groups')])
 
     @staticmethod
     def module_information():
         """ Receives module information """
         return CoreCommandSpec(instruction='MC',
                                request_fields=[ByteField('module_nr'), ByteField('module_family')],
-                               response_fields=[ByteField('module_nr'), ByteField('module_family'), ByteField('module_type'), AddressField('address'), WordField('bus_errors'), ByteField('module_status')])
+                               response_fields=[ByteField('module_nr'), ByteField('module_family'), ByteField('module_type'),
+                                                AddressField('address'), WordField('bus_errors'), ByteField('module_status')])
+
+    @staticmethod
+    def output_detail():
+        """ Received output detail information """
+        return CoreCommandSpec(instruction='OD',
+                               request_fields=[WordField('device_nr')],
+                               response_fields=[WordField('device_nr'), ByteField('status'),
+                                                ByteField('dimmer'), ByteField('dimmer_min'), ByteField('dimmer_max'),
+                                                ByteField('timer_type'), ByteField('timer_type_standard'),
+                                                WordField('timer'), WordField('timer_standard'),
+                                                WordField('group_action'), ByteField('dali_output')])
 
     # Memory (EEPROM/FRAM) actions
 
@@ -132,5 +147,7 @@ class CoreAPI(object):
     def ucan_module_information():
         """ Receives information from a uCAN module """
         return CoreCommandSpec(instruction='CD',
-                               response_fields=[AddressField('ucan_address', 3), WordArrayField('input_links', 6), ByteArrayField('sensor_links', 2), ByteField('sensor_type'), VersionField('version'),
-                                               ByteField('bootloader'), CharField('new_indicator'), ByteField('min_led_brightness'), ByteField('max_led_brightness')])
+                               response_fields=[AddressField('ucan_address', 3), WordArrayField('input_links', 6),
+                                                ByteArrayField('sensor_links', 2), ByteField('sensor_type'), VersionField('version'),
+                                                ByteField('bootloader'), CharField('new_indicator'),
+                                                ByteField('min_led_brightness'), ByteField('max_led_brightness')])
