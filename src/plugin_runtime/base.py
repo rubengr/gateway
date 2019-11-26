@@ -2,9 +2,10 @@ import logging
 import os
 
 try:
-    import json
+    import ujson as json
 except ImportError:
-    import simplejson as json
+    # This is the case when the plugin runtime is unittested
+    import json
 
 from decorators import *  # Import for backwards compatibility
 

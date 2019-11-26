@@ -29,6 +29,7 @@ import time
 import subprocess
 import traceback
 import constants
+import ujson as json
 
 from threading import Thread, Lock
 from collections import deque
@@ -36,11 +37,6 @@ from ConfigParser import ConfigParser
 from gateway.config import ConfigurationController
 from bus.om_bus_client import MessageClient
 from bus.om_bus_events import OMBusEvents
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
 
 REBOOT_TIMEOUT = 900
 DEFAULT_SLEEP_TIME = 30
@@ -535,7 +531,7 @@ class VPNService(object):
                 logger.error("Error during vpn check loop: {0}".format(ex))
                 time.sleep(1)
 
-                
+
 if __name__ == '__main__':
     setup_logger()
     logger.info("Starting VPN service")

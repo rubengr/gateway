@@ -28,6 +28,7 @@ import sys
 import threading
 import time
 import uuid
+import ujson as json
 from wiring import inject, provides, SingletonScope, scope
 from cherrypy.lib.static import serve_file
 from decorator import decorator
@@ -41,11 +42,6 @@ from gateway.shutters import ShutterController
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
 
 logger = logging.getLogger("openmotics")
 
@@ -346,7 +342,7 @@ class MetricsSocket(OMSocket):
                                  'metric_type': self.metadata['metric_type'],
                                  'token': self.metadata['token'],
                                  'socket': self})
-        self.metadata['interface'].metrics_collector.set_websocket_interval(self.metadata['client_id'],
+        self.metadata['interface']._metrics_collector.set_websocket_interval(self.metadata['client_id'],
                                                                             self.metadata['metric_type'],
                                                                             self.metadata['interval'])
 
@@ -356,7 +352,7 @@ class MetricsSocket(OMSocket):
             return
         client_id = self.metadata['client_id']
         cherrypy.engine.publish('remove-metrics-receiver', client_id)
-        self.metadata['interface'].metrics_collector.set_websocket_interval(client_id, self.metadata['metric_type'], None)
+        self.metadata['interface']._metrics_collector.set_websocket_interval(client_id, self.metadata['metric_type'], None)
 
 
 # noinspection PyUnresolvedReferences
@@ -2243,7 +2239,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.12.4'}
+                'gateway': '2.13.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):

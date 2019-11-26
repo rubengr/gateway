@@ -21,7 +21,7 @@ Module to communicate with the master.
 import logging
 import time
 from threading import Thread, Lock, Event
-from Queue import Queue, Empty
+from toolbox import Queue, Empty
 from wiring import inject, provides, scope, SingletonScope
 from master import master_api
 from master_command import Field, printable

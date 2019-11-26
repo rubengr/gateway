@@ -4,26 +4,11 @@ import subprocess
 import sys
 import time
 import traceback
-
 from threading import Thread, Lock
-from Queue import Queue, Empty, Full
-
-from gateway.observer import Event
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
+from toolbox import Queue, Empty, Full, PluginIPCStream
 
 LOGGER = logging.getLogger("openmotics")
 
-
-class OMEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, Event):
-            return obj.serialize()
-        # Let the base class default method raise the TypeError
-        return json.JSONEncoder.default(self, obj)
 
 class PluginRunner:
 
@@ -221,31 +206,35 @@ class PluginRunner:
         self._do_command('remove_callback')
 
     def _read_out(self):
+        stream = PluginIPCStream()
         while self._process_running:
             exit_code = self._proc.poll()
             if exit_code is not None:
                 self.logger('[Runner] Stopped with exit code {0}'.format(exit_code))
                 self._process_running = False
                 break
-
             try:
                 line = self._proc.stdout.readline()
-            except Exception as exception:
-                self.logger('[Runner] Exception while reading output: {0}'.format(exception))
+                if line is None:
+                    line = ''
+            except Exception as ex:
+                self.logger('[Runner] Exception while reading output: {0}'.format(ex))
+                continue
+
+            try:
+                response = stream.feed(line)
+                if response is None:
+                    continue
+            except Exception as ex:
+                self.logger('[Runner] Exception while parsing output: {0}'.format(ex))
+                continue
+
+            if response['cid'] == 0:
+                self._handle_async_response(response)
+            elif response['cid'] == self._cid:
+                self._response_queue.put(response)
             else:
-                if line is not None and len(line) > 0:
-                    line = line.strip()
-                    try:
-                        response = json.loads(line)
-                    except ValueError:
-                        self.logger('[Runner] JSON error in reading output ({0})'.format(line))
-                    else:
-                        if response['cid'] == 0:
-                            self._handle_async_response(response)
-                        elif response['cid'] == self._cid:
-                            self._response_queue.put(response)
-                        else:
-                            self.logger('[Runner] Received message with unknown cid: {0}'.format(response))
+                self.logger('[Runner] Received message with unknown cid: {0}'.format(response))
 
     def _handle_async_response(self, response):
         if response['action'] == 'logs':
@@ -285,7 +274,7 @@ class PluginRunner:
 
         with self._command_lock:
             command = self._create_command(action, fields)
-            self._proc.stdin.write(json.dumps(command, cls=OMEncoder) + '\n')
+            self._proc.stdin.write(PluginIPCStream.encode(command))
             self._proc.stdin.flush()
 
             try:

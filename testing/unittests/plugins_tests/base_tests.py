@@ -77,11 +77,15 @@ class PluginControllerTest(unittest.TestCase):
     @staticmethod
     def _get_controller():
         from plugins.base import PluginController
-        return PluginController(webinterface=None,
-                                config_controller=None,
-                                runtime_path=PluginControllerTest.RUNTIME_PATH,
-                                plugins_path=PluginControllerTest.PLUGINS_PATH,
-                                plugin_config_path=PluginControllerTest.PLUGIN_CONFIG_PATH)
+        controller = PluginController(webinterface=None,
+                                      config_controller=None,
+                                      runtime_path=PluginControllerTest.RUNTIME_PATH,
+                                      plugins_path=PluginControllerTest.PLUGINS_PATH,
+                                      plugin_config_path=PluginControllerTest.PLUGIN_CONFIG_PATH)
+        metric_controller = type('MetricController', (), {'get_filter': lambda *args, **kwargs: ['test'],
+                                                          'set_plugin_definitions': lambda _self, *args, **kwargs: None})()
+        controller.set_metrics_controller(metric_controller)
+        return controller
 
     @staticmethod
     def _create_plugin_package(name, code):
@@ -240,7 +244,7 @@ class P1(OMPluginBase):
                                         'output_data': 'OUTPUT',
                                         'event_data': 1})
         finally:
-            if controller is None:
+            if controller is not None:
                 controller.stop()
             PluginControllerTest._destroy_plugin('P1')
 
@@ -276,6 +280,91 @@ class Test(OMPluginBase):
         result = controller.install_plugin(test_2_md5, test_2_data)
         self.assertEqual(result, 'Plugin successfully installed')
         self.assertEqual([r.name for r in controller.get_plugins()], ['Test'])
+
+    def test_plugin_metric_reference(self):
+        """ Validates whether two plugins won't get the same metric instance """
+        controller = None
+        try:
+            p1_md5, p1_data = PluginControllerTest._create_plugin_package('P1', """
+from plugins.base import *
+
+class P1(OMPluginBase):
+    name = 'P1'
+    version = '0.0.1'
+    interfaces = []
+    
+    def __init__(self, webservice, logger):
+        OMPluginBase.__init__(self, webservice, logger)
+        self._metric = None
+        
+    @om_expose(auth=False)
+    def get_metric(self):
+        return {'metric': self._metric}
+        
+    @om_metric_receive()
+    def set_metric(self, metric):
+        self._metric = metric
+        self._metric['foo'] = 'P1'
+""")
+            p2_md5, p2_data = PluginControllerTest._create_plugin_package('P2', """
+from plugins.base import *
+
+class P2(OMPluginBase):
+    name = 'P2'
+    version = '0.0.1'
+    interfaces = []
+    
+    def __init__(self, webservice, logger):
+        OMPluginBase.__init__(self, webservice, logger)
+        self._metric = None
+        
+    @om_expose(auth=False)
+    def get_metric(self):
+        return {'metric': self._metric}
+        
+    @om_metric_receive()
+    def set_metric(self, metric):
+        self._metric = metric
+        self._metric['foo'] = 'P2'
+""")
+
+            controller = PluginControllerTest._get_controller()
+            controller.start()
+
+            controller.install_plugin(p1_md5, p1_data)
+            controller.start_plugin('P1')
+            controller.install_plugin(p2_md5, p2_data)
+            controller.start_plugin('P2')
+
+            delivery_count = controller.distribute_metric({'timestamp': 0,
+                                                           'source': 'test',
+                                                           'type': 'test',
+                                                           'tags': {},
+                                                           'values': {}})
+            self.assertEqual(2, delivery_count)
+
+            start = time.time()
+            p1_metric = {'metric': None}
+            p2_metric = {'metric': None}
+            while time.time() - start < 2:
+                p1_metric = controller._request('P1', 'get_metric')
+                p2_metric = controller._request('P2', 'get_metric')
+                if p1_metric['metric'] is not None and p2_metric['metric'] is not None:
+                    break
+                time.sleep(0.1)
+
+            self.assertIsNotNone(p1_metric['metric'])
+            self.assertEqual('P1', p1_metric['metric'].get('foo'))
+            self.assertIsNotNone(p2_metric['metric'])
+            self.assertEqual('P2', p2_metric['metric'].get('foo'))
+            # Compare the addresses to make sure it's a different instance
+            self.assertNotEqual(id(p1_metric['metric']), id(p2_metric['metric']))
+
+        finally:
+            if controller is not None:
+                controller.stop()
+            PluginControllerTest._destroy_plugin('P1')
+            PluginControllerTest._destroy_plugin('P2')
 
     def test_check_plugin(self):
         """ Test the exception that can occur when checking a plugin. """

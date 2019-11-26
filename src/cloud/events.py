@@ -74,7 +74,8 @@ class EventSender(object):
         while not self._stopped:
             try:
                 if not self._batch_send_events():
-                    time.sleep(0.25)
+                    time.sleep(0.20)
+                time.sleep(0.05)
             except APIException as ex:
                 logger.error('Error sending events to the cloud: {}'.format(str(ex)))
                 time.sleep(1)
