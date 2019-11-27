@@ -34,7 +34,7 @@ class MasterCommunicator(object):
     Provides methods to send MasterCommands, Passthrough and Maintenance.
     """
 
-    @provides('master_communicator')
+    @provides('master_classic_communicator')
     @scope(SingletonScope)
     @inject(serial='controller_serial')
     def __init__(self, serial, init_master=True, verbose=False, passthrough_timeout=0.2):
@@ -108,6 +108,9 @@ class MasterCommunicator(object):
 
         self.__stop = False
         self.__read_thread.start()
+
+    def stop(self):
+        pass  # Not supported/used
 
     def enable_passthrough(self):
         self.__passthrough_enabled = True

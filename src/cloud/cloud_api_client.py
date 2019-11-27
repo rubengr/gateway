@@ -77,6 +77,5 @@ class CloudAPIClient(object):
         except ConnectionError as ce:
             raise APIException('Error while sending events to {}. Reason: {}'.format(self._hostname, ce))
         except Exception as e:
-            logger.exception(e)
             raise APIException('Unknown error while executing API request on {}. Reason: {}'.format(self._hostname, e))
 

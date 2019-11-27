@@ -70,7 +70,7 @@ class GatewayApi(object):
 
     @provides('gateway_api')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', master_controller='master_controller', power_communicator='power_communicator',
+    @inject(master_communicator='master_classic_communicator', master_controller='master_controller', power_communicator='power_communicator',
             power_controller='power_controller', eeprom_controller='eeprom_controller',
             pulse_controller='pulse_controller', message_client='message_client', observer='observer',
             config_controller='config_controller', shutter_controller='shutter_controller')

@@ -84,7 +84,7 @@ class Observer(object):
 
     @provides('observer')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', master_controller='master_controller', message_client='message_client', shutter_controller='shutter_controller')
+    @inject(master_communicator='master_classic_communicator', master_controller='master_controller', message_client='message_client', shutter_controller='shutter_controller')
     def __init__(self, master_communicator, master_controller, message_client, shutter_controller):
         """
         :param master_communicator: Master communicator

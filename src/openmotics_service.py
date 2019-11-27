@@ -144,6 +144,7 @@ class OpenmoticsService(object):
 
         # Master Controller
         controller_serial_port = config.get('OpenMotics', 'controller_serial')
+        self.graph.register_instance('controller_serial', Serial(controller_serial_port, 115200))
         if Platform.get_platform() == Platform.Type.CORE_PLUS:
             core_cli_serial_port = config.get('OpenMotics', 'cli_serial')
             self.graph.register_factory('master_controller', MasterCoreController, scope=SingletonScope)
@@ -153,15 +154,12 @@ class OpenmoticsService(object):
             self.graph.register_instance('ucan_communicator_verbose', False)
             self.graph.register_instance('core_communicator_verbose', False)
             self.graph.register_instance('cli_serial', Serial(core_cli_serial_port, 115200))
-            self.graph.register_instance('master_communicator', None)  # TODO: This "breaks" all legacy paths for the Core, but that's fine for now
             self.graph.register_instance('passthrough_service', None)  # Mark as "not needed"
         else:
             passthrough_serial_port = config.get('OpenMotics', 'passthrough_serial')
-            self.graph.register_instance('controller_serial', Serial(controller_serial_port, 115200))
             self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
             self.graph.register_factory('master_controller', MasterClassicController, scope=SingletonScope)
             self.graph.register_factory('master_classic_communicator', MasterCommunicator, scope=SingletonScope)
-            self.graph.register_factory('master_communicator', MasterCommunicator, scope=SingletonScope)  # TODO: Should be removed and replaced by the explicit classic communicator
             self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
             self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
             self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
@@ -248,7 +246,7 @@ class OpenmoticsService(object):
         self._fix_dependencies()
 
         service_names = ['master_controller', 'maintenance_controller',
-                         'master_communicator', 'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
+                         'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
                          'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
                          'communication_led_controller', 'event_sender']
         for name in service_names:

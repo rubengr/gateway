@@ -31,7 +31,7 @@ class MemoryFile(object):
 
     @provides('memory_file')
     @scope(SingletonScope)
-    @inject(core_communicator='master_communicator')
+    @inject(core_communicator='master_core_communicator')
     def __init__(self, memory_type, core_communicator):
         """
         Initializes the MemoryFile instance, reprensenting one of the supported memory types

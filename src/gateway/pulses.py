@@ -34,7 +34,7 @@ class PulseCounterController(object):
 
     @provides('pulse_counter_controller')
     @scope(SingletonScope)
-    @inject(db_filename='pulse_db', master_communicator='master_communicator', eeprom_controller='eeprom_controller')
+    @inject(db_filename='pulse_db', master_communicator='master_classic_communicator', eeprom_controller='eeprom_controller')
     def __init__(self, db_filename, master_communicator, eeprom_controller):
         """
         Constructs a new PulseCounterController.

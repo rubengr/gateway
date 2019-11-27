@@ -2471,3 +2471,5 @@ class WebService(object):
             cherrypy.tree.mount(**mount)
         self._http_server.start()
         self._https_server.start()
+        self._https_server.httpserver.error_log = WebService._http_server_logger
+        self._http_server.httpserver.error_log = WebService._http_server_logger

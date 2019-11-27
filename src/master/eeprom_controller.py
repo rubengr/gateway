@@ -135,7 +135,7 @@ class EepromFile(object):
 
     @provides('eeprom_file')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator')
+    @inject(master_communicator='master_classic_communicator')
     def __init__(self, master_communicator):
         """
         Create an EepromFile.

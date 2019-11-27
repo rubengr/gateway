@@ -41,7 +41,7 @@ class CoreCommunicator(object):
     START_OF_REPLY = 'RTR'
     END_OF_REPLY = '\r\n'
 
-    @provides('master_communicator')
+    @provides('master_core_communicator')
     @scope(SingletonScope)
     @inject(serial='controller_serial', verbose='core_communicator_verbose')
     def __init__(self, serial, verbose):
