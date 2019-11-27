@@ -250,13 +250,16 @@ class Observer(object):
         for callback in self._master_subscriptions[Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE]:
             callback(self._shutter_controller.get_states())
 
-    def _master_event(self, event):
+    def _master_event(self, naster_event):
         """
         Triggers when the MasterController generates events
-        :type event: gateway.hal.master_controller.MasterEvent
+        :type naster_event: gateway.hal.master_controller.MasterEvent
         """
-        if event.type == MasterEvent.Types.OUTPUT_CHANGE:
-            self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': event.data['id']})
+        if naster_event.type == MasterEvent.Types.OUTPUT_CHANGE:
+            self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': naster_event.data['id']})
+            for callback in self._event_subscriptions:
+                callback(Event(event_type=Event.Types.OUTPUT_CHANGE,
+                               data=naster_event.data))
 
     # Inputs
 
