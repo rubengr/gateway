@@ -252,7 +252,7 @@ class MetricsCollector(object):
             LOGGER.exception('Error processing outputs {0}: {1}'.format(output_ids, ex))
 
     def on_input(self, data):
-        self._process_input(data['input'], data['status'])
+        self._process_input(data['input'], data.get('status'))
 
     def _process_input(self, input_id, status):
         try:
