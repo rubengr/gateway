@@ -186,7 +186,7 @@ class IoTest(OMTestCase):
                          'Expected default timezone on the gateway to be UTC but got {0}'.format(response_dict))
 
         now = datetime.datetime.utcnow()
-        response_dict = self.tools.api_testee(api='get_recent', token=self.token)
+        response_dict = self.tools.api_testee(api='get_status', token=self.token)
         self.assertEqual(response_dict.get('time'), now.strftime('%H:%M'))
 
         params = {'timezone': 'America/Bahia'}

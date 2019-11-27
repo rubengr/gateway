@@ -65,6 +65,21 @@ class InputStatusTest(unittest.TestCase):
         inps.set_input({'input': 6, 'status': 1})
         self.assertEquals(len(changed), 4)
 
+    def test_set_input_without_status(self):
+        changed = []
+
+        def on_input_change(input_id, status):
+            changed.append(input_id)
+
+        inps = InputStatus(on_input_change=on_input_change)
+        inps.set_input({'input': 6, 'status': 1})
+        current_status = inps.get_input(6)
+        self.assertEquals(current_status['status'], True)
+        inps.set_input({'input': 6})
+        current_status = inps.get_input(6)
+        self.assertEquals(current_status['status'], None)
+        self.assertEquals(len(changed), 2)
+
     def test_timeout(self):
         """ Test timeout of InputStatus data. """
         inps = InputStatus(5, 1)

@@ -191,7 +191,9 @@ class Result(object):
 
     def __str__(self):
         return str(self.fields)
-
+    
+    def __iter__(self):
+        return self.fields.__iter__()
 
 class Field(object):
     """ Field of a master command has a name, type.

@@ -53,20 +53,27 @@ class InputStatus(object):
         with self._state_change_lock:
             now = time.time()
             # parse data
-            input_nr = data['input']
-            current_state = self._inputs_status.get(input_nr, {})
-            current_state['id'] = input_nr
+            input_id = data['input']
+            current_state = self._inputs_status.get(input_id, {})
+            current_state['id'] = input_id
             current_state['last_updated'] = now
             # optional values (can be None)
             current_state['output'] = data.get('output')
             # status update
-            state_changed = current_state.get('status') != data.get('status', False)
+            if 'status' in data:
+                new_status = bool(data['status'])
+                state_changed = current_state.get('status') != new_status
+                current_state['status'] = new_status
+            #  previous versions of the master only sent rising edges
+            else:
+                new_status = True
+                state_changed = True
+                current_state['status'] = None
             if state_changed:
                 current_state['last_status_change'] = now
-                current_state['status'] = bool(data['status'])
-                self._report_change(data['input'], data['status'])
+                self._report_change(input_id, new_status)
             # store in memory
-            self._inputs_status[input_nr] = current_state
+            self._inputs_status[input_id] = current_state
 
     def get_inputs(self):
         """ Get the inputs status. """
@@ -74,6 +81,10 @@ class InputStatus(object):
         for input_nr, current_state in self._inputs_status.iteritems():
             inputs.append(current_state)
         return inputs
+
+    def get_input(self, input_nr):
+        """ Get a specific input status. """
+        return self._inputs_status[input_nr]
 
     def full_update(self, inputs):
         """ Update the status of the inputs using a list of Inputs. """

@@ -28,7 +28,7 @@ from master import master_api
 from bus.om_bus_events import OMBusEvents
 
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class Event(object):
@@ -198,11 +198,11 @@ class Observer(object):
                 self._register_background_consumers()
                 time.sleep(1)
             except CommunicationTimedOutException:
-                LOGGER.error('Got communication timeout during monitoring, waiting 10 seconds.')
+                logger.error('Got communication timeout during monitoring, waiting 10 seconds.')
                 self._set_master_state(False)
                 time.sleep(10)
             except Exception as ex:
-                LOGGER.exception('Unexpected error during monitoring: {0}'.format(ex))
+                logger.exception('Unexpected error during monitoring: {0}'.format(ex))
                 time.sleep(10)
 
     def _ensure_gateway_api(self):
@@ -310,18 +310,21 @@ class Observer(object):
     def _refresh_inputs(self):
         """ Refreshes the Input Status tracker """
         self._input_config = self._gateway_api.get_input_configurations()
-        number_of_input_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['in']
-        inputs = []
-        for i in xrange(number_of_input_modules):
-            result = self._master_communicator.do_command(master_api.read_input_module(), {'input_module_nr': i})
-            module_status = result['input_status']
-            # module_status byte contains bits for each individual input, use mask and bitshift to get status
-            for n in xrange(8):
-                input_nr = i * 8 + n
-                input_status = module_status & 1 << n != 0
-                data = {'input': input_nr, 'status': input_status}
-                inputs.append(data)
-        self._input_status.full_update(inputs)
+        try:
+            number_of_input_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['in']
+            inputs = []
+            for i in xrange(number_of_input_modules):
+                result = self._master_communicator.do_command(master_api.read_input_module(self._master_version), {'input_module_nr': i})
+                module_status = result['input_status']
+                # module_status byte contains bits for each individual input, use mask and bitshift to get status
+                for n in xrange(8):
+                    input_nr = i * 8 + n
+                    input_status = module_status & (1 << n) != 0
+                    data = {'input': input_nr, 'status': input_status}
+                    inputs.append(data)
+            self._input_status.full_update(inputs)
+        except NotImplementedError as e:
+            logger.debug('Cannot refresh inputs: {}', e)
         self._input_last_updated = time.time()
 
     # Shutters

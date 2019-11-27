@@ -985,13 +985,10 @@ class GatewayApi(object):
     def get_input_status(self):
         """
         Get a list containing the status of the Inputs.
-
-        :returns: A list is a dicts containing the following keys: id, status, ctimer and dimmer.
+        :returns: A list is a dicts containing the following keys: id, status.
         """
         inputs = self.__observer.get_inputs()
-        return [{'id': input['id'],
-                 'status': input['status']}
-                for input in inputs]
+        return [{'id': input_port['id'], 'status': input_port['status']} for input_port in inputs]
 
     def get_last_inputs(self):
         """ Get the X last pressed inputs during the last Y seconds.
