@@ -2426,6 +2426,8 @@ class WebService(object):
             cherrypy.engine.autoreload_on = False
 
             cherrypy.engine.start()
+            self._https_server.httpserver.error_log = WebService._http_server_logger
+            self._http_server.httpserver.error_log = WebService._http_server_logger
             self._running = True
             logger.info('Starting webserver... Done')
             cherrypy.engine.block()
@@ -2434,6 +2436,13 @@ class WebService(object):
         except Exception:
             logger.exception("Could not start webservice. Dying...")
             sys.exit(1)
+
+    @staticmethod
+    def _http_server_logger(msg='', level=20, traceback=False):
+        _ = level, traceback
+        # For now, let's nog log these SSL errors
+        _ = msg
+        # logger.error(msg)
 
     def start(self):
         """ Start the web service in a new thread. """
