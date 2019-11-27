@@ -15,7 +15,7 @@
 """
 The main module for the OpenMotics
 """
-from platform_utils import System
+from platform_utils import System, Platform
 System.import_eggs()
 
 import logging
@@ -43,12 +43,18 @@ from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 from gateway.observer import Observer
 from gateway.shutters import ShutterController
+from gateway.hal.master_controller_classic import MasterClassicController
+from gateway.hal.master_controller_core import MasterCoreController
 from urlparse import urlparse
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
-from master.maintenance import MaintenanceService
+from master.maintenance import MaintenanceService as MaintenanceClassicService
 from master.master_communicator import MasterCommunicator
 from master.passthrough import PassthroughService
+from master_core.core_communicator import CoreCommunicator
+from master_core.ucan_communicator import UCANCommunicator
+from master_core.memory_file import MemoryFile
+from master_core.maintenance import MaintenanceService as MaintenanceCoreService
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
 from plugins.base import PluginController
@@ -137,21 +143,38 @@ class OpenmoticsService(object):
 
         # Master Controller
         controller_serial_port = config.get('OpenMotics', 'controller_serial')
-        passthrough_serial_port = config.get('OpenMotics', 'passthrough_serial')
-        self.graph.register_instance('controller_serial', Serial(controller_serial_port, 115200))
-        self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
-        self.graph.register_factory('master_communicator', MasterCommunicator, scope=SingletonScope)
-        self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
-        self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
-        self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
-        if passthrough_serial_port:
-            self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
-            self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
+        if Platform.get_platform() == Platform.Type.CORE_PLUS:
+            core_cli_serial_port = config.get('OpenMotics', 'cli_serial')
+            self.graph.register_factory('master_controller', MasterCoreController, scope=SingletonScope)
+            self.graph.register_factory('master_core_communicator', CoreCommunicator, scope=SingletonScope)
+            self.graph.register_factory('ucan_communicator', UCANCommunicator, scope=SingletonScope)
+            self.graph.register_factory('memory_file', MemoryFile, scope=SingletonScope)
+            self.graph.register_instance('ucan_communicator_verbose', False)
+            self.graph.register_instance('core_communicator_verbose', False)
+            self.graph.register_instance('cli_serial', Serial(core_cli_serial_port, 115200))
+            self.graph.register_instance('master_communicator', None)  # TODO: This "breaks" all legacy paths for the Core, but that's fine for now
+            self.graph.register_instance('passthrough_service', None)  # Mark as "not needed"
         else:
-            self.graph.register_instance('passthrough_service', None)
+            passthrough_serial_port = config.get('OpenMotics', 'passthrough_serial')
+            self.graph.register_instance('controller_serial', Serial(controller_serial_port, 115200))
+            self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
+            self.graph.register_factory('master_controller', MasterClassicController, scope=SingletonScope)
+            self.graph.register_factory('master_classic_communicator', MasterCommunicator, scope=SingletonScope)
+            self.graph.register_factory('master_communicator', MasterCommunicator, scope=SingletonScope)  # TODO: Should be removed and replaced by the explicit classic communicator
+            self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
+            self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
+            self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
+            if passthrough_serial_port:
+                self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
+                self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
+            else:
+                self.graph.register_instance('passthrough_service', None)
 
         # Maintenance Controller
-        self.graph.register_factory('maintenance_service', MaintenanceService, scope=SingletonScope)
+        if Platform.get_platform() == Platform.Type.CORE_PLUS:
+            self.graph.register_factory('maintenance_service', MaintenanceCoreService, scope=SingletonScope)
+        else:
+            self.graph.register_factory('maintenance_service', MaintenanceClassicService, scope=SingletonScope)
 
         # Metrics Controller
         self.graph.register_instance('metrics_db', constants.get_metrics_database_file())
@@ -220,7 +243,8 @@ class OpenmoticsService(object):
         self._build_graph()
         self._fix_dependencies()
 
-        service_names = ['master_communicator', 'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
+        service_names = ['master_controller',
+                         'master_communicator', 'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
                          'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
                          'communication_led_controller', 'event_sender']
         for name in service_names:
@@ -234,7 +258,7 @@ class OpenmoticsService(object):
             """ This function is called on SIGTERM. """
             _ = signum, frame
             logger.info('Stopping OM core service...')
-            services_to_stop = ['web_service', 'metrics_collector', 'metrics_controller', 'plugin_controller', 'event_sender']
+            services_to_stop = ['master_controller', 'web_service', 'metrics_collector', 'metrics_controller', 'plugin_controller', 'event_sender']
             for service_to_stop in services_to_stop:
                 self.graph.get(service_to_stop).stop()
             logger.info('Stopping OM core service... Done')
