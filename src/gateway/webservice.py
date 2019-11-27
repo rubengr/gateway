@@ -274,8 +274,7 @@ class WebInterface(object):
         self._power_dirty = False
 
     def in_authorized_mode(self):
-        return True
-        # TODO: return self._message_client.get_state('led_service', {}).get('authorized_mode', False)
+        return self._message_client.get_state('led_service', {}).get('authorized_mode', False)
 
     def distribute_metric(self, metric):
         try:
@@ -435,7 +434,7 @@ class WebInterface(object):
         :rtype: dict
         """
         port = random.randint(6000, 7000)
-        self._maintenance_service.start_in_thread(port)
+        self._maintenance_service.start_maintenance(port, self._gateway_api.maintenance_mode_stopped)
         return {'port': port}
 
     @openmotics_api(auth=True)
