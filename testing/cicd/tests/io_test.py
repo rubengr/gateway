@@ -198,7 +198,7 @@ class IoTest(OMTestCase):
 
         bahia_timezone = timezone('America/Bahia')
         now = datetime.datetime.now(bahia_timezone)
-        response_dict = self.tools.api_testee(api='get_recent', token=self.token)
+        response_dict = self.tools.api_testee(api='get_status', token=self.token)
         self.assertEqual(response_dict.get('time'), now.strftime('%H:%M'))
 
         params = {'timezone': 'UTC'}
@@ -209,7 +209,7 @@ class IoTest(OMTestCase):
         self.assertNotEqual(response_dict.get('timezone'), 'America/Bahia', 'Timezone on the gateway should be back to normal.')
 
         now = datetime.datetime.utcnow()
-        response_dict = self.tools.api_testee(api='get_recent', token=self.token)
+        response_dict = self.tools.api_testee(api='get_status', token=self.token)
         self.assertEqual(response_dict.get('time'), now.strftime('%H:%M'))
 
     @exception_handler
@@ -221,7 +221,7 @@ class IoTest(OMTestCase):
         response_dict = self.tools.api_testee(api='set_timezone', token='some_token', expected_failure=True)
         self.assertEqual(response_dict, 'invalid_token')
 
-        response_dict = self.tools.api_testee(api='get_recent', token='some_token', expected_failure=True)
+        response_dict = self.tools.api_testee(api='get_status', token='some_token', expected_failure=True)
         self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler

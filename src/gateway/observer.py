@@ -324,7 +324,7 @@ class Observer(object):
                     inputs.append(data)
             self._input_status.full_update(inputs)
         except NotImplementedError as e:
-            logger.debug('Cannot refresh inputs: {}', e)
+            logger.error('Cannot refresh inputs: {}', e)
         self._input_last_updated = time.time()
 
     # Shutters
