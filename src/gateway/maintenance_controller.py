@@ -45,10 +45,9 @@ class MaintenanceController(object):
         self._certificate_filename = certificate_filename
         self._maintenance_service = maintenance_service
         self._maintenance_service.set_receiver = self._received_data
+        self._maintenance_stopped_callback = None
         self._connection = None
         self._server_thread = None
-        self._connection_thread = None
-        self._socket_stopped = False
 
     #######################
     # Internal management #
@@ -72,15 +71,31 @@ class MaintenanceController(object):
             except Exception:
                 logger.exception('Exception forwarding maintenance data to consumer %s', str(consumer_id))
 
+    def _activate(self):
+        if not self._maintenance_service.is_active():
+            self._maintenance_service.activate()
+
+    def _deactivate(self):
+        if self._maintenance_service.is_active():
+            self._maintenance_service.deactivate()
+            if self._maintenance_stopped_callback is not None:
+                self._maintenance_stopped_callback()
+
     #################
     # Subscriptions #
     #################
 
     def add_consumer(self, consumer_id, callback):
         self._consumers[consumer_id] = callback
+        self._activate()
 
     def remove_consumer(self, consumer_id):
         self._consumers.pop(consumer_id, None)
+        if self._consumers:
+            self._deactivate()
+
+    def subscribe_maintenance_stopped(self, callback):
+        self._maintenance_stopped_callback = callback
 
     ##########
     # Socket #
@@ -94,9 +109,6 @@ class MaintenanceController(object):
         self._server_thread = Thread(target=self._run_socket_server, args=[port])
         self._server_thread.deamon = True
         self._server_thread.start()
-        self._connection_thread = Thread(target=self._connection_reader)
-        self._connection_thread.daemon = True
-        self._connection_thread.start()
         return port
 
     def _run_socket_server(self, port):
@@ -134,9 +146,9 @@ class MaintenanceController(object):
         try:
             self._connection.settimeout(1)
             self._connection.sendall('Activating maintenance mode, waiting for other actions to complete ...\n')
-            self._maintenance_service.activate()
+            self._activate()
             self._connection.sendall('Connected\n')
-            while not self._socket_stopped:
+            while not self._maintenance_service.is_active():
                 try:
                     try:
                         data = self._connection.recv(1024)
@@ -159,12 +171,9 @@ class MaintenanceController(object):
         except InMaintenanceModeException:
             self._connection.sendall('Maintenance mode already active.\n')
         finally:
-            self._maintenance_service.deactivate()
+            self._deactivate()
             logger.info('Maintenance mode deactivated')
             self._connection.close()
-
-    def _connection_reader(self):
-        pass
 
     #######
     # I/O #

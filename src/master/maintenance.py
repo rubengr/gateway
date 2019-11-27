@@ -60,6 +60,9 @@ class MaintenanceService(object):
     def set_receiver(self, callback):
         self._receiver_callback = callback
 
+    def is_active(self):
+        return self._master_communicator.in_maintenance_mode()
+
     def activate(self):
         """
         Activates maintenance mode, If no data is send for too long, maintenance mode will be closed automatically.
@@ -74,8 +77,9 @@ class MaintenanceService(object):
 
     def deactivate(self):
         self._stopped = True
-        self._read_data_thread.join()
-        self._read_data_thread = None
+        if self._read_data_thread is not None:
+            self._read_data_thread.join()
+            self._read_data_thread = None
         self._master_communicator.stop_maintenance_mode()
 
         if self._maintenance_timeout_timer is not None:
@@ -120,4 +124,4 @@ class MaintenanceService(object):
             except Exception:
                 logger.exception('Exception in maintenance read thread')
                 break
-        self._stopped = True
+        self.deactivate()

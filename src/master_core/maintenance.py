@@ -41,6 +41,7 @@ class MaintenanceService(object):
         self._maintenance_active = False
         self._stopped = True
         self._read_data_thread = None
+        self._active = False
 
     def start(self):
         self._stopped = False
@@ -51,11 +52,14 @@ class MaintenanceService(object):
     def stop(self):
         self._stopped = True
 
+    def is_active(self):
+        return self._active
+
     def activate(self):
-        pass  # Core has a separate serial port
+        self._active = True  # Core has a separate serial port
 
     def deactivate(self):
-        pass  # Core has a separate serial port
+        self._active = False  # Core has a separate serial port
 
     def set_receiver(self, callback):
         self._receiver_callback = callback
