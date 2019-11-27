@@ -21,7 +21,6 @@ import constants
 import logging
 import msgpack
 import os
-import random
 import requests
 import subprocess
 import sys
@@ -32,7 +31,6 @@ import ujson as json
 from wiring import inject, provides, SingletonScope, scope
 from cherrypy.lib.static import serve_file
 from decorator import decorator
-from cloud.cloud_api_client import APIException
 from bus.om_bus_events import OMBusEvents
 from gateway.shutters import ShutterController
 from master.master_communicator import InMaintenanceModeException
@@ -237,25 +235,19 @@ class WebInterface(object):
 
     @provides('web_interface')
     @scope(SingletonScope)
-    @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_service='maintenance_service',
+    @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_controller='maintenance_controller',
             message_client='message_client', config_controller='config_controller',
             scheduling_controller='scheduling_controller')
-    def __init__(self, user_controller, gateway_api, maintenance_service,
+    def __init__(self, user_controller, gateway_api, maintenance_controller,
                  message_client, config_controller, scheduling_controller):
         """
         Constructor for the WebInterface.
 
-        :param user_controller: used to create and authenticate users.
         :type user_controller: gateway.users.UserController
-        :param gateway_api: used to communicate with the master.
         :type gateway_api: gateway.gateway_api.GatewayApi
-        :param maintenance_service: used when opening maintenance mode.
-        :type maintenance_service: master.maintenance.MaintenanceService
-        :param message_client: an OM bus message client
+        :type maintenance_controller: gateway.hal.maintenance_controller.MaintenanceController
         :type message_client: bus.om_bus_client.MessageClient
-        :param config_controller: Configuration controller
         :type config_controller: gateway.config.ConfigController
-        :param scheduling_controller: Scheduling Controller
         :type scheduling_controller: gateway.scheduling.SchedulingController
         """
         self._user_controller = user_controller
@@ -264,7 +256,7 @@ class WebInterface(object):
         self._plugin_controller = None
 
         self._gateway_api = gateway_api
-        self._maintenance_service = maintenance_service
+        self._maintenance_controller = maintenance_controller
         self._message_client = message_client
         self._plugin_controller = None
         self._metrics_collector = None
@@ -433,8 +425,7 @@ class WebInterface(object):
         :returns: 'port': Port on which the maintenance ssl socket is listening (Integer between 6000 and 7000).
         :rtype: dict
         """
-        port = random.randint(6000, 7000)
-        self._maintenance_service.start_maintenance(port, self._gateway_api.maintenance_mode_stopped)
+        port = self._maintenance_controller.open_maintenace_socket()
         return {'port': port}
 
     @openmotics_api(auth=True)

@@ -221,7 +221,7 @@ class MaintenanceSocket(OMSocket):
                                 client_id,
                                 {'token': self.metadata['token'],
                                  'socket': self})
-        self.metadata['interface']._maintenance_service.add_subscriber(client_id, self._send_maintenance_data)
+        self.metadata['interface']._maintenance_controller.add_consumer(client_id, self._send_maintenance_data)
 
     def closed(self, *args, **kwargs):
         _ = args, kwargs
@@ -229,13 +229,13 @@ class MaintenanceSocket(OMSocket):
             return
         client_id = self.metadata['client_id']
         cherrypy.engine.publish('remove-maintenance-receiver', client_id)
-        self.metadata['interface']._maintenance_service.remove_subscriber(client_id)
+        self.metadata['interface']._maintenance_controller.remove_consumer(client_id)
 
     def received_message(self, message):
         if not hasattr(self, 'metadata'):
             return
         try:
-            self.metadata['interface']._maintenance_service.write(message.data)
+            self.metadata['interface']._maintenance_controller.write(message.data)
         except Exception as ex:
             logger.exception('Error receiving data: %s', ex)
 

@@ -32,30 +32,33 @@ class MaintenanceService(object):
     def __init__(self, serial):
         """
         :param serial: Serial port to communicate with
-        :type serial: Instance of :class`serial.Serial`
+        :type serial: serial.Serial
         """
         self._serial = serial
         self._write_lock = Lock()
 
-        self._subscribers = {}
+        self._receiver_callback = None
         self._maintenance_active = False
         self._stopped = True
-
-        self._read_data_thread = Thread(target=self._read_data, name='Core maintenance read thread')
-        self._read_data_thread.setDaemon(True)
+        self._read_data_thread = None
 
     def start(self):
         self._stopped = False
+        self._read_data_thread = Thread(target=self._read_data, name='Core maintenance read thread')
+        self._read_data_thread.daamon = True
         self._read_data_thread.start()
 
     def stop(self):
         self._stopped = True
 
-    def add_subscriber(self, subscriber_id, data_received):
-        self._subscribers[subscriber_id] = data_received
+    def activate(self):
+        pass  # Core has a separate serial port
 
-    def remove_subscriber(self, subscriber_id):
-        self._subscribers.pop(subscriber_id, None)
+    def deactivate(self):
+        pass  # Core has a separate serial port
+
+    def set_receiver(self, callback):
+        self._receiver_callback = callback
 
     def _read_data(self):
         data = ''
@@ -76,9 +79,9 @@ class MaintenanceService(object):
 
             message, data = data.split('\n', 1)
 
-            for callback in self._subscribers.values():
+            if self._receiver_callback is not None:
                 try:
-                    callback(message.rstrip())
+                    self._receiver_callback(message.rstrip())
                 except Exception:
                     logger.exception('Unexpected exception during maintenance callback')
 

@@ -45,6 +45,7 @@ from gateway.observer import Observer
 from gateway.shutters import ShutterController
 from gateway.hal.master_controller_classic import MasterClassicController
 from gateway.hal.master_controller_core import MasterCoreController
+from gateway.maintenance_controller import MaintenanceController
 from urlparse import urlparse
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
@@ -171,6 +172,7 @@ class OpenmoticsService(object):
                 self.graph.register_instance('passthrough_service', None)
 
         # Maintenance Controller
+        self.graph.register_factory('maintenance_controller', MaintenanceController, scope=SingletonScope)
         if Platform.get_platform() == Platform.Type.CORE_PLUS:
             self.graph.register_factory('maintenance_service', MaintenanceCoreService, scope=SingletonScope)
         else:
@@ -214,6 +216,7 @@ class OpenmoticsService(object):
         plugin_controller = self.graph.get('plugin_controller')
         web_service = self.graph.get('web_service')
         event_sender = self.graph.get('event_sender')
+        maintenance_controller = self.graph.get('maintenance_controller')
 
         message_client.add_event_handler(metrics_controller.event_receiver)
         web_interface.set_plugin_controller(plugin_controller)
@@ -235,6 +238,7 @@ class OpenmoticsService(object):
         observer.subscribe_master(Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
         observer.subscribe_events(web_interface.send_event_websocket)
         observer.subscribe_events(event_sender.enqueue_event)
+        maintenance_controller.subscribe_maintenance_stopped(gateway_api.maintenance_mode_stopped)
 
     def start(self):
         """ Main function. """
@@ -243,7 +247,7 @@ class OpenmoticsService(object):
         self._build_graph()
         self._fix_dependencies()
 
-        service_names = ['master_controller',
+        service_names = ['master_controller', 'maintenance_controller',
                          'master_communicator', 'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
                          'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
                          'communication_led_controller', 'event_sender']
@@ -258,7 +262,8 @@ class OpenmoticsService(object):
             """ This function is called on SIGTERM. """
             _ = signum, frame
             logger.info('Stopping OM core service...')
-            services_to_stop = ['master_controller', 'web_service', 'metrics_collector', 'metrics_controller', 'plugin_controller', 'event_sender']
+            services_to_stop = ['master_controller', 'maintenance_controller',
+                                'web_service', 'metrics_collector', 'metrics_controller', 'plugin_controller', 'event_sender']
             for service_to_stop in services_to_stop:
                 self.graph.get(service_to_stop).stop()
             logger.info('Stopping OM core service... Done')
