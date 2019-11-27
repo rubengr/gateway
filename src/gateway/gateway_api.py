@@ -20,7 +20,6 @@ and call the master_api to complete the actions.
 import os
 import time
 import threading
-import time as pytime
 import datetime
 import math
 import sqlite3
@@ -110,22 +109,18 @@ class GatewayApi(object):
         self.__observer = observer
         self.__shutter_controller = shutter_controller
 
-        self.__last_maintenance_send_time = 0
-        self.__maintenance_timeout_timer = None
-
         self.__discover_mode_timer = None
 
         self.__module_log = []
 
         self.__previous_on_outputs = set()
 
-        # TODO
-        # self.__master_communicator.register_consumer(
-        #     BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
-        # )
-        # self.__master_communicator.register_consumer(
-        #     BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
-        # )
+        self.__master_communicator.register_consumer(
+            BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
+        )
+        self.__master_communicator.register_consumer(
+            BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
+        )
 
         self.__master_checker_thread = Thread(target=self.__master_checker)
         self.__master_checker_thread.daemon = True
@@ -391,53 +386,8 @@ class GatewayApi(object):
         if self.__plugin_controller is not None:
             self.__plugin_controller.process_event(code)
 
-    # Maintenance functions
-
-    def start_maintenance_mode(self, timeout=600):
-        """ Start maintenance mode, if the time between send_maintenance_data calls exceeds the
-        timeout, the maintenance mode will be closed automatically. """
-        self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
-        self.__master_communicator.start_maintenance_mode()
-
-        def check_maintenance_timeout():
-            """ Checks if the maintenance if the timeout is exceeded, and closes maintenance mode
-            if required. """
-            if self.__master_communicator.in_maintenance_mode():
-                current_time = pytime.time()
-                if self.__last_maintenance_send_time + timeout < current_time:
-                    LOGGER.info('Stopping maintenance mode because of timeout.')
-                    self.stop_maintenance_mode()
-                else:
-                    wait_time = self.__last_maintenance_send_time + timeout - current_time
-                    self.__maintenance_timeout_timer = Timer(wait_time, check_maintenance_timeout)
-                    self.__maintenance_timeout_timer.start()
-
-        self.__maintenance_timeout_timer = Timer(timeout, check_maintenance_timeout)
-        self.__maintenance_timeout_timer.start()
-
-    def send_maintenance_data(self, data):
-        """ Send data to the master in maintenance mode.
-
-        :param data: data to send to the master
-        :type data: string
-        """
-        self.__last_maintenance_send_time = pytime.time()
-        self.__master_communicator.send_maintenance_data(data)
-
-    def get_maintenance_data(self):
-        """ Get data from the master in maintenance mode.
-
-        :returns: string containing unprocessed output
-        """
-        return self.__master_communicator.get_maintenance_data()
-
-    def stop_maintenance_mode(self):
-        """ Stop maintenance mode. """
-        self.__master_communicator.stop_maintenance_mode()
-
-        if self.__maintenance_timeout_timer is not None:
-            self.__maintenance_timeout_timer.cancel()
-            self.__maintenance_timeout_timer = None
+    def maintenance_mode_stopped(self):
+        """ Called when maintenance mode is stopped """
         self.__observer.invalidate_cache()
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__eeprom_controller.dirty = True
@@ -486,7 +436,7 @@ class GatewayApi(object):
             gpio_file.close()
 
         power(False)
-        pytime.sleep(5)
+        time.sleep(5)
         power(True)
 
         return {'status': 'OK'}

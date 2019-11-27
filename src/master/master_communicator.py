@@ -301,7 +301,6 @@ class MasterCommunicator(object):
             raise InMaintenanceModeException()
 
         self.__maintenance_mode = True
-
         self.send_maintenance_data(master_api.to_cli_mode().create_input(0))
 
     def send_maintenance_data(self, data):
@@ -330,11 +329,8 @@ class MasterCommunicator(object):
 
     def stop_maintenance_mode(self):
         """ Stop maintenance mode. """
-        if not self.__maintenance_mode:
-            raise Exception("Not in maintenance mode !")
-
-        self.send_maintenance_data("exit\r\n")
-
+        if self.__maintenance_mode:
+            self.send_maintenance_data("exit\r\n")
         self.__maintenance_mode = False
 
     def in_maintenance_mode(self):
