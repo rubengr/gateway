@@ -198,6 +198,10 @@ class P1(OMPluginBase):
     @input_status(version=2)
     def input_version_2(self, input_status_inst):
         self._input_data_version_2 = input_status_inst
+        
+    @input_status(version=3)
+    def input_version_3(self, input_status_inst):
+        self._input_data_version_3 = input_status_inst
 
     @output_status
     def output(self, output_status_inst):
@@ -243,6 +247,9 @@ class P1(OMPluginBase):
                                         'input_data_version_2': {'input_id': 2, 'status': False},
                                         'output_data': 'OUTPUT',
                                         'event_data': 1})
+
+            plugin_logs = controller.get_logs().get('P1', '')
+            self.assertTrue('Version 3 is not supported for input status decorators' in plugin_logs)
         finally:
             if controller is not None:
                 controller.stop()

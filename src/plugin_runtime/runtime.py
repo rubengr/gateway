@@ -209,7 +209,8 @@ class PluginRuntime:
                 data = {'input_id': input_id, 'status': status}
                 IO._with_catch('input status', receiver, [data])
             else:
-                raise NotImplementedError('Version {} is not supported for input status decorators'.format(version))
+                error = NotImplementedError('Version {} is not supported for input status decorators'.format(version))
+                IO._log_exception('input status', error)
 
     def _handle_output_status(self, status):
         for receiver in self._output_status_receivers:
