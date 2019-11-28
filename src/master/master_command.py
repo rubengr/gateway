@@ -186,6 +186,14 @@ class Result(object):
         """ Implemented so class can be accessed as a dict. """
         self.fields[key] = value
 
+    def get(self, k, default=None):
+        return self.fields.get(k, default)
+
+    def __str__(self):
+        return str(self.fields)
+    
+    def __iter__(self):
+        return self.fields.__iter__()
 
 class Field(object):
     """ Field of a master command has a name, type.

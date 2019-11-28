@@ -26,6 +26,8 @@ import time
 import unittest
 import xmlrunner
 from subprocess import call
+
+from gateway.observer import Event
 from plugin_runtime.base import PluginConfigChecker, PluginException
 
 
@@ -173,6 +175,7 @@ class P1(OMPluginBase):
         OMPluginBase.__init__(self, webservice, logger)
         self._bg_running = False
         self._input_data = None
+        self._input_data_version_2 = None
         self._output_data = None
         self._event_data = None
 
@@ -184,12 +187,21 @@ class P1(OMPluginBase):
     def get_log(self):
         return {'bg_running': self._bg_running,
                 'input_data': self._input_data,
+                'input_data_version_2': self._input_data_version_2,
                 'output_data': self._output_data,
                 'event_data': self._event_data}
 
     @input_status
     def input(self, input_status_inst):
         self._input_data = input_status_inst
+        
+    @input_status(version=2)
+    def input_version_2(self, input_status_inst):
+        self._input_data_version_2 = input_status_inst
+        
+    @input_status(version=3)
+    def input_version_3(self, input_status_inst):
+        self._input_data_version_3 = input_status_inst
 
     @output_status
     def output(self, output_status_inst):
@@ -212,12 +224,18 @@ class P1(OMPluginBase):
             response = controller._request('P1', 'html_index')
             self.assertEqual(response, 'HTML')
 
-            controller.process_input_status({'input': 'INPUT',
-                                             'output': 'OUTPUT'})
+            rising_input_event = {'id': 1,
+                                  'status': True,
+                                  'location': {'room_id': 1}}
+            controller.process_observer_event(Event(event_type=Event.Types.INPUT_CHANGE, data=rising_input_event))
+            falling_input_event = {'id': 2,
+                                   'status': False,
+                                   'location': {'room_id': 5}}
+            controller.process_observer_event(Event(event_type=Event.Types.INPUT_CHANGE, data=falling_input_event))
             controller.process_output_status('OUTPUT')
             controller.process_event(1)
 
-            keys = ['input_data', 'output_data', 'event_data']
+            keys = ['input_data', 'input_data_version_2', 'output_data', 'event_data']
             start = time.time()
             while time.time() - start < 2:
                 response = controller._request('P1', 'get_log')
@@ -225,9 +243,13 @@ class P1(OMPluginBase):
                     break
                 time.sleep(0.1)
             self.assertEqual(response, {'bg_running': True,
-                                        'input_data': ['INPUT', 'OUTPUT'],
+                                        'input_data': [1, None],  # only rising edges should be triggered
+                                        'input_data_version_2': {'input_id': 2, 'status': False},
                                         'output_data': 'OUTPUT',
                                         'event_data': 1})
+
+            plugin_logs = controller.get_logs().get('P1', '')
+            self.assertTrue('Version 3 is not supported for input status decorators' in plugin_logs)
         finally:
             if controller is not None:
                 controller.stop()

@@ -4,6 +4,8 @@ import traceback
 import time
 from threading import Thread
 
+from gateway.observer import Event
+
 sys.path.insert(0, '/opt/openmotics/python')
 
 from platform_utils import System
@@ -137,7 +139,7 @@ class PluginRuntime:
                 elif action == 'stop':
                     ret = self._handle_stop()
                 elif action == 'input_status':
-                    ret = self._handle_input_status(command['status'])
+                    ret = self._handle_input_status(command['event'])
                 elif action == 'output_status':
                     ret = self._handle_output_status(command['status'])
                 elif action == 'shutter_status':
@@ -191,9 +193,24 @@ class PluginRuntime:
 
         self._stopped = True
 
-    def _handle_input_status(self, status):
+    def _handle_input_status(self, event_json):
+        event = Event.deserialize(event_json)
+        # get relevant event details
+        input_id = event.data['id']
+        status = event.data['status']
         for receiver in self._input_status_receivers:
-            IO._with_catch('input status', receiver, [status])
+            version = receiver.input_status.get('version', 1)
+            if version == 1:
+                # Backwards compatibility: only send rising edges of the input (no input releases)
+                if status:
+                    IO._with_catch('input status', receiver, [(input_id, None)])
+            elif version == 2:
+                # Version 2 will send ALL input status changes AND in a dict format
+                data = {'input_id': input_id, 'status': status}
+                IO._with_catch('input status', receiver, [data])
+            else:
+                error = NotImplementedError('Version {} is not supported for input status decorators'.format(version))
+                IO._log_exception('input status', error)
 
     def _handle_output_status(self, status):
         for receiver in self._output_status_receivers:

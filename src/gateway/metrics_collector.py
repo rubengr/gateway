@@ -252,9 +252,9 @@ class MetricsCollector(object):
             LOGGER.exception('Error processing outputs {0}: {1}'.format(output_ids, ex))
 
     def on_input(self, data):
-        self._process_input(data['input'])
+        self._process_input(data['input'], data.get('status'))
 
-    def _process_input(self, input_id):
+    def _process_input(self, input_id, status):
         try:
             now = time.time()
             inputs = self._environment['inputs']
@@ -266,7 +266,7 @@ class MetricsCollector(object):
                         'id': input_id,
                         'name': input_name}
                 self._enqueue_metrics(metric_type='event',
-                                      values={'value': True},
+                                      values={'value': status},
                                       tags=tags,
                                       timestamp=now)
         except Exception as ex:

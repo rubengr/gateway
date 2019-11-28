@@ -1029,6 +1029,21 @@ class EextByte(EextDataType):
     def encode(self, value):
         return str(value)
 
+class EextBool(EextDataType):
+    """ A boolean field, stored in the eeprom extension database. """
+
+    def get_name(self):
+        return 'Bool'
+
+    def default_value(self):
+        return False
+
+    def decode(self, value):
+        return value == 'True'
+
+    def encode(self, value):
+        return str(bool(int(value)))
+
 
 class EextWord(EextDataType):
     """ An word field, stored in the eeprom extension database. """
@@ -1063,7 +1078,7 @@ class EextString(EextDataType):
 
 
 class EextBool(EextDataType):
-    """ A Boolean field, stored in the eepro extension database. """
+    """ A Boolean field, stored in the eeprom extension database. """
 
     def get_name(self):
         return 'Boolean'

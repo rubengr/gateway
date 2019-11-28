@@ -30,8 +30,8 @@ class EventSender(object):
 
     @provides('event_sender')
     @scope(SingletonScope)
-    @inject(cloud_client='cloud_api_client')
-    def __init__(self, cloud_client):
+    @inject(cloud_client='cloud_api_client', gateway_api='gateway_api')
+    def __init__(self, cloud_client, gateway_api):
         """
         :param cloud_client: The cloud API object
         :type cloud_client: cloud.client.Client
@@ -39,38 +39,51 @@ class EventSender(object):
         self._queue = deque()
         self._stopped = True
         self._cloud_client = cloud_client
+        self._gateway_api = gateway_api
 
-        self._thread = Thread(target=self._send_events_loop, name='Event sender')
-        self._thread.setDaemon(True)
+        self._events_queue = deque()
+        self._events_thread = Thread(target=self._send_events_loop, name='Event Sender')
+        self._events_thread.setDaemon(True)
 
     def start(self):
         self._stopped = False
-        self._thread.start()
+        self._events_thread.start()
 
     def stop(self):
         self._stopped = True
 
     def enqueue_event(self, event):
+        if self._is_enabled(event):
+            event.data['timestamp'] = time.time()
+            self._queue.appendleft(event)
+
+    def _is_enabled(self, event):
         if event.type in [Event.Types.OUTPUT_CHANGE,
                           Event.Types.SHUTTER_CHANGE,
                           Event.Types.THERMOSTAT_CHANGE,
                           Event.Types.THERMOSTAT_GROUP_CHANGE]:
-            self._queue.appendleft(event)
+            return True
+        elif event.type == Event.Types.INPUT_CHANGE:
+            input_id = event.data['id']
+            config = self._gateway_api.get_input_configuration(input_id)
+            return config['event_enabled']
+        else:
+            return False
 
     def _send_events_loop(self):
         while not self._stopped:
             try:
-                if not self._send_events():
+                if not self._batch_send_events():
                     time.sleep(0.20)
                 time.sleep(0.05)
             except APIException as ex:
-                logger.error(ex)
+                logger.error('Error sending events to the cloud: {}'.format(str(ex)))
                 time.sleep(1)
             except Exception:
                 logger.exception('Unexpected error when sending events')
                 time.sleep(1)
 
-    def _send_events(self):
+    def _batch_send_events(self):
         events = []
         while len(events) < 25:
             try:
