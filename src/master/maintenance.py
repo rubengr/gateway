@@ -20,11 +20,12 @@ import time
 import logging
 from threading import Timer, Thread
 from wiring import provides, inject, SingletonScope, scope
+from gateway.maintenance_service import MaintenanceService
 
 logger = logging.getLogger('openmotics')
 
 
-class MaintenanceService(object):
+class MaintenanceClassicService(MaintenanceService):
     """
     The maintenance service accepts tcp connections. If a connection is accepted it
     grabs the serial port, sets the gateway mode to CLI and forwards input and output
@@ -67,17 +68,20 @@ class MaintenanceService(object):
         """
         Activates maintenance mode, If no data is send for too long, maintenance mode will be closed automatically.
         """
+        logger.info('Activating maintenance mode')
+        self._last_maintenance_send_time = time.time()
         self._master_communicator.start_maintenance_mode()
-        self._maintenance_timeout_timer = Timer(MaintenanceService.MAINTENANCE_TIMEOUT, self._check_maintenance_timeout)
+        self._maintenance_timeout_timer = Timer(MaintenanceClassicService.MAINTENANCE_TIMEOUT, self._check_maintenance_timeout)
         self._maintenance_timeout_timer.start()
         self._stopped = False
         self._read_data_thread = Thread(target=self._read_data, name='Classic maintenance read thread')
         self._read_data_thread.daamon = True
         self._read_data_thread.start()
 
-    def deactivate(self):
+    def deactivate(self, join=True):
+        logger.info('Deactivating maintenance mode')
         self._stopped = True
-        if self._read_data_thread is not None:
+        if join and self._read_data_thread is not None:
             self._read_data_thread.join()
             self._read_data_thread = None
         self._master_communicator.stop_maintenance_mode()
@@ -91,7 +95,7 @@ class MaintenanceService(object):
         Checks if the maintenance if the timeout is exceeded, and closes maintenance mode
         if required.
         """
-        timeout = MaintenanceService.MAINTENANCE_TIMEOUT
+        timeout = MaintenanceClassicService.MAINTENANCE_TIMEOUT
         if self._master_communicator.in_maintenance_mode():
             current_time = time.time()
             if self._last_maintenance_send_time + timeout < current_time:
@@ -110,12 +114,15 @@ class MaintenanceService(object):
 
     def _read_data(self):
         """ Reads from the serial port and writes to the socket. """
-        data = ''
+        buffer = ''
         while not self._stopped:
             try:
-                data += self._master_communicator.get_maintenance_data()
-                if '\n' in data:
-                    message, data = data.split('\n', 1)
+                data = self._master_communicator.get_maintenance_data()
+                if data is None:
+                    continue
+                buffer += data
+                while '\n' in buffer:
+                    message, buffer = buffer.split('\n', 1)
                     if self._receiver_callback is not None:
                         try:
                             self._receiver_callback(message.rstrip())
@@ -124,4 +131,4 @@ class MaintenanceService(object):
             except Exception:
                 logger.exception('Exception in maintenance read thread')
                 break
-        self.deactivate()
+        self.deactivate(join=False)

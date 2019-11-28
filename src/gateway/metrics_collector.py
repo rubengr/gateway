@@ -23,7 +23,7 @@ from threading import Thread, Event
 from collections import deque
 from wiring import provides, inject, SingletonScope, scope
 from serial_utils import CommunicationTimedOutException
-from master.master_communicator import InMaintenanceModeException
+from gateway.maintenance_service import InMaintenanceModeException
 
 LOGGER = logging.getLogger("openmotics")
 

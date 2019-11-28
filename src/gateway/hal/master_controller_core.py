@@ -20,6 +20,7 @@ import time
 from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
 from gateway.hal.master_controller import MasterController, MasterEvent
+from gateway.maintenance_service import InMaintenanceModeException
 from master_core.core_api import CoreAPI
 from master_core.core_communicator import BackgroundConsumer
 from master_core.events import Event as MasterCoreEvent
@@ -95,6 +96,9 @@ class MasterCoreController(MasterController):
             except CommunicationTimedOutException:
                 logger.error('Got communication timeout during synchronization, waiting 10 seconds.')
                 self._set_master_state(False)
+                time.sleep(10)
+            except InMaintenanceModeException:
+                # This is an expected situation
                 time.sleep(10)
             except Exception as ex:
                 logger.exception('Unexpected error during synchronization: {0}'.format(ex))

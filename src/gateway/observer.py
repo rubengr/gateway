@@ -22,6 +22,7 @@ import ujson as json
 from wiring import provides, inject, SingletonScope, scope
 from threading import Thread
 from gateway.hal.master_controller import MasterEvent
+from gateway.maintenance_service import InMaintenanceModeException
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.thermostats import ThermostatStatus
 from master.inputs import InputStatus
@@ -196,6 +197,9 @@ class Observer(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Got communication timeout during monitoring, waiting 10 seconds.')
                 self._set_master_state(False)
+                time.sleep(10)
+            except InMaintenanceModeException:
+                # This is an expected situation
                 time.sleep(10)
             except Exception as ex:
                 LOGGER.exception('Unexpected error during monitoring: {0}'.format(ex))

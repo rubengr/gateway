@@ -36,6 +36,7 @@ from subprocess import check_output
 from threading import Timer, Thread
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
+from gateway.maintenance_service import InMaintenanceModeException
 from master import master_api
 from power import power_api
 from master.master_communicator import BackgroundConsumer
@@ -164,6 +165,9 @@ class GatewayApi(object):
             except CommunicationTimedOutException:
                 LOGGER.error('Got communication timeout while checking the master.')
                 time.sleep(60)
+            except InMaintenanceModeException:
+                # This is an expected situation
+                time.sleep(10)
             except Exception as ex:
                 LOGGER.exception('Got unexpected exception while checking the master: {0}'.format(ex))
                 time.sleep(60)

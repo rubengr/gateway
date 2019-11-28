@@ -20,11 +20,12 @@ import time
 import logging
 from threading import Thread, Lock
 from wiring import provides, inject, SingletonScope, scope
+from gateway.maintenance_service import MaintenanceService
 
 logger = logging.getLogger('openmotics')
 
 
-class MaintenanceService(object):
+class MaintenanceCoreService(MaintenanceService):
 
     @provides('maintenance_service')
     @scope(SingletonScope)
@@ -58,7 +59,8 @@ class MaintenanceService(object):
     def activate(self):
         self._active = True  # Core has a separate serial port
 
-    def deactivate(self):
+    def deactivate(self, join=True):
+        _ = join
         self._active = False  # Core has a separate serial port
 
     def set_receiver(self, callback):

@@ -20,13 +20,10 @@ import socket
 import random
 from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
+from gateway.maintenance_service import InMaintenanceModeException
 from platform_utils import System
 
 logger = logging.getLogger("openmotics")
-
-
-class InMaintenanceModeException(Exception):
-    pass
 
 
 class MaintenanceController(object):
@@ -38,13 +35,13 @@ class MaintenanceController(object):
     @inject(maintenance_service='maintenance_service', privatekey_filename='ssl_private_key', certificate_filename='ssl_certificate')
     def __init__(self, maintenance_service, privatekey_filename, certificate_filename):
         """
-        :type maintenance_service: master_core.maintenance.MaintenanceService | master.maintenance.MaintenanceService
+        :type maintenance_service: gateway.maintenance_service.MaintenanceService
         """
         self._consumers = {}
         self._privatekey_filename = privatekey_filename
         self._certificate_filename = certificate_filename
         self._maintenance_service = maintenance_service
-        self._maintenance_service.set_receiver = self._received_data
+        self._maintenance_service.set_receiver(self._received_data)
         self._maintenance_stopped_callback = None
         self._connection = None
         self._server_thread = None
@@ -62,7 +59,7 @@ class MaintenanceController(object):
     def _received_data(self, message):
         try:
             if self._connection is not None:
-                self._connection.sendall(message)
+                self._connection.sendall('{0}\n'.format(message))
         except Exception:
             logger.exception('Exception forwarding maintenance data to socket connection.')
         for consumer_id, callback in self._consumers.items():
@@ -148,7 +145,7 @@ class MaintenanceController(object):
             self._connection.sendall('Activating maintenance mode, waiting for other actions to complete ...\n')
             self._activate()
             self._connection.sendall('Connected\n')
-            while not self._maintenance_service.is_active():
+            while self._maintenance_service.is_active():
                 try:
                     try:
                         data = self._connection.recv(1024)
@@ -164,6 +161,7 @@ class MaintenanceController(object):
                         if System.handle_socket_exception(self._connection, exception, logger):
                             continue
                         else:
+                            logger.exception('Unexpected exception receiving connection data')
                             break
                 except Exception:
                     logger.exception('Exception in maintenance mode')

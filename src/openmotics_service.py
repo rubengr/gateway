@@ -49,13 +49,13 @@ from gateway.maintenance_controller import MaintenanceController
 from urlparse import urlparse
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
-from master.maintenance import MaintenanceService as MaintenanceClassicService
+from master.maintenance import MaintenanceClassicService
 from master.master_communicator import MasterCommunicator
 from master.passthrough import PassthroughService
 from master_core.core_communicator import CoreCommunicator
 from master_core.ucan_communicator import UCANCommunicator
 from master_core.memory_file import MemoryFile
-from master_core.maintenance import MaintenanceService as MaintenanceCoreService
+from master_core.maintenance import MaintenanceCoreService
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
 from plugins.base import PluginController

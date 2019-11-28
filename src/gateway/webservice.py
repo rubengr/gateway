@@ -33,7 +33,7 @@ from cherrypy.lib.static import serve_file
 from decorator import decorator
 from bus.om_bus_events import OMBusEvents
 from gateway.shutters import ShutterController
-from master.master_communicator import InMaintenanceModeException
+from gateway.maintenance_service import InMaintenanceModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
 from gateway.websockets import OMPlugin, OMSocketTool, MetricsSocket, EventsSocket, MaintenanceSocket

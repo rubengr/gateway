@@ -21,6 +21,7 @@ import time
 from threading import Thread, Lock, Event
 from toolbox import Queue, Empty
 from wiring import inject, provides, scope, SingletonScope
+from gateway.maintenance_service import InMaintenanceModeException
 from master import master_api
 from master_command import Field, printable
 from serial_utils import CommunicationTimedOutException
@@ -461,12 +462,6 @@ class MasterCommunicator(object):
                             self.__push_passthrough_data(leftovers)
                         else:
                             self.__maintenance_queue.put(leftovers)
-
-
-class InMaintenanceModeException(Exception):
-    """ An exception that is raised when the master is in maintenance mode. """
-    def __init__(self):
-        Exception.__init__(self)
 
 
 class CrcCheckFailedException(Exception):
