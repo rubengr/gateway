@@ -982,11 +982,19 @@ class GatewayApi(object):
 
     # Input functions
 
+    def get_input_status(self):
+        """
+        Get a list containing the status of the Inputs.
+        :returns: A list is a dicts containing the following keys: id, status.
+        """
+        inputs = self.__observer.get_inputs()
+        return [{'id': input_port['id'], 'status': input_port['status']} for input_port in inputs]
+
     def get_last_inputs(self):
         """ Get the X last pressed inputs during the last Y seconds.
         :returns: a list of tuples (input, output).
         """
-        return self.__observer.get_input_status()
+        return self.__observer.get_recent()
 
     # Thermostat functions
 
@@ -1828,7 +1836,7 @@ class GatewayApi(object):
         Set multiple input_configurations.
 
         :param config: The list of input_configurations to set
-        :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte)
+        :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte), 'event_enabled' (Bool)
         """
         self.__eeprom_controller.write_batch([InputConfiguration.deserialize(o) for o in config])
 

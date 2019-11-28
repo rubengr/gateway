@@ -383,7 +383,7 @@ class EventsSocket(OMSocket):
                          Event.Types.THERMOSTAT_CHANGE,
                          Event.Types.THERMOSTAT_GROUP_CHANGE,
                          Event.Types.SHUTTER_CHANGE,
-                         Event.Types.INPUT_TRIGGER]
+                         Event.Types.INPUT_CHANGE]
         try:
             data = msgpack.loads(message.data)
             event = Event.deserialize(data)
@@ -696,6 +696,8 @@ class WebInterface(object):
             features.append('default_timer_disabled')
         if master_version >= (3, 143, 79):
             features.append('100_steps_dimmer')
+        if master_version >= (3, 143, 88):
+            features.append('input_states')
 
         return {'features': features}
 
@@ -723,6 +725,15 @@ class WebInterface(object):
         :rtype: dict
         """
         return self._gateway_api.get_status()
+
+    @openmotics_api(auth=True)
+    def get_input_status(self):
+        """
+        Get the status of the inputs.
+
+        :returns: 'status': list of dictionaries with the following keys: id, status.
+        """
+        return {'status': self._gateway_api.get_input_status()}
 
     @openmotics_api(auth=True)
     def get_output_status(self):

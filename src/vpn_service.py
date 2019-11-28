@@ -234,6 +234,13 @@ class Gateway(object):
             return ret
         return
 
+    def get_inputs_status(self):
+        """ Get the inputs status. """
+        data = self.do_call("get_input_status?token=None")
+        if data is not None and data['success']:
+            return [(inp["id"], inp["status"]) for inp in data['status']]
+        return
+
     def get_thermostats(self):
         """ Fetch the setpoints for the enabled thermostats from the webservice. """
         data = self.do_call("get_thermostat_status?token=None")
@@ -330,6 +337,7 @@ class VPNService(object):
                             self._config_controller)
 
         self._collectors = {'thermostats': DataCollector(self._gateway.get_thermostats, 60),
+                            'inputs': DataCollector(self._gateway.get_inputs_status),
                             'outputs': DataCollector(self._gateway.get_enabled_outputs),
                             'pulses': DataCollector(self._gateway.get_pulse_counter_diff, 60),
                             'power': DataCollector(self._gateway.get_real_time_power),

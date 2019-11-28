@@ -15,6 +15,10 @@
 """ The OpenMotics plugin decorators. """
 
 import inspect
+import logging
+
+
+logger = logging.getLogger('openmotics')
 
 
 def om_expose(method=None, auth=True, content_type='application/json'):
@@ -48,17 +52,26 @@ def om_expose(method=None, auth=True, content_type='application/json'):
     return decorate
 
 
-def input_status(method):
+def input_status(method=None, version=1):
     """
     Decorator to indicate that the method should receive input status messages.
     The receiving method should accept one parameter, a tuple of (input, output).
-    Each time an input is pressed, the method will be called.
+    Each time an input changes status, the method will be called.
 
     Important! This method should not block, as this will result in an unresponsive system.
     Please use a separate thread to perform complex actions on input status messages.
+
+    Initially only presses (rising edges) of input signals were handled, a version was introduced to support all
+    input status changes, both falling and rising edges.
     """
-    method.input_status = True
-    return method
+    if method is not None:
+        method.input_status = {'version': 1}
+        return method
+
+    def wrapper(_method):
+        _method.input_status = {'version': version}
+        return _method
+    return wrapper
 
 
 def output_status(method):

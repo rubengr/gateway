@@ -19,7 +19,7 @@ Contains the EepromModels
 from eeprom_controller import EepromModel, EepromAddress, EepromId, EepromString, \
                               EepromWord, EepromByte, EepromActions, EepromTemp, EepromTime, \
                               EepromCSV, CompositeDataType, EepromSignedTemp, EepromIBool, \
-                              EepromEnum, EextByte, EextString, EextWord
+                              EepromEnum, EextByte, EextString, EextWord, EextBool
 
 
 def page_per_module(module_size, start_page, start_offset, field_size):
@@ -111,6 +111,7 @@ class InputConfiguration(EepromModel):
     invert = EepromByte(lambda mid: (32, mid))
     room = EextByte()
     can = EepromString(1, lambda mid: (2 + mid / 8, 252), read_only=True, shared=True)
+    event_enabled = EextBool()
 
 
 class CanLedConfiguration(EepromModel):

@@ -4,7 +4,6 @@ import subprocess
 import sys
 import time
 import traceback
-
 from threading import Thread, Lock
 from toolbox import Queue, Empty, Full, PluginIPCStream
 
@@ -151,8 +150,9 @@ class PluginRunner:
                     except Exception as exception:
                         self.logger('[Runner] Exception during killing plugin: {0}'.format(exception))
 
-    def process_input_status(self, status):
-        self._do_async('input_status', {'status': status}, should_filter=True)
+    def process_input_status(self, input_event):
+        event_json = input_event.serialize()
+        self._do_async('input_status', {'event': event_json}, should_filter=True)
 
     def process_output_status(self, status):
         self._do_async('output_status', {'status': status}, should_filter=True)
