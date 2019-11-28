@@ -34,6 +34,7 @@ import ujson as json
 from wiring import inject, scope, SingletonScope, provides
 from subprocess import check_output
 from threading import Timer, Thread
+from platform_utils import Platform
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
 from gateway.maintenance_service import InMaintenanceModeException
@@ -116,18 +117,20 @@ class GatewayApi(object):
 
         self.__previous_on_outputs = set()
 
-        self.__master_communicator.register_consumer(
-            BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
-        )
-        self.__master_communicator.register_consumer(
-            BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
-        )
+        if Platform.get_platform() == Platform.Type.CLASSIC:
+            self.__master_communicator.register_consumer(
+                BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
+            )
+            self.__master_communicator.register_consumer(
+                BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
+            )
 
         self.__master_checker_thread = Thread(target=self.__master_checker)
         self.__master_checker_thread.daemon = True
 
     def start(self):
-        self.__master_checker_thread.start()
+        if Platform.get_platform() == Platform.Type.CLASSIC:
+            self.__master_checker_thread.start()
 
     def set_plugin_controller(self, plugin_controller):
         """

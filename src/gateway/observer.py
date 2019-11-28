@@ -21,6 +21,7 @@ import logging
 import ujson as json
 from wiring import provides, inject, SingletonScope, scope
 from threading import Thread
+from platform_utils import Platform
 from gateway.hal.master_controller import MasterEvent
 from gateway.maintenance_service import InMaintenanceModeException
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
@@ -159,7 +160,8 @@ class Observer(object):
     def start(self):
         """ Starts the monitoring thread """
         self._ensure_gateway_api()
-        self._thread.start()
+        if Platform.get_platform() == Platform.Type.CLASSIC:
+            self._thread.start()
 
     def invalidate_cache(self, object_type=None):
         """
@@ -304,7 +306,7 @@ class Observer(object):
                     inputs.append(data)
             self._input_status.full_update(inputs)
         except NotImplementedError as e:
-            logger.error('Cannot refresh inputs: {}', e)
+            logger.error('Cannot refresh inputs: {}'.format(e))
         self._input_last_updated = time.time()
 
     # Shutters

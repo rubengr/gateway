@@ -155,6 +155,12 @@ class OpenmoticsService(object):
             self.graph.register_instance('core_communicator_verbose', False)
             self.graph.register_instance('cli_serial', Serial(core_cli_serial_port, 115200))
             self.graph.register_instance('passthrough_service', None)  # Mark as "not needed"
+            # TODO: Remove; should not be needed for Core
+            self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
+            self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
+            self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
+            self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
+            self.graph.register_factory('master_classic_communicator', CoreCommunicator, scope=SingletonScope)
         else:
             passthrough_serial_port = config.get('OpenMotics', 'passthrough_serial')
             self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
