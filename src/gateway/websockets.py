@@ -190,7 +190,7 @@ class EventsSocket(OMSocket):
                          Event.Types.THERMOSTAT_CHANGE,
                          Event.Types.THERMOSTAT_GROUP_CHANGE,
                          Event.Types.SHUTTER_CHANGE,
-                         Event.Types.INPUT_TRIGGER]
+                         Event.Types.INPUT_CHANGE]
         try:
             data = msgpack.loads(message.data)
             event = Event.deserialize(data)

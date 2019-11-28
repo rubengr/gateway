@@ -20,7 +20,7 @@ import unittest
 import xmlrunner
 import time
 
-from gateway.inputs import InputStatus
+from master.inputs import InputStatus
 
 
 class InputStatusTest(unittest.TestCase):

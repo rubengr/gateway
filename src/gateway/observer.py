@@ -24,7 +24,7 @@ from gateway.hal.master_controller import MasterEvent
 from gateway.maintenance_service import InMaintenanceModeException
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.thermostats import ThermostatStatus
-from gateway.inputs import InputStatus
+from master.inputs import InputStatus
 from master import master_api
 from bus.om_bus_events import OMBusEvents
 
