@@ -18,6 +18,7 @@ The observer module contains logic to observe various states of the system. It k
 
 import time
 import logging
+import ujson as json
 from wiring import provides, inject, SingletonScope, scope
 from threading import Thread
 from gateway.hal.master_controller import MasterEvent
