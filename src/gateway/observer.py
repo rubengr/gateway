@@ -26,7 +26,6 @@ from wiring import provides, inject, SingletonScope, scope
 from threading import Thread
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.outputs import OutputStatus
-from master.thermostats import ThermostatStatus
 from master.inputs import InputStatus
 from master import master_api
 from bus.om_bus_events import OMBusEvents
@@ -84,7 +83,7 @@ class Observer(object):
     @provides('observer')
     @scope(SingletonScope)
     @inject(master_communicator='master_communicator', message_client='message_client', shutter_controller='shutter_controller', thermostat_controller='thermostat_controller',)
-    def __init__(self, master_communicator, message_client, shutter_controller, thermostat_controller):
+    def __init__(self, master_communicator, message_client, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -106,20 +105,13 @@ class Observer(object):
         self._input_status = InputStatus()
         self._output_status = OutputStatus(on_output_change=self._output_changed)
 
-        self._thermostat_controller = thermostat_controller
-        self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed,
-                                                   on_thermostat_group_change=self._thermostat_group_changed)
+
         self._shutter_controller = shutter_controller
         self._shutter_controller.set_shutter_changed_callback(self._shutter_changed)
 
         self._output_interval = 600
         self._output_last_updated = 0
         self._output_config = {}
-        self._thermostats_original_interval = 30
-        self._thermostats_interval = self._thermostats_original_interval
-        self._thermostats_last_updated = 0
-        self._thermostats_restore = 0
-        self._thermostats_config = {}
         self._shutters_interval = 600
         self._shutters_last_updated = 0
         self._master_online = False
@@ -159,7 +151,7 @@ class Observer(object):
         """ Starts the monitoring thread """
         self._ensure_gateway_api()
         self._thread.start()
-
+           
     def invalidate_cache(self, object_type=None):
         """
         Triggered when an external service knows certain settings might be changed in the background.
@@ -167,16 +159,8 @@ class Observer(object):
         """
         if object_type is None or object_type == Observer.Types.OUTPUTS:
             self._output_last_updated = 0
-        if object_type is None or object_type == Observer.Types.THERMOSTATS:
-            self._thermostats_last_updated = 0
         if object_type is None or object_type == Observer.Types.SHUTTERS:
             self._shutters_last_updated = 0
-
-    def increase_interval(self, object_type, interval, window):
-        """ Increases a certain interval to a new setting for a given amount of time """
-        if object_type == Observer.Types.THERMOSTATS:
-            self._thermostats_interval = interval
-            self._thermostats_restore = time.time() + window
 
     def _monitor(self):
         """ Monitors certain system states to detect changes without events """
@@ -320,42 +304,4 @@ class Observer(object):
             )
         self._shutters_last_updated = time.time()
 
-    # Thermostats
 
-    def get_thermostats(self):
-        """ Returns thermostat information """
-        self._ensure_gateway_api()
-        self._refresh_thermostats()  # Always return the latest information
-        return self._thermostat_status.get_thermostats()
-
-    def _thermostat_changed(self, thermostat_id, status):
-        """ Executed by the Thermostat Status tracker when an output changed state """
-        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
-        location = {'room_id': self._thermostats_config[thermostat_id]['room']}
-        for callback in self._event_subscriptions:
-            callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
-                           data={'id': thermostat_id,
-                                 'status': {'preset': status['preset'],
-                                            'current_setpoint': status['current_setpoint'],
-                                            'actual_temperature': status['actual_temperature'],
-                                            'output_0': status['output_0'],
-                                            'output_1': status['output_1']},
-                                 'location': location}))
-
-    def _thermostat_group_changed(self, status):
-        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
-        for callback in self._event_subscriptions:
-            callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
-                           data={'id': 0,
-                                 'status': {'state': status['state'],
-                                            'mode': status['mode']},
-                                 'location': {}}))
-
-    def _refresh_thermostats(self):
-        """
-        Get basic information about all thermostats and pushes it in to the Thermostat Status tracker
-        """
-        thermostats_config, thermostats_status = self._thermostat_controller.get_thermostats_status()
-        self._thermostats_config = thermostats_config
-        self._thermostat_status.full_update(thermostats_status)
-        self._thermostats_last_updated = time.time()

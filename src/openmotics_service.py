@@ -165,6 +165,7 @@ class OpenmoticsService(object):
         plugin_controller = self.graph.get('plugin_controller')
         web_service = self.graph.get('web_service')
         event_sender = self.graph.get('event_sender')
+
         message_client.add_event_handler(metrics_controller.event_receiver)
         web_interface.set_plugin_controller(plugin_controller)
         web_interface.set_metrics_collector(metrics_collector)
@@ -192,7 +193,7 @@ class OpenmoticsService(object):
 
         services = ['master_communicator', 'observer', 'power_communicator', 'metrics_controller',
                     'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
-                    'communication_led_controller', 'event_sender']
+                    'communication_led_controller', 'event_sender', 'thermostat_controller']
         for service in services:
             self.graph.get(service).start()
 

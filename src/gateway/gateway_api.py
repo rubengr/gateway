@@ -44,12 +44,10 @@ from master import master_api
 from power import power_api
 from master.master_communicator import BackgroundConsumer
 from master.eeprom_controller import EepromAddress
-from master.eeprom_models import OutputConfiguration, InputConfiguration, ThermostatConfiguration, \
-    SensorConfiguration, PumpGroupConfiguration, GroupActionConfiguration, \
+from master.eeprom_models import OutputConfiguration, InputConfiguration,  \
+    SensorConfiguration, GroupActionConfiguration, \
     ScheduledActionConfiguration, StartupActionConfiguration, \
     ShutterConfiguration, ShutterGroupConfiguration, DimmerConfiguration, \
-    GlobalThermostatConfiguration, CoolingConfiguration, CoolingPumpGroupConfiguration, \
-    GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
     CanLedConfiguration, RoomConfiguration
 from bus.om_bus_events import OMBusEvents
 
@@ -61,12 +59,6 @@ def convert_nan(number):
     if math.isnan(number):
         LOGGER.warning('Got an unexpected NaN')
     return 0.0 if math.isnan(number) else number
-
-
-def check_basic_action(ret_dict):
-    """ Checks if the response is 'OK', throws a ValueError otherwise. """
-    if ret_dict['resp'] != 'OK':
-        raise ValueError('Basic action did not return OK.')
 
 
 class GatewayApi(object):
@@ -1640,48 +1632,6 @@ class GatewayApi(object):
         """
         self.__eeprom_controller.write_batch([InputConfiguration.deserialize(o) for o in config])
 
-    def get_thermostat_configuration(self, thermostat_id, fields=None):
-        """
-        Get a specific thermostat_configuration defined by its id.
-
-        :param thermostat_id: The id of the thermostat_configuration
-        :type thermostat_id: Id
-        :param fields: The field of the thermostat_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        return self.__eeprom_controller.read(ThermostatConfiguration, thermostat_id, fields).serialize()
-
-    def get_thermostat_configurations(self, fields=None):
-        """
-        Get all thermostat_configurations.
-
-        :param fields: The field of the thermostat_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(ThermostatConfiguration, fields)]
-
-    def set_thermostat_configuration(self, config):
-        """
-        Set one thermostat_configuration.
-
-        :param config: The thermostat_configuration to set
-        :type config: thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        self.__eeprom_controller.write(ThermostatConfiguration.deserialize(config))
-        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
-
-    def set_thermostat_configurations(self, config):
-        """
-        Set multiple thermostat_configurations.
-
-        :param config: The list of thermostat_configurations to set
-        :type config: list of thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        self.__eeprom_controller.write_batch([ThermostatConfiguration.deserialize(o) for o in config])
-        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
-
     def get_sensor_configuration(self, sensor_id, fields=None):
         """
         Get a specific sensor_configuration defined by its id.
@@ -1721,227 +1671,6 @@ class GatewayApi(object):
         :type config: list of sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
         """
         self.__eeprom_controller.write_batch([SensorConfiguration.deserialize(o) for o in config])
-
-    def get_pump_group_configuration(self, pump_group_id, fields=None):
-        """
-        Get a specific pump_group_configuration defined by its id.
-
-        :param pump_group_id: The id of the pump_group_configuration
-        :type pump_group_id: Id
-        :param fields: The field of the pump_group_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
-        """
-        return self.__eeprom_controller.read(PumpGroupConfiguration, pump_group_id, fields).serialize()
-
-    def get_pump_group_configurations(self, fields=None):
-        """
-        Get all pump_group_configurations.
-
-        :param fields: The field of the pump_group_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(PumpGroupConfiguration, fields)]
-
-    def set_pump_group_configuration(self, config):
-        """
-        Set one pump_group_configuration.
-
-        :param config: The pump_group_configuration to set
-        :type config: pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
-        """
-        self.__eeprom_controller.write(PumpGroupConfiguration.deserialize(config))
-
-    def set_pump_group_configurations(self, config):
-        """
-        Set multiple pump_group_configurations.
-
-        :param config: The list of pump_group_configurations to set
-        :type config: list of pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
-        """
-        self.__eeprom_controller.write_batch([PumpGroupConfiguration.deserialize(o) for o in config])
-
-    def get_cooling_configuration(self, cooling_id, fields=None):
-        """
-        Get a specific cooling_configuration defined by its id.
-
-        :param cooling_id: The id of the cooling_configuration
-        :type cooling_id: Id
-        :param fields: The field of the cooling_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: cooling_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        return self.__eeprom_controller.read(CoolingConfiguration, cooling_id, fields).serialize()
-
-    def get_cooling_configurations(self, fields=None):
-        """
-        Get all cooling_configurations.
-
-        :param fields: The field of the cooling_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of cooling_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(CoolingConfiguration, fields)]
-
-    def set_cooling_configuration(self, config):
-        """
-        Set one cooling_configuration.
-
-        :param config: The cooling_configuration to set
-        :type config: cooling_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        self.__eeprom_controller.write(CoolingConfiguration.deserialize(config))
-        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
-
-    def set_cooling_configurations(self, config):
-        """
-        Set multiple cooling_configurations.
-
-        :param config: The list of cooling_configurations to set
-        :type config: list of cooling_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        self.__eeprom_controller.write_batch([CoolingConfiguration.deserialize(o) for o in config])
-        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
-
-    def get_cooling_pump_group_configuration(self, pump_group_id, fields=None):
-        """
-        Get a specific cooling_pump_group_configuration defined by its id.
-
-        :param pump_group_id: The id of the cooling_pump_group_configuration
-        :type pump_group_id: Id
-        :param fields: The field of the cooling_pump_group_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
-        """
-        return self.__eeprom_controller.read(CoolingPumpGroupConfiguration, pump_group_id, fields).serialize()
-
-    def get_cooling_pump_group_configurations(self, fields=None):
-        """
-        Get all cooling_pump_group_configurations.
-
-        :param fields: The field of the cooling_pump_group_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(CoolingPumpGroupConfiguration, fields)]
-
-    def set_cooling_pump_group_configuration(self, config):
-        """
-        Set one cooling_pump_group_configuration.
-
-        :param config: The cooling_pump_group_configuration to set
-        :type config: cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
-        """
-        self.__eeprom_controller.write(CoolingPumpGroupConfiguration.deserialize(config))
-
-    def set_cooling_pump_group_configurations(self, config):
-        """
-        Set multiple cooling_pump_group_configurations.
-
-        :param config: The list of cooling_pump_group_configurations to set
-        :type config: list of cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
-        """
-        self.__eeprom_controller.write_batch([CoolingPumpGroupConfiguration.deserialize(o) for o in config])
-
-    def get_global_rtd10_configuration(self, fields=None):
-        """
-        Get the global_rtd10_configuration.
-
-        :param fields: The field of the global_rtd10_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: global_rtd10_configuration dict: contains 'output_value_cooling_16' (Byte), 'output_value_cooling_16_5' (Byte), 'output_value_cooling_17' (Byte), 'output_value_cooling_17_5' (Byte), 'output_value_cooling_18' (Byte), 'output_value_cooling_18_5' (Byte), 'output_value_cooling_19' (Byte), 'output_value_cooling_19_5' (Byte), 'output_value_cooling_20' (Byte), 'output_value_cooling_20_5' (Byte), 'output_value_cooling_21' (Byte), 'output_value_cooling_21_5' (Byte), 'output_value_cooling_22' (Byte), 'output_value_cooling_22_5' (Byte), 'output_value_cooling_23' (Byte), 'output_value_cooling_23_5' (Byte), 'output_value_cooling_24' (Byte), 'output_value_heating_16' (Byte), 'output_value_heating_16_5' (Byte), 'output_value_heating_17' (Byte), 'output_value_heating_17_5' (Byte), 'output_value_heating_18' (Byte), 'output_value_heating_18_5' (Byte), 'output_value_heating_19' (Byte), 'output_value_heating_19_5' (Byte), 'output_value_heating_20' (Byte), 'output_value_heating_20_5' (Byte), 'output_value_heating_21' (Byte), 'output_value_heating_21_5' (Byte), 'output_value_heating_22' (Byte), 'output_value_heating_22_5' (Byte), 'output_value_heating_23' (Byte), 'output_value_heating_23_5' (Byte), 'output_value_heating_24' (Byte)
-        """
-        return self.__eeprom_controller.read(GlobalRTD10Configuration, fields).serialize()
-
-    def set_global_rtd10_configuration(self, config):
-        """
-        Set the global_rtd10_configuration.
-
-        :param config: The global_rtd10_configuration to set
-        :type config: global_rtd10_configuration dict: contains 'output_value_cooling_16' (Byte), 'output_value_cooling_16_5' (Byte), 'output_value_cooling_17' (Byte), 'output_value_cooling_17_5' (Byte), 'output_value_cooling_18' (Byte), 'output_value_cooling_18_5' (Byte), 'output_value_cooling_19' (Byte), 'output_value_cooling_19_5' (Byte), 'output_value_cooling_20' (Byte), 'output_value_cooling_20_5' (Byte), 'output_value_cooling_21' (Byte), 'output_value_cooling_21_5' (Byte), 'output_value_cooling_22' (Byte), 'output_value_cooling_22_5' (Byte), 'output_value_cooling_23' (Byte), 'output_value_cooling_23_5' (Byte), 'output_value_cooling_24' (Byte), 'output_value_heating_16' (Byte), 'output_value_heating_16_5' (Byte), 'output_value_heating_17' (Byte), 'output_value_heating_17_5' (Byte), 'output_value_heating_18' (Byte), 'output_value_heating_18_5' (Byte), 'output_value_heating_19' (Byte), 'output_value_heating_19_5' (Byte), 'output_value_heating_20' (Byte), 'output_value_heating_20_5' (Byte), 'output_value_heating_21' (Byte), 'output_value_heating_21_5' (Byte), 'output_value_heating_22' (Byte), 'output_value_heating_22_5' (Byte), 'output_value_heating_23' (Byte), 'output_value_heating_23_5' (Byte), 'output_value_heating_24' (Byte)
-        """
-        self.__eeprom_controller.write(GlobalRTD10Configuration.deserialize(config))
-
-    def get_rtd10_heating_configuration(self, heating_id, fields=None):
-        """
-        Get a specific rtd10_heating_configuration defined by its id.
-
-        :param heating_id: The id of the rtd10_heating_configuration
-        :type heating_id: Id
-        :param fields: The field of the rtd10_heating_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
-        """
-        return self.__eeprom_controller.read(RTD10HeatingConfiguration, heating_id, fields).serialize()
-
-    def get_rtd10_heating_configurations(self, fields=None):
-        """
-        Get all rtd10_heating_configurations.
-
-        :param fields: The field of the rtd10_heating_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(RTD10HeatingConfiguration, fields)]
-
-    def set_rtd10_heating_configuration(self, config):
-        """
-        Set one rtd10_heating_configuration.
-
-        :param config: The rtd10_heating_configuration to set
-        :type config: rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
-        """
-        self.__eeprom_controller.write(RTD10HeatingConfiguration.deserialize(config))
-
-    def set_rtd10_heating_configurations(self, config):
-        """
-        Set multiple rtd10_heating_configurations.
-
-        :param config: The list of rtd10_heating_configurations to set
-        :type config: list of rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
-        """
-        self.__eeprom_controller.write_batch([RTD10HeatingConfiguration.deserialize(o) for o in config])
-
-    def get_rtd10_cooling_configuration(self, cooling_id, fields=None):
-        """
-        Get a specific rtd10_cooling_configuration defined by its id.
-
-        :param cooling_id: The id of the rtd10_cooling_configuration
-        :type cooling_id: Id
-        :param fields: The field of the rtd10_cooling_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
-        """
-        return self.__eeprom_controller.read(RTD10CoolingConfiguration, cooling_id, fields).serialize()
-
-    def get_rtd10_cooling_configurations(self, fields=None):
-        """
-        Get all rtd10_cooling_configurations.
-
-        :param fields: The field of the rtd10_cooling_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(RTD10CoolingConfiguration, fields)]
-
-    def set_rtd10_cooling_configuration(self, config):
-        """
-        Set one rtd10_cooling_configuration.
-
-        :param config: The rtd10_cooling_configuration to set
-        :type config: rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
-        """
-        self.__eeprom_controller.write(RTD10CoolingConfiguration.deserialize(config))
-
-    def set_rtd10_cooling_configurations(self, config):
-        """
-        Set multiple rtd10_cooling_configurations.
-
-        :param config: The list of rtd10_cooling_configurations to set
-        :type config: list of rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
-        """
-        self.__eeprom_controller.write_batch([RTD10CoolingConfiguration.deserialize(o) for o in config])
 
     def get_group_action_configuration(self, group_action_id, fields=None):
         """
@@ -2060,29 +1789,6 @@ class GatewayApi(object):
         :type config: dimmer_configuration dict: contains 'dim_memory' (Byte), 'dim_step' (Byte), 'dim_wait_cycle' (Byte), 'min_dim_level' (Byte)
         """
         self.__eeprom_controller.write(DimmerConfiguration.deserialize(config))
-
-    def get_global_thermostat_configuration(self, fields=None):
-        """
-        Get the global_thermostat_configuration.
-
-        :param fields: The field of the global_thermostat_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: global_thermostat_configuration dict: contains 'outside_sensor' (Byte), 'pump_delay' (Byte), 'switch_to_cooling_output_0' (Byte), 'switch_to_cooling_output_1' (Byte), 'switch_to_cooling_output_2' (Byte), 'switch_to_cooling_output_3' (Byte), 'switch_to_cooling_value_0' (Byte), 'switch_to_cooling_value_1' (Byte), 'switch_to_cooling_value_2' (Byte), 'switch_to_cooling_value_3' (Byte), 'switch_to_heating_output_0' (Byte), 'switch_to_heating_output_1' (Byte), 'switch_to_heating_output_2' (Byte), 'switch_to_heating_output_3' (Byte), 'switch_to_heating_value_0' (Byte), 'switch_to_heating_value_1' (Byte), 'switch_to_heating_value_2' (Byte), 'switch_to_heating_value_3' (Byte), 'threshold_temp' (Temp)
-        """
-        return self.__eeprom_controller.read(GlobalThermostatConfiguration, fields).serialize()
-
-    def set_global_thermostat_configuration(self, config):
-        """
-        Set the global_thermostat_configuration.
-
-        :param config: The global_thermostat_configuration to set
-        :type config: global_thermostat_configuration dict: contains 'outside_sensor' (Byte), 'pump_delay' (Byte), 'switch_to_cooling_output_0' (Byte), 'switch_to_cooling_output_1' (Byte), 'switch_to_cooling_output_2' (Byte), 'switch_to_cooling_output_3' (Byte), 'switch_to_cooling_value_0' (Byte), 'switch_to_cooling_value_1' (Byte), 'switch_to_cooling_value_2' (Byte), 'switch_to_cooling_value_3' (Byte), 'switch_to_heating_output_0' (Byte), 'switch_to_heating_output_1' (Byte), 'switch_to_heating_output_2' (Byte), 'switch_to_heating_output_3' (Byte), 'switch_to_heating_value_0' (Byte), 'switch_to_heating_value_1' (Byte), 'switch_to_heating_value_2' (Byte), 'switch_to_heating_value_3' (Byte), 'threshold_temp' (Temp)
-        """
-        if 'outside_sensor' in config:
-            if config['outside_sensor'] == 255:
-                config['threshold_temp'] = 50  # Works around a master issue where the thermostat would be turned off in case there is no outside sensor.
-        self.__eeprom_controller.write(GlobalThermostatConfiguration.deserialize(config))
-        self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def get_can_led_configuration(self, can_led_id, fields=None):
         """
