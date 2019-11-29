@@ -266,7 +266,7 @@ class MetricsCollector(object):
                         'id': input_id,
                         'name': input_name}
                 self._enqueue_metrics(metric_type='event',
-                                      values={'value': status},
+                                      values={'value': status if status is not None else True},
                                       tags=tags,
                                       timestamp=now)
         except Exception as ex:
