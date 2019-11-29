@@ -72,8 +72,7 @@ class Observer(object):
     The Observer gets various (change) events and will also monitor certain datasets to manually detect changes
     """
 
-    # TODO: Part of the observer must be moved to the MasterController
-
+    # TODO: Needs to be removed and replace by MasterEvents from the MasterController
     class LegacyMasterEvents(object):
         ON_OUTPUTS = 'ON_OUTPUTS'
         ON_SHUTTER_UPDATE = 'ON_SHUTTER_UPDATE'
@@ -236,12 +235,6 @@ class Observer(object):
 
     # Handle master "events"
 
-    def _on_output(self, data):
-        """ Triggers when the master informs us of an Output state change """
-        on_outputs = data['outputs']
-        for callback in self._master_subscriptions[Observer.LegacyMasterEvents.ON_OUTPUTS]:
-            callback(on_outputs)
-
     def _on_input(self, data):
         """ Triggers when the master informs us of an Input state change """
         # Update status tracker
@@ -382,7 +375,7 @@ class Observer(object):
         thermostat_info = self._master_communicator.do_command(master_api.thermostat_list())
         thermostat_mode = self._master_communicator.do_command(master_api.thermostat_mode_list())
         aircos = self._master_communicator.do_command(master_api.read_airco_status_bits())
-        outputs = self._master_controller.get_output_statuses()
+        outputs = self.get_outputs()
 
         mode = thermostat_info['mode']
         thermostats_on = bool(mode & 1 << 7)

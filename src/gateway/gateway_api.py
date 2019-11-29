@@ -1669,7 +1669,7 @@ class GatewayApi(object):
         :param config: The input_configuration to set
         :type config: input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte)
         """
-        return self.__master_controller.save_inputs([config])
+        self.__master_controller.save_inputs([config])
 
     def set_input_configurations(self, config):
         """
@@ -1678,7 +1678,7 @@ class GatewayApi(object):
         :param config: The list of input_configurations to set
         :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte), 'event_enabled' (Bool)
         """
-        return self.__master_controller.save_inputs(config)
+        self.__master_controller.save_inputs(config)
 
     def get_thermostat_configuration(self, thermostat_id, fields=None):
         """
