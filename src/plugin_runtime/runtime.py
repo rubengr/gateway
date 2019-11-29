@@ -4,14 +4,13 @@ import traceback
 import time
 from threading import Thread
 
-from gateway.observer import Event
-
 sys.path.insert(0, '/opt/openmotics/python')
 
 from platform_utils import System
 System.import_eggs()
 
 from toolbox import PluginIPCStream
+from gateway.observer import Event
 from plugin_runtime import base
 from plugin_runtime.utils import get_plugin_class, check_plugin, get_special_methods
 from plugin_runtime.interfaces import has_interface
