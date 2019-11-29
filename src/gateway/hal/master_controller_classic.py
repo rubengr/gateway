@@ -100,6 +100,10 @@ class MasterClassicController(MasterController):
     # Public API #
     ##############
 
+    def get_firmware_version(self):
+        out_dict = self._master_communicator.do_command(master_api.status())
+        return int(out_dict['f1']), int(out_dict['f2']), int(out_dict['f3'])
+
     # Memory (eeprom/fram)
 
     def eeprom_read_page(self, page):
@@ -127,19 +131,52 @@ class MasterClassicController(MasterController):
 
     # Outputs
 
-    def set_output(self, output_id, state):
+    def set_output(self, output_id, state, dimmer=None, timer=None):
         if output_id < 0 or output_id > 240:
-            raise ValueError('Output ID not in range 0 <= id <= 240: %d' % output_id)
+            raise ValueError('Output ID {0} not in range 0 <= id <= 240'.format(output_id))
+        if dimmer is not None and dimmer < 0 or dimmer > 100:
+            raise ValueError('Dimmer value {0} not in [0, 100]'.format(dimmer))
+        if timer is not None and timer not in [150, 450, 900, 1500, 2220, 3120]:
+            raise ValueError('Timer value {0} not in [150, 450, 900, 1500, 2220, 3120]'.format(timer))
 
-        if state:
-            self._master_communicator.do_command(
-                master_api.basic_action(),
-                {'action_type': master_api.BA_LIGHT_ON, 'action_number': output_id}
-            )
-        else:
+        if not state:
             self._master_communicator.do_command(
                 master_api.basic_action(),
                 {'action_type': master_api.BA_LIGHT_OFF, 'action_number': output_id}
+            )
+            return
+
+        if dimmer is not None:
+            master_version = self.get_firmware_version()
+            if master_version >= (3, 143, 79):
+                dimmer = int(0.63 * dimmer)
+                self._master_communicator.do_command(
+                    master_api.write_dimmer(),
+                    {'output_nr': output_id, 'dimmer_value': dimmer}
+                )
+            else:
+                dimmer = int(dimmer) / 10 * 10
+                if dimmer == 0:
+                    dimmer_action = master_api.BA_DIMMER_MIN
+                elif dimmer == 100:
+                    dimmer_action = master_api.BA_DIMMER_MAX
+                else:
+                    dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_' + str(dimmer)]
+                self._master_communicator.do_command(
+                    master_api.basic_action(),
+                    {'action_type': dimmer_action, 'action_number': output_id}
+                )
+
+        self._master_communicator.do_command(
+            master_api.basic_action(),
+            {'action_type': master_api.BA_LIGHT_ON, 'action_number': output_id}
+        )
+
+        if timer is not None:
+            timer_action = getattr(master_api, 'BA_LIGHT_ON_TIMER_{0}_OVERRULE'.format(timer))
+            self._master_communicator.do_command(
+                master_api.basic_action(),
+                {'action_type': timer_action, 'action_number': output_id}
             )
 
     def toggle_output(self, output_id):

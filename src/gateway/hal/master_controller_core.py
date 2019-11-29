@@ -120,6 +120,9 @@ class MasterCoreController(MasterController):
     # Public API #
     ##############
 
+    def get_firmware_version(self):
+        return 0, 0, 0  # TODO
+
     # Memory (eeprom/fram)
 
     def eeprom_read_page(self, page):
@@ -141,7 +144,9 @@ class MasterCoreController(MasterController):
 
     # Outputs
 
-    def set_output(self, output_id, state):
+    def set_output(self, output_id, state, dimmer=None, timer=None):
+        # TODO: Use `dimmer` and `timer`
+        _ = dimmer, timer
         action = 1 if state else 0
         self._master_communicator.do_command(CoreAPI.basic_action(), {'type': 0, 'action': action,
                                                                       'device_nr': output_id,

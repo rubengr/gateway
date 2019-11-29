@@ -660,106 +660,17 @@ class GatewayApi(object):
         """ Set the status, dimmer and timer of an output.
 
         :param output_id: The id of the output to set
-        :type output_id: Integer [0, 240]
+        :type output_id: int
         :param is_on: Whether the output should be on
-        :type is_on: Boolean
+        :type is_on: bool
         :param dimmer: The dimmer value to set, None if unchanged
-        :type dimmer: Integer [0, 100] or None
+        :type dimmer: int | None
         :param timer: The timer value to set, None if unchanged
-        :type timer: Integer in [150, 450, 900, 1500, 2220, 3120]
+        :type timer: int | None
         :returns: emtpy dict.
         """
-        if not is_on:
-            if dimmer is not None or timer is not None:
-                raise ValueError('Cannot set timer and dimmer when setting output to off')
-            else:
-                self.set_output_status(output_id, False)
-        else:
-            if dimmer is not None:
-                pass  # TODO: self.set_output_dimmer(output_id, dimmer)
-
-            self.set_output_status(output_id, True)
-
-            if timer is not None:
-                pass  # TODO: self.set_output_timer(output_id, timer)
-
-        return dict()
-
-    def set_output_status(self, output_id, is_on):
-        """ Set the status of an output.
-
-        :param output_id: The id of the output to set
-        :type output_id: Integer [0, 240]
-        :param is_on: Whether the output should be on
-        :type is_on: Boolean
-        :returns: empty dict.
-        """
-        self.__master_controller.set_output(output_id=output_id, state=is_on)
+        self.__master_controller.set_output(output_id=output_id, state=is_on, dimmer=dimmer, timer=timer)
         return {}
-
-    def set_output_dimmer(self, output_id, dimmer):
-        """ Set the dimmer of an output.
-
-        :param output_id: The id of the output to set
-        :type output_id: Integer [0, 240]
-        :param dimmer: The dimmer value to set
-        :type dimmer: Integer [0, 100]
-        :returns: empty dict.
-        """
-        if output_id < 0 or output_id > 240:
-            raise ValueError('id not in [0, 240]: %d' % output_id)
-
-        if dimmer < 0 or dimmer > 100:
-            raise ValueError('Dimmer value not in [0, 100]: %d' % dimmer)
-
-        master_version = self.get_master_version()
-        if master_version >= (3, 143, 79):
-            dimmer = int(0.63 * dimmer)
-
-            self.__master_communicator.do_command(
-                master_api.write_dimmer(),
-                {'output_nr': output_id, 'dimmer_value': dimmer}
-            )
-        else:
-            dimmer = int(dimmer) / 10 * 10
-
-            if dimmer == 0:
-                dimmer_action = master_api.BA_DIMMER_MIN
-            elif dimmer == 100:
-                dimmer_action = master_api.BA_DIMMER_MAX
-            else:
-                dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_' + str(dimmer)]
-
-            self.__master_communicator.do_command(
-                master_api.basic_action(),
-                {'action_type': dimmer_action, 'action_number': output_id}
-            )
-
-        return {}
-
-    def set_output_timer(self, output_id, timer):
-        """ Set the timer of an output.
-
-        :param output_id: The id of the output to set
-        :type output_id: Integer [0, 240]
-        :param timer: The timer value to set, None if unchanged
-        :type timer: Integer in [150, 450, 900, 1500, 2220, 3120]
-        :returns: empty dict.
-        """
-        if output_id < 0 or output_id > 240:
-            raise ValueError('id not in [0, 240]: %d' % output_id)
-
-        if timer not in [150, 450, 900, 1500, 2220, 3120]:
-            raise ValueError('Timer value not in [150, 450, 900, 1500, 2220, 3120]: %d' % timer)
-
-        timer_action = master_api.__dict__['BA_LIGHT_ON_TIMER_' + str(timer) + '_OVERRULE']
-
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': timer_action, 'action_number': output_id}
-        )
-
-        return dict()
 
     def set_all_lights_off(self):
         """ Turn all lights off.

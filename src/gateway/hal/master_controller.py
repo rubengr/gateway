@@ -73,6 +73,9 @@ class MasterController(object):
 
     # TODO: Currently the objects returned here are classic-format dicts. This needs to be changed to intermediate transport objects
 
+    def get_firmware_version(self):
+        raise NotImplementedError()
+
     # Memory (eeprom/fram)
 
     def eeprom_read_page(self, page):
@@ -94,7 +97,7 @@ class MasterController(object):
 
     # Outputs
 
-    def set_output(self, output_id, state):
+    def set_output(self, output_id, state, dimmer=None, timer=None):
         raise NotImplementedError()
 
     def toggle_output(self, output_id):
