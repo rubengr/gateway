@@ -269,6 +269,12 @@ class Observer(object):
                 callback(Event(event_type=Event.Types.OUTPUT_CHANGE,
                                data=naster_event.data))
 
+    # Outputs
+
+    def get_outputs(self):
+        """ Returns a list of Outputs with their status """
+        return self._master_controller.get_output_statuses()
+
     # Inputs
 
     def get_inputs(self):

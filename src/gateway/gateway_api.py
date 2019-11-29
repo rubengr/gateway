@@ -649,7 +649,7 @@ class GatewayApi(object):
 
         :returns: A list is a dicts containing the following keys: id, status, ctimer and dimmer.
         """
-        outputs = self.__master_controller.get_output_statuses()
+        outputs = self.__observer.get_outputs()
         return [{'id': output['id'],
                  'status': output['status'],
                  'ctimer': output['ctimer'],
