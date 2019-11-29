@@ -110,7 +110,7 @@ class MaintenanceClassicService(MaintenanceService):
 
     def write(self, message):
         self._last_maintenance_send_time = time.time()
-        self._master_communicator.send_maintenance_data(message)
+        self._master_communicator.send_maintenance_data('{0}\r\n'.format(message.strip()))
 
     def _read_data(self):
         """ Reads from the serial port and writes to the socket. """

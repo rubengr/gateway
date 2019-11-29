@@ -304,6 +304,12 @@ class MasterCommunicator(object):
         if self.__maintenance_mode:
             raise InMaintenanceModeException()
 
+        try:
+            while True:
+                self.__maintenance_queue.get(timeout=0.5)
+        except Empty:
+            pass
+
         self.__maintenance_mode = True
         self.send_maintenance_data(master_api.to_cli_mode().create_input(0))
 

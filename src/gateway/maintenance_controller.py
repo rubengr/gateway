@@ -59,12 +59,12 @@ class MaintenanceController(object):
     def _received_data(self, message):
         try:
             if self._connection is not None:
-                self._connection.sendall('{0}\n'.format(message))
+                self._connection.sendall('{0}\n'.format(message.rstrip()))
         except Exception:
             logger.exception('Exception forwarding maintenance data to socket connection.')
         for consumer_id, callback in self._consumers.items():
             try:
-                callback(message)
+                callback(message.rstrip())
             except Exception:
                 logger.exception('Exception forwarding maintenance data to consumer %s', str(consumer_id))
 
@@ -88,7 +88,8 @@ class MaintenanceController(object):
 
     def remove_consumer(self, consumer_id):
         self._consumers.pop(consumer_id, None)
-        if self._consumers:
+        if not self._consumers:
+            logger.info('Stopping maintenance mode due to no consumers.')
             self._deactivate()
 
     def subscribe_maintenance_stopped(self, callback):
@@ -134,7 +135,6 @@ class MaintenanceController(object):
         except Exception:
             logger.exception('Error in maintenance service')
             sock.close()
-        return port
 
     def _handle_connection(self):
         """
@@ -172,6 +172,7 @@ class MaintenanceController(object):
             self._deactivate()
             logger.info('Maintenance mode deactivated')
             self._connection.close()
+            self._connection = None
 
     #######
     # I/O #
