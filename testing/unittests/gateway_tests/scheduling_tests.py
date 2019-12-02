@@ -66,7 +66,7 @@ class SchedulingControllerTest(unittest.TestCase):
     def _get_controller(self):
         gateway_api = GatewayApi()
         controller = SchedulingController(self._db, Lock(), gateway_api)
-        controller.set_webinterface(WebInterface(None, gateway_api, None, None, None, controller))
+        controller.set_webinterface(WebInterface(None, gateway_api, None, None, None, controller, None))
         return controller
 
     def test_base_validation(self):
