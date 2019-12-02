@@ -1,0 +1,5 @@
+{
+  "tests": [
+    "rooms_test.RoomsTest.test_set_all_lights_floor_on"
+  ]
+}
