@@ -31,18 +31,22 @@ class PluginController(object):
 
     @provides('plugin_controller')
     @scope(SingletonScope)
-    @inject(webinterface='web_interface', config_controller='config_controller')
+    @inject(webinterface='web_interface', config_controller='config_controller', observer='observer')
     def __init__(
-        self, webinterface, config_controller,
+        self, webinterface, config_controller, observer,
         runtime_path='/opt/openmotics/python/plugin_runtime',
         plugins_path='/opt/openmotics/python/plugins',
         plugin_config_path='/opt/openmotics/etc'
     ):
+        """
+        :type observer: gateway.observer.Observer
+        """
         self.__webinterface = webinterface
         self.__config_controller = config_controller
         self.__runtime_path = runtime_path
         self.__plugins_path = plugins_path
         self.__plugin_config_path = plugin_config_path
+        self.__observer = observer
 
         self.__stopped = True
         self.__logs = {}
@@ -306,15 +310,15 @@ class PluginController(object):
 
     def process_observer_event(self, event):
         if event.type == Event.Types.INPUT_CHANGE:
-            """ Should be called when the input status changes, notifies all plugins. """
+            # Should be called when the input status changes, notifies all plugins.
             for runner in self.__iter_running_runners():
                 runner.process_input_status(event)
-        # TODO: implement/move also for other events (outputs, shutters, ...)
-
-    def process_output_status(self, output_status_inst):
-        """ Should be called when the output status changes, notifies all plugins. """
-        for runner in self.__iter_running_runners():
-            runner.process_output_status(output_status_inst)
+        if event.type == Event.Types.OUTPUT_CHANGE:
+            # Should be called when the output status changes, notifies all plugins.
+            states = [(output['id'], output['dimmer']) for output in self.__observer.get_outputs()
+                      if output['status'] == 1]
+            for runner in self.__iter_running_runners():
+                runner.process_output_status(states)
 
     def process_shutter_status(self, shutter_status_inst):
         """ Should be called when the shutter status changes, notifies all plugins. """

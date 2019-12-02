@@ -235,21 +235,15 @@ class OpenmoticsService(object):
         plugin_controller.set_metrics_controller(metrics_controller)
         plugin_controller.set_metrics_collector(metrics_collector)
         observer.set_gateway_api(gateway_api)
-        # TODO: make sure all subscribers only subscribe to the observer, not master directly
-
-        # send master events to metrics collector
-        observer.subscribe_master(Observer.LegacyMasterEvents.ON_INPUT_CHANGE, metrics_collector.on_input)
-        observer.subscribe_master(Observer.LegacyMasterEvents.ON_OUTPUTS, metrics_collector.on_output)
-
-        # send state changes to plugin_controller
+        observer.subscribe_events(metrics_collector.process_observer_event)
         observer.subscribe_events(plugin_controller.process_observer_event)
-        # TODO: move output and shutter also to plugin_controller.process_observer_event
-        observer.subscribe_master(Observer.LegacyMasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
-        observer.subscribe_master(Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
-
-        # send all other events
         observer.subscribe_events(web_interface.send_event_websocket)
         observer.subscribe_events(event_sender.enqueue_event)
+
+        # TODO: make sure all subscribers only subscribe to the observer, not master directly
+        observer.subscribe_master(Observer.LegacyMasterEvents.ON_INPUT_CHANGE, metrics_collector.on_input)
+        observer.subscribe_master(Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
+
         maintenance_controller.subscribe_maintenance_stopped(gateway_api.maintenance_mode_stopped)
 
     def start(self):

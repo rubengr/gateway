@@ -23,6 +23,7 @@ from threading import Thread, Event
 from collections import deque
 from wiring import provides, inject, SingletonScope, scope
 from serial_utils import CommunicationTimedOutException
+from gateway.observer import Event as ObserverEvent
 from gateway.maintenance_service import InMaintenanceModeException
 
 LOGGER = logging.getLogger("openmotics")
@@ -197,32 +198,15 @@ class MetricsCollector(object):
             sleep = max(0.1, interval - elapsed)
             time.sleep(sleep)
 
-    def on_output(self, data):
-        try:
-            on_outputs = {entry[0]: entry[1] for entry in data}
-            outputs = self._environment['outputs']
-            changed_output_ids = []
-            for output_id in outputs:
-                status = outputs[output_id].get('status')
-                dimmer = outputs[output_id].get('dimmer')
-                if status is None or dimmer is None:
-                    continue
-                changed = False
-                if output_id in on_outputs:
-                    if status != 1:
-                        changed = True
-                        outputs[output_id]['status'] = 1
-                    if dimmer != on_outputs[output_id]:
-                        changed = True
-                        outputs[output_id]['dimmer'] = on_outputs[output_id]
-                elif status != 0:
-                    changed = True
-                    outputs[output_id]['status'] = 0
-                if changed is True:
-                    changed_output_ids.append(output_id)
-            self._process_outputs(changed_output_ids, 'output')
-        except Exception as ex:
-            LOGGER.exception('Error processing outputs: {0}'.format(ex))
+    def process_observer_event(self, event):
+        if event.type == ObserverEvent.Types.OUTPUT_CHANGE:
+            output_id = event.data['id']
+            output = self._environment['outputs'].get(output_id)
+            if output is not None:
+                output.update({'status': 1 if event.data['status']['on'] else 0,
+                               'dimmer': event.data['status'].get('value', 0)})
+                self._process_outputs([output_id], 'output')
+        # TODO: Replace `on_input` by this event handler
 
     def _process_outputs(self, output_ids, metric_type):
         try:

@@ -22,6 +22,13 @@ from exceptions import NotImplementedError
 class MasterEvent(object):
     """
     MasterEvent object
+
+    Data formats:
+    * OUTPUT CHANGE
+      {'id': int,                     # Output ID
+       'status': {'on': bool,         # On/off
+                  'value': int},      # Optional, dimmer value
+       'location': {'room_id': int}}  # Room ID
     """
 
     class Types(object):

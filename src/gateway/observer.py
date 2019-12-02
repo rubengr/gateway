@@ -74,7 +74,6 @@ class Observer(object):
 
     # TODO: Needs to be removed and replace by MasterEvents from the MasterController
     class LegacyMasterEvents(object):
-        ON_OUTPUTS = 'ON_OUTPUTS'
         ON_SHUTTER_UPDATE = 'ON_SHUTTER_UPDATE'
         ON_INPUT_CHANGE = 'INPUT_CHANGE'
         ONLINE = 'ONLINE'
@@ -102,8 +101,7 @@ class Observer(object):
         self._message_client = message_client
         self._gateway_api = None
 
-        self._master_subscriptions = {Observer.LegacyMasterEvents.ON_OUTPUTS: [],
-                                      Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE: [],
+        self._master_subscriptions = {Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE: [],
                                       Observer.LegacyMasterEvents.ON_INPUT_CHANGE: [],
                                       Observer.LegacyMasterEvents.ONLINE: []}
         self._event_subscriptions = []

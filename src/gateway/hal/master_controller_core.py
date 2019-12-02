@@ -205,7 +205,7 @@ class MasterCoreController(MasterController):
         for i in xrange(amount_output_modules * 8):
             state = self._master_communicator.do_command(CoreAPI.output_detail(), {'device_nr': i})
             self._output_states[i] = {'id': i,
-                                      'status': state['status'],
+                                      'status': state['status'],  # 1 or 0
                                       'ctimer': state['timer'],
                                       'dimmer': state['dimmer']}
         self._output_last_updated = time.time()
