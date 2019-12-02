@@ -75,10 +75,11 @@ class PluginControllerTest(unittest.TestCase):
             shutil.rmtree(path)
 
     @staticmethod
-    def _get_controller():
+    def _get_controller(observer=None):
         from plugins.base import PluginController
         controller = PluginController(webinterface=None,
                                       config_controller=None,
+                                      observer=observer,
                                       runtime_path=PluginControllerTest.RUNTIME_PATH,
                                       plugins_path=PluginControllerTest.PLUGINS_PATH,
                                       plugin_config_path=PluginControllerTest.PLUGIN_CONFIG_PATH)
@@ -218,7 +219,11 @@ class P1(OMPluginBase):
             time.sleep(1)
 """)
 
-            controller = PluginControllerTest._get_controller()
+            observer = type('Observer', (), {})()
+            observer.get_outputs = lambda: [{'id': 1,
+                                             'dimmer': 5,
+                                             'status': 1}]
+            controller = PluginControllerTest._get_controller(observer=observer)
             controller.start()
 
             response = controller._request('P1', 'html_index')
@@ -232,7 +237,11 @@ class P1(OMPluginBase):
                                    'status': False,
                                    'location': {'room_id': 5}}
             controller.process_observer_event(Event(event_type=Event.Types.INPUT_CHANGE, data=falling_input_event))
-            controller.process_output_status('OUTPUT')
+            output_event = {'id': 1,
+                            'status': {'on': True,
+                                       'value': 5},
+                            'location': {'room_id': 5}}
+            controller.process_observer_event(Event(event_type=Event.Types.OUTPUT_CHANGE, data=output_event))
             controller.process_event(1)
 
             keys = ['input_data', 'input_data_version_2', 'output_data', 'event_data']
@@ -245,7 +254,7 @@ class P1(OMPluginBase):
             self.assertEqual(response, {'bg_running': True,
                                         'input_data': [1, None],  # only rising edges should be triggered
                                         'input_data_version_2': {'input_id': 2, 'status': False},
-                                        'output_data': 'OUTPUT',
+                                        'output_data': [[1, 5]],
                                         'event_data': 1})
 
             plugin_logs = controller.get_logs().get('P1', '')
