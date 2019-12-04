@@ -28,6 +28,7 @@ import sys
 import threading
 import time
 import uuid
+import ujson as json
 from wiring import inject, provides, SingletonScope, scope
 from cherrypy.lib.static import serve_file
 from decorator import decorator
@@ -41,11 +42,6 @@ from gateway.shutters import ShutterController
 from master.master_communicator import InMaintenanceModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
-
-try:
-    import json
-except ImportError:
-    import simplejson as json
 
 logger = logging.getLogger("openmotics")
 
@@ -346,7 +342,7 @@ class MetricsSocket(OMSocket):
                                  'metric_type': self.metadata['metric_type'],
                                  'token': self.metadata['token'],
                                  'socket': self})
-        self.metadata['interface'].metrics_collector.set_websocket_interval(self.metadata['client_id'],
+        self.metadata['interface']._metrics_collector.set_websocket_interval(self.metadata['client_id'],
                                                                             self.metadata['metric_type'],
                                                                             self.metadata['interval'])
 
@@ -356,7 +352,7 @@ class MetricsSocket(OMSocket):
             return
         client_id = self.metadata['client_id']
         cherrypy.engine.publish('remove-metrics-receiver', client_id)
-        self.metadata['interface'].metrics_collector.set_websocket_interval(client_id, self.metadata['metric_type'], None)
+        self.metadata['interface']._metrics_collector.set_websocket_interval(client_id, self.metadata['metric_type'], None)
 
 
 # noinspection PyUnresolvedReferences
@@ -387,7 +383,7 @@ class EventsSocket(OMSocket):
                          Event.Types.THERMOSTAT_CHANGE,
                          Event.Types.THERMOSTAT_GROUP_CHANGE,
                          Event.Types.SHUTTER_CHANGE,
-                         Event.Types.INPUT_TRIGGER]
+                         Event.Types.INPUT_CHANGE]
         try:
             data = msgpack.loads(message.data)
             event = Event.deserialize(data)
@@ -700,6 +696,8 @@ class WebInterface(object):
             features.append('default_timer_disabled')
         if master_version >= (3, 143, 79):
             features.append('100_steps_dimmer')
+        if master_version >= (3, 143, 88):
+            features.append('input_states')
 
         return {'features': features}
 
@@ -727,6 +725,15 @@ class WebInterface(object):
         :rtype: dict
         """
         return self._gateway_api.get_status()
+
+    @openmotics_api(auth=True)
+    def get_input_status(self):
+        """
+        Get the status of the inputs.
+
+        :returns: 'status': list of dictionaries with the following keys: id, status.
+        """
+        return {'status': self._gateway_api.get_input_status()}
 
     @openmotics_api(auth=True)
     def get_output_status(self):
@@ -2232,7 +2239,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.12.4'}
+                'gateway': '2.13.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):

@@ -18,10 +18,7 @@ import logging
 import os
 import pkgutil
 import traceback
-try:
-    import json
-except ImportError:
-    import simplejson as json
+from gateway.observer import Event
 from datetime import datetime
 from wiring import inject, provides, SingletonScope, scope
 from plugins.runner import PluginRunner
@@ -307,10 +304,12 @@ class PluginController(object):
             if runner is not None and runner.is_running():
                 yield runner
 
-    def process_input_status(self, data):
-        """ Should be called when the input status changes, notifies all plugins. """
-        for runner in self.__iter_running_runners():
-            runner.process_input_status((data['input'], data['output']))
+    def process_observer_event(self, event):
+        if event.type == Event.Types.INPUT_CHANGE:
+            """ Should be called when the input status changes, notifies all plugins. """
+            for runner in self.__iter_running_runners():
+                runner.process_input_status(event)
+        # TODO: implement/move also for other events (outputs, shutters, ...)
 
     def process_output_status(self, output_status_inst):
         """ Should be called when the output status changes, notifies all plugins. """

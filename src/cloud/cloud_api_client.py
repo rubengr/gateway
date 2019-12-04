@@ -17,10 +17,7 @@ Cloud API Client
 """
 import logging
 import requests
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 from wiring import inject, provides
 from requests import ConnectionError
 from requests.adapters import HTTPAdapter
@@ -62,6 +59,9 @@ class CloudAPIClient(object):
 
     def _get_endpoint(self, path):
         return '{0}://{1}:{2}/{3}'.format('https' if self._ssl else 'http', self._hostname, self._port, path)
+
+    def send_event(self, event):
+        self.send_events([event])
 
     def send_events(self, events):
         # sending events over REST is only supported in the v0 API

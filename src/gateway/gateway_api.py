@@ -31,10 +31,7 @@ import shutil
 import subprocess
 import tempfile
 import ConfigParser
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import ujson as json
 from wiring import inject, scope, SingletonScope, provides
 from subprocess import check_output
 from threading import Timer, Thread
@@ -657,15 +654,16 @@ class GatewayApi(object):
                                                      'address': module_address}
 
         # Energy/power modules
-        modules = self.__power_controller.get_power_modules().values()
-        for module in modules:
-            module_address = module['address']
-            raw_version = self.__power_communicator.do_command(module_address, power_api.get_version())[0]
-            version_info = raw_version.split('\x00', 1)[0].split('_')
-            firmware_version = '{0}.{1}.{2}'.format(version_info[1], version_info[2], version_info[3])
-            information['energy'][module_address] = {'type': 'P' if module['version'] == 8 else 'E',
-                                                     'firmware': firmware_version,
-                                                     'address': module_address}
+        if self.__power_communicator is not None and self.__power_controller is not None:
+            modules = self.__power_controller.get_power_modules().values()
+            for module in modules:
+                module_address = module['address']
+                raw_version = self.__power_communicator.do_command(module_address, power_api.get_version())[0]
+                version_info = raw_version.split('\x00', 1)[0].split('_')
+                firmware_version = '{0}.{1}.{2}'.format(version_info[1], version_info[2], version_info[3])
+                information['energy'][module_address] = {'type': 'P' if module['version'] == 8 else 'E',
+                                                         'firmware': firmware_version,
+                                                         'address': module_address}
 
         return information
 
@@ -984,11 +982,19 @@ class GatewayApi(object):
 
     # Input functions
 
+    def get_input_status(self):
+        """
+        Get a list containing the status of the Inputs.
+        :returns: A list is a dicts containing the following keys: id, status.
+        """
+        inputs = self.__observer.get_inputs()
+        return [{'id': input_port['id'], 'status': input_port['status']} for input_port in inputs]
+
     def get_last_inputs(self):
         """ Get the X last pressed inputs during the last Y seconds.
         :returns: a list of tuples (input, output).
         """
-        return self.__observer.get_input_status()
+        return self.__observer.get_recent()
 
     # Thermostat functions
 
@@ -1553,6 +1559,8 @@ class GatewayApi(object):
         """ Get the number of seconds since the last successful communication with the power
         modules.
         """
+        if self.__power_communicator is None:
+            return 0
         return self.__power_communicator.get_seconds_since_last_success()
 
     def master_clear_error_list(self):
@@ -1828,7 +1836,7 @@ class GatewayApi(object):
         Set multiple input_configurations.
 
         :param config: The list of input_configurations to set
-        :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte)
+        :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte), 'event_enabled' (Bool)
         """
         self.__eeprom_controller.write_batch([InputConfiguration.deserialize(o) for o in config])
 
@@ -2376,6 +2384,9 @@ class GatewayApi(object):
         contains 'input8', 'input9', 'input10', 'input11', 'times8', 'times9', 'times10', \
         'times11'.
         """
+        if self.__power_controller is None:
+            return []
+
         modules = self.__power_controller.get_power_modules().values()
 
         def translate_address(_module):
@@ -2397,6 +2408,9 @@ class GatewayApi(object):
         'times11'.
         :returns: empty dict.
         """
+        if self.__power_communicator is None or self.__power_controller is None:
+            return {}
+
         for mod in modules:
             self.__power_controller.update_power_module(mod)
 
@@ -2447,7 +2461,9 @@ class GatewayApi(object):
         :returns: dict with the module id as key and the following array as value: \
         [voltage, frequency, current, power].
         """
-        output = dict()
+        output = {}
+        if self.__power_communicator is None or self.__power_controller is None:
+            return output
 
         modules = self.__power_controller.get_power_modules()
         for module_id in sorted(modules.keys()):
@@ -2496,7 +2512,9 @@ class GatewayApi(object):
 
         :returns: dict with the module id as key and the following array as value: [day, night].
         """
-        output = dict()
+        output = {}
+        if self.__power_communicator is None or self.__power_controller is None:
+            return output
 
         modules = self.__power_controller.get_power_modules()
         for module_id in sorted(modules.keys()):
@@ -2526,15 +2544,17 @@ class GatewayApi(object):
 
         :returns: empty dict.
         """
-        self.__power_communicator.start_address_mode()
-        return dict()
+        if self.__power_communicator is not None:
+            self.__power_communicator.start_address_mode()
+        return {}
 
     def stop_power_address_mode(self):
         """ Stop the address mode on the power modules.
 
         :returns: empty dict
         """
-        self.__power_communicator.stop_address_mode()
+        if self.__power_communicator is not None:
+            self.__power_communicator.stop_address_mode()
         return dict()
 
     def in_power_address_mode(self):
@@ -2542,7 +2562,10 @@ class GatewayApi(object):
 
         :returns: dict with key 'address_mode' and value True or False.
         """
-        return {'address_mode': self.__power_communicator.in_address_mode()}
+        in_address_mode = False
+        if self.__power_communicator is not None:
+            in_address_mode = self.__power_communicator.in_address_mode()
+        return {'address_mode': in_address_mode}
 
     def set_power_voltage(self, module_id, voltage):
         """ Set the voltage for a given module.
@@ -2551,6 +2574,9 @@ class GatewayApi(object):
         :param voltage: The voltage to set for the power module.
         :returns: empty dict
         """
+        if self.__power_communicator is None or self.__power_controller is None:
+            return {}
+
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
         if version != power_api.POWER_API_12_PORTS:
@@ -2563,6 +2589,9 @@ class GatewayApi(object):
 
         :returns: dict with input_id and the voltage and cucrrent time samples
         """
+        if self.__power_communicator is None or self.__power_controller is None:
+            return {}
+
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
         if version != power_api.POWER_API_12_PORTS:
@@ -2595,6 +2624,9 @@ class GatewayApi(object):
 
         :returns: dict with input_id and the voltage and cucrrent frequency samples
         """
+        if self.__power_communicator is None or self.__power_controller is None:
+            return {}
+
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
         if version != power_api.POWER_API_12_PORTS:
@@ -2625,6 +2657,9 @@ class GatewayApi(object):
         :param data: list of bytes
         :returns: list of bytes
         """
+        if self.__power_communicator is None:
+            return []
+
         return self.__power_communicator.do_command(address,
                                                     power_api.raw_command(mode, command, len(data)),
                                                     *data)
