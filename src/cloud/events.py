@@ -64,13 +64,9 @@ class EventSender(object):
                           Event.Types.THERMOSTAT_GROUP_CHANGE]:
             return True
         elif event.type == Event.Types.INPUT_CHANGE:
-            try:
-                input_id = event.data['id']
-                config = self._gateway_api.get_input_configuration(input_id)
-                return config['event_enabled']
-            except TypeError as ex:
-                logger.error(ex)
-                return False
+            input_id = event.data['id']
+            config = self._gateway_api.get_input_configuration(input_id)
+            return config['event_enabled']
         else:
             return False
 
