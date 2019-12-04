@@ -1808,7 +1808,7 @@ class GatewayApi(object):
         """
         o = self.__eeprom_controller.read(InputConfiguration, input_id, fields)
         if o.module_type not in ['i', 'I']:  # Only return 'real' inputs
-            raise TypeError('The given id is not an input')
+            raise TypeError('The given id {} is not an input'.format(input_id))
         return o.serialize()
 
     def get_input_configurations(self, fields=None):
