@@ -43,6 +43,33 @@ class ThermostatController(object):
         self._thermostats_restore = 0
         self._thermostats_config = {}
 
+    def get_thermostats(self):
+        """ Returns thermostat information """
+        return self._thermostat_status.get_thermostats()
+
+    def _thermostat_changed(self, thermostat_id, status):
+        """ Executed by the Thermostat Status tracker when an output changed state """
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
+        location = {'room_id': self._thermostats_config[thermostat_id]['room']}
+        for callback in self._event_subscriptions:
+            callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
+                           data={'id': thermostat_id,
+                                 'status': {'preset': status['preset'],
+                                            'current_setpoint': status['current_setpoint'],
+                                            'actual_temperature': status['actual_temperature'],
+                                            'output_0': status['output_0'],
+                                            'output_1': status['output_1']},
+                                 'location': location}))
+
+    def _thermostat_group_changed(self, status):
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
+        for callback in self._event_subscriptions:
+            callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
+                           data={'id': 0,
+                                 'status': {'state': status['state'],
+                                            'mode': status['mode']},
+                                 'location': {}}))
+
     def start(self):
         pass
 
@@ -118,8 +145,3 @@ class ThermostatController(object):
         :returns: dict with 'thermostat', 'config' and 'temp'
         """
         raise NotImplementedError
-
-    def get_thermostats(self):
-        """ Returns thermostat information """
-        raise NotImplementedError
-

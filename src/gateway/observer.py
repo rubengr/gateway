@@ -82,8 +82,8 @@ class Observer(object):
 
     @provides('observer')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', message_client='message_client', shutter_controller='shutter_controller', thermostat_controller='thermostat_controller',)
-    def __init__(self, master_communicator, message_client, shutter_controller):
+    @inject(master_communicator='master_communicator', message_client='message_client', shutter_controller='shutter_controller', thermostat_controller='thermostat_controller')
+    def __init__(self, master_communicator, message_client, shutter_controller, thermostat_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -105,9 +105,10 @@ class Observer(object):
         self._input_status = InputStatus()
         self._output_status = OutputStatus(on_output_change=self._output_changed)
 
-
         self._shutter_controller = shutter_controller
         self._shutter_controller.set_shutter_changed_callback(self._shutter_changed)
+
+        self._thermostat_controller = thermostat_controller
 
         self._output_interval = 600
         self._output_last_updated = 0

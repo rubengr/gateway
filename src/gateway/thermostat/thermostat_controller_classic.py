@@ -1,13 +1,17 @@
+import logging
 import time
+from threading import Thread
 from wiring import provides, scope, inject, SingletonScope
-from bus.om_bus_events import OMBusEvents
 from gateway.observer import Observer, Event
 from gateway.thermostat.thermostat_controller import ThermostatController
-from gateway.thermostat.thermostats import ThermostatStatus
+from gateway.thermostat.thermostat_status import ThermostatStatus
 from master import master_api
 from master.eeprom_models import ThermostatConfiguration, GlobalThermostatConfiguration, CoolingConfiguration, \
     CoolingPumpGroupConfiguration, GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
     PumpGroupConfiguration
+from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
+
+logger = logging.getLogger("openmotics")
 
 
 class ClassicThermostatController(ThermostatController):
@@ -15,7 +19,7 @@ class ClassicThermostatController(ThermostatController):
     @provides('thermostat_controller')
     @scope(SingletonScope)
     @inject(gateway_api='gateway_api', eeprom_controller='eeprom_controller', master_communicator='master_communicator', message_client='message_client', observer='observer')
-    def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller,):
+    def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):
         """
         :param gateway_api: Gateway API Controller
         :type gateway_api: gateway.gateway_api.GatewayApi
@@ -43,6 +47,9 @@ class ClassicThermostatController(ThermostatController):
         self._thermostats_last_updated = 0
         self._thermostats_restore = 0
         self._thermostats_config = {}
+
+        self._thread = Thread(target=self._monitor)
+        self._thread.daemon = True
 
     def start(self):
         pass
@@ -503,35 +510,24 @@ class ClassicThermostatController(ThermostatController):
         self.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
         return {'status': 'OK'}
 
-    # Thermostats
+    def _monitor(self):
+        """ Monitors certain system states to detect changes without events """
+        while True:
+            try:
+                # Refresh if required
+                if self._thermostats_last_updated + self._thermostats_interval < time.time():
+                    self._refresh_thermostats()
+                # Restore interval if required
+                if self._thermostats_restore < time.time():
+                    self._thermostats_interval = self._thermostats_original_interval
+                time.sleep(1)
+            except CommunicationTimedOutException:
+                logger.error('Got communication timeout during thermostat monitoring, waiting 10 seconds.')
+                time.sleep(10)
+            except Exception as ex:
+                logger.exception('Unexpected error during monitoring: {0}'.format(ex))
+                time.sleep(10)
 
-    def get_thermostats(self):
-        """ Returns thermostat information """
-        self._refresh_thermostats()  # Always return the latest information
-        return self._thermostat_status.get_thermostats()
-
-    def _thermostat_changed(self, thermostat_id, status):
-        """ Executed by the Thermostat Status tracker when an output changed state """
-        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
-        location = {'room_id': self._thermostats_config[thermostat_id]['room']}
-        for callback in self._event_subscriptions:
-            callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
-                           data={'id': thermostat_id,
-                                 'status': {'preset': status['preset'],
-                                            'current_setpoint': status['current_setpoint'],
-                                            'actual_temperature': status['actual_temperature'],
-                                            'output_0': status['output_0'],
-                                            'output_1': status['output_1']},
-                                 'location': location}))
-
-    def _thermostat_group_changed(self, status):
-        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
-        for callback in self._event_subscriptions:
-            callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
-                           data={'id': 0,
-                                 'status': {'state': status['state'],
-                                            'mode': status['mode']},
-                                 'location': {}}))
 
     def _refresh_thermostats(self):
         """
