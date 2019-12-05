@@ -148,7 +148,7 @@ class Observer(object):
         """ Starts the monitoring thread """
         self._ensure_gateway_api()
         self._thread.start()
-           
+
     def invalidate_cache(self, object_type=None):
         """
         Triggered when an external service knows certain settings might be changed in the background.
