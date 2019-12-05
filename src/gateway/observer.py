@@ -309,9 +309,10 @@ class Observer(object):
 
     def _refresh_inputs(self):
         """ Refreshes the Input Status tracker """
-        input_configurations = self._gateway_api.get_input_configurations()
-        for input_configuration in input_configurations:
-            self._input_config[input_configuration['id']] = input_configuration
+        # 1. refresh input configuration
+        self._input_config = {input_configuration['id']: input_configuration for input_configuration in self._gateway_api.get_input_configurations()}
+
+        # 2. poll for latest input status
         try:
             number_of_input_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['in']
             inputs = []
