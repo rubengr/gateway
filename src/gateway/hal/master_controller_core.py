@@ -133,6 +133,9 @@ class MasterCoreController(MasterController):
 
     # Input
 
+    def get_input_module_type(self, input_module_id):
+        return 'i'  # TODO
+
     def load_input(self, input_id, fields=None):
         return {}  # TODO
 

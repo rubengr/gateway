@@ -115,10 +115,14 @@ class MasterClassicController(MasterController):
 
     # Input
 
+    def get_input_module_type(self, input_module_id):
+        o = self._eeprom_controller.read(eeprom_models.InputConfiguration, input_module_id * 8, ['module_type'])
+        return o.module_type
+
     def load_input(self, input_id, fields=None):
         o = self._eeprom_controller.read(eeprom_models.InputConfiguration, input_id, fields)
         if o.module_type not in ['i', 'I']:  # Only return 'real' inputs
-            raise TypeError('The given id is not an input')
+            raise TypeError('The given id {0} is not an input, but {1}'.format(input_id, o.module_type))
         return o.serialize()
 
     def load_inputs(self, fields=None):

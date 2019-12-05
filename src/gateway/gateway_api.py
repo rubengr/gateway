@@ -1517,43 +1517,19 @@ class GatewayApi(object):
     # Below are the auto generated master configuration functions
 
     def get_output_configuration(self, output_id, fields=None):
-        """
-        Get a specific output_configuration defined by its id.
-
-        :param output_id: The id of the output_configuration
-        :type output_id: Id
-        :param fields: The field of the output_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'module_type' (String[1]), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
-        """
+        """ Get a specific output_configuration defined by its id. """
         return self.__master_controller.load_output(output_id, fields)
 
     def get_output_configurations(self, fields=None):
-        """
-        Get all output_configurations.
-
-        :param fields: The field of the output_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'module_type' (String[1]), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
-        """
+        """ Get all output_configurations. """
         return self.__master_controller.load_outputs(fields)
 
     def set_output_configuration(self, config):
-        """
-        Set one output_configuration.
-
-        :param config: The output_configuration to set
-        :type config: output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
-        """
+        """ Set one output_configuration. """
         self.__master_controller.save_outputs([config])
 
     def set_output_configurations(self, config):
-        """
-        Set multiple output_configurations.
-
-        :param config: The list of output_configurations to set
-        :type config: list of output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
-        """
+        """ Set multiple output_configurations. """
         self.__master_controller.save_outputs(config)
 
     def get_shutter_configuration(self, shutter_id, fields=None):
@@ -1641,43 +1617,23 @@ class GatewayApi(object):
         self.__eeprom_controller.write_batch([ShutterGroupConfiguration.deserialize(o) for o in config])
 
     def get_input_configuration(self, input_id, fields=None):
-        """
-        Get a specific input_configuration defined by its id.
-
-        :param input_id: The id of the input_configuration
-        :type input_id: Id
-        :param fields: The field of the input_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'module_type' (String[1]), 'name' (String[8]), 'room' (Byte), 'can' (String[1])
-        """
+        """ Get a specific input_configuration defined by its id. """
         return self.__master_controller.load_input(input_id, fields)
 
-    def get_input_configurations(self, fields=None):
-        """
-        Get all input_configurations.
+    def get_input_module_type(self, input_module_id):
+        """ Gets the module type for a given Input Module ID """
+        return self.__master_controller.get_input_module_type(input_module_id)
 
-        :param fields: The field of the input_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'module_type' (String[1]), 'name' (String[8]), 'room' (Byte), 'can' (String[1])
-        """
+    def get_input_configurations(self, fields=None):
+        """ Get all input_configurations. """
         return self.__master_controller.load_inputs(fields)
 
     def set_input_configuration(self, config):
-        """
-        Set one input_configuration.
-
-        :param config: The input_configuration to set
-        :type config: input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte)
-        """
+        """ Set one input_configuration. """
         self.__master_controller.save_inputs([config])
 
     def set_input_configurations(self, config):
-        """
-        Set multiple input_configurations.
-
-        :param config: The list of input_configurations to set
-        :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte), 'event_enabled' (Bool)
-        """
+        """ Set multiple input_configurations. """
         self.__master_controller.save_inputs(config)
 
     def get_thermostat_configuration(self, thermostat_id, fields=None):

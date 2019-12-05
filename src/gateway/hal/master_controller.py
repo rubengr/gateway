@@ -93,6 +93,9 @@ class MasterController(object):
 
     # Input
 
+    def get_input_module_type(self, input_module_id):
+        raise NotImplementedError()
+
     def load_input(self, input_id, fields=None):
         raise NotImplementedError()
 
