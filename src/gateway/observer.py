@@ -18,20 +18,15 @@ The observer module contains logic to observe various states of the system. It k
 
 import time
 import logging
-try:
-    import json
-except ImportError:
-    import simplejson as json
 from wiring import provides, inject, SingletonScope, scope
 from threading import Thread
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
-from master.outputs import OutputStatus
-from master.inputs import InputStatus
+from gateway.outputs import OutputStatus
+from gateway.inputs import InputStatus
 from master import master_api
 from bus.om_bus_events import OMBusEvents
 
-
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class Event(object):
@@ -40,7 +35,7 @@ class Event(object):
     """
 
     class Types(object):
-        INPUT_TRIGGER = 'INPUT_TRIGGER'
+        INPUT_CHANGE = 'INPUT_CHANGE'
         OUTPUT_CHANGE = 'OUTPUT_CHANGE'
         SHUTTER_CHANGE = 'SHUTTER_CHANGE'
         THERMOSTAT_CHANGE = 'THERMOSTAT_CHANGE'
@@ -72,7 +67,7 @@ class Observer(object):
     class MasterEvents(object):
         ON_OUTPUTS = 'ON_OUTPUTS'
         ON_SHUTTER_UPDATE = 'ON_SHUTTER_UPDATE'
-        INPUT_TRIGGER = 'INPUT_TRIGGER'
+        ON_INPUT_CHANGE = 'INPUT_CHANGE'
         ONLINE = 'ONLINE'
 
     class Types(object):
@@ -98,32 +93,33 @@ class Observer(object):
 
         self._master_subscriptions = {Observer.MasterEvents.ON_OUTPUTS: [],
                                       Observer.MasterEvents.ON_SHUTTER_UPDATE: [],
-                                      Observer.MasterEvents.INPUT_TRIGGER: [],
+                                      Observer.MasterEvents.ON_INPUT_CHANGE: [],
                                       Observer.MasterEvents.ONLINE: []}
         self._event_subscriptions = []
 
-        self._input_status = InputStatus()
+        self._input_status = InputStatus(on_input_change=self._input_changed)
         self._output_status = OutputStatus(on_output_change=self._output_changed)
 
         self._shutter_controller = shutter_controller
         self._shutter_controller.set_shutter_changed_callback(self._shutter_changed)
 
         self._thermostat_controller = thermostat_controller
-
+        self._input_interval = 300
+        self._input_last_updated = 0
+        self._input_config = {}
         self._output_interval = 600
         self._output_last_updated = 0
         self._output_config = {}
         self._shutters_interval = 600
         self._shutters_last_updated = 0
         self._master_online = False
-        self._master_shutter_status_registered = False
+        self._background_consumers_registered = False
         self._master_version = None
 
         self._thread = Thread(target=self._monitor)
         self._thread.daemon = True
 
         self._master_communicator.register_consumer(BackgroundConsumer(master_api.output_list(), 0, self._on_output, True))
-        self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(), 0, self._on_input))
 
     def set_gateway_api(self, gateway_api):
         """
@@ -178,17 +174,20 @@ class Observer(object):
                 if self._shutters_last_updated + self._shutters_interval < time.time():
                     self._refresh_shutters()
                     self._set_master_state(True)
+                if self._input_last_updated + self._input_interval < time.time():
+                    self._refresh_inputs()
+                    self._set_master_state(True)
                 # Restore interval if required
                 if self._thermostats_restore < time.time():
                     self._thermostats_interval = self._thermostats_original_interval
-                self._register_consumer_shutter_status()
+                self._register_background_consumers()
                 time.sleep(1)
             except CommunicationTimedOutException:
-                LOGGER.error('Got communication timeout during monitoring, waiting 10 seconds.')
+                logger.error('Got communication timeout during monitoring, waiting 10 seconds.')
                 self._set_master_state(False)
                 time.sleep(10)
             except Exception as ex:
-                LOGGER.exception('Unexpected error during monitoring: {0}'.format(ex))
+                logger.exception('Unexpected error during monitoring: {0}'.format(ex))
                 time.sleep(10)
 
     def _ensure_gateway_api(self):
@@ -207,10 +206,13 @@ class Observer(object):
             for callback in self._master_subscriptions[Observer.MasterEvents.ONLINE]:
                 callback(online)
 
-    def _register_consumer_shutter_status(self):
-        if self._master_version and not self._master_shutter_status_registered:
+    # Handle master "events"
+
+    def _register_background_consumers(self):
+        if self._master_version and not self._background_consumers_registered:
+            self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(self._master_version), 0, self._on_input))
             self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(self._master_version), 0, self._on_shutter_update))
-            self._master_shutter_status_registered = True
+            self._background_consumers_registered = True
 
     # Handle master "events"
 
@@ -224,16 +226,12 @@ class Observer(object):
         self._output_status.partial_update(on_outputs)
 
     def _on_input(self, data):
-        """ Triggers when the master informs us of an Input press """
-        # Notify subscribers
-        for callback in self._master_subscriptions[Observer.MasterEvents.INPUT_TRIGGER]:
-            callback(data)
-        for callback in self._event_subscriptions:
-            callback(Event(event_type=Event.Types.INPUT_TRIGGER,
-                           data={'id': data['input'],
-                                 'location': {}}))
+        """ Triggers when the master informs us of an Input state change """
         # Update status tracker
-        self._input_status.add_data((data['input'], data['output']))
+        self._input_status.set_input(data)
+        # Notify subscribers
+        for callback in self._master_subscriptions[Observer.MasterEvents.ON_INPUT_CHANGE]:
+            callback(data)
 
     def _on_shutter_update(self, data):
         """ Triggers when the master informs us of an Shutter state change """
@@ -276,9 +274,49 @@ class Observer(object):
 
     # Inputs
 
-    def get_input_status(self):
+    def get_inputs(self):
+        """ Returns a list of Inputs with their status """
         self._ensure_gateway_api()
-        return self._input_status.get_status()
+        return self._input_status.get_inputs()
+
+    def get_recent(self):
+        """ Returns a list of recently changed inputs """
+        self._ensure_gateway_api()
+        return self._input_status.get_recent()
+
+    def _input_changed(self, input_id, status):
+        """ Executed by the Input Status tracker when an input changed state """
+        for callback in self._event_subscriptions:
+            resp_data = {'id': input_id,
+                         'status': status,
+                         'location': {'room_id': self._input_config[input_id]['room']}}
+            callback(Event(event_type=Event.Types.INPUT_CHANGE, data=resp_data))
+
+    def _refresh_inputs(self):
+        """ Refreshes the Input Status tracker """
+        # 1. refresh input configuration
+        self._input_config = {input_configuration['id']: input_configuration for input_configuration in self._gateway_api.get_input_configurations()}
+        # 2. poll for latest input status
+        try:
+            number_of_input_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['in']
+            inputs = []
+            for i in xrange(number_of_input_modules):
+                # we could be dealing with e.g. a temperature module, skip those
+                module_type = self._gateway_api.get_input_module_type(input_module_id=i)
+                if module_type not in ['i', 'I']:
+                    continue
+                result = self._master_communicator.do_command(master_api.read_input_module(self._master_version), {'input_module_nr': i})
+                module_status = result['input_status']
+                # module_status byte contains bits for each individual input, use mask and bitshift to get status
+                for n in xrange(8):
+                    input_nr = i * 8 + n
+                    input_status = module_status & (1 << n) != 0
+                    data = {'input': input_nr, 'status': input_status}
+                    inputs.append(data)
+            self._input_status.full_update(inputs)
+        except NotImplementedError as e:
+            logger.error('Cannot refresh inputs: {}'.format(e))
+        self._input_last_updated = time.time()
 
     # Shutters
 

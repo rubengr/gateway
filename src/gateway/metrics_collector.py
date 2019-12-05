@@ -252,9 +252,9 @@ class MetricsCollector(object):
             LOGGER.exception('Error processing outputs {0}: {1}'.format(output_ids, ex))
 
     def on_input(self, data):
-        self._process_input(data['input'])
+        self._process_input(data['input'], data.get('status'))
 
-    def _process_input(self, input_id):
+    def _process_input(self, input_id, status):
         try:
             now = time.time()
             inputs = self._environment['inputs']
@@ -266,7 +266,7 @@ class MetricsCollector(object):
                         'id': input_id,
                         'name': input_name}
                 self._enqueue_metrics(metric_type='event',
-                                      values={'value': True},
+                                      values={'value': status if status is not None else True},
                                       tags=tags,
                                       timestamp=now)
         except Exception as ex:
@@ -727,13 +727,21 @@ class MetricsCollector(object):
                         continue
                     output_id = config['id']
                     ids.append(output_id)
+                    type_mapping = {0: 'outlet',
+                                    1: 'valve',
+                                    2: 'alarm',
+                                    3: 'appliance',
+                                    4: 'pump',
+                                    5: 'hvac',
+                                    6: 'generic',
+                                    255: 'light'}
                     self._environment['outputs'][output_id] = {'name': config['name'],
                                                                'module_type': {'o': 'output',
                                                                                'O': 'output',
                                                                                'd': 'dimmer',
                                                                                'D': 'dimmer'}[config['module_type']],
                                                                'floor': config['floor'],
-                                                               'type': 'relay' if config['type'] == 0 else 'light'}
+                                                               'type': type_mapping.get(config['type'], 'generic')}
                 for output_id in self._environment['outputs'].keys():
                     if output_id not in ids:
                         del self._environment['outputs'][output_id]

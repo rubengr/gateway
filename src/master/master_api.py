@@ -195,6 +195,16 @@ def read_input():
                               Field.str('input_name', 8), Field.crc(), Field.lit('\r\n')])
 
 
+def read_input_module(master_version):
+    """ Read the status about all inputs of an input module """
+    if master_version < (3, 143, 88):
+        raise NotImplementedError("read_input_module() not supported on master version {}".format(master_version))
+    return MasterCommandSpec("RI",
+                             [Field.byte("input_module_nr"), Field.padding(12)],
+                             [Field.byte('input_module_nr'), Field.byte('input_status'), Field.padding(8),
+                              Field.crc(), Field.lit('\r\n')])
+
+
 def shutter_status(master_version):
     """ Read the status of a shutter module. """
     if master_version >= (3, 143, 78):
@@ -398,6 +408,13 @@ def set_virtual_sensor():
                               Field.padding(9), Field.lit('\r\n')])
 
 
+def add_virtual_module():
+    """ Adds a virtual module """
+    return MasterCommandSpec("AV",
+                             [Field.str('vmt', 1), Field.padding(12)],
+                             [Field.str("resp", 2), Field.padding(11), Field.lit('\r\n')])
+
+
 def pulse_list():
     """ List the pulse counter values. """
     return MasterCommandSpec("PL",
@@ -516,11 +533,15 @@ def output_list():
                              [Field("outputs", OutputFieldType()), Field.lit("\r\n")])
 
 
-def input_list():
-    """ The message sent by the master whenever an input is enabled. """
+def input_list(master_version):
+    """ The message sent by the master whenever an input changes. """
+    if master_version < (3, 143, 88):
+        return MasterCommandSpec("IL",
+                                 [],
+                                 [Field.byte('input'), Field.byte('output'), Field.lit("\r\n")])
     return MasterCommandSpec("IL",
                              [],
-                             [Field.byte('input'), Field.byte('output'), Field.lit("\r\n")])
+                             [Field.byte('input'), Field.byte('output'), Field.byte('status'), Field.lit("\r\n")])
 
 
 def module_initialize():
