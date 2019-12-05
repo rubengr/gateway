@@ -309,11 +309,17 @@ class Observer(object):
 
     def _refresh_inputs(self):
         """ Refreshes the Input Status tracker """
-        self._input_config = self._gateway_api.get_input_configurations()
+        # 1. refresh input configuration
+        self._input_config = {input_configuration['id']: input_configuration for input_configuration in self._gateway_api.get_input_configurations()}
+        # 2. poll for latest input status
         try:
             number_of_input_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['in']
             inputs = []
             for i in xrange(number_of_input_modules):
+                # we could be dealing with e.g. a temperature module, skip those
+                module_type = self._gateway_api.get_input_module_type(input_module_id=i)
+                if module_type not in ['i', 'I']:
+                    continue
                 result = self._master_communicator.do_command(master_api.read_input_module(self._master_version), {'input_module_nr': i})
                 module_status = result['input_status']
                 # module_status byte contains bits for each individual input, use mask and bitshift to get status
