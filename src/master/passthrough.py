@@ -22,7 +22,7 @@ to communicate with the master.
 import logging
 import threading
 from wiring import inject, provides, SingletonScope, scope
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from master.master_command import printable
 
 LOGGER = logging.getLogger("openmotics")

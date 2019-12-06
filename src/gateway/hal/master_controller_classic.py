@@ -20,7 +20,7 @@ import time
 from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
 from gateway.hal.master_controller import MasterController, MasterEvent
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api, eeprom_models
 from master.outputs import OutputStatus
 from master.master_communicator import BackgroundConsumer
@@ -100,6 +100,9 @@ class MasterClassicController(MasterController):
     # Public API #
     ##############
 
+    def invalidate_caches(self):
+        self._output_last_updated = 0
+
     def get_firmware_version(self):
         out_dict = self._master_communicator.do_command(master_api.status())
         return int(out_dict['f1']), int(out_dict['f2']), int(out_dict['f3'])
@@ -130,8 +133,8 @@ class MasterClassicController(MasterController):
                 if o.module_type in ['i', 'I']]  # Only return 'real' inputs
 
     def save_inputs(self, inputs, fields=None):
-        for _input in inputs:
-            self._eeprom_controller.write(eeprom_models.InputConfiguration.deserialize(_input))
+        self._eeprom_controller.write_batch([eeprom_models.InputConfiguration.deserialize(input_)
+                                             for input_ in inputs])
 
     # Outputs
 
@@ -142,13 +145,6 @@ class MasterClassicController(MasterController):
             raise ValueError('Dimmer value {0} not in [0, 100]'.format(dimmer))
         if timer is not None and timer not in [150, 450, 900, 1500, 2220, 3120]:
             raise ValueError('Timer value {0} not in [150, 450, 900, 1500, 2220, 3120]'.format(timer))
-
-        if not state:
-            self._master_communicator.do_command(
-                master_api.basic_action(),
-                {'action_type': master_api.BA_LIGHT_OFF, 'action_number': output_id}
-            )
-            return
 
         if dimmer is not None:
             master_version = self.get_firmware_version()
@@ -165,11 +161,18 @@ class MasterClassicController(MasterController):
                 elif dimmer == 100:
                     dimmer_action = master_api.BA_DIMMER_MAX
                 else:
-                    dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_' + str(dimmer)]
+                    dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_{0}'.format(dimmer)]
                 self._master_communicator.do_command(
                     master_api.basic_action(),
                     {'action_type': dimmer_action, 'action_number': output_id}
                 )
+
+        if not state:
+            self._master_communicator.do_command(
+                master_api.basic_action(),
+                {'action_type': master_api.BA_LIGHT_OFF, 'action_number': output_id}
+            )
+            return
 
         self._master_communicator.do_command(
             master_api.basic_action(),
@@ -177,7 +180,7 @@ class MasterClassicController(MasterController):
         )
 
         if timer is not None:
-            timer_action = getattr(master_api, 'BA_LIGHT_ON_TIMER_{0}_OVERRULE'.format(timer))
+            timer_action = master_api.__dict__['BA_LIGHT_ON_TIMER_{0}_OVERRULE'.format(timer)]
             self._master_communicator.do_command(
                 master_api.basic_action(),
                 {'action_type': timer_action, 'action_number': output_id}
@@ -199,9 +202,10 @@ class MasterClassicController(MasterController):
         return [o.serialize() for o in self._eeprom_controller.read_all(eeprom_models.OutputConfiguration, fields)]
 
     def save_outputs(self, outputs, fields=None):
+        self._eeprom_controller.write_batch([eeprom_models.OutputConfiguration.deserialize(output)
+                                             for output in outputs])
         for output in outputs:
             output_nr, timer = output['id'], output.get('timer')
-            self._eeprom_controller.write(eeprom_models.OutputConfiguration.deserialize(output))
             if timer is not None:
                 self._master_communicator.do_command(
                     master_api.write_timer(),

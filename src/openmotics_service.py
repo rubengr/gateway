@@ -49,13 +49,13 @@ from gateway.maintenance_controller import MaintenanceController
 from urlparse import urlparse
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
-from master.maintenance import MaintenanceClassicService
+from master.maintenance import MaintenanceClassicCommunicator
 from master.master_communicator import MasterCommunicator
 from master.passthrough import PassthroughService
 from master_core.core_communicator import CoreCommunicator
 from master_core.ucan_communicator import UCANCommunicator
 from master_core.memory_file import MemoryFile
-from master_core.maintenance import MaintenanceCoreService
+from master_core.maintenance import MaintenanceCoreCommunicator
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
 from plugins.base import PluginController
@@ -178,9 +178,9 @@ class OpenmoticsService(object):
         # Maintenance Controller
         self.graph.register_factory('maintenance_controller', MaintenanceController, scope=SingletonScope)
         if Platform.get_platform() == Platform.Type.CORE_PLUS:
-            self.graph.register_factory('maintenance_service', MaintenanceCoreService, scope=SingletonScope)
+            self.graph.register_factory('maintenance_communicator', MaintenanceCoreCommunicator, scope=SingletonScope)
         else:
-            self.graph.register_factory('maintenance_service', MaintenanceClassicService, scope=SingletonScope)
+            self.graph.register_factory('maintenance_communicator', MaintenanceClassicCommunicator, scope=SingletonScope)
 
         # Metrics Controller
         self.graph.register_instance('metrics_db', constants.get_metrics_database_file())

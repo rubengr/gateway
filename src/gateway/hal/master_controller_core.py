@@ -20,7 +20,7 @@ import time
 from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
 from gateway.hal.master_controller import MasterController, MasterEvent
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from master_core.core_api import CoreAPI
 from master_core.core_communicator import BackgroundConsumer
 from master_core.events import Event as MasterCoreEvent
@@ -120,6 +120,9 @@ class MasterCoreController(MasterController):
     # Public API #
     ##############
 
+    def invalidate_caches(self):
+        self._output_last_updated = 0
+
     def get_firmware_version(self):
         return 0, 0, 0  # TODO
 
@@ -198,7 +201,7 @@ class MasterCoreController(MasterController):
             new_data = {'id': output_data['id'],
                         'name': output_data['name']}  # TODO: Rest of the mapping
             output = OutputConfiguration.deserialize(new_data, self._memory_files)
-            output.save()
+            output.save()  # TODO: Batch saving - postpone eeprom activate if relevant for the Core
 
     def get_output_statuses(self):
         return self._output_states.values()

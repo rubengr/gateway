@@ -24,7 +24,7 @@ from collections import deque
 from wiring import provides, inject, SingletonScope, scope
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Event as ObserverEvent
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 
 LOGGER = logging.getLogger("openmotics")
 

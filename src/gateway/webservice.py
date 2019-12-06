@@ -33,7 +33,7 @@ from cherrypy.lib.static import serve_file
 from decorator import decorator
 from bus.om_bus_events import OMBusEvents
 from gateway.shutters import ShutterController
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
 from gateway.websockets import OMPlugin, OMSocketTool, MetricsSocket, EventsSocket, MaintenanceSocket
@@ -2370,7 +2370,6 @@ class WebInterface(object):
     @cherrypy.tools.cors()
     @cherrypy.tools.authenticated(pass_token=True)
     def ws_maintenance(self, token):
-        # TODO: Handle non-Core maintenance mode
         cherrypy.request.ws_handler.metadata = {'token': token,
                                                 'client_id': uuid.uuid4().hex,
                                                 'interface': self}
@@ -2451,10 +2450,14 @@ class WebService(object):
 
     @staticmethod
     def _http_server_logger(msg='', level=20, traceback=False):
+        """
+        This workaround is to lower some CherryPy "TICK"-SSL errors' severity that are incorrectly
+        logged in our version of CherryPy. It is already resolved in a newer version, but we
+        still need to upgrade
+        """
+        # TODO upgrade cherrypy
         _ = level, traceback
-        # For now, let's nog log these SSL errors
-        _ = msg
-        # logger.error(msg)
+        logger.debug(msg)
 
     def start(self):
         """ Start the web service in a new thread. """

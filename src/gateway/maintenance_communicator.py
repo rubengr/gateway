@@ -24,7 +24,7 @@ class InMaintenanceModeException(Exception):
     pass
 
 
-class MaintenanceService(object):
+class MaintenanceCommunicator(object):
 
     def start(self):
         raise NotImplementedError()
@@ -33,6 +33,9 @@ class MaintenanceService(object):
         raise NotImplementedError()
 
     def set_receiver(self, callback):
+        raise NotImplementedError()
+
+    def set_deactivated(self, callback):
         raise NotImplementedError()
 
     def is_active(self):

@@ -23,7 +23,7 @@ from wiring import provides, inject, SingletonScope, scope
 from threading import Thread
 from platform_utils import Platform
 from gateway.hal.master_controller import MasterEvent
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.thermostats import ThermostatStatus
 from master.inputs import InputStatus
@@ -169,6 +169,7 @@ class Observer(object):
             self._thermostats_last_updated = 0
         if object_type is None or object_type == Observer.Types.SHUTTERS:
             self._shutters_last_updated = 0
+        self._master_controller.invalidate_caches()
 
     def increase_interval(self, object_type, interval, window):
         """ Increases a certain interval to a new setting for a given amount of time """
@@ -249,16 +250,16 @@ class Observer(object):
         for callback in self._master_subscriptions[Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE]:
             callback(self._shutter_controller.get_states())
 
-    def _master_event(self, naster_event):
+    def _master_event(self, master_event):
         """
         Triggers when the MasterController generates events
-        :type naster_event: gateway.hal.master_controller.MasterEvent
+        :type master_event: gateway.hal.master_controller.MasterEvent
         """
-        if naster_event.type == MasterEvent.Types.OUTPUT_CHANGE:
-            self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': naster_event.data['id']})
+        if master_event.type == MasterEvent.Types.OUTPUT_CHANGE:
+            self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': master_event.data['id']})
             for callback in self._event_subscriptions:
                 callback(Event(event_type=Event.Types.OUTPUT_CHANGE,
-                               data=naster_event.data))
+                               data=master_event.data))
 
     # Outputs
 

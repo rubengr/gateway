@@ -37,7 +37,7 @@ from threading import Timer, Thread
 from platform_utils import Platform
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api
 from power import power_api
 from master.master_communicator import BackgroundConsumer

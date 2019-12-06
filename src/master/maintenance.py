@@ -13,39 +13,39 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-The maintenance module contains the MaintenanceService class.
+The maintenance module contains the MaintenanceCommunicator class.
 """
 
 import time
 import logging
 from threading import Timer, Thread
 from wiring import provides, inject, SingletonScope, scope
-from gateway.maintenance_service import MaintenanceService
+from gateway.maintenance_communicator import MaintenanceCommunicator
 
 logger = logging.getLogger('openmotics')
 
 
-class MaintenanceClassicService(MaintenanceService):
+class MaintenanceClassicCommunicator(MaintenanceCommunicator):
     """
-    The maintenance service accepts tcp connections. If a connection is accepted it
-    grabs the serial port, sets the gateway mode to CLI and forwards input and output
-    over the tcp connection.
+    The maintenance communicator handles maintenance communication with the Master
     """
 
     MAINTENANCE_TIMEOUT = 600
 
-    @provides('maintenance_service')
+    @provides('maintenance_communicator')
     @scope(SingletonScope)
     @inject(master_communicator='master_classic_communicator')
     def __init__(self, master_communicator):
         """
-        Construct a MaintenanceServer.
+        Construct a MaintenanceCommunicator.
 
         :param master_communicator: the communication with the master.
         :type master_communicator: master.master_communicator.MasterCommunicator
         """
         self._master_communicator = master_communicator
         self._receiver_callback = None
+        self._deactivated_callback = None
+        self._deactivated_sent = False
         self._last_maintenance_send_time = 0
         self._maintenance_timeout_timer = None
         self._last_maintenance_send_time = 0
@@ -61,6 +61,9 @@ class MaintenanceClassicService(MaintenanceService):
     def set_receiver(self, callback):
         self._receiver_callback = callback
 
+    def set_deactivated(self, callback):
+        self._deactivated_callback = callback
+
     def is_active(self):
         return self._master_communicator.in_maintenance_mode()
 
@@ -71,12 +74,13 @@ class MaintenanceClassicService(MaintenanceService):
         logger.info('Activating maintenance mode')
         self._last_maintenance_send_time = time.time()
         self._master_communicator.start_maintenance_mode()
-        self._maintenance_timeout_timer = Timer(MaintenanceClassicService.MAINTENANCE_TIMEOUT, self._check_maintenance_timeout)
+        self._maintenance_timeout_timer = Timer(MaintenanceClassicCommunicator.MAINTENANCE_TIMEOUT, self._check_maintenance_timeout)
         self._maintenance_timeout_timer.start()
         self._stopped = False
         self._read_data_thread = Thread(target=self._read_data, name='Classic maintenance read thread')
         self._read_data_thread.daamon = True
         self._read_data_thread.start()
+        self._deactivated_sent = False
 
     def deactivate(self, join=True):
         logger.info('Deactivating maintenance mode')
@@ -90,12 +94,16 @@ class MaintenanceClassicService(MaintenanceService):
             self._maintenance_timeout_timer.cancel()
             self._maintenance_timeout_timer = None
 
+        if self._deactivated_callback is not None and self._deactivated_sent is False:
+            self._deactivated_callback()
+            self._deactivated_sent = True
+
     def _check_maintenance_timeout(self):
         """
         Checks if the maintenance if the timeout is exceeded, and closes maintenance mode
         if required.
         """
-        timeout = MaintenanceClassicService.MAINTENANCE_TIMEOUT
+        timeout = MaintenanceClassicCommunicator.MAINTENANCE_TIMEOUT
         if self._master_communicator.in_maintenance_mode():
             current_time = time.time()
             if self._last_maintenance_send_time + timeout < current_time:

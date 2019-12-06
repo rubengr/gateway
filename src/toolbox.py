@@ -61,6 +61,9 @@ class Queue(object):
     def qsize(self):
         return len(self._queue)
 
+    def clear(self):
+        return self._queue.clear()
+
 
 class PluginIPCStream(object):
 

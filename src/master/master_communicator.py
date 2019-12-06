@@ -21,7 +21,7 @@ import time
 from threading import Thread, Lock, Event
 from toolbox import Queue, Empty
 from wiring import inject, provides, scope, SingletonScope
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api
 from master_command import Field, printable
 from serial_utils import CommunicationTimedOutException
@@ -304,11 +304,7 @@ class MasterCommunicator(object):
         if self.__maintenance_mode:
             raise InMaintenanceModeException()
 
-        try:
-            while True:
-                self.__maintenance_queue.get(timeout=0.5)
-        except Empty:
-            pass
+        self.__maintenance_queue.clear()
 
         self.__maintenance_mode = True
         self.send_maintenance_data(master_api.to_cli_mode().create_input(0))

@@ -20,7 +20,7 @@ import socket
 import random
 from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from platform_utils import System
 
 logger = logging.getLogger("openmotics")
@@ -32,16 +32,17 @@ class MaintenanceController(object):
 
     @provides('maintenance_controller')
     @scope(SingletonScope)
-    @inject(maintenance_service='maintenance_service', privatekey_filename='ssl_private_key', certificate_filename='ssl_certificate')
-    def __init__(self, maintenance_service, privatekey_filename, certificate_filename):
+    @inject(maintenance_communicator='maintenance_communicator', privatekey_filename='ssl_private_key', certificate_filename='ssl_certificate')
+    def __init__(self, maintenance_communicator, privatekey_filename, certificate_filename):
         """
-        :type maintenance_service: gateway.maintenance_service.MaintenanceService
+        :type maintenance_communicator: gateway.maintenance_communicator.MaintenanceCommunicator
         """
         self._consumers = {}
         self._privatekey_filename = privatekey_filename
         self._certificate_filename = certificate_filename
-        self._maintenance_service = maintenance_service
-        self._maintenance_service.set_receiver(self._received_data)
+        self._maintenance_communicator = maintenance_communicator
+        self._maintenance_communicator.set_receiver(self._received_data)
+        self._maintenance_communicator.set_deactivated(self._deactivated)
         self._maintenance_stopped_callback = None
         self._connection = None
         self._server_thread = None
@@ -51,10 +52,10 @@ class MaintenanceController(object):
     #######################
 
     def start(self):
-        self._maintenance_service.start()
+        self._maintenance_communicator.start()
 
     def stop(self):
-        self._maintenance_service.stop()
+        self._maintenance_communicator.stop()
 
     def _received_data(self, message):
         try:
@@ -69,14 +70,16 @@ class MaintenanceController(object):
                 logger.exception('Exception forwarding maintenance data to consumer %s', str(consumer_id))
 
     def _activate(self):
-        if not self._maintenance_service.is_active():
-            self._maintenance_service.activate()
+        if not self._maintenance_communicator.is_active():
+            self._maintenance_communicator.activate()
 
     def _deactivate(self):
-        if self._maintenance_service.is_active():
-            self._maintenance_service.deactivate()
-            if self._maintenance_stopped_callback is not None:
-                self._maintenance_stopped_callback()
+        if self._maintenance_communicator.is_active():
+            self._maintenance_communicator.deactivate()
+
+    def _deactivated(self):
+        if self._maintenance_stopped_callback is not None:
+            self._maintenance_stopped_callback()
 
     #################
     # Subscriptions #
@@ -145,7 +148,7 @@ class MaintenanceController(object):
             self._connection.sendall('Activating maintenance mode, waiting for other actions to complete ...\n')
             self._activate()
             self._connection.sendall('Connected\n')
-            while self._maintenance_service.is_active():
+            while self._maintenance_communicator.is_active():
                 try:
                     try:
                         data = self._connection.recv(1024)
@@ -156,7 +159,7 @@ class MaintenanceController(object):
                             logger.info('Stopping maintenance mode due to exit.')
                             break
 
-                        self._maintenance_service.write(data)
+                        self._maintenance_communicator.write(data)
                     except Exception as exception:
                         if System.handle_socket_exception(self._connection, exception, logger):
                             continue
@@ -179,4 +182,4 @@ class MaintenanceController(object):
     #######
 
     def write(self, message):
-        self._maintenance_service.write(message)
+        self._maintenance_communicator.write(message)
