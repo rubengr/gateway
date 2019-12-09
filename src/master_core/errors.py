@@ -129,8 +129,8 @@ class Error(object):
                     return 'API parameters send on instruction {0} not in range to be an acceptable value'.format(Error._extract_command(self._parameter_b))
             else:
                 return 'Unknown error type {0}. Parameters {1} / {2} / {3}'.format(self._type, self._parameter_a, self._parameter_b, self._parameter_c)
-        except Exception:
-            pass
+        except Exception as ex:
+            logger.debug('Unexpected error parsing errors: {0}'.format(ex))
         return 'Unknown error on type {0}. Parameters {1} / {2} / {3}'.format(self.type, self._parameter_a, self._parameter_b, self._parameter_c)
 
     @staticmethod
