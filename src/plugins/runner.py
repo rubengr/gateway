@@ -7,7 +7,7 @@ import traceback
 from threading import Thread, Lock
 from toolbox import Queue, Empty, Full, PluginIPCStream
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class PluginRunner:
@@ -91,7 +91,7 @@ class PluginRunner:
 
     def logger(self, message):
         self._logger(message)
-        LOGGER.info('Plugin {0} - {1}'.format(self.name, message))
+        logger.info('Plugin {0} - {1}'.format(self.name, message))
 
     def get_webservice(self, webinterface):
         class Service:

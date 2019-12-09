@@ -20,7 +20,7 @@ import time
 import logging
 from threading import Lock
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class InputStatus(object):

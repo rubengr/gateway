@@ -19,7 +19,7 @@ import time
 import logging
 from toolbox import exception_handler, OMTestCase
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class LoginTest(OMTestCase):

@@ -23,7 +23,7 @@ from datetime import datetime
 from wiring import inject, provides, SingletonScope, scope
 from plugins.runner import PluginRunner
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class PluginController(object):
@@ -31,18 +31,22 @@ class PluginController(object):
 
     @provides('plugin_controller')
     @scope(SingletonScope)
-    @inject(webinterface='web_interface', config_controller='config_controller')
+    @inject(webinterface='web_interface', config_controller='config_controller', observer='observer')
     def __init__(
-        self, webinterface, config_controller,
+        self, webinterface, config_controller, observer,
         runtime_path='/opt/openmotics/python/plugin_runtime',
         plugins_path='/opt/openmotics/python/plugins',
         plugin_config_path='/opt/openmotics/etc'
     ):
+        """
+        :type observer: gateway.observer.Observer
+        """
         self.__webinterface = webinterface
         self.__config_controller = config_controller
         self.__runtime_path = runtime_path
         self.__plugins_path = plugins_path
         self.__plugin_config_path = plugin_config_path
+        self.__observer = observer
 
         self.__stopped = True
         self.__logs = {}
@@ -58,7 +62,7 @@ class PluginController(object):
             self.__init_runners()
             self.__update_dependencies()
         else:
-            LOGGER.error('The PluginController is already running')
+            logger.error('The PluginController is already running')
 
     def stop(self):
         for runner_name in self.__runners.keys():
@@ -108,9 +112,9 @@ class PluginController(object):
     def __start_plugin_runner(self, runner, runner_name):
         """ Starts a single plugin runner """
         try:
-            LOGGER.info('Plugin {0}: {1}'.format(runner_name, 'Starting...'))
+            logger.info('Plugin {0}: {1}'.format(runner_name, 'Starting...'))
             runner.start()
-            LOGGER.info('Plugin {0}: {1}'.format(runner_name, 'Starting... Done'))
+            logger.info('Plugin {0}: {1}'.format(runner_name, 'Starting... Done'))
         except Exception as exception:
             try:
                 runner.stop()
@@ -133,9 +137,9 @@ class PluginController(object):
         if runner is None:
             return
         try:
-            LOGGER.info('Plugin {0}: {1}'.format(runner.name, 'Stopping...'))
+            logger.info('Plugin {0}: {1}'.format(runner.name, 'Stopping...'))
             runner.stop()
-            LOGGER.info('Plugin {0}: {1}'.format(runner.name, 'Stopping... Done'))
+            logger.info('Plugin {0}: {1}'.format(runner.name, 'Stopping... Done'))
         except Exception as exception:
             self.log(runner.name, '[Runner] Could not stop plugin', exception)
 
@@ -275,7 +279,7 @@ class PluginController(object):
         try:
             plugin.remove_callback()
         except Exception as exception:
-            LOGGER.error('Exception while removing plugin \'{0}\': {1}'.format(name, exception))
+            logger.error('Exception while removing plugin \'{0}\': {1}'.format(name, exception))
 
         # Stop the plugin process
         self.__destroy_plugin_runner(name)
@@ -306,15 +310,16 @@ class PluginController(object):
 
     def process_observer_event(self, event):
         if event.type == Event.Types.INPUT_CHANGE:
-            """ Should be called when the input status changes, notifies all plugins. """
+            # Should be called when the input status changes, notifies all plugins.
             for runner in self.__iter_running_runners():
                 runner.process_input_status(event)
-        # TODO: implement/move also for other events (outputs, shutters, ...)
-
-    def process_output_status(self, output_status_inst):
-        """ Should be called when the output status changes, notifies all plugins. """
-        for runner in self.__iter_running_runners():
-            runner.process_output_status(output_status_inst)
+        if event.type == Event.Types.OUTPUT_CHANGE:
+            # TODO: Implement versioning so a plugin can also receive "normal" events on version 2
+            # Should be called when the output status changes, notifies all plugins.
+            states = [(output['id'], output['dimmer']) for output in self.__observer.get_outputs()
+                      if output['status'] == 1]
+            for runner in self.__iter_running_runners():
+                runner.process_output_status(states)
 
     def process_shutter_status(self, shutter_status_inst):
         """ Should be called when the shutter status changes, notifies all plugins. """
@@ -385,7 +390,7 @@ class PluginController(object):
         if plugin not in self.__logs:
             self.__logs[plugin] = []
 
-        LOGGER.error('Plugin {0}: {1} ({2})'.format(plugin, msg, exception))
+        logger.error('Plugin {0}: {1} ({2})'.format(plugin, msg, exception))
         if stacktrace is None:
             self.__logs[plugin].append('{0} - {1}: {2}'.format(datetime.now(), msg, exception))
         else:

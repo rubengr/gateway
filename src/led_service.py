@@ -18,10 +18,9 @@ This service allows other services to set the leds over the om bus and check whe
 gateway is in authorized mode.
 """
 
-from platform_utils import System
+from platform_utils import System, Platform
 System.import_eggs()
 
-import sys
 import fcntl
 import time
 import constants
@@ -36,6 +35,7 @@ from platform_utils import Hardware
 
 AUTH_MODE_LEDS = [Hardware.Led.ALIVE, Hardware.Led.CLOUD, Hardware.Led.VPN, Hardware.Led.COMM_1, Hardware.Led.COMM_2]
 logger = logging.getLogger("openmotics")
+
 
 def setup_logger():
     """ Setup the OpenMotics logger. """
@@ -235,7 +235,7 @@ class LedController(object):
                 logger.error('Error while driving leds: {0}'.format(exception))
             duration = time.time() - start
             time.sleep(max(0.05, 0.25 - duration))
-            
+
     def check_button(self):
         """ Handles input button presses """
         while self._running:
@@ -275,11 +275,15 @@ class LedController(object):
             self._indicate_started = time.time()
 
     def get_state(self):
+        authorized_mode = self._authorized_mode
+        if Platform.get_platform() == Platform.Type.CORE_PLUS:
+            authorized_mode = True  # TODO: Should be handled by actual button
+
         return {'run_gpio': self._last_run_gpio,
                 'run_i2c': self._last_run_i2c,
                 'run_buttons': self._last_button_check,
                 'run_state_check': self._last_state_check,
-                'authorized_mode': self._authorized_mode}
+                'authorized_mode': authorized_mode}
 
 
 def main():
@@ -298,6 +302,7 @@ def main():
         led_controller.set_led(Hardware.Led.POWER, True)
 
         signal_request = {'stop': False}
+
         def stop(signum, frame):
             """ This function is called on SIGTERM. """
             _ = signum, frame
