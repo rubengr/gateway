@@ -80,8 +80,7 @@ class MasterClassicController(MasterController):
 
     def _get_master_version(self):
         if self._master_version is None:
-            status_info = self._master_communicator.do_command(master_api.status())
-            self._master_version = int(status_info['f1']), int(status_info['f2']), int(status_info['f3'])
+            self._master_version = self.get_firmware_version()
             self._set_master_state(True)
 
     def _set_master_state(self, online):
@@ -161,7 +160,7 @@ class MasterClassicController(MasterController):
                 elif dimmer == 100:
                     dimmer_action = master_api.BA_DIMMER_MAX
                 else:
-                    dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_{0}'.format(dimmer)]
+                    dimmer_action = getattr(master_api, 'BA_LIGHT_ON_DIMMER_{0}'.format(dimmer))
                 self._master_communicator.do_command(
                     master_api.basic_action(),
                     {'action_type': dimmer_action, 'action_number': output_id}
@@ -180,7 +179,7 @@ class MasterClassicController(MasterController):
         )
 
         if timer is not None:
-            timer_action = master_api.__dict__['BA_LIGHT_ON_TIMER_{0}_OVERRULE'.format(timer)]
+            timer_action = getattr(master_api, 'BA_LIGHT_ON_TIMER_{0}_OVERRULE'.format(timer))
             self._master_communicator.do_command(
                 master_api.basic_action(),
                 {'action_type': timer_action, 'action_number': output_id}

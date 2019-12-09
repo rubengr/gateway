@@ -48,7 +48,7 @@ class MaintenanceCoreCommunicator(MaintenanceCommunicator):
     def start(self):
         self._stopped = False
         self._read_data_thread = Thread(target=self._read_data, name='Core maintenance read thread')
-        self._read_data_thread.daamon = True
+        self._read_data_thread.daemon = True
         self._read_data_thread.start()
 
     def stop(self):

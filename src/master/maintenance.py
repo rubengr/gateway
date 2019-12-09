@@ -78,7 +78,7 @@ class MaintenanceClassicCommunicator(MaintenanceCommunicator):
         self._maintenance_timeout_timer.start()
         self._stopped = False
         self._read_data_thread = Thread(target=self._read_data, name='Classic maintenance read thread')
-        self._read_data_thread.daamon = True
+        self._read_data_thread.daemon = True
         self._read_data_thread.start()
         self._deactivated_sent = False
 

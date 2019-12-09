@@ -21,7 +21,7 @@ import xmlrunner
 import threading
 import time
 from master.master_communicator import MasterCommunicator,  BackgroundConsumer, CrcCheckFailedException
-from gateway.maintenance_service import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api
 from serial_tests import SerialMock, sin, sout
 from serial_utils import CommunicationTimedOutException

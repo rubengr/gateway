@@ -108,7 +108,7 @@ class MaintenanceController(object):
         """
         port = random.randint(6000, 7000)
         self._server_thread = Thread(target=self._run_socket_server, args=[port])
-        self._server_thread.deamon = True
+        self._server_thread.daemon = True
         self._server_thread.start()
         return port
 
