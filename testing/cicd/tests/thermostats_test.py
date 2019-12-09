@@ -20,7 +20,7 @@ import logging
 import simplejson as json
 from toolbox import exception_handler, OMTestCase
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class ThermostatsTest(OMTestCase):

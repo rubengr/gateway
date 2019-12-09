@@ -25,7 +25,7 @@ from master_core.ucan_api import UCANAPI
 from master_core.ucan_command import UCANPalletCommandSpec, SID
 from master_core.fields import Int32Field
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class UCANUpdater(object):
@@ -57,7 +57,7 @@ class UCANUpdater(object):
         try:
             # TODO: Check version and skip update if the version is already active
 
-            LOGGER.info('Updating uCAN {0} at CC {1}'.format(ucan_address, cc_address))
+            logger.info('Updating uCAN {0} at CC {1}'.format(ucan_address, cc_address))
 
             if not os.path.exists(hex_filename):
                 raise RuntimeError('The given path does not point to an existing file')
@@ -65,9 +65,9 @@ class UCANUpdater(object):
 
             in_bootloader = ucan_communicator.is_ucan_in_bootloader(cc_address, ucan_address)
             if in_bootloader:
-                LOGGER.info('Bootloader active')
+                logger.info('Bootloader active')
             else:
-                LOGGER.info('Bootloader not active, switching to bootloader')
+                logger.info('Bootloader not active, switching to bootloader')
                 ucan_communicator.do_command(cc_address, UCANAPI.set_bootloader_timeout(SID.NORMAL_COMMAND), ucan_address, {'timeout': UCANUpdater.BOOTLOADER_TIMEOUT_UPDATE})
                 response = ucan_communicator.do_command(cc_address, UCANAPI.reset(SID.NORMAL_COMMAND), ucan_address, {}, timeout=10)
                 if response is None:
@@ -77,14 +77,14 @@ class UCANUpdater(object):
                 in_bootloader = ucan_communicator.is_ucan_in_bootloader(cc_address, ucan_address)
                 if not in_bootloader:
                     raise RuntimeError('Could not enter bootloader')
-                LOGGER.info('Bootloader active')
+                logger.info('Bootloader active')
 
-            LOGGER.info('Erasing flash...')
+            logger.info('Erasing flash...')
             ucan_communicator.do_command(cc_address, UCANAPI.erase_flash(), ucan_address, {})
-            LOGGER.info('Erasing flash... Done')
+            logger.info('Erasing flash... Done')
 
-            LOGGER.info('Flashing contents of {0}'.format(os.path.basename(hex_filename)))
-            LOGGER.info('Flashing...')
+            logger.info('Flashing contents of {0}'.format(os.path.basename(hex_filename)))
+            logger.info('Flashing...')
             address_blocks = range(UCANUpdater.ADDRESS_START, UCANUpdater.ADDRESS_END, UCANUpdater.MAX_FLASH_BYTES)
             total_amount = float(len(address_blocks))
             crc = 0
@@ -114,30 +114,30 @@ class UCANUpdater(object):
 
                 percentage = int(index / total_amount * 100)
                 if percentage > logged_percentage:
-                    LOGGER.info('Flashing... {0}%'.format(percentage))
+                    logger.info('Flashing... {0}%'.format(percentage))
                     logged_percentage = percentage
 
-            LOGGER.info('Flashing... Done')
+            logger.info('Flashing... Done')
             crc = UCANPalletCommandSpec.calculate_crc(total_payload)
             if crc != 0:
                 raise RuntimeError('Unexpected error in CRC calculation ({0})'.format(crc))
 
             # Prepare reset to application mode
-            LOGGER.info('Reduce bootloader timeout to {0}s'.format(UCANUpdater.BOOTLOADER_TIMEOUT_RUNTIME))
+            logger.info('Reduce bootloader timeout to {0}s'.format(UCANUpdater.BOOTLOADER_TIMEOUT_RUNTIME))
             ucan_communicator.do_command(cc_address, UCANAPI.set_bootloader_timeout(SID.BOOTLOADER_COMMAND), ucan_address, {'timeout': UCANUpdater.BOOTLOADER_TIMEOUT_RUNTIME})
-            LOGGER.info('Set safety bit allowing the application to immediately start on reset')
+            logger.info('Set safety bit allowing the application to immediately start on reset')
             ucan_communicator.do_command(cc_address, UCANAPI.set_bootloader_safety_flag(), ucan_address, {'safety_flag': 1})
 
             # Switch to application mode
-            LOGGER.info('Reset to application mode')
+            logger.info('Reset to application mode')
             response = ucan_communicator.do_command(cc_address, UCANAPI.reset(SID.BOOTLOADER_COMMAND), ucan_address, {}, timeout=10)
             if response is None:
                 raise RuntimeError('Error resettings uCAN after flashing')
             if response.get('application_mode', 0) != 1:
                 raise RuntimeError('uCAN didn\'t enter application mode after reset')
 
-            LOGGER.info('Update completed')
+            logger.info('Update completed')
             return True
         except Exception as ex:
-            LOGGER.error('Error flashing: {0}'.format(ex))
+            logger.error('Error flashing: {0}'.format(ex))
             return False

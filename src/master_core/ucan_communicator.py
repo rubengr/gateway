@@ -27,7 +27,7 @@ from master_core.ucan_command import SID
 from master_core.ucan_api import UCANAPI
 from serial_utils import CommunicationTimedOutException, printable
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class UCANCommunicator(object):
@@ -119,7 +119,7 @@ class UCANCommunicator(object):
         master_timeout = False
         for payload in command.create_request_payloads(identity, fields):
             if self._verbose:
-                LOGGER.info('Writing to uCAN transport:   CC {0} - SID {1} - Data: {2}'.format(cc_address, command.sid, printable(payload)))
+                logger.info('Writing to uCAN transport:   CC {0} - SID {1} - Data: {2}'.format(cc_address, command.sid, printable(payload)))
             try:
                 self._communicator.do_command(command=CoreAPI.ucan_tx_transport_message(),
                                               fields={'cc_address': cc_address,
@@ -128,7 +128,7 @@ class UCANCommunicator(object):
                                                       'payload': payload + [0] * (8 - len(payload))},
                                               timeout=timeout)
             except CommunicationTimedOutException as ex:
-                LOGGER.error('Internal timeout during uCAN transport to CC {0}: {1}'.format(cc_address, ex))
+                logger.error('Internal timeout during uCAN transport to CC {0}: {1}'.format(cc_address, ex))
                 master_timeout = True
                 break
 
@@ -150,7 +150,7 @@ class UCANCommunicator(object):
         sid = package['sid']
         cc_address = package['cc_address']
         if self._verbose:
-            LOGGER.info('Reading from uCAN transport: CC {0} - SID {1} - Data: {2}'.format(cc_address, sid, printable(payload)))
+            logger.info('Reading from uCAN transport: CC {0} - SID {1} - Data: {2}'.format(cc_address, sid, printable(payload)))
 
         consumers = self._consumers.get(cc_address, [])
         for consumer in consumers[:]:

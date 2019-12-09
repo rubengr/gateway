@@ -26,7 +26,7 @@ from master_core.core_api import CoreAPI
 from master_core.fields import WordField
 from serial_utils import CommunicationTimedOutException, printable
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class CoreCommunicator(object):
@@ -142,7 +142,7 @@ class CoreCommunicator(object):
         """
         with self._serial_write_lock:
             if self._verbose:
-                LOGGER.info('Writing to Core serial:   {0}'.format(printable(data)))
+                logger.info('Writing to Core serial:   {0}'.format(printable(data)))
 
             threshold = time.time() - self._debug_buffer_duration
             self._debug_buffer['write'][time.time()] = printable(data)
@@ -188,7 +188,7 @@ class CoreCommunicator(object):
         :raises: :class`CommunicationTimedOutException` if Core did not respond in time
         :returns: dict containing the output fields of the command
         """
-        LOGGER.info('BA: Execute {0} {1} {2} {3}'.format(action_type, action, device_nr, extra_parameter))
+        logger.info('BA: Execute {0} {1} {2} {3}'.format(action_type, action, device_nr, extra_parameter))
         return self.do_command(
             CoreAPI.basic_action(),
             {'type': action_type,
@@ -327,7 +327,7 @@ class CoreCommunicator(object):
 
             # A possible message is received, log where appropriate
             if self._verbose:
-                LOGGER.info('Reading from Core serial: {0}'.format(printable(message)))
+                logger.info('Reading from Core serial: {0}'.format(printable(message)))
             threshold = time.time() - self._debug_buffer_duration
             self._debug_buffer['read'][time.time()] = printable(message)
             for t in self._debug_buffer['read'].keys():
@@ -337,7 +337,7 @@ class CoreCommunicator(object):
             # Validate message boundaries
             correct_boundaries = message.startswith(CoreCommunicator.START_OF_REPLY) and message.endswith(CoreCommunicator.END_OF_REPLY)
             if not correct_boundaries:
-                LOGGER.info('Unexpected boundaries: {0}'.format(printable(message)))
+                logger.info('Unexpected boundaries: {0}'.format(printable(message)))
                 # Reset, so we'll wait for the next RTR
                 wait_for_length = None
                 data = message[3:] + data  # Strip the START_OF_REPLY, and restore full data
@@ -349,7 +349,7 @@ class CoreCommunicator(object):
             checked_payload = message[3:-4]
             expected_crc = CoreCommunicator._calculate_crc(checked_payload)
             if crc != expected_crc:
-                LOGGER.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, printable(checked_payload)))
+                logger.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, printable(checked_payload)))
                 # Reset, so we'll wait for the next RTR
                 wait_for_length = None
                 data = message[3:] + data  # Strip the START_OF_REPLY, and restore full data
@@ -359,7 +359,7 @@ class CoreCommunicator(object):
             consumers = self._consumers.get(header_fields['header'], [])
             for consumer in consumers[:]:
                 if self._verbose:
-                    LOGGER.info('Delivering payload to consumer {0}.{1}: {2}'.format(header_fields['command'], header_fields['cid'], printable(payload)))
+                    logger.info('Delivering payload to consumer {0}.{1}: {2}'.format(header_fields['command'], header_fields['cid'], printable(payload)))
                 consumer.consume(payload)
                 if isinstance(consumer, Consumer):
                     self.unregister_consumer(consumer)
@@ -448,5 +448,5 @@ class BackgroundConsumer(object):
             try:
                 self._callback(self._queue.get())
             except Exception:
-                LOGGER.exception('Unexpected exception delivering background consumer data')
+                logger.exception('Unexpected exception delivering background consumer data')
                 time.sleep(1)

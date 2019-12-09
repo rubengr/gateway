@@ -20,7 +20,7 @@ from serial_utils import printable
 from master_core.fields import PaddingField
 
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class CoreCommandSpec(object):
@@ -78,13 +78,13 @@ class CoreCommandSpec(object):
             if callable(field_length):
                 field_length = field_length(payload_length)
             if len(payload) < field_length:
-                LOGGER.warning('Payload for instruction {0} did not contain all the expected data: {1}'.format(self.instruction, printable(payload)))
+                logger.warning('Payload for instruction {0} did not contain all the expected data: {1}'.format(self.instruction, printable(payload)))
                 break
             data = payload[:field_length]
             if not isinstance(field, PaddingField):
                 result[field.name] = field.decode(data)
             payload = payload[field_length:]
         if payload != '':
-            LOGGER.warning('Payload for instruction {0} could not be consumed completely: {1}'.format(self.instruction, printable(payload)))
+            logger.warning('Payload for instruction {0} could not be consumed completely: {1}'.format(self.instruction, printable(payload)))
         return result
 

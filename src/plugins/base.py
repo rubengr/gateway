@@ -23,7 +23,7 @@ from datetime import datetime
 from wiring import inject, provides, SingletonScope, scope
 from plugins.runner import PluginRunner
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class PluginController(object):
@@ -62,7 +62,7 @@ class PluginController(object):
             self.__init_runners()
             self.__update_dependencies()
         else:
-            LOGGER.error('The PluginController is already running')
+            logger.error('The PluginController is already running')
 
     def stop(self):
         for runner_name in self.__runners.keys():
@@ -112,9 +112,9 @@ class PluginController(object):
     def __start_plugin_runner(self, runner, runner_name):
         """ Starts a single plugin runner """
         try:
-            LOGGER.info('Plugin {0}: {1}'.format(runner_name, 'Starting...'))
+            logger.info('Plugin {0}: {1}'.format(runner_name, 'Starting...'))
             runner.start()
-            LOGGER.info('Plugin {0}: {1}'.format(runner_name, 'Starting... Done'))
+            logger.info('Plugin {0}: {1}'.format(runner_name, 'Starting... Done'))
         except Exception as exception:
             try:
                 runner.stop()
@@ -137,9 +137,9 @@ class PluginController(object):
         if runner is None:
             return
         try:
-            LOGGER.info('Plugin {0}: {1}'.format(runner.name, 'Stopping...'))
+            logger.info('Plugin {0}: {1}'.format(runner.name, 'Stopping...'))
             runner.stop()
-            LOGGER.info('Plugin {0}: {1}'.format(runner.name, 'Stopping... Done'))
+            logger.info('Plugin {0}: {1}'.format(runner.name, 'Stopping... Done'))
         except Exception as exception:
             self.log(runner.name, '[Runner] Could not stop plugin', exception)
 
@@ -279,7 +279,7 @@ class PluginController(object):
         try:
             plugin.remove_callback()
         except Exception as exception:
-            LOGGER.error('Exception while removing plugin \'{0}\': {1}'.format(name, exception))
+            logger.error('Exception while removing plugin \'{0}\': {1}'.format(name, exception))
 
         # Stop the plugin process
         self.__destroy_plugin_runner(name)
@@ -390,7 +390,7 @@ class PluginController(object):
         if plugin not in self.__logs:
             self.__logs[plugin] = []
 
-        LOGGER.error('Plugin {0}: {1} ({2})'.format(plugin, msg, exception))
+        logger.error('Plugin {0}: {1} ({2})'.format(plugin, msg, exception))
         if stacktrace is None:
             self.__logs[plugin].append('{0} - {1}: {2}'.format(datetime.now(), msg, exception))
         else:

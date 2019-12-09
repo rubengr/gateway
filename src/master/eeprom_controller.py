@@ -23,7 +23,7 @@ from threading import Lock
 from wiring import inject, provides, SingletonScope, scope
 from master_api import eeprom_list, write_eeprom, activate_eeprom
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class EepromController(object):
@@ -155,7 +155,7 @@ class EepromFile(object):
         Activate a change in the Eeprom. The master will read the eeprom
         and adjust the current settings.
         """
-        LOGGER.info("EEPROM - Activate")
+        logger.info("EEPROM - Activate")
         self._master_communicator.do_command(activate_eeprom(), {'eep': 0})
 
     def read(self, addresses):
@@ -241,7 +241,7 @@ class EepromFile(object):
 
     def _write(self, bank, offset, to_write):
         """ Write a byte array to a specific location defined by the bank and the offset. """
-        LOGGER.info("EEPROM - Write: B{0} A{1} D[{2}]".format(bank, offset, ' '.join(['%3d' % ord(c) for c in to_write])))
+        logger.info("EEPROM - Write: B{0} A{1} D[{2}]".format(bank, offset, ' '.join(['%3d' % ord(c) for c in to_write])))
         self._master_communicator.do_command(
             write_eeprom(), {'bank': bank, 'address': offset, 'data': to_write}
         )

@@ -21,7 +21,7 @@ import logging
 import types
 from threading import Lock
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class MemoryModelDefinition(object):

@@ -22,7 +22,7 @@ import master.master_api as master_api
 from wiring import inject, provides, scope, SingletonScope
 from master.eeprom_models import PulseCounterConfiguration
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 MASTER_PULSE_COUNTERS = 24
 
 

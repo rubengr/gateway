@@ -19,7 +19,7 @@ Module to handle Events from the Core
 import logging
 from master_core.fields import WordField
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class Event(object):

@@ -23,7 +23,7 @@ import ujson as json
 from random import randint
 from wiring import inject, provides, SingletonScope, scope
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class ConfigurationController(object):

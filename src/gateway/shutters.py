@@ -20,7 +20,7 @@ import time
 from threading import Lock
 from wiring import inject, provides, SingletonScope, scope
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class ShutterController(object):
@@ -83,7 +83,7 @@ class ShutterController(object):
 
     def _log(self, message):
         if self._verbose:
-            LOGGER.info('ShutterController: {0}'.format(message))
+            logger.info('ShutterController: {0}'.format(message))
 
     # Update internal shutter configuration cache
 

@@ -24,7 +24,7 @@ import simplejson as json
 from ws4py.client.threadedclient import WebSocketClient
 from toolbox import exception_handler, OMTestCase
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class WebsocketTest(OMTestCase):

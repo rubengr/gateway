@@ -18,7 +18,7 @@ Module to handle Errors from the Core
 
 import logging
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class Error(object):

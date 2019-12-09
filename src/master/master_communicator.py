@@ -26,7 +26,7 @@ from master import master_api
 from master_command import Field, printable
 from serial_utils import CommunicationTimedOutException
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class MasterCommunicator(object):
@@ -150,7 +150,7 @@ class MasterCommunicator(object):
         """
         with self.__serial_write_lock:
             if self.__verbose:
-                LOGGER.info('Writing to Master serial:   {0}'.format(printable(data)))
+                logger.info('Writing to Master serial:   {0}'.format(printable(data)))
 
             threshold = time.time() - self.__debug_buffer_duration
             self.__debug_buffer['write'][time.time()] = printable(data)
@@ -183,7 +183,7 @@ class MasterCommunicator(object):
         :raises: :class`InMaintenanceModeException` if master is in maintenance mode
         :returns: dict containing the output fields of the command
         """
-        LOGGER.info('BA: Execute {0} {1}'.format(action_type, action_number))
+        logger.info('BA: Execute {0} {1}'.format(action_type, action_number))
         return self.do_command(
             master_api.basic_action(),
             {'action_type': action_type,
@@ -257,7 +257,7 @@ class MasterCommunicator(object):
     def __passthrough_wait(self):
         """ Waits until the passthrough is done or a timeout is reached. """
         if not self.__passthrough_done.wait(self.__passthrough_timeout):
-            LOGGER.info("Timed out on passthrough message")
+            logger.info("Timed out on passthrough message")
 
         self.__passthrough_mode = False
         self.__command_lock.release()
@@ -391,7 +391,7 @@ class MasterCommunicator(object):
                 try:
                     bytes_consumed, result, done = read_state.current_consumer.consume(_data, read_state.partial_result)
                 except ValueError, value_error:
-                    LOGGER.error('Could not consume/decode message from the master: {0}'.format(value_error))
+                    logger.error('Could not consume/decode message from the master: {0}'.format(value_error))
                     return ''
 
                 if done:
@@ -424,7 +424,7 @@ class MasterCommunicator(object):
                         del self.__debug_buffer['read'][t]
 
                 if self.__verbose:
-                    LOGGER.info('Reading from Master serial: {0}'.format(printable(data)))
+                    logger.info('Reading from Master serial: {0}'.format(printable(data)))
 
                 if read_state.should_resume():
                     data = read_state.consume(data)

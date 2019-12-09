@@ -21,7 +21,7 @@ from master_core.fields import PaddingField, Int32Field, StringField
 from serial_utils import printable
 
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class SID(object):
@@ -129,14 +129,14 @@ class UCANCommandSpec(object):
         for response_hash in self.headers:
             # Headers are ordered
             if response_hash not in payload:
-                LOGGER.warning('Payload did not contain all the expected data: {0}'.format(printable(payload)))
+                logger.warning('Payload did not contain all the expected data: {0}'.format(printable(payload)))
                 return None
             response_instruction = self._response_instruction_by_hash[response_hash]
             payload_entry = payload[response_hash]
             crc = payload_entry[response_instruction.checksum_byte]
             expected_crc = UCANCommandSpec.calculate_crc(payload_entry[:response_instruction.checksum_byte])
             if crc != expected_crc:
-                LOGGER.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, printable(payload_entry)))
+                logger.info('Unexpected CRC ({0} vs expected {1}): {2}'.format(crc, expected_crc, printable(payload_entry)))
                 return None
             usefull_payload = payload_entry[self.header_length:response_instruction.checksum_byte]
             payload_data += usefull_payload
@@ -153,7 +153,7 @@ class UCANCommandSpec(object):
             if callable(field_length):
                 field_length = field_length(payload_length)
             if len(payload_data) < field_length:
-                LOGGER.warning('Payload did not contain all the expected data: {0}'.format(printable(payload_data)))
+                logger.warning('Payload did not contain all the expected data: {0}'.format(printable(payload_data)))
                 break
             data = payload_data[:field_length]
             if not isinstance(field, PaddingField):
@@ -254,7 +254,7 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         """
         crc = UCANPalletCommandSpec.calculate_crc(payload)
         if crc != 0:
-            LOGGER.info('Unexpected pallet CRC ({0} != 0): {1}'.format(crc, printable(payload)))
+            logger.info('Unexpected pallet CRC ({0} != 0): {1}'.format(crc, printable(payload)))
             return None
         return self._parse_payload(payload[7:-4])
 

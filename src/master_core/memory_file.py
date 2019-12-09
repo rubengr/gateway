@@ -19,7 +19,7 @@ import logging
 from wiring import provides, inject, SingletonScope, scope
 from master_core.core_api import CoreAPI
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class MemoryTypes(object):
