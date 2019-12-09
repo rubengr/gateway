@@ -316,10 +316,7 @@ class MemoryAddressField(MemoryField):
         return data
 
     def decode(self, data):
-        result = []
-        for item in data:
-            result.append('{0:03}'.format(item))
-        return '.'.join(result)
+        return '.'.join('{0:03}'.format(item) for item in data)
 
 
 class MemoryVersionField(MemoryAddressField):
@@ -327,10 +324,7 @@ class MemoryVersionField(MemoryAddressField):
         super(MemoryAddressField, self).__init__(memory_type, address_spec, 3)
 
     def decode(self, data):
-        result = []
-        for item in data:
-            result.append('{0}'.format(item))
-        return '.'.join(result)
+        return '.'.join(str(item) for item in data)
 
 
 class MemoryRelation(object):

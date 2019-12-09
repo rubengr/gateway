@@ -14,6 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Module to handle Errors from the Core
+
+More information: https://wiki.openmotics.com/index.php/Error_List_AIO
 """
 
 import logging
@@ -88,44 +90,47 @@ class Error(object):
 
     @property
     def error(self):
-        if self.type == Error.Types.OUTPUT_ERROR:
-            if self._parameter_a == 0:
-                return 'Output module {0} is not responding'.format(self._parameter_b)
-            if self._parameter_a == 1:
-                return 'Address conflict during initialisation on {0}'.format(Error._decode_address(self._parameter_b, self._parameter_c))
-            if self._parameter_a == 2:
-                return 'Tried to switch output {0} ON while paired output {1} was already ON. Both will be switched OFF'.format(self._parameter_b, self._parameter_c)
-        if self.type == Error.Types.INPUT_ERROR:
-            if self._parameter_a == 0:
-                return 'Input module {0} is not responding'.format(self._parameter_b)
-            if self._parameter_a == 1:
-                return 'Address conflict during initialisation on {0}'.format(Error._decode_address(self._parameter_b, self._parameter_c))
-        if self.type == Error.Types.SENSOR_ERROR:
-            if self._parameter_a == 0:
-                return 'Sensor module {0} is not responding'.format(self._parameter_b)
-            if self._parameter_a == 1:
-                return 'Address conflict during initialisation on {0}'.format(Error._decode_address(self._parameter_b, self._parameter_c))
-            if self._parameter_a == 2:
-                return 'Configured sensor {0} did not update value in the last 2 minutes'.format(self._parameter_b)
-        if self.type == Error.Types.DEFAULT_SWITCH_CASE_TRIGGERED:
-            return 'Default switch/case triggered. Parameters {0} / {1} / {2}'.format(self._parameter_a, self._parameter_b, self._parameter_c)
-        if self.type == Error.Types.I2C_ERROR:
-            return 'Detected {0} I2C error(s) on state machine phase {1} on port {2}'.format(self._parameter_c, self._parameter_a, self._parameter_b)
-        if self.type == Error.Types.UART_ERROR:
-            return 'UART receiving error detected on state machine phase {0} on port {1}'.format(self._parameter_a, self._parameter_b)
-        if self.type in Error.StateMachineTypes:
-            return 'State machine {0} blocked. Parameters {1} / {2} / {3}'.format(self.type.replace('SM_', ''), self._parameter_a, self._parameter_b, self._parameter_c)
-        if self.type == Error.Types.MICRO_CAN_WATCHDOG_RESET:
-            return 'Watchdog reset on uCAN. Parameters {0} / {1} / {2}'.format(self._parameter_a, self._parameter_b, self._parameter_c)
-        if self.type == Error.Types.MICRO_CAN_WARM_RESET:
-            return 'Warm reset on uCAN. Parameters {0} / {1} / {2}'.format(self._parameter_a, self._parameter_b, self._parameter_c)
-        if self.type == Error.Types.COMMAND_ERROR:
-            if self._parameter_a == 0:
-                return 'CRC error: An API instruction {0} has generated a CRC error and has not been interpreted'.format(Error._extract_command(self._parameter_b))
-            if self._parameter_b == 10:
-                return 'API parameters send on instruction {0} not in range to be an acceptable value'.format(Error._extract_command(self._parameter_b))
-        else:
-            return 'Unknown error type {0}. Parameters {1} / {2} / {3}'.format(self._type, self._parameter_a, self._parameter_b, self._parameter_c)
+        try:
+            if self.type == Error.Types.OUTPUT_ERROR:
+                if self._parameter_a == 0:
+                    return 'Output module {0} is not responding'.format(self._parameter_b)
+                if self._parameter_a == 1:
+                    return 'Address conflict during initialisation on {0}'.format(Error._decode_address(self._parameter_b, self._parameter_c))
+                if self._parameter_a == 2:
+                    return 'Tried to switch output {0} ON while paired output {1} was already ON. Both will be switched OFF'.format(self._parameter_b, self._parameter_c)
+            if self.type == Error.Types.INPUT_ERROR:
+                if self._parameter_a == 0:
+                    return 'Input module {0} is not responding'.format(self._parameter_b)
+                if self._parameter_a == 1:
+                    return 'Address conflict during initialisation on {0}'.format(Error._decode_address(self._parameter_b, self._parameter_c))
+            if self.type == Error.Types.SENSOR_ERROR:
+                if self._parameter_a == 0:
+                    return 'Sensor module {0} is not responding'.format(self._parameter_b)
+                if self._parameter_a == 1:
+                    return 'Address conflict during initialisation on {0}'.format(Error._decode_address(self._parameter_b, self._parameter_c))
+                if self._parameter_a == 2:
+                    return 'Configured sensor {0} did not update value in the last 2 minutes'.format(self._parameter_b)
+            if self.type == Error.Types.DEFAULT_SWITCH_CASE_TRIGGERED:
+                return 'Default switch/case triggered. Parameters {0} / {1} / {2}'.format(self._parameter_a, self._parameter_b, self._parameter_c)
+            if self.type == Error.Types.I2C_ERROR:
+                return 'Detected {0} I2C error(s) on state machine phase {1} on port {2}'.format(self._parameter_c, self._parameter_a, self._parameter_b)
+            if self.type == Error.Types.UART_ERROR:
+                return 'UART receiving error detected on state machine phase {0} on port {1}'.format(self._parameter_a, self._parameter_b)
+            if self.type in Error.StateMachineTypes:
+                return 'State machine {0} blocked. Parameters {1} / {2} / {3}'.format(self.type.replace('SM_', ''), self._parameter_a, self._parameter_b, self._parameter_c)
+            if self.type == Error.Types.MICRO_CAN_WATCHDOG_RESET:
+                return 'Watchdog reset on uCAN. Parameters {0} / {1} / {2}'.format(self._parameter_a, self._parameter_b, self._parameter_c)
+            if self.type == Error.Types.MICRO_CAN_WARM_RESET:
+                return 'Warm reset on uCAN. Parameters {0} / {1} / {2}'.format(self._parameter_a, self._parameter_b, self._parameter_c)
+            if self.type == Error.Types.COMMAND_ERROR:
+                if self._parameter_a == 0:
+                    return 'CRC error: An API instruction {0} has generated a CRC error and has not been interpreted'.format(Error._extract_command(self._parameter_b))
+                if self._parameter_b == 10:
+                    return 'API parameters send on instruction {0} not in range to be an acceptable value'.format(Error._extract_command(self._parameter_b))
+            else:
+                return 'Unknown error type {0}. Parameters {1} / {2} / {3}'.format(self._type, self._parameter_a, self._parameter_b, self._parameter_c)
+        except Exception:
+            pass
         return 'Unknown error on type {0}. Parameters {1} / {2} / {3}'.format(self.type, self._parameter_a, self._parameter_b, self._parameter_c)
 
     @staticmethod

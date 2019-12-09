@@ -226,10 +226,7 @@ class AddressField(Field):
         return data
 
     def decode_bytes(self, data):
-        result = []
-        for item in data:
-            result.append('{0:03}'.format(item))
-        return '.'.join(result)
+        return '.'.join('{0:03}'.format(item) for item in data)
 
 
 class StringField(Field):
@@ -255,10 +252,7 @@ class VersionField(AddressField):
         super(VersionField, self).__init__(name, 3)
 
     def decode_bytes(self, data):
-        result = []
-        for item in data:
-            result.append('{0}'.format(item))
-        return '.'.join(result)
+        return '.'.join(str(item) for item in data)
 
 
 class PaddingField(Field):

@@ -105,13 +105,7 @@ class CoreCommunicator(object):
     def _get_cid(self):
         """ Get a communication id. 0 and 1 are reserved. """
         def _increment_cid(current_cid):
-            if current_cid is None:
-                new_cid = 2
-            else:
-                new_cid = current_cid + 1
-            if new_cid == 256:
-                new_cid = 2
-            return new_cid
+            return current_cid + 1 if (current_cid is not None and current_cid < 255) else 2
 
         def _available(candidate_cid):
             if candidate_cid is None:
