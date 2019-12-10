@@ -70,7 +70,7 @@ class TimeKeeper(object):
         self.__thread = None
 
     def __run_once(self):
-        """ One run of the background thread. """
+        """ One start of the background thread. """
         date = datetime.now()
         for module in self.__power_controller.get_power_modules().values():
             version = module['version']

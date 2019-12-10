@@ -275,7 +275,7 @@ class IoTest(OMTestCase):
 
         if response_dict is None:
             self.tools.healthy_status = False
-            self.fail('Failed to report health check. Service openmotics might have crashed. Please run \'supervisorctl restart openmotics\' or see logs for more details.')
+            self.fail('Failed to report health check. Service openmotics might have crashed. Please start \'supervisorctl restart openmotics\' or see logs for more details.')
 
         self.assertIsNotNone(response_dict, 'Should not be none and should have the response back from the API call. Got: {0}'.format(response_dict))
         self.assertTrue(response_dict.get('health_version') > 0, 'Should have a health_version int to indicate the health check API version.')

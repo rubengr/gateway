@@ -1,57 +1,129 @@
 import time
-
+import logging
+from threading import Thread
 from peewee import DoesNotExist
-
 from gateway.thermostat.models import Output, DaySchedule, Preset, Thermostat
 from gateway.thermostat.thermostat_controller import ThermostatController
+from gateway.thermostat.thermostat_pid import ThermostatPid
+
+logger = logging.getLogger('openmotics')
 
 
 class GatewayThermostatController(ThermostatController):
 
-    def get_thermostat_configurations(self, fields=None):
-        # TODO: implement the new config format
-        for thermostat_id in xrange(32):
-            self.get_thermostat_configuration(thermostat_id, fields)
+    THERMOSTAT_PID_UPDATE_INTERVAL = 60
 
-    def get_thermostat_configuration(self, thermostat_id, fields=None):
-        # TODO: implement the new config format
-        GatewayThermostatController._get_thermostat_for_vo_api(thermostat_id, fields)
+    def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):
+        super(GatewayThermostatController, self).__init__(gateway_api, message_client, observer, master_communicator,
+                                                          eeprom_controller)
+        self._running = False
+        self._loop_thread = None
+        self.thermostats = {}
+
+    def start(self):
+        if not self._running:
+            self._loop_thread = Thread(target=self._tick)
+            self._loop_thread.daemon = True
+            self._loop_thread.start()
+        else:
+            raise RuntimeError('GatewayThermostatController already running. Please stop it first.')
+
+    def stop(self):
+        if not self._running:
+            logger.warning('Stopping an already stopped GatewayThermostatController.')
+        self._running = False
+
+    def refresh_thermostats(self):
+        configured_thermostats = set([thermostat.number for thermostat in Thermostat.select()])
+        running_thermostats = set([thermostat_pid.number for thermostat_pid in self.thermostat_pids])
+
+        thermostat_numbers_to_add = configured_thermostats.difference(running_thermostats)
+        thermostat_numbers_to_remove = running_thermostats.difference(configured_thermostats)
+
+        for number in thermostat_numbers_to_remove:
+            thermostat_pid = self.thermostat_pids.get(number)
+            thermostat_pid.stop()
+            del thermostat_pid[number]
+
+        for number in thermostat_numbers_to_add:
+            new_thermostat = Thermostat.get(number=number)
+            new_thermostat_pid = ThermostatPid(new_thermostat, self._gateway_api)
+            self.thermostat_pids[number] = new_thermostat_pid
+
+        self.thermostat_pids =
+
+    def _tick(self):
+        while self._running:
+            for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
+                try:
+                    thermostat_pid.tick()
+                except Exception:
+                    logger.exception('There was a problem with calculating thermostat PID {}'.format(thermostat_pid))
+            time.sleep(self.THERMOSTAT_PID_UPDATE_INTERVAL)
+
+    def set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
+        for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
+            thermostat_pid.enabled = thermostat_on
+            thermostat_pid.mode = 'cooling' if cooling_mode else 'heating'
+            if automatic:
+                thermostat_pid.automatic = automatic
+
+            thermostat = thermostat_pid.thermostat
+            thermostat.enabled = thermostat_on
+
+
+    def set_current_setpoint(self, thermostat_number, temperature):
+        thermostat_pid = self.thermostat_pids.get(thermostat_number)
+        thermostat_pid.setpoint = temperature
+        return {'status': 'OK'}
+
+    def get_thermostat_configurations(self, fields=None):
+        # TODO: implement the new v1 config format
+        thermostats = Thermostat.select()
+        return [thermostat.to_v0_format(fields) for thermostat in thermostats]
+
+    def get_thermostat_configuration(self, thermostat_number, fields=None):
+        # TODO: implement the new v1 config format
+        thermostat = Thermostat.get(number=thermostat_number)
+        return thermostat.to_v0_format(fields)
 
     def set_thermostat_configurations(self, config):
-        # TODO: implement the new config format
+        # TODO: implement the new v1 config format
         for thermostat_config in config:
             self.set_thermostat_configuration(thermostat_config)
 
     def set_thermostat_configuration(self, config):
-        """
-        Set one thermostat_configuration.
+        # TODO: implement the new v1 config format
+        GatewayThermostatController._create_or_update_thermostat_from_vo_api(config)
 
-        :param config: The thermostat_configuration to set
-        :type config: thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        # TODO: implement the new config format
-        GatewayThermostatController._create_thermostat_from_vo_api(config)
-
-    def set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
-        pass
-
-    def set_current_setpoint(self, thermostat, temperature):
-        pass
-
-    def get_thermostats(self):
-        pass
+    def _refresh_thermostat_pid(self, thermostat):
+        thermostat_pid = self.thermostat_pids.get(thermostat.number)
+        if thermostat_pid is None:
+            self.thermostat_pids[thermostat.number] = Thermostat(thermostat, self._gateway_api)
+        else:
+            thermostat_pid.switch_off()
 
     @staticmethod
-    def _create_thermostat_from_vo_api(config):
+    def _create_or_update_thermostat_from_vo_api(config):
         # we don't get a start date, calculate last monday night to map the schedules
         now = int(time.time())
         day_of_week = (now / 86400 - 4) % 7  # 0: Monday, 1: Tuesday, ...
         last_monday_night = now - now % 86400 - day_of_week * 86400
 
-        thermostat_id = int(config['id'])
-        Thermostat.delete_by_id(thermostat_id)
+        thermostat_number = int(config['id'])
+        thermo = Thermostat.get_or_create(number=thermostat_number)
 
-        thermo = Thermostat(id=thermostat_id,
+        thermo.number = thermostat_number
+        thermo.name = config['name']
+        thermo.sensor = int(config['sensor'])
+        thermo.pid_p = float(config['pid_p'])
+        thermo.pid_i = float(config['pid_i'])
+        thermo.pid_d = float(config['pid_d'])
+        thermo.automatic = bool(config['permanent_manual'])
+        thermo.room = int(config['room'])
+        thermo.start = last_monday_night
+
+        thermo = Thermostat(number=thermostat_number,
                             name=config['name'],
                             sensor=int(config['sensor']),
                             pid_p=float(config['pid_p']),
@@ -78,47 +150,9 @@ class GatewayThermostatController(ThermostatController):
             day_schedule = DaySchedule.from_v0_dict(thermostat=thermo, day_index=day_index, v0_dict=v0_dict)
             day_schedule.save()
 
-        away = Preset(name='away', temperature=float(config['setp3']), thermostat=thermo)
+        away = Preset(name='AWAY', temperature=float(config['setp3']), thermostat=thermo)
         away.save()
-        vacation = Preset(name='vacation', temperature=float(config['setp4']), thermostat=thermo)
+        vacation = Preset(name='VACATION', temperature=float(config['setp4']), thermostat=thermo)
         vacation.save()
-        party = Preset(name='party', temperature=float(config['setp5']), thermostat=thermo)
+        party = Preset(name='PARTY', temperature=float(config['setp5']), thermostat=thermo)
         party.save()
-
-    @classmethod
-    def _serialize_to_v0(cls, thermostat_id, fields):
-        """
-        :returns: thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
-        """
-        try:
-            thermo = Thermostat.get_by_id(thermostat_id)
-
-            data = {}
-            data['id'] = thermo.id
-            data['name'] = thermo.name
-            data['sensor'] = thermo.sensor
-            data['pid_p'] = thermo.pid_p
-            data['pid_i'] = thermo.pid_i
-            data['pid_d'] = thermo.pid_d
-            data['automatic'] = thermo.automatic
-            data['room'] = thermo.room
-            data['automatic'] = thermo.automatic
-
-
-
-            start = IntegerField()
-
-
-            id = PrimaryKeyField()
-            name = TextField()
-            sensor = IntegerField()
-            pid_p = FloatField()
-            pid_i = FloatField()
-            pid_d = FloatField()
-            automatic = BooleanField()
-            room = IntegerField()
-            start = IntegerField()
-            return thermo
-        except DoesNotExist:
-            return None
-

@@ -212,7 +212,7 @@ class P1(OMPluginBase):
         self._event_data = code
 
     @background_task
-    def run(self):
+    def start(self):
         while True:
             self._bg_running = True
             time.sleep(1)

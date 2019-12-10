@@ -54,7 +54,7 @@ class Schedule(object):
         if self.status != 'ACTIVE':
             return False
         if self.repeat is None:
-            # Single-run schedules should start on their set starting time if not yet executed
+            # Single-start schedules should start on their set starting time if not yet executed
             if self.last_executed is not None:
                 return False
             return self.start <= time.time()
@@ -243,7 +243,7 @@ class SchedulingController(object):
             else:
                 LOGGER.warning('Did not process schedule {0}'.format(schedule.name))
 
-            # Cleanup or prepare for next run
+            # Cleanup or prepare for next start
             schedule.last_executed = time.time()
             if schedule.has_ended:
                 self._update_schedule_status(schedule.id, 'COMPLETED')

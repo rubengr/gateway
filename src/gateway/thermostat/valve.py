@@ -1,22 +1,24 @@
 import time
 from threading import Lock
 
+from gateway.thermostat.pwm_modulator import PwmModulator
+
 
 class Valve(object):
 
     VALVE_DELAY = 60  # opening of the valve might take a while
 
-    def __init__(self, gateway_api, output, use_pwm=True):
+    def __init__(self, output_nr, gateway_api, use_pwm=True):
         """ Create a valve object
         :param gateway_api: The gateway HAL
-        :type gateway_api: gateway.gateway_api
+        :type gateway_api: gateway.gateway_api.GatewayApi
         :param output: The output used to drive the valve
         :type output: int
         :param cycle_duration: The period of the PWM modulation in minutes
         :type cycle_duration: int
         """
         self._gateway_api = gateway_api
-        self._output = output
+        self._output_nr = output_nr
         self._pwm_modulator = None
 
         self._percentage = 0
@@ -58,4 +60,4 @@ class Valve(object):
             else:
                 is_open = percentage > 0
                 self._change_state(is_open)
-                self._gateway_api.set_output_dimmer(self._output, self._percentage)
+                self._gateway_api.set_output_dimmer(self._output_nr, self._percentage)

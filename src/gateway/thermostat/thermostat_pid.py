@@ -1,42 +1,36 @@
-import time
-from threading import Thread, Lock
 from simple_pid import PID
-from wiring import inject
+
+from gateway.thermostat.valve import Valve
 
 
-class Thermostat(object):
+class ThermostatPid(object):
 
     DEFAULT_KP = 5.0
     DEFAULT_KI = 0.0
     DEFAULT_KD = 2.0
 
-    @inject(gateway_api='gateway_api')
-    def __init__(self, thermostat_id, thermostat_group, sensor, heating_valves, cooling_valves, setpoint, gateway_api):
-        self._thermostat_id = thermostat_id
-        self._sensor_id = sensor
-        self._heating_valves = heating_valves
-        self._cooling_valves = cooling_valves
-        self._pid = PID(self.DEFAULT_KP, self.DEFAULT_KI, self.DEFAULT_KD, setpoint=setpoint)
-        self._running = False
+    def __init__(self, thermostat, gateway_api):
+        self._thermostat = thermostat
+
+        self._heating_valves = [Valve(output.output_nr, gateway_api, use_pwm=True) for output in thermostat.heating_outputs]
+        self._cooling_valves = [Valve(output.output_nr, gateway_api, use_pwm=True) for output in thermostat.cooling_outputs]
+
+        pid_p = thermostat.pid_p if thermostat.pid_p else self.DEFAULT_KP
+        pid_i = thermostat.pid_i if thermostat.pid_i else self.DEFAULT_KI
+        pid_d = thermostat.pid_d if thermostat.pid_d else self.DEFAULT_KD
+
+        self._pid = PID(pid_p, pid_i, pid_d, setpoint=thermostat.setpoint)
+        self._pid.output_limits = (-100, 100)
+
+        self.enabled = False
         self._gateway_api = gateway_api
-        self._loop_thread = False
-        self.cooling_mode = False
-        self.automatic = False
-        self.thermostat_group = thermostat_group
 
-    def run(self):
-        if not self._running:
-            self._pid.output_limits = (-100, 100)
-            self._loop_thread = Thread(target=self._loop)
-            self._loop_thread.daemon = True
-            self._loop_thread.start()
-        else:
-            raise RuntimeError('Thermostat {} already running. Please stop it first.'.format(self._thermostat_id))
+    @property
+    def thermostat(self):
+        return self.thermostat
 
-    def stop(self):
-        self._running= False
-
-    def _open_valves_cascade(self, total_percentage, valves):
+    @staticmethod
+    def _open_valves_cascade(total_percentage, valves):
         n_valves = len(valves)
         percentage_per_valve = 100.0 / n_valves
         n_valves_fully_open = int(total_percentage / percentage_per_valve)
@@ -67,22 +61,31 @@ class Thermostat(object):
             self._open_valves(0, self._heating_valves)
             self._open_valves(power, self._cooling_valves)
 
+    def stop(self):
+        self.switch_off()
+        while()
+
     def switch_off(self):
         self.steer(0)
 
-    def _loop(self):
-        while self._running:
-            current_temperature = self._gateway_api.get_sensor_temperature_status(self._sensor_id)
+    def tick(self):
+        if self.enabled:
+            current_temperature = self._gateway_api.get_sensor_temperature_status(self.thermostat.sensor)
             output_power = self._pid(current_temperature)
 
             # heating needed while in cooling mode OR
             # cooling needed while in heating mode
             # -> no active aircon required, rely on losses of system to reach equilibrium
-            if (self.cooling_mode and output_power > 0) or (not self.cooling_mode and output_power < 0):
+            if (self.thermostat.mode == 'cooling' and output_power > 0) or \
+               (self.thermostat.mode == 'heating' and output_power < 0):
                 output_power = 0
             self.steer(output_power)
-            time.sleep(60)
-        self.switch_off()
+        else:
+            self.switch_off()
+
+    @property
+    def number(self):
+        return self.thermostat.number
 
     @property
     def setpoint(self):
@@ -91,27 +94,9 @@ class Thermostat(object):
     @setpoint.setter
     def setpoint(self, setpoint):
         self._pid.setpoint = setpoint
-
-    @property
-    def is_on(self):
-        return self._running
-
-    def set_thermostat_mode(self, thermostat_on, cooling_mode=False, automatic=None, setpoint=None):
-        """ Set the mode of the thermostats.
-        :param thermostat_on: Whether the thermostats are on
-        :type thermostat_on: boolean
-        :param cooling_mode: Cooling mode (True) of Heating mode (False)
-        :type cooling_mode: boolean | None
-        :param automatic: Indicates whether the thermostat system should be set to automatic
-        :type automatic: boolean | None
-        :param setpoint: Requested setpoint (integer 0-5)
-        :type setpoint: int | None
-        :returns: dict with 'status'
-        """
-        self._running = thermostat_on
-        self.cooling_mode = cooling_mode
-        self.automatic = automatic
-        self.setpoint(setpoint)
+        if self.thermostat.setpoint != setpoint:
+            self.thermostat.setpoint = setpoint
+            self.thermostat.save()
 
     @property
     def Kp(self):

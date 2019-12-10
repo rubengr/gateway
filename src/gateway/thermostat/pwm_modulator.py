@@ -54,8 +54,6 @@ class PwmModulator(object):
                 elapsed_percentage = (now - self._cycle_start) / self._cycle_duration
                 elapsed_percentage = int(max(min(elapsed_percentage, 100), 0))
 
-
-
                 if elapsed_percentage != 0 and elapsed_percentage != 100:
                     callbacks = self._state_change_callbacks[elapsed_percentage]
                     self._call_back(callbacks)
