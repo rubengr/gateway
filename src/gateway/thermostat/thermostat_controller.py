@@ -1,12 +1,7 @@
-import time
 from wiring import provides, scope, inject, SingletonScope
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Observer, Event
-from gateway.thermostat.thermostats import ThermostatStatus
-from master import master_api
-from master.eeprom_models import ThermostatConfiguration, GlobalThermostatConfiguration, CoolingConfiguration, \
-    CoolingPumpGroupConfiguration, GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
-    PumpGroupConfiguration
+from gateway.thermostat.thermostat_status import ThermostatStatus
 
 
 class ThermostatController(object):

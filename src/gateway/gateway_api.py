@@ -990,7 +990,7 @@ class GatewayApi(object):
 
     # Sensor status
 
-    def get_sensor_temperature_status(self):
+    def get_sensors_temperature_status(self):
         """ Get the current temperature of all sensors.
 
         :returns: list with 32 temperatures, 1 for each sensor. None/null if not connected
@@ -1002,6 +1002,13 @@ class GatewayApi(object):
             output.append(sensor_list['tmp%d' % i].get_temperature())
 
         return output
+
+    def get_sensor_temperature_status(self, sensor_id):
+        """ Get the current temperature of 1 sensor.
+
+        :returns: temperature for sensor id. None/null if not connected
+        """
+        return self.get_sensors_temperature_status()[sensor_id]
 
     def get_sensor_humidity_status(self):
         """ Get the current humidity of all sensors.

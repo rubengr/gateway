@@ -48,11 +48,11 @@ class ClassicThermostatController(ThermostatController):
         self._thermostats_restore = 0
         self._thermostats_config = {}
 
-        self._thread = Thread(target=self._monitor)
-        self._thread.daemon = True
+        self._monitor_thread = Thread(target=self._monitor)
+        self._monitor_thread.daemon = True
 
     def start(self):
-        pass
+        self._monitor_thread.start()
 
     @staticmethod
     def check_basic_action(ret_dict):
@@ -384,7 +384,7 @@ class ClassicThermostatController(ThermostatController):
             # Heating means threshold based
             global_config = self.get_global_thermostat_configuration()
             outside_sensor = global_config['outside_sensor']
-            current_temperatures = self._gateway_api.get_sensor_temperature_status()
+            current_temperatures = self._gateway_api.get_sensors_temperature_status()
             if len(current_temperatures) > outside_sensor:
                 current_temperature = current_temperatures[outside_sensor]
                 set_on = global_config['threshold_temp'] > current_temperature
@@ -527,7 +527,6 @@ class ClassicThermostatController(ThermostatController):
             except Exception as ex:
                 logger.exception('Unexpected error during monitoring: {0}'.format(ex))
                 time.sleep(10)
-
 
     def _refresh_thermostats(self):
         """

@@ -1019,7 +1019,7 @@ class WebInterface(object):
         :returns: 'status': list of 32 temperatures, 1 for each sensor.
         :rtype: dict
         """
-        return {'status': self._gateway_api.get_sensor_temperature_status()}
+        return {'status': self._gateway_api.get_sensors_temperature_status()}
 
     @openmotics_api(auth=True)
     def get_sensor_humidity_status(self):

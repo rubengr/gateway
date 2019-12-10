@@ -14,3 +14,4 @@ simple-pid==0.2.4
 ujson == 1.35
 croniter == 0.3.20
 pytz == 2017.3
+peewee == 3.13.1

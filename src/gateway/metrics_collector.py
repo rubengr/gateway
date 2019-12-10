@@ -422,7 +422,7 @@ class MetricsCollector(object):
             start = time.time()
             try:
                 now = time.time()
-                temperatures = self._gateway_api.get_sensor_temperature_status()
+                temperatures = self._gateway_api.get_sensors_temperature_status()
                 humidities = self._gateway_api.get_sensor_humidity_status()
                 brightnesses = self._gateway_api.get_sensor_brightness_status()
                 for sensor_id, sensor in self._environment['sensors'].iteritems():

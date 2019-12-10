@@ -13,7 +13,7 @@ class Thermostat(object):
     @inject(gateway_api='gateway_api')
     def __init__(self, thermostat_id, thermostat_group, sensor, heating_valves, cooling_valves, setpoint, gateway_api):
         self._thermostat_id = thermostat_id
-        self._sensor = sensor
+        self._sensor_id = sensor
         self._heating_valves = heating_valves
         self._cooling_valves = cooling_valves
         self._pid = PID(self.DEFAULT_KP, self.DEFAULT_KI, self.DEFAULT_KD, setpoint=setpoint)
@@ -72,7 +72,7 @@ class Thermostat(object):
 
     def _loop(self):
         while self._running:
-            current_temperature = self._sensor.read_temperature()
+            current_temperature = self._gateway_api.get_sensor_temperature_status(self._sensor_id)
             output_power = self._pid(current_temperature)
 
             # heating needed while in cooling mode OR
