@@ -18,7 +18,7 @@ class GatewayThermostatController(ThermostatController):
                                                           eeprom_controller)
         self._running = False
         self._loop_thread = None
-        self.thermostats = {}
+        self.thermostat_pids = {}
 
     def start(self):
         if not self._running:
@@ -47,10 +47,8 @@ class GatewayThermostatController(ThermostatController):
 
         for number in thermostat_numbers_to_add:
             new_thermostat = Thermostat.get(number=number)
-            new_thermostat_pid = ThermostatPid(new_thermostat, self._gateway_api)
+            new_thermostat_pid = ThermostatPid(new_thermostat, self._gateway_api, enabled=new_thermostat.enabled)
             self.thermostat_pids[number] = new_thermostat_pid
-
-        self.thermostat_pids =
 
     def _tick(self):
         while self._running:
@@ -94,25 +92,24 @@ class GatewayThermostatController(ThermostatController):
 
     def set_thermostat_configuration(self, config):
         # TODO: implement the new v1 config format
-        GatewayThermostatController._create_or_update_thermostat_from_vo_api(config)
+        thermostat_number = int(config['id'])
+        thermostat = GatewayThermostatController._create_or_update_thermostat_from_vo_api(thermostat_number, config)
+        self._refresh_thermostat_pid(thermostat_number, thermostat)
 
-    def _refresh_thermostat_pid(self, thermostat):
-        thermostat_pid = self.thermostat_pids.get(thermostat.number)
-        if thermostat_pid is None:
-            self.thermostat_pids[thermostat.number] = Thermostat(thermostat, self._gateway_api)
-        else:
-            thermostat_pid.switch_off()
+    def _refresh_thermostat_pid(self, thermostat_number, thermostat):
+        thermostat_pid = self.thermostat_pids.get(thermostat_number)
+        if thermostat_pid is not None:
+            thermostat_pid.stop()
+        self.thermostat_pids[thermostat_number] = ThermostatPid(thermostat, self._gateway_api)
 
     @staticmethod
-    def _create_or_update_thermostat_from_vo_api(config):
+    def _create_or_update_thermostat_from_vo_api(thermostat_number, config):
         # we don't get a start date, calculate last monday night to map the schedules
         now = int(time.time())
         day_of_week = (now / 86400 - 4) % 7  # 0: Monday, 1: Tuesday, ...
         last_monday_night = now - now % 86400 - day_of_week * 86400
 
-        thermostat_number = int(config['id'])
         thermo = Thermostat.get_or_create(number=thermostat_number)
-
         thermo.number = thermostat_number
         thermo.name = config['name']
         thermo.sensor = int(config['sensor'])
@@ -156,3 +153,5 @@ class GatewayThermostatController(ThermostatController):
         vacation.save()
         party = Preset(name='PARTY', temperature=float(config['setp5']), thermostat=thermo)
         party.save()
+
+        return thermo

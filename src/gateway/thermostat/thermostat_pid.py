@@ -9,7 +9,7 @@ class ThermostatPid(object):
     DEFAULT_KI = 0.0
     DEFAULT_KD = 2.0
 
-    def __init__(self, thermostat, gateway_api):
+    def __init__(self, thermostat, gateway_api, enabled=False):
         self._thermostat = thermostat
 
         self._heating_valves = [Valve(output.output_nr, gateway_api, use_pwm=True) for output in thermostat.heating_outputs]
@@ -22,7 +22,7 @@ class ThermostatPid(object):
         self._pid = PID(pid_p, pid_i, pid_d, setpoint=thermostat.setpoint)
         self._pid.output_limits = (-100, 100)
 
-        self.enabled = False
+        self.enabled = enabled
         self._gateway_api = gateway_api
 
     @property
@@ -60,10 +60,6 @@ class ThermostatPid(object):
         else:
             self._open_valves(0, self._heating_valves)
             self._open_valves(power, self._cooling_valves)
-
-    def stop(self):
-        self.switch_off()
-        while()
 
     def switch_off(self):
         self.steer(0)
