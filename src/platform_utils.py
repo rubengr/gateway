@@ -19,6 +19,9 @@ import glob
 import os
 import sys
 import subprocess
+import logging
+
+logger = logging.getLogger('openmotics')
 
 
 class Hardware(object):
@@ -211,6 +214,7 @@ class System(object):
         eggs = (glob.glob('{0}/eggs/*.egg'.format(current_file_path)) +
                 glob.glob('{0}/eggs/{1}/*.egg'.format(current_file_path, operating_system)))
         for egg in eggs:
+            logger.info('Loading egg... {}'.format(egg))
             sys.path.insert(0, egg)
 
         # Patching where/if required

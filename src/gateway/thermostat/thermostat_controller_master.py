@@ -14,40 +14,14 @@ from master.master_communicator import BackgroundConsumer, CommunicationTimedOut
 logger = logging.getLogger("openmotics")
 
 
-class ClassicThermostatController(ThermostatController):
+class ThermostatControllerMaster(ThermostatController):
 
     @provides('thermostat_controller')
     @scope(SingletonScope)
-    @inject(gateway_api='gateway_api', eeprom_controller='eeprom_controller', master_communicator='master_communicator', message_client='message_client', observer='observer')
+    @inject(gateway_api='gateway_api', message_client='message_client', observer='observer', master_communicator='master_communicator', eeprom_controller='eeprom_controller')
     def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):
-        """
-        :param gateway_api: Gateway API Controller
-        :type gateway_api: gateway.gateway_api.GatewayApi
-        :param master_communicator: Master communicator
-        :type master_communicator: master.master_communicator.MasterCommunicator
-        :param eeprom_controller: EEPROM controller
-        :type eeprom_controller: master.eeprom_controller.EepromController
-        :param message_client: Om Message Client
-        :type message_client: bus.om_bus_client.MessageClient
-        :param observer: Observer
-        :type observer: gateway.observer.Observer
-        """
-        self._master_communicator = master_communicator
-        self._gateway_api = gateway_api
-        self._eeprom_controller = eeprom_controller
-        self._message_client = message_client
-        self._observer = observer
-
-        self._event_subscriptions = []
-
-        self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed,
-                                                   on_thermostat_group_change=self._thermostat_group_changed)
-        self._thermostats_original_interval = 30
-        self._thermostats_interval = self._thermostats_original_interval
-        self._thermostats_last_updated = 0
-        self._thermostats_restore = 0
-        self._thermostats_config = {}
-
+        super(ThermostatControllerMaster, self).__init__(gateway_api, message_client, observer, master_communicator,
+                                                          eeprom_controller)
         self._monitor_thread = Thread(target=self._monitor)
         self._monitor_thread.daemon = True
 

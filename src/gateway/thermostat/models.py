@@ -1,15 +1,33 @@
+import datetime
 import json
 import logging
-from peewee import *
+import time
 
-db = SqliteDatabase('gateway.db', pragmas={'foreign_keys': 1})
+from peewee import PrimaryKeyField, IntegerField, FloatField, BooleanField, TextField, Model, ForeignKeyField, \
+    CompositeKey, ManyToManyField, SqliteDatabase
 
 logger = logging.getLogger('openmotics')
 
 
+class Database(object):
+
+    _db = SqliteDatabase('/opt/openmotics/etc/gateway.db', pragmas={'foreign_keys': 1})
+
+    @classmethod
+    def init(cls):
+        cls._db.create_tables([ThermostatGroup, Thermostat, Output, OutputToThermostat, DaySchedule, Preset])
+
+        # create default data entries
+        ThermostatGroup.get_or_create(id=1, name='default')
+
+    @classmethod
+    def get_db(cls):
+        return cls._db
+
+
 class BaseModel(Model):
     class Meta:
-        database = db
+        database = Database.get_db()
 
 
 class ThermostatGroup(BaseModel):
@@ -25,13 +43,12 @@ class Thermostat(BaseModel):
     pid_p = FloatField(default=120)
     pid_i = FloatField(default=0)
     pid_d = FloatField(default=0)
-    enabled = BooleanField(default=False)
-    automatic = BooleanField(default=False)
+    automatic = BooleanField(default=True)
     room = IntegerField()
     start = IntegerField()
-    setpoint = FloatField(default=21.0)
+    setpoint = FloatField(default=14.0)
     mode = TextField(default='heating')        # heating or cooling
-    thermostat_group = ForeignKeyField(ThermostatGroup, backref='thermostats', on_delete='CASCADE')
+    thermostat_group = ForeignKeyField(ThermostatGroup, backref='thermostats', on_delete='CASCADE', default=1)
 
     def get_preset(self, name):
         return Preset.select().where(Preset.name == name, Preset.thermostat == self.id)
@@ -99,14 +116,15 @@ class Thermostat(BaseModel):
 class Output(BaseModel):
     id = PrimaryKeyField()
     output_nr = IntegerField(unique=True)
-    thermostat = ForeignKeyField(Thermostat, backref='outputs', on_delete='SET_NULL')
+    thermostat = ForeignKeyField(Thermostat, backref='outputs', on_delete='SET NULL')
 
 
-class OutputToThermostat(Model):
+class OutputToThermostat(BaseModel):
     """A simple "through" table for many-to-many relationship."""
     output = ForeignKeyField(Output, on_delete='CASCADE')
     thermostat = ForeignKeyField(Thermostat, on_delete='CASCADE')
     mode = TextField(default='heating')
+    priority = IntegerField(default=0)
 
     class Meta:
         primary_key = CompositeKey('output', 'thermostat')
@@ -116,7 +134,7 @@ class Preset(BaseModel):
     id = PrimaryKeyField()
     name = TextField()
     temperature = IntegerField()
-    thermostat = ManyToManyField(Thermostat, backref='presets', on_delete='CASCADE')
+    thermostat = ForeignKeyField(Thermostat, backref='presets', on_delete='CASCADE')
 
 
 class DaySchedule(BaseModel):
@@ -142,18 +160,25 @@ class DaySchedule(BaseModel):
             relative_timestamp = int(key)
             if relative_timestamp < 86400:
                 data[relative_timestamp] = float(value)
-        return cls(thermostat=thermostat, day_index=day_index, content=json.dumps(data))
+        return cls(thermostat=thermostat, index=day_index, content=json.dumps(data))
 
     def to_dict(self):
         return json.loads(self.content)
 
     @classmethod
-    def from_v0_dict(cls, thermostat, day_index, v0_dict):
-        data = {"0": v0_dict['temp_n'],
-                v0_dict['start_d1']: v0_dict['temp_d1'],
-                v0_dict['stop_d1']:  v0_dict['temp_n'],
-                v0_dict['start_d2']: v0_dict['temp_d2'],
-                v0_dict['stop_d2']:  v0_dict['temp_n']}
+    def from_v0_dict(cls, thermostat, day_index, v0_schedule):
+        def get_seconds(hour_timestamp):
+            x = time.strptime(hour_timestamp, '%H:%M')
+            return int(datetime.timedelta(hours=x.tm_hour, minutes=x.tm_min, seconds=x.tm_sec).total_seconds())
+
+        # e.g. [17, u'06:30', u'08:30', 20, u'17:00', u'23:30', 21]
+        temp_n, start_d1, stop_d1, temp_d1, start_d2, stop_d2, temp_d2 = v0_schedule
+
+        data = {0: temp_n,
+                get_seconds(start_d1): temp_d1,
+                get_seconds(stop_d1):  temp_n,
+                get_seconds(start_d2): temp_d2,
+                get_seconds(stop_d2):  temp_n}
         return cls.from_dict(thermostat, day_index, data)
 
     def to_v0_dict(self):

@@ -1,4 +1,3 @@
-from wiring import provides, scope, inject, SingletonScope
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Observer, Event
 from gateway.thermostat.thermostat_status import ThermostatStatus
@@ -6,10 +5,7 @@ from gateway.thermostat.thermostat_status import ThermostatStatus
 
 class ThermostatController(object):
 
-    @provides('thermostat_controller')
-    @scope(SingletonScope)
-    @inject(gateway_api='gateway_api', eeprom_controller='eeprom_controller', master_communicator='master_communicator', message_client='message_client', observer='observer')
-    def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller,):
+    def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):
         """
         :param gateway_api: Gateway API Controller
         :type gateway_api: gateway.gateway_api.GatewayApi
@@ -38,7 +34,7 @@ class ThermostatController(object):
         self._thermostats_restore = 0
         self._thermostats_config = {}
 
-    def get_thermostats(self):
+    def get_thermostat_status(self):
         """ Returns thermostat information """
         return self._thermostat_status.get_thermostats()
 
@@ -138,5 +134,15 @@ class ThermostatController(object):
         :param temperature: The temperature to set in degrees Celcius
         :type temperature: float
         :returns: dict with 'thermostat', 'config' and 'temp'
+        """
+        raise NotImplementedError
+
+    def get_pump_group_configurations(self, fields=None):
+        """
+        Get all pump_group_configurations.
+
+        :param fields: The field of the pump_group_configuration to get. (None gets all fields)
+        :type fields: List of strings
+        :returns: list of pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         """
         raise NotImplementedError

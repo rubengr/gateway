@@ -407,7 +407,7 @@ class WebInterface(object):
     @scope(SingletonScope)
     @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_service='maintenance_service',
             message_client='message_client', config_controller='config_controller',
-            scheduling_controller='scheduling_controller', thermostat_controller='thermostat_controller', sensor_controller='sensor_controller')
+            scheduling_controller='scheduling_controller', thermostat_controller='thermostat_controller')
     def __init__(self, user_controller, gateway_api, maintenance_service,
                  message_client, config_controller, scheduling_controller, thermostat_controller):
         """
@@ -928,7 +928,7 @@ class WebInterface(object):
             'id', 'act', 'csetp', 'output0', 'output1', 'outside', 'mode'.
         :rtype: dict
         """
-        return self._thermostat_controller.get_thermostats()
+        return self._thermostat_controller.get_thermostat_status()
 
     @openmotics_api(auth=True, check=types(thermostat=int, temperature=float))
     def set_current_setpoint(self, thermostat, temperature):

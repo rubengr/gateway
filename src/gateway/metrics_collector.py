@@ -35,8 +35,8 @@ class MetricsCollector(object):
 
     @provides('metrics_collector')
     @scope(SingletonScope)
-    @inject(gateway_api='gateway_api', pulse_controller='pulse_controller')
-    def __init__(self, gateway_api, pulse_controller):
+    @inject(gateway_api='gateway_api', pulse_controller='pulse_controller', thermostat_controller='thermostat_controller')
+    def __init__(self, gateway_api, pulse_controller, thermostat_controller):
         """
         :param gateway_api: Gateway API
         :type gateway_api: gateway.gateway_api.GatewayApi
@@ -69,6 +69,7 @@ class MetricsCollector(object):
                                         'end': 0} for metric_type in self._min_intervals}
 
         self._gateway_api = gateway_api
+        self._thermostat_controller = thermostat_controller
         self._pulse_controller = pulse_controller
         self._metrics_queue = deque()
 
@@ -459,7 +460,7 @@ class MetricsCollector(object):
             start = time.time()
             try:
                 now = time.time()
-                thermostats = self._gateway_api.get_thermostat_status()
+                thermostats = self._thermostat_controller.get_thermostat_status()
                 self._enqueue_metrics(metric_type=metric_type,
                                       values={'on': thermostats['thermostats_on'],
                                               'cooling': thermostats['cooling']},

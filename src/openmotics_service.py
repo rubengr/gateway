@@ -21,6 +21,9 @@ System.import_eggs()
 import logging
 import time
 import constants
+from gateway.thermostat.models import Database
+from gateway.thermostat.thermostat_controller_master import ThermostatControllerMaster
+from gateway.thermostat.thermostat_controller_gateway import ThermostatControllerGateway
 from wiring import Graph, SingletonScope
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
@@ -134,6 +137,7 @@ class OpenmoticsService(object):
         self.graph.register_instance('scheduling_db', constants.get_scheduling_database_file())
         self.graph.register_instance('scheduling_db_lock', scheduling_lock)
         self.graph.register_factory('scheduling_controller', SchedulingController, scope=SingletonScope)
+        self.graph.register_factory('thermostat_controller', ThermostatControllerGateway, scope=SingletonScope)
 
         # Master Controller
         controller_serial_port = config.get('OpenMotics', 'controller_serial')
@@ -191,6 +195,7 @@ class OpenmoticsService(object):
         plugin_controller = self.graph.get('plugin_controller')
         web_service = self.graph.get('web_service')
         event_sender = self.graph.get('event_sender')
+        thermostat_controller = self.graph.get('thermostat_controller')
 
         message_client.add_event_handler(metrics_controller.event_receiver)
         web_interface.set_plugin_controller(plugin_controller)
@@ -221,6 +226,11 @@ class OpenmoticsService(object):
         observer.subscribe_events(web_interface.send_event_websocket)
         observer.subscribe_events(event_sender.enqueue_event)
 
+        # subscribe event listeners on thermostat events
+        thermostat_controller.subscribe_events(web_interface.send_event_websocket)
+        thermostat_controller.subscribe_events(event_sender.enqueue_event)
+        thermostat_controller.subscribe_events(plugin_controller.process_observer_event)
+
     def start(self):
         """ Main function. """
         logger.info('Starting OM core service...')
@@ -228,8 +238,10 @@ class OpenmoticsService(object):
         self._build_graph()
         self._fix_dependencies()
 
+        Database.init()  # this verifies and creates the necessary DB tables if not yet existing
+
         service_names = ['master_communicator', 'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
-                         'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
+                         'scheduling_controller', 'thermostat_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
                          'communication_led_controller', 'event_sender']
         for name in service_names:
             service = self.graph.get(name)
@@ -242,7 +254,7 @@ class OpenmoticsService(object):
             """ This function is called on SIGTERM. """
             _ = signum, frame
             logger.info('Stopping OM core service...')
-            services_to_stop = ['web_service', 'metrics_collector', 'metrics_controller', 'plugin_controller', 'event_sender']
+            services_to_stop = ['web_service', 'metrics_collector', 'metrics_controller', 'thermostat_controller', 'plugin_controller', 'event_sender']
             for service_to_stop in services_to_stop:
                 self.graph.get(service_to_stop).stop()
             logger.info('Stopping OM core service... Done')

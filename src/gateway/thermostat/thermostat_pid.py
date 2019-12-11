@@ -1,6 +1,8 @@
+import logging
 from simple_pid import PID
-
 from gateway.thermostat.valve import Valve
+
+logger = logging.getLogger('openmotics')
 
 
 class ThermostatPid(object):
@@ -22,12 +24,21 @@ class ThermostatPid(object):
         self._pid = PID(pid_p, pid_i, pid_d, setpoint=thermostat.setpoint)
         self._pid.output_limits = (-100, 100)
 
-        self.enabled = enabled
         self._gateway_api = gateway_api
 
     @property
+    def enabled(self):
+        # 1. sensor is valid
+        # 2. outputs configured (heating or cooling)
+        if self._thermostat.sensor == 255:
+            return False
+        if len(self._heating_valves) == 0 and len(self._cooling_valves):
+            return False
+        return True
+
+    @property
     def thermostat(self):
-        return self.thermostat
+        return self._thermostat
 
     @staticmethod
     def _open_valves_cascade(total_percentage, valves):
@@ -53,6 +64,7 @@ class ThermostatPid(object):
         self._open_valves_equal(percentage, valves)
 
     def steer(self, power):
+        logger.info('PID steer - power {} '.format(power))
         if power > 0:
             # TODO: check union to avoid opening same valves in heating and cooling
             self._open_valves(0, self._cooling_valves)
@@ -65,9 +77,11 @@ class ThermostatPid(object):
         self.steer(0)
 
     def tick(self):
+        logger.info('_tick - thermostat {} is {} enabled'.format(self.thermostat.number, '' if self.enabled else 'not'))
         if self.enabled:
             current_temperature = self._gateway_api.get_sensor_temperature_status(self.thermostat.sensor)
             output_power = self._pid(current_temperature)
+            logger.info('_tick - PID output power {} '.format(output_power))
 
             # heating needed while in cooling mode OR
             # cooling needed while in heating mode

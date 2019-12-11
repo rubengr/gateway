@@ -77,8 +77,8 @@ class Observer(object):
 
     @provides('observer')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', message_client='message_client', shutter_controller='shutter_controller', thermostat_controller='thermostat_controller')
-    def __init__(self, master_communicator, message_client, shutter_controller, thermostat_controller):
+    @inject(master_communicator='master_communicator', message_client='message_client', shutter_controller='shutter_controller')
+    def __init__(self, master_communicator, message_client, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -103,7 +103,6 @@ class Observer(object):
         self._shutter_controller = shutter_controller
         self._shutter_controller.set_shutter_changed_callback(self._shutter_changed)
 
-        self._thermostat_controller = thermostat_controller
         self._input_interval = 300
         self._input_last_updated = 0
         self._input_config = {}
@@ -165,9 +164,6 @@ class Observer(object):
             try:
                 self._check_master_version()
                 # Refresh if required
-                if self._thermostats_last_updated + self._thermostats_interval < time.time():
-                    self._refresh_thermostats()
-                    self._set_master_state(True)
                 if self._output_last_updated + self._output_interval < time.time():
                     self._refresh_outputs()
                     self._set_master_state(True)
@@ -177,9 +173,6 @@ class Observer(object):
                 if self._input_last_updated + self._input_interval < time.time():
                     self._refresh_inputs()
                     self._set_master_state(True)
-                # Restore interval if required
-                if self._thermostats_restore < time.time():
-                    self._thermostats_interval = self._thermostats_original_interval
                 self._register_background_consumers()
                 time.sleep(1)
             except CommunicationTimedOutException:
