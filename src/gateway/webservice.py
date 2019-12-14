@@ -928,7 +928,7 @@ class WebInterface(object):
             'id', 'act', 'csetp', 'output0', 'output1', 'outside', 'mode'.
         :rtype: dict
         """
-        return self._thermostat_controller.get_thermostat_status()
+        return self._thermostat_controller.v0_get_thermostat_status()
 
     @openmotics_api(auth=True, check=types(thermostat=int, temperature=float))
     def set_current_setpoint(self, thermostat, temperature):

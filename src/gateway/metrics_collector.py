@@ -460,7 +460,7 @@ class MetricsCollector(object):
             start = time.time()
             try:
                 now = time.time()
-                thermostats = self._thermostat_controller.get_thermostat_status()
+                thermostats = self._thermostat_controller.v0_get_thermostat_status()
                 self._enqueue_metrics(metric_type=metric_type,
                                       values={'on': thermostats['thermostats_on'],
                                               'cooling': thermostats['cooling']},

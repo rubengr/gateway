@@ -21,9 +21,8 @@ System.import_eggs()
 import logging
 import time
 import constants
-from gateway.thermostat.models import Database
-from gateway.thermostat.thermostat_controller_master import ThermostatControllerMaster
-from gateway.thermostat.thermostat_controller_gateway import ThermostatControllerGateway
+from gateway.thermostat.gateway.models import Database
+from gateway.thermostat.gateway.thermostat_controller_gateway import ThermostatControllerGateway
 from wiring import Graph, SingletonScope
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
@@ -44,7 +43,7 @@ from gateway.metrics_caching import MetricsCacheController
 from gateway.config import ConfigurationController
 from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
-from gateway.observer import Observer, Event
+from gateway.observer import Observer
 from gateway.shutters import ShutterController
 from urlparse import urlparse
 from master.eeprom_controller import EepromController, EepromFile

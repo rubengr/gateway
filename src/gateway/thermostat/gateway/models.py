@@ -38,8 +38,10 @@ class ThermostatGroup(BaseModel):
     id = PrimaryKeyField()
     number = IntegerField(unique=True)
     name = TextField()
+    on = BooleanField(default=True)
     threshold_temp = IntegerField(null=True, default=None)
     sensor = IntegerField(null=True)
+    mode = TextField(default='heating')  # heating or cooling # TODO: add support for 'both'
 
 
 class OutputToThermostatGroup(BaseModel):
@@ -74,7 +76,6 @@ class Thermostat(BaseModel):
     room = IntegerField()
     start = IntegerField()
     setpoint = FloatField(default=14.0)
-    mode = TextField(default='heating')        # heating or cooling
     thermostat_group = ForeignKeyField(ThermostatGroup, backref='thermostats', on_delete='CASCADE', default=1)
 
     def get_preset(self, name):
@@ -88,6 +89,10 @@ class Thermostat(BaseModel):
 
     def get_day_schedule(self, day):
         return self._day_schedules.get(day)
+
+    @property
+    def mode(self):
+        return self.thermostat_group.mode
 
     @property
     def heating_valves(self):
@@ -159,7 +164,7 @@ class ValveToThermostat(BaseModel):
 class Preset(BaseModel):
     id = PrimaryKeyField()
     name = TextField()
-    temperature = IntegerField()
+    setpoint = FloatField()
     thermostat = ForeignKeyField(Thermostat, backref='presets', on_delete='CASCADE')
 
 

@@ -1,7 +1,7 @@
 import logging
 from threading import Lock
 from simple_pid import PID
-from gateway.thermostat.valve import Valve
+from gateway.thermostat.gateway.valve import Valve
 
 logger = logging.getLogger('openmotics')
 
@@ -19,6 +19,7 @@ class ThermostatPid(object):
         self._cooling_valves = []
         self._pid = None
         self._thermostat = None
+        self._preset = None
         self.update_thermostat(thermostat)
 
     @property
@@ -30,6 +31,26 @@ class ThermostatPid(object):
         if len(self._heating_valves) == 0 and len(self._cooling_valves):
             return False
         return True
+
+    @property
+    def preset(self):
+        """
+        :return preset: the preset that is currently set
+        :rtype preset: gateway.thermostat.models.Preset
+        """
+        return self._preset
+
+    @preset.setter
+    def preset(self, preset_name):
+        """
+        :param preset: the preset to be set
+        :type preset: gateway.thermostat.models.Preset
+        """
+        preset = self.thermostat.get_preset(preset_name)
+        if preset is not None:
+            self._preset = preset
+            self._update_setpoint(preset.setpoint)
+
 
     def update_thermostat(self, thermostat):
         with self._thermostat_change_lock:
@@ -109,17 +130,21 @@ class ThermostatPid(object):
     def number(self):
         return self.thermostat.number
 
+    def _update_setpoint(self, setpoint):
+        self._pid.setpoint = setpoint
+        if self.thermostat.setpoint != setpoint:
+            # TODO: do we want to store this on every change?
+            self.thermostat.setpoint = setpoint
+            self.thermostat.save()
+
     @property
     def setpoint(self):
         return self._pid.setpoint
 
     @setpoint.setter
     def setpoint(self, setpoint):
-        self._pid.setpoint = setpoint
-        if self.thermostat.setpoint != setpoint:
-            # TODO: do we want to store this on every change?
-            self.thermostat.setpoint = setpoint
-            self.thermostat.save()
+        self._update_setpoint(setpoint)
+        self._preset = self.thermostat.get_preset('manual')
 
     @property
     def Kp(self):

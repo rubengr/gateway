@@ -2,10 +2,12 @@ import logging
 import time
 from threading import Thread
 from wiring import provides, scope, inject, SingletonScope
+
+from bus.om_bus_events import OMBusEvents
 from gateway.observer import Observer, Event
 from gateway.thermostat.thermostat_controller import ThermostatController
 from gateway.thermostat.thermostat_status import ThermostatStatus
-from master import master_api
+from gateway.thermostat.master import master_api
 from master.eeprom_models import ThermostatConfiguration, GlobalThermostatConfiguration, CoolingConfiguration, \
     CoolingPumpGroupConfiguration, GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
     PumpGroupConfiguration
@@ -25,8 +27,39 @@ class ThermostatControllerMaster(ThermostatController):
         self._monitor_thread = Thread(target=self._monitor)
         self._monitor_thread.daemon = True
 
+        self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed,
+                                                   on_thermostat_group_change=self._thermostat_group_changed)
+        self._thermostats_original_interval = 30
+        self._thermostats_interval = self._thermostats_original_interval
+        self._thermostats_last_updated = 0
+        self._thermostats_restore = 0
+        self._thermostats_config = {}
+
     def start(self):
         self._monitor_thread.start()
+
+    def _thermostat_changed(self, thermostat_id, status):
+        """ Executed by the Thermostat Status tracker when an output changed state """
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})
+        location = {'room_id': self._thermostats_config[thermostat_id]['room']}
+        for callback in self._event_subscriptions:
+            callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
+                           data={'id': thermostat_id,
+                                 'status': {'preset': status['preset'],
+                                            'current_setpoint': status['current_setpoint'],
+                                            'actual_temperature': status['actual_temperature'],
+                                            'output_0': status['output_0'],
+                                            'output_1': status['output_1']},
+                                 'location': location}))
+
+    def _thermostat_group_changed(self, status):
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
+        for callback in self._event_subscriptions:
+            callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
+                           data={'id': 0,
+                                 'status': {'state': status['state'],
+                                            'mode': status['mode']},
+                                 'location': {}}))
 
     @staticmethod
     def check_basic_action(ret_dict):
@@ -557,3 +590,7 @@ class ThermostatControllerMaster(ThermostatController):
                                              'cooling': cooling,
                                              'status': thermostats})
         self._thermostats_last_updated = time.time()
+
+    def v0_get_thermostat_status(self):
+        """ Returns thermostat information """
+        return self._thermostat_status.get_thermostats()

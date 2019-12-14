@@ -1,7 +1,7 @@
 import time
 import logging
 from threading import Lock
-from gateway.thermostat.pwm_modulator import PwmModulator
+from gateway.thermostat.gateway.pwm_modulator import PwmModulator
 
 logger = logging.getLogger('openmotics')
 

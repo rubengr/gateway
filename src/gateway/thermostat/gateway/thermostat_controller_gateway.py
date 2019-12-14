@@ -4,17 +4,19 @@ from threading import Thread
 from peewee import DoesNotExist
 from wiring import provides, scope, inject, SingletonScope
 
-from gateway.thermostat.models import Output, DaySchedule, Preset, Thermostat, Database, ThermostatGroup, \
+from bus.om_bus_events import OMBusEvents
+from gateway.observer import Event
+from gateway.thermostat.gateway.models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, \
     OutputToThermostatGroup, ValveToThermostat, Valve
 from gateway.thermostat.thermostat_controller import ThermostatController
-from gateway.thermostat.thermostat_pid import ThermostatPid
+from gateway.thermostat.gateway.thermostat_pid import ThermostatPid
 
 logger = logging.getLogger('openmotics')
 
 
 class ThermostatControllerGateway(ThermostatController):
 
-    THERMOSTAT_PID_UPDATE_INTERVAL = 5
+    THERMOSTAT_PID_UPDATE_INTERVAL = 60
 
     @provides('thermostat_controller')
     @scope(SingletonScope)
@@ -42,31 +44,9 @@ class ThermostatControllerGateway(ThermostatController):
             logger.warning('Stopping an already stopped GatewayThermostatController.')
         self._running = False
 
-    def refresh_thermostats(self):
-        configured_thermostats = set([thermostat.number for thermostat in Thermostat.select()])
-        running_thermostats = set([thermostat_pid.number for thermostat_pid in self.thermostat_pids])
-
-        thermostat_numbers_to_add = configured_thermostats.difference(running_thermostats)
-        thermostat_numbers_to_remove = running_thermostats.difference(configured_thermostats)
-
-        for number in thermostat_numbers_to_remove:
-            thermostat_pid = self.thermostat_pids.get(number)
-            thermostat_pid.stop()
-            del thermostat_pid[number]
-
-        for number in thermostat_numbers_to_add:
-            new_thermostat = Thermostat.get(number=number)
-            new_thermostat_pid = ThermostatPid(new_thermostat, self._gateway_api)
-            self.thermostat_pids[number] = new_thermostat_pid
-
-    def _tick(self):
-        while self._running:
-            for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
-                try:
-                    thermostat_pid.tick()
-                except Exception:
-                    logger.exception('There was a problem with calculating thermostat PID {}'.format(thermostat_pid))
-            time.sleep(self.THERMOSTAT_PID_UPDATE_INTERVAL)
+    def v0_get_thermostat_status(self):
+        # TODO: implement
+        pass
 
     def v0_set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
         for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
@@ -166,6 +146,7 @@ class ThermostatControllerGateway(ThermostatController):
         day_of_week = (now / 86400 - 4) % 7  # 0: Monday, 1: Tuesday, ...
         last_monday_night = now - now % 86400 - day_of_week * 86400
 
+        # update/save thermostat configuration
         try:
             thermo = Thermostat.get(number=thermostat_number)
         except DoesNotExist:
@@ -185,38 +166,41 @@ class ThermostatControllerGateway(ThermostatController):
         thermo.start = last_monday_night
         thermo.save()
 
-        # unlink all previously linked valves, we are resetting this with the new outputs we got from the API
-        deleted = ValveToThermostat.delete().where(ValveToThermostat.thermostat == thermo).execute()
-        logger.info('unlinked {} valves from thermostat {}'.format(deleted, thermo.name))
+        # update/save output configuration
+        output_config_present = config.get('output0') is not None or config.get('output1') is not None
+        if output_config_present:
+            # unlink all previously linked valves, we are resetting this with the new outputs we got from the API
+            deleted = ValveToThermostat.delete().where(ValveToThermostat.thermostat == thermo).execute()
+            logger.info('unlinked {} valves from thermostat {}'.format(deleted, thermo.name))
 
-        for field in ['output0', 'output1']:
-            if config.get(field) is not None:
-                output_number = int(config[field])
-                if output_number == 255:
-                    continue
+            for field in ['output0', 'output1']:
+                if config.get(field) is not None:
+                    # 1. get or create output, creation also saves to db
+                    output_number = int(config[field])
+                    if output_number == 255:
+                        continue
+                    output, output_created = Output.get_or_create(number=output_number)
 
-                # 1. get or create output, creation also saves to db
-                output, output_created = Output.get_or_create(number=output_number)
+                    # 2. get or create the valve and link to this output
+                    try:
+                        valve = Valve.get(output=output)
+                    except DoesNotExist:
+                        valve = Valve(output=output)
+                    valve.name = field
+                    valve.pwm = False
+                    valve.save()
 
-                # 2. get or create the valve and link to this output
-                try:
-                    valve = Valve.get(output=output)
-                except DoesNotExist:
-                    valve = Valve(output=output)
-                valve.name = field
-                valve.pwm = False
-                valve.save()
+                    # 3. link the valve to the thermostat, set properties
+                    try:
+                        valve_to_thermostat = ValveToThermostat.get(valve=valve, thermostat=thermo)
+                    except DoesNotExist:
+                        valve_to_thermostat = ValveToThermostat(valve=valve, thermostat=thermo)
+                    # TODO: decide if this is a cooling thermostat or heating thermostat
+                    valve_to_thermostat.mode = 'heating'
+                    valve_to_thermostat.priority = 0 if field == 'output0' else 1
+                    valve_to_thermostat.save()
 
-                # 3. link the valve to the thermostat, set properties
-                try:
-                    valve_to_thermostat = ValveToThermostat.get(valve=valve, thermostat=thermo)
-                except DoesNotExist:
-                    valve_to_thermostat = ValveToThermostat(valve=valve, thermostat=thermo)
-                # TODO: decide if this is a cooling thermostat or heating thermostat
-                valve_to_thermostat.mode = 'heating'
-                valve_to_thermostat.priority = 0 if field == 'output0' else 1
-                valve_to_thermostat.save()
-
+        # update/save scheduling configuration
         for (day_index, key) in [(0, 'auto_mon'),
                                  (1, 'auto_tue'),
                                  (2, 'auto_wed'),
@@ -245,3 +229,58 @@ class ThermostatControllerGateway(ThermostatController):
                 preset.save()
 
         return thermo
+
+    def _v0_event_thermostat_changed(self, thermostat):
+        """
+        :type thermostat: gateway.thermostat.models.Thermostat
+        """
+        """ Executed by the Thermostat Status tracker when an output changed state """
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat.number})
+        location = {'room_id': thermostat.room}
+        for callback in self._event_subscriptions:
+            callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
+                           data={'id': thermostat.number,
+                                 'status': {'preset': 'AWAY',  # TODO: get real value from somewhere
+                                            'current_setpoint': thermostat.setpoint,
+                                            'actual_temperature': 21,  # TODO: get real value from somewhere
+                                            'output_0': thermostat.heating_valves[0],
+                                            'output_1': thermostat.heating_valves[1]},
+                                 'location': location}))
+
+    def _v0_event_thermostat_group_changed(self, thermostat_group):
+        """
+        :type thermostat_group: gateway.thermostat.models.ThermostatGroup
+        """
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
+        for callback in self._event_subscriptions:
+            callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
+                           data={'id': 0,
+                                 'status': {'state': 'ON' if thermostat_group.on else 'OFF',
+                                            'mode': 'COOLING' if thermostat_group.mode == 'cooling' else 'HEATING'},
+                                 'location': {}}))
+
+    def refresh_thermostats(self):
+        configured_thermostats = set([thermostat.number for thermostat in Thermostat.select()])
+        running_thermostats = set([thermostat_pid.number for thermostat_pid in self.thermostat_pids])
+
+        thermostat_numbers_to_add = configured_thermostats.difference(running_thermostats)
+        thermostat_numbers_to_remove = running_thermostats.difference(configured_thermostats)
+
+        for number in thermostat_numbers_to_remove:
+            thermostat_pid = self.thermostat_pids.get(number)
+            thermostat_pid.stop()
+            del thermostat_pid[number]
+
+        for number in thermostat_numbers_to_add:
+            new_thermostat = Thermostat.get(number=number)
+            new_thermostat_pid = ThermostatPid(new_thermostat, self._gateway_api)
+            self.thermostat_pids[number] = new_thermostat_pid
+
+    def _tick(self):
+        while self._running:
+            for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
+                try:
+                    thermostat_pid.tick()
+                except Exception:
+                    logger.exception('There was a problem with calculating thermostat PID {}'.format(thermostat_pid))
+            time.sleep(self.THERMOSTAT_PID_UPDATE_INTERVAL)

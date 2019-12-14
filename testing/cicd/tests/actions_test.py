@@ -938,7 +938,7 @@ class ActionsTest(OMTestCase):
         params = {'action_type': 148, 'action_number': 0}  # ActionType 148 changes the set point of thermostat X to 16.
         token = self.tools.get_new_token(self.tools.username, self.tools.password)
         self.tools.api_testee(api='do_basic_action', params=params, token=token)
-        response = self.tools.api_testee(api='get_thermostat_status', token=token)
+        response = self.tools.api_testee(api='v0_get_thermostat_status', token=token)
         thermostat_status = response.get('status')
         if not thermostat_status:
             self.fail('Setting standard thermostat set point has failed.')
@@ -946,7 +946,7 @@ class ActionsTest(OMTestCase):
 
         params = {'action_type': 149, 'action_number': 0}  # ActionType 149 changes the set point of thermostat X to 22.5.
         self.tools.api_testee(api='do_basic_action', params=params, token=token)
-        response = self.tools.api_testee(api='get_thermostat_status', token=token)
+        response = self.tools.api_testee(api='v0_get_thermostat_status', token=token)
         thermostat_status = response.get('status')
         if not thermostat_status:
             self.fail('Setting standard thermostat set point has failed.')
@@ -961,7 +961,7 @@ class ActionsTest(OMTestCase):
 
         params = {'action_type': 148, 'action_number': 0}  # ActionType 148 changes the set point of thermostat X to 16.
         self.tools.api_testee(api='do_basic_action', params=params, token=self.token)
-        response = self.tools.api_testee(api='get_thermostat_status', token=self.token)
+        response = self.tools.api_testee(api='v0_get_thermostat_status', token=self.token)
 
         thermostat_status = response.get('status')
         if not thermostat_status:
@@ -971,7 +971,7 @@ class ActionsTest(OMTestCase):
         params = {'action_type': 143, 'action_number': 0}  # ActionType 143 increases the set point by 0.5 of thermostat X.
         self.tools.api_testee(api='do_basic_action', params=params, token=self.token)
 
-        response = self.tools.api_testee(api='get_thermostat_status', token=self.token)
+        response = self.tools.api_testee(api='v0_get_thermostat_status', token=self.token)
         thermostat_status = response.get('status')
         if not thermostat_status:
             self.fail('Setting standard thermostat set point has failed.')
@@ -981,7 +981,7 @@ class ActionsTest(OMTestCase):
         time.sleep(0.2)
         self.tools.api_testee(api='do_basic_action', params=params, token=self.token)
 
-        response = self.tools.api_testee(api='get_thermostat_status', token=self.token)
+        response = self.tools.api_testee(api='v0_get_thermostat_status', token=self.token)
         thermostat_status = response.get('status')
         if not thermostat_status:
             self.fail('Setting standard thermostat set point has failed.')
@@ -996,7 +996,7 @@ class ActionsTest(OMTestCase):
 
         params = {'action_type': 149, 'action_number': 0}  # ActionType 149 changes the set point of thermostat X to 22.5.
         self.tools.api_testee(api='do_basic_action', params=params, token=self.token)
-        response = self.tools.api_testee(api='get_thermostat_status', token=self.token)
+        response = self.tools.api_testee(api='v0_get_thermostat_status', token=self.token)
 
         thermostat_status = response.get('status')
         if not thermostat_status:
@@ -1006,7 +1006,7 @@ class ActionsTest(OMTestCase):
         params = {'action_type': 142, 'action_number': 0}  # ActionType 142 decreases the set point by 0.5 of thermostat X.
         self.tools.api_testee(api='do_basic_action', params=params, token=self.token)
 
-        response = self.tools.api_testee(api='get_thermostat_status', token=self.token)
+        response = self.tools.api_testee(api='v0_get_thermostat_status', token=self.token)
         thermostat_status = response.get('status')
         if not thermostat_status:
             self.fail('Setting standard thermostat set point has failed.')
@@ -1016,7 +1016,7 @@ class ActionsTest(OMTestCase):
         time.sleep(0.2)
         self.tools.api_testee(api='do_basic_action', params=params, token=self.token)
 
-        response = self.tools.api_testee(api='get_thermostat_status', token=self.token)
+        response = self.tools.api_testee(api='v0_get_thermostat_status', token=self.token)
         thermostat_status = response.get('status')
         if not thermostat_status:
             self.fail('Setting standard thermostat set point has failed.')
