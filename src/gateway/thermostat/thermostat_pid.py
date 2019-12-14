@@ -1,4 +1,5 @@
 import logging
+from threading import Lock
 from simple_pid import PID
 from gateway.thermostat.valve import Valve
 
@@ -11,20 +12,14 @@ class ThermostatPid(object):
     DEFAULT_KI = 0.0
     DEFAULT_KD = 2.0
 
-    def __init__(self, thermostat, gateway_api, enabled=False):
-        self._thermostat = thermostat
-
-        self._heating_valves = [Valve(output.output_nr, gateway_api, use_pwm=True) for output in thermostat.heating_outputs]
-        self._cooling_valves = [Valve(output.output_nr, gateway_api, use_pwm=True) for output in thermostat.cooling_outputs]
-
-        pid_p = thermostat.pid_p if thermostat.pid_p else self.DEFAULT_KP
-        pid_i = thermostat.pid_i if thermostat.pid_i else self.DEFAULT_KI
-        pid_d = thermostat.pid_d if thermostat.pid_d else self.DEFAULT_KD
-
-        self._pid = PID(pid_p, pid_i, pid_d, setpoint=thermostat.setpoint)
-        self._pid.output_limits = (-100, 100)
-
+    def __init__(self, thermostat, gateway_api):
         self._gateway_api = gateway_api
+        self._thermostat_change_lock = Lock()
+        self._heating_valves = []
+        self._cooling_valves = []
+        self._pid = None
+        self._thermostat = None
+        self.update_thermostat(thermostat)
 
     @property
     def enabled(self):
@@ -35,6 +30,24 @@ class ThermostatPid(object):
         if len(self._heating_valves) == 0 and len(self._cooling_valves):
             return False
         return True
+
+    def update_thermostat(self, thermostat):
+        with self._thermostat_change_lock:
+            self._heating_valves = [Valve(heating_valve, self._gateway_api) for heating_valve in thermostat.heating_valves]
+            self._cooling_valves = [Valve(cooling_valve, self._gateway_api) for cooling_valve in thermostat.cooling_valves]
+
+            pid_p = thermostat.pid_p if thermostat.pid_p else self.DEFAULT_KP
+            pid_i = thermostat.pid_i if thermostat.pid_i else self.DEFAULT_KI
+            pid_d = thermostat.pid_d if thermostat.pid_d else self.DEFAULT_KD
+            if self._pid is None:
+                self._pid = PID(pid_p, pid_i, pid_d, setpoint=thermostat.setpoint)
+            else:
+                self._pid.Kp = pid_p
+                self._pid.Ki = pid_i
+                self._pid.Kd = pid_d
+                self._pid.setpoint = thermostat.setpoint
+            self._pid.output_limits = (-100, 100)
+            self._thermostat = thermostat
 
     @property
     def thermostat(self):
@@ -55,9 +68,8 @@ class ThermostatPid(object):
             valve.set(percentage)
 
     def _open_valves_equal(self, percentage, valves):
-        n_valves = len(valves)
-        for n in xrange(n_valves):
-            valve = valves[n]
+        for valve in valves:
+            logger.info('opening valve {} for {}%'.format(valve, percentage))
             valve.set(percentage)
 
     def _open_valves(self, percentage, valves):
@@ -105,6 +117,7 @@ class ThermostatPid(object):
     def setpoint(self, setpoint):
         self._pid.setpoint = setpoint
         if self.thermostat.setpoint != setpoint:
+            # TODO: do we want to store this on every change?
             self.thermostat.setpoint = setpoint
             self.thermostat.save()
 

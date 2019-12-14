@@ -48,7 +48,7 @@ class ThermostatControllerMaster(ThermostatController):
         if object_type is None or object_type == Observer.Types.THERMOSTATS:
             self._thermostats_last_updated = 0
 
-    def get_thermostat_configuration(self, thermostat_id, fields=None):
+    def v0_get_thermostat_configuration(self, thermostat_id, fields=None):
         """
         Get a specific thermostat_configuration defined by its id.
 
@@ -60,7 +60,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return self._eeprom_controller.read(ThermostatConfiguration, thermostat_id, fields).serialize()
 
-    def get_thermostat_configurations(self, fields=None):
+    def v0_get_thermostat_configurations(self, fields=None):
         """
         Get all thermostat_configurations.
 
@@ -70,7 +70,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return [o.serialize() for o in self._eeprom_controller.read_all(ThermostatConfiguration, fields)]
 
-    def set_thermostat_configuration(self, config):
+    def v0_set_thermostat_configuration(self, config):
         """
         Set one thermostat_configuration.
 
@@ -80,7 +80,7 @@ class ThermostatControllerMaster(ThermostatController):
         self._eeprom_controller.write(ThermostatConfiguration.deserialize(config))
         self.invalidate_cache(Observer.Types.THERMOSTATS)
 
-    def set_thermostat_configurations(self, config):
+    def v0_set_thermostat_configurations(self, config):
         """
         Set multiple thermostat_configurations.
 
@@ -249,7 +249,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         self._eeprom_controller.write_batch([RTD10CoolingConfiguration.deserialize(o) for o in config])
 
-    def get_global_thermostat_configuration(self, fields=None):
+    def v0_get_global_thermostat_configuration(self, fields=None):
         """
         Get the global_thermostat_configuration.
 
@@ -259,7 +259,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return self._eeprom_controller.read(GlobalThermostatConfiguration, fields).serialize()
 
-    def set_global_thermostat_configuration(self, config):
+    def v0_set_global_thermostat_configuration(self, config):
         """
         Set the global_thermostat_configuration.
 
@@ -284,7 +284,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return self._eeprom_controller.read(PumpGroupConfiguration, pump_group_id, fields).serialize()
 
-    def get_pump_group_configurations(self, fields=None):
+    def v0_get_pump_group_configurations(self, fields=None):
         """
         Get all pump_group_configurations.
 
@@ -334,7 +334,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return [o.serialize() for o in self._eeprom_controller.read_all(CoolingConfiguration, fields)]
 
-    def set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
+    def v0_set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
         """ Set the mode of the thermostats.
         :param thermostat_on: Whether the thermostats are on
         :type thermostat_on: boolean
@@ -356,7 +356,7 @@ class ThermostatControllerMaster(ThermostatController):
             set_on = True
         if cooling_mode is False:
             # Heating means threshold based
-            global_config = self.get_global_thermostat_configuration()
+            global_config = self.v0_get_global_thermostat_configuration()
             outside_sensor = global_config['outside_sensor']
             current_temperatures = self._gateway_api.get_sensors_temperature_status()
             if len(current_temperatures) > outside_sensor:
@@ -403,7 +403,7 @@ class ThermostatControllerMaster(ThermostatController):
         self.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
         return {'status': 'OK'}
 
-    def set_per_thermostat_mode(self, thermostat_id, automatic, setpoint):
+    def v0_set_per_thermostat_mode(self, thermostat_id, automatic, setpoint):
         """ Set the setpoint/mode for a certain thermostat.
         :param thermostat_id: The id of the thermostat.
         :type thermostat_id: Integer [0, 31]
@@ -467,7 +467,7 @@ class ThermostatControllerMaster(ThermostatController):
         if thermostat not in range(0, 32):
             raise ValueError('Thermostat not in [0,32]: %d' % thermostat)
 
-    def set_current_setpoint(self, thermostat, temperature):
+    def v0_set_current_setpoint(self, thermostat, temperature):
         """ Set the current setpoint of a thermostat.
         :param thermostat: The id of the thermostat to set
         :type thermostat: Integer [0, 32]
@@ -525,7 +525,7 @@ class ThermostatControllerMaster(ThermostatController):
         if cooling:
             self._thermostats_config = self.get_cooling_configurations(fields=fields)
         else:
-            self._thermostats_config = self.get_thermostat_configurations(fields=fields)
+            self._thermostats_config = self.v0_get_thermostat_configurations(fields=fields)
 
         thermostats = []
         for thermostat_id in xrange(32):

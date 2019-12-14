@@ -71,7 +71,7 @@ class ThermostatController(object):
         """
         self._event_subscriptions.append(callback)
 
-    def get_thermostat_configuration(self, thermostat_id, fields=None):
+    def v0_get_thermostat_configuration(self, thermostat_id, fields=None):
         """
         Get a specific thermostat_configuration defined by its id.
 
@@ -83,7 +83,7 @@ class ThermostatController(object):
         """
         raise NotImplementedError
 
-    def get_thermostat_configurations(self, fields=None):
+    def v0_get_thermostat_configurations(self, fields=None):
         """
         Get all thermostat_configurations.
 
@@ -93,7 +93,7 @@ class ThermostatController(object):
         """
         raise NotImplementedError
 
-    def set_thermostat_configuration(self, config):
+    def v0_set_thermostat_configuration(self, config):
         """
         Set one thermostat_configuration.
 
@@ -102,7 +102,7 @@ class ThermostatController(object):
         """
         raise NotImplementedError
 
-    def set_thermostat_configurations(self, config):
+    def v0_set_thermostat_configurations(self, config):
         """
         Set multiple thermostat_configurations.
 
@@ -111,7 +111,7 @@ class ThermostatController(object):
         """
         raise NotImplementedError
 
-    def set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
+    def v0_set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
         """ Set the mode of the thermostats.
         :param thermostat_on: Whether the thermostats are on
         :type thermostat_on: boolean
@@ -127,7 +127,7 @@ class ThermostatController(object):
         """
         raise NotImplementedError
 
-    def set_current_setpoint(self, thermostat, temperature):
+    def v0_set_current_setpoint(self, thermostat, temperature):
         """ Set the current setpoint of a thermostat.
         :param thermostat: The id of the thermostat to set
         :type thermostat: Integer [0, 32]
@@ -137,12 +137,43 @@ class ThermostatController(object):
         """
         raise NotImplementedError
 
-    def get_pump_group_configurations(self, fields=None):
+    def v0_get_pump_group_configurations(self, fields=None):
         """
         Get all pump_group_configurations.
 
         :param fields: The field of the pump_group_configuration to get. (None gets all fields)
         :type fields: List of strings
         :returns: list of pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
+        """
+        raise NotImplementedError
+
+    def v0_set_per_thermostat_mode(self, thermostat_id, automatic, setpoint):
+        """ Set the setpoint/mode for a certain thermostat.
+        :param thermostat_id: The id of the thermostat.
+        :type thermostat_id: Integer [0, 31]
+        :param automatic: Automatic mode (True) or Manual mode (False)
+        :type automatic: boolean
+        :param setpoint: The current setpoint
+        :type setpoint: Integer [0, 5]
+        :returns: dict with 'status'
+        """
+        raise NotImplementedError
+
+    def v0_get_global_thermostat_configuration(self, fields=None):
+        """
+        Get the global_thermostat_configuration.
+
+        :param fields: The field of the global_thermostat_configuration to get. (None gets all fields)
+        :type fields: List of strings
+        :returns: global_thermostat_configuration dict: contains 'outside_sensor' (Byte), 'pump_delay' (Byte), 'switch_to_cooling_output_0' (Byte), 'switch_to_cooling_output_1' (Byte), 'switch_to_cooling_output_2' (Byte), 'switch_to_cooling_output_3' (Byte), 'switch_to_cooling_value_0' (Byte), 'switch_to_cooling_value_1' (Byte), 'switch_to_cooling_value_2' (Byte), 'switch_to_cooling_value_3' (Byte), 'switch_to_heating_output_0' (Byte), 'switch_to_heating_output_1' (Byte), 'switch_to_heating_output_2' (Byte), 'switch_to_heating_output_3' (Byte), 'switch_to_heating_value_0' (Byte), 'switch_to_heating_value_1' (Byte), 'switch_to_heating_value_2' (Byte), 'switch_to_heating_value_3' (Byte), 'threshold_temp' (Temp)
+        """
+        raise NotImplementedError
+
+    def v0_set_global_thermostat_configuration(self, config):
+        """
+        Set the global_thermostat_configuration.
+
+        :param config: The global_thermostat_configuration to set
+        :type config: global_thermostat_configuration dict: contains 'outside_sensor' (Byte), 'pump_delay' (Byte), 'switch_to_cooling_output_0' (Byte), 'switch_to_cooling_output_1' (Byte), 'switch_to_cooling_output_2' (Byte), 'switch_to_cooling_output_3' (Byte), 'switch_to_cooling_value_0' (Byte), 'switch_to_cooling_value_1' (Byte), 'switch_to_cooling_value_2' (Byte), 'switch_to_cooling_value_3' (Byte), 'switch_to_heating_output_0' (Byte), 'switch_to_heating_output_1' (Byte), 'switch_to_heating_output_2' (Byte), 'switch_to_heating_output_3' (Byte), 'switch_to_heating_value_0' (Byte), 'switch_to_heating_value_1' (Byte), 'switch_to_heating_value_2' (Byte), 'switch_to_heating_value_3' (Byte), 'threshold_temp' (Temp)
         """
         raise NotImplementedError

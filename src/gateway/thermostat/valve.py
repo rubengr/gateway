@@ -1,14 +1,14 @@
 import time
+import logging
 from threading import Lock
-
 from gateway.thermostat.pwm_modulator import PwmModulator
+
+logger = logging.getLogger('openmotics')
 
 
 class Valve(object):
 
-    VALVE_DELAY = 60  # opening of the valve might take a while
-
-    def __init__(self, output_nr, gateway_api, use_pwm=True):
+    def __init__(self, valve, gateway_api):
         """ Create a valve object
         :param gateway_api: The gateway HAL
         :type gateway_api: gateway.gateway_api.GatewayApi
@@ -18,7 +18,7 @@ class Valve(object):
         :type cycle_duration: int
         """
         self._gateway_api = gateway_api
-        self._output_nr = output_nr
+        self._valve = valve
         self._pwm_modulator = None
 
         self._percentage = 0
@@ -28,8 +28,8 @@ class Valve(object):
         self._time_state_changed = None
         self._state_change_lock = Lock()
 
-        if use_pwm:
-            min_on_time = 2 * self.VALVE_DELAY
+        if valve.pwm:
+            min_on_time = 2 * self._valve.delay
             self._pwm_modulator = PwmModulator(min_on_time=min_on_time)
             self._pwm_modulator.register_state_change_callback(self._change_state)
             self._pwm_modulator.start()
@@ -37,6 +37,7 @@ class Valve(object):
     def _change_state(self, open):
         with self._state_change_lock:
             if self._open != open:
+                logger.info('changed valve state to {}'.format(open))
                 self._open = open
                 self._time_state_changed = time.time()
 
@@ -47,11 +48,12 @@ class Valve(object):
         with self._state_change_lock:
             now = time.time()
             if self._time_state_changed is not None:
-                return self._time_state_changed + self.VALVE_DELAY > now
+                return self._time_state_changed + self._valve.delay > now
             else:
                 return False
 
     def set(self, percentage):
+        logger.info('setting valve percentage to {}'.format(percentage))
         if self._percentage != percentage:
             self._percentage = percentage
             if self._pwm_modulator is not None:
@@ -60,4 +62,5 @@ class Valve(object):
             else:
                 is_open = percentage > 0
                 self._change_state(is_open)
-                self._gateway_api.set_output_dimmer(self._output_nr, self._percentage)
+                self._gateway_api.set_output_status(self._valve.output.number, is_open)
+                self._gateway_api.set_output_dimmer(self._valve.output.number, self._percentage)

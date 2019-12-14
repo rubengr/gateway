@@ -51,10 +51,10 @@ class ThermostatsTest(OMTestCase):
         self.tools.api_testee(api='set_virtual_sensor', params=sensor_31_config, token=self.token, expected_failure=False)
 
         thermostat_auto_config = {'thermostat_on': True, 'automatic': True, 'setpoint': 0, 'cooling_mode': False, 'cooling_on': True}
-        self.tools.api_testee(api='set_thermostat_mode', params=thermostat_auto_config, token=self.token, expected_failure=False)
+        self.tools.api_testee(api='v0_set_thermostat_mode', params=thermostat_auto_config, token=self.token, expected_failure=False)
 
         setpoint_config = {'thermostat': 0, 'temperature': 17}
-        self.tools.api_testee(api='set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
+        self.tools.api_testee(api='v0_set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
 
         response_dict = self.tools.api_testee(api='get_thermostat_status', token=self.token, expected_failure=False)
 
@@ -79,7 +79,7 @@ class ThermostatsTest(OMTestCase):
 
         thermostat_auto_config = {'thermostat_on': True, 'automatic': False, 'setpoint': 5, 'cooling_mode': False, 'cooling_on': True}
         new_token = self.tools.get_new_token(self.tools.username, self.tools.password)
-        self.tools.api_testee(api='set_thermostat_mode', params=thermostat_auto_config, token=new_token, expected_failure=False)
+        self.tools.api_testee(api='v0_set_thermostat_mode', params=thermostat_auto_config, token=new_token, expected_failure=False)
 
         response_dict = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=False)
 
@@ -100,7 +100,7 @@ class ThermostatsTest(OMTestCase):
         self.assertTrue(response_dict.get('automatic', True) is False and response_dict.get('setpoint', 99) == 5 and response_dict.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after a full power cycle. Got: {0}".format(response_dict))
 
         setpoint_config = {'thermostat': 0, 'temperature': 9}
-        self.tools.api_testee(api='set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
+        self.tools.api_testee(api='v0_set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
 
         self.tools.api_testee(api='reset_master', token=new_token, expected_failure=False)
 

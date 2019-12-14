@@ -4,21 +4,20 @@ import logging
 import time
 
 from peewee import PrimaryKeyField, IntegerField, FloatField, BooleanField, TextField, Model, ForeignKeyField, \
-    CompositeKey, ManyToManyField, SqliteDatabase
+    CompositeKey, SqliteDatabase
 
 logger = logging.getLogger('openmotics')
 
 
 class Database(object):
-
     _db = SqliteDatabase('/opt/openmotics/etc/gateway.db', pragmas={'foreign_keys': 1})
 
     @classmethod
     def init(cls):
-        cls._db.create_tables([ThermostatGroup, Thermostat, Output, OutputToThermostat, DaySchedule, Preset])
-
+        cls._db.create_tables([Output, ThermostatGroup, OutputToThermostatGroup, Thermostat, Valve,
+                               ValveToThermostat, Output, Preset, DaySchedule])
         # create default data entries
-        ThermostatGroup.get_or_create(id=1, name='default')
+        ThermostatGroup.get_or_create(id=1, number=0, name='default')
 
     @classmethod
     def get_db(cls):
@@ -30,9 +29,37 @@ class BaseModel(Model):
         database = Database.get_db()
 
 
+class Output(BaseModel):
+    id = PrimaryKeyField()
+    number = IntegerField(unique=True)
+
+
 class ThermostatGroup(BaseModel):
     id = PrimaryKeyField()
+    number = IntegerField(unique=True)
     name = TextField()
+    threshold_temp = IntegerField(null=True, default=None)
+    sensor = IntegerField(null=True)
+
+
+class OutputToThermostatGroup(BaseModel):
+    """ Outputs on a thermostat group are sometimes used for setting the pumpgroup in a certain state
+        the index var is 0-4 of the output in setting this config """
+    output = ForeignKeyField(Output, on_delete='CASCADE')
+    thermostat_group = ForeignKeyField(ThermostatGroup, on_delete='CASCADE')
+    index = IntegerField()
+    mode = TextField()
+
+    class Meta:
+        primary_key = CompositeKey('output', 'thermostat_group')
+
+
+class Valve(BaseModel):
+    id = PrimaryKeyField()
+    name = TextField()
+    pwm = BooleanField(default=False)
+    delay = IntegerField(default=60)
+    output = ForeignKeyField(Output, backref='valve', on_delete='CASCADE', unique=True)
 
 
 class Thermostat(BaseModel):
@@ -63,14 +90,20 @@ class Thermostat(BaseModel):
         return self._day_schedules.get(day)
 
     @property
-    def heating_outputs(self):
-        return [heating_output for heating_output in
-                Output.select().join(OutputToThermostat).where(OutputToThermostat.thermostat == self, OutputToThermostat.mode == 'heating')]
+    def heating_valves(self):
+        return [valve for valve in Valve.select(Valve, ValveToThermostat.mode, ValveToThermostat.priority)
+                                        .join(ValveToThermostat)
+                                        .where(ValveToThermostat.thermostat == self.id)
+                                        .where(ValveToThermostat.mode == 'heating')
+                                        .order_by(ValveToThermostat.priority)]
 
     @property
-    def cooling_outputs(self):
-        return [cooling_output for cooling_output in
-                Output.select().join(OutputToThermostat).where(OutputToThermostat.thermostat == self, OutputToThermostat.mode == 'cooling')]
+    def cooling_valves(self):
+        return [valve for valve in Valve.select(Valve, ValveToThermostat.mode, ValveToThermostat.priority)
+                                        .join(ValveToThermostat)
+                                        .where(ValveToThermostat.thermostat == self.id)
+                                        .where(ValveToThermostat.mode == 'cooling')
+                                        .order_by(ValveToThermostat.priority)]
 
     def to_v0_format(self, fields):
         """
@@ -113,21 +146,14 @@ class Thermostat(BaseModel):
         return data
 
 
-class Output(BaseModel):
-    id = PrimaryKeyField()
-    output_nr = IntegerField(unique=True)
-    thermostat = ForeignKeyField(Thermostat, backref='outputs', on_delete='SET NULL')
-
-
-class OutputToThermostat(BaseModel):
-    """A simple "through" table for many-to-many relationship."""
-    output = ForeignKeyField(Output, on_delete='CASCADE')
+class ValveToThermostat(BaseModel):
+    valve = ForeignKeyField(Valve, on_delete='CASCADE')
     thermostat = ForeignKeyField(Thermostat, on_delete='CASCADE')
     mode = TextField(default='heating')
     priority = IntegerField(default=0)
 
     class Meta:
-        primary_key = CompositeKey('output', 'thermostat')
+        table_name = 'valve_to_thermostat'
 
 
 class Preset(BaseModel):
@@ -166,11 +192,10 @@ class DaySchedule(BaseModel):
         return json.loads(self.content)
 
     @classmethod
-    def from_v0_dict(cls, thermostat, day_index, v0_schedule):
+    def _schedule_data_from_v0(cls, v0_schedule):
         def get_seconds(hour_timestamp):
             x = time.strptime(hour_timestamp, '%H:%M')
             return int(datetime.timedelta(hours=x.tm_hour, minutes=x.tm_min, seconds=x.tm_sec).total_seconds())
-
         # e.g. [17, u'06:30', u'08:30', 20, u'17:00', u'23:30', 21]
         temp_n, start_d1, stop_d1, temp_d1, start_d2, stop_d2, temp_d2 = v0_schedule
 
@@ -179,7 +204,16 @@ class DaySchedule(BaseModel):
                 get_seconds(stop_d1):  temp_n,
                 get_seconds(start_d2): temp_d2,
                 get_seconds(stop_d2):  temp_n}
-        return cls.from_dict(thermostat, day_index, data)
+        return data
+
+    def update_schedule_from_v0(self, v0_schedule):
+        data = DaySchedule._schedule_data_from_v0(v0_schedule)
+        self.content = json.dumps(data)
+
+    @classmethod
+    def from_v0_dict(cls, thermostat, index, v0_schedule):
+        data = cls._schedule_data_from_v0(v0_schedule)
+        return cls.from_dict(thermostat, index, data)
 
     def to_v0_dict(self):
         return_data = {}
