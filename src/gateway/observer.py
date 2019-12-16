@@ -241,6 +241,10 @@ class Observer(object):
         self._ensure_gateway_api()
         return self._output_status.get_outputs()
 
+    def get_output(self, output_id):
+        self._ensure_gateway_api()
+        return self._output_status.get_output(output_id)
+
     def _output_changed(self, output_id, status):
         """ Executed by the Output Status tracker when an output changed state """
         self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': output_id})

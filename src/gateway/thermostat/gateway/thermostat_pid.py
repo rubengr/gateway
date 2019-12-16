@@ -20,7 +20,9 @@ class ThermostatPid(object):
         self._pid = None
         self._thermostat = None
         self._preset = None
+        self._mode = None
         self.update_thermostat(thermostat)
+
 
     @property
     def enabled(self):
@@ -28,7 +30,9 @@ class ThermostatPid(object):
         # 2. outputs configured (heating or cooling)
         if self._thermostat.sensor == 255:
             return False
-        if len(self._heating_valves) == 0 and len(self._cooling_valves):
+        if len(self._heating_valves) == 0 and len(self._cooling_valves) == 0:
+            return False
+        if not self._thermostat.thermostat_group.on:
             return False
         return True
 
@@ -41,25 +45,34 @@ class ThermostatPid(object):
         return self._preset
 
     @preset.setter
-    def preset(self, preset_name):
+    def preset(self, name):
         """
         :param preset: the preset to be set
         :type preset: gateway.thermostat.models.Preset
         """
-        preset = self.thermostat.get_preset(preset_name)
+        preset = self.thermostat.get_preset(name)
         if preset is not None:
             self._preset = preset
             self._update_setpoint(preset.setpoint)
-
+        else:
+            raise ValueError('Preset with name {} not found for thermostat {}'.format(name, self.number))
 
     def update_thermostat(self, thermostat):
         with self._thermostat_change_lock:
+            self._mode = thermostat.mode  # cache this value to avoid DB lookups on every tick
+
             self._heating_valves = [Valve(heating_valve, self._gateway_api) for heating_valve in thermostat.heating_valves]
             self._cooling_valves = [Valve(cooling_valve, self._gateway_api) for cooling_valve in thermostat.cooling_valves]
 
-            pid_p = thermostat.pid_p if thermostat.pid_p else self.DEFAULT_KP
-            pid_i = thermostat.pid_i if thermostat.pid_i else self.DEFAULT_KI
-            pid_d = thermostat.pid_d if thermostat.pid_d else self.DEFAULT_KD
+            if thermostat.mode == 'heating':
+                pid_p = thermostat.pid_heating_p if thermostat.pid_heating_p else self.DEFAULT_KP
+                pid_i = thermostat.pid_heating_i if thermostat.pid_heating_i else self.DEFAULT_KI
+                pid_d = thermostat.pid_heating_d if thermostat.pid_heating_d else self.DEFAULT_KD
+            else:
+                pid_p = thermostat.pid_cooling_p if thermostat.pid_cooling_p else self.DEFAULT_KP
+                pid_i = thermostat.pid_cooling_i if thermostat.pid_cooling_i else self.DEFAULT_KI
+                pid_d = thermostat.pid_cooling_d if thermostat.pid_cooling_d else self.DEFAULT_KD
+
             if self._pid is None:
                 self._pid = PID(pid_p, pid_i, pid_d, setpoint=thermostat.setpoint)
             else:
@@ -104,7 +117,7 @@ class ThermostatPid(object):
             self._open_valves(power, self._heating_valves)
         else:
             self._open_valves(0, self._heating_valves)
-            self._open_valves(power, self._cooling_valves)
+            self._open_valves(abs(power), self._cooling_valves)  # convert power to positive value for opening cooling valves
 
     def switch_off(self):
         self.steer(0)
@@ -119,8 +132,8 @@ class ThermostatPid(object):
             # heating needed while in cooling mode OR
             # cooling needed while in heating mode
             # -> no active aircon required, rely on losses of system to reach equilibrium
-            if (self.thermostat.mode == 'cooling' and output_power > 0) or \
-               (self.thermostat.mode == 'heating' and output_power < 0):
+            if (self._mode == 'cooling' and output_power > 0) or \
+               (self._mode == 'heating' and output_power < 0):
                 output_power = 0
             self.steer(output_power)
         else:
@@ -144,7 +157,7 @@ class ThermostatPid(object):
     @setpoint.setter
     def setpoint(self, setpoint):
         self._update_setpoint(setpoint)
-        self._preset = self.thermostat.get_preset('manual')
+        self._preset = None
 
     @property
     def Kp(self):

@@ -400,7 +400,7 @@ class MetricsCollector(object):
         while not self._stopped:
             start = time.time()
             try:
-                result = self._gateway_api.get_output_status()
+                result = self._gateway_api.get_outputs_status()
                 for output in result:
                     output_id = output['id']
                     if output_id not in self._environment['outputs']:

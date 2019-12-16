@@ -48,13 +48,13 @@ from master.eeprom_models import OutputConfiguration, InputConfiguration,  \
     CanLedConfiguration, RoomConfiguration
 from bus.om_bus_events import OMBusEvents
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 def convert_nan(number):
     """ Convert nan to 0. """
     if math.isnan(number):
-        LOGGER.warning('Got an unexpected NaN')
+        logger.warning('Got an unexpected NaN')
     return 0.0 if math.isnan(number) else number
 
 
@@ -155,10 +155,10 @@ class GatewayApi(object):
                     last_master_settings_check = now
                 time.sleep(5)
             except CommunicationTimedOutException:
-                LOGGER.error('Got communication timeout while checking the master.')
+                logger.error('Got communication timeout while checking the master.')
                 time.sleep(60)
             except Exception as ex:
-                LOGGER.exception('Got unexpected exception while checking the master: {0}'.format(ex))
+                logger.exception('Got unexpected exception while checking the master: {0}'.format(ex))
                 time.sleep(60)
 
     def __check_master_communications(self):
@@ -182,7 +182,7 @@ class GatewayApi(object):
         ratio = len([t for t in calls_last_x_minutes if t in calls_timedout]) / float(len(calls_last_x_minutes))
         if ratio < 0.25:
             # Less than 25% of the calls fail, let's assume everything is just "fine"
-            LOGGER.warning('Noticed communication timeouts with the master, but there\'s only a failure ratio of {0:.2f}%.'.format(ratio * 100))
+            logger.warning('Noticed communication timeouts with the master, but there\'s only a failure ratio of {0:.2f}%.'.format(ratio * 100))
             return
 
         service_restart = None
@@ -218,10 +218,10 @@ class GatewayApi(object):
                     json.dump(debug_data, fp=recovery_file, indent=4, sort_keys=True)
                 check_output("ls -tp /tmp/ | grep 'debug_.*json' | tail -n +10 | while read file; do rm -r /tmp/$file; done", shell=True)
             except Exception as ex:
-                LOGGER.error('Could not store debug file: {0}'.format(ex))
+                logger.error('Could not store debug file: {0}'.format(ex))
 
         if service_restart is not None:
-            LOGGER.fatal('Major issues in communication with master. Restarting service...')
+            logger.fatal('Major issues in communication with master. Restarting service...')
             communication_recovery['service_restart'] = {'reason': service_restart,
                                                          'time': time.time(),
                                                          'backoff': backoff}
@@ -229,7 +229,7 @@ class GatewayApi(object):
             time.sleep(15)  # Wait a tad for the I/O to complete (both for DB changes as log flushing)
             os._exit(1)
         if master_reset is not None:
-            LOGGER.fatal('Major issues in communication with master. Resetting master & service')
+            logger.fatal('Major issues in communication with master. Resetting master & service')
             communication_recovery['master_reset'] = {'reason': master_reset,
                                                       'time': time.time()}
             self.__config_controller.set_setting('communication_recovery', communication_recovery)
@@ -250,7 +250,7 @@ class GatewayApi(object):
         write = False
 
         if eeprom_data[11] != chr(255):
-            LOGGER.info('Disabling async RO messages.')
+            logger.info('Disabling async RO messages.')
             self.__master_communicator.do_command(
                 master_api.write_eeprom(),
                 {'bank': 0, 'address': 11, 'data': chr(255)}
@@ -258,7 +258,7 @@ class GatewayApi(object):
             write = True
 
         if eeprom_data[18] != chr(0):
-            LOGGER.info('Enabling async OL messages.')
+            logger.info('Enabling async OL messages.')
             self.__master_communicator.do_command(
                 master_api.write_eeprom(),
                 {'bank': 0, 'address': 18, 'data': chr(0)}
@@ -266,7 +266,7 @@ class GatewayApi(object):
             write = True
 
         if eeprom_data[20] != chr(0):
-            LOGGER.info('Enabling async IL messages.')
+            logger.info('Enabling async IL messages.')
             self.__master_communicator.do_command(
                 master_api.write_eeprom(),
                 {'bank': 0, 'address': 20, 'data': chr(0)}
@@ -274,7 +274,7 @@ class GatewayApi(object):
             write = True
 
         if eeprom_data[28] != chr(0):
-            LOGGER.info('Enabling async SO messages.')
+            logger.info('Enabling async SO messages.')
             self.__master_communicator.do_command(
                 master_api.write_eeprom(),
                 {'bank': 0, 'address': 28, 'data': chr(0)}
@@ -283,7 +283,7 @@ class GatewayApi(object):
 
         thermostat_mode = ord(eeprom_data[14])
         if thermostat_mode & 64 == 0:
-            LOGGER.info('Enabling multi-tenant thermostats.')
+            logger.info('Enabling multi-tenant thermostats.')
             self.__master_communicator.do_command(
                 master_api.write_eeprom(),
                 {'bank': 0, 'address': 14, 'data': chr(thermostat_mode | 64)}
@@ -291,7 +291,7 @@ class GatewayApi(object):
             write = True
 
         if eeprom_data[59] != chr(32):
-            LOGGER.info('Enabling 32 thermostats.')
+            logger.info('Enabling 32 thermostats.')
             self.__master_communicator.do_command(
                 master_api.write_eeprom(),
                 {'bank': 0, 'address': 59, 'data': chr(32)}
@@ -299,7 +299,7 @@ class GatewayApi(object):
             write = True
 
         if eeprom_data[24] != chr(0):
-            LOGGER.info('Disable auto-reset thermostat setpoint')
+            logger.info('Disable auto-reset thermostat setpoint')
             self.__master_communicator.do_command(
                 master_api.write_eeprom(),
                 {'bank': 0, 'address': 24, 'data': chr(0)}
@@ -307,7 +307,7 @@ class GatewayApi(object):
             write = True
 
         if eeprom_data[13] != chr(0):
-            LOGGER.info('Configure master startup mode to: API')
+            logger.info('Configure master startup mode to: API')
             self.__master_communicator.do_command(
                 master_api.write_eeprom(),
                 {'bank': 0, 'address': 13, 'data': chr(0)}
@@ -336,17 +336,17 @@ class GatewayApi(object):
             sync = True
 
         if sync is True:
-            LOGGER.info('Time - master: {0} ({1}) - gateway: {2} ({3})'.format(
+            logger.info('Time - master: {0} ({1}) - gateway: {2} ({3})'.format(
                 master_time, status['weekday'], expected_time, expected_weekday)
             )
             if expected_time.hour == 0 and expected_time.minute < 15:
-                LOGGER.info('Skip setting time between 00:00 and 00:15')
+                logger.info('Skip setting time between 00:00 and 00:15')
             else:
                 self.sync_master_time()
 
     def sync_master_time(self):
         """ Set the time on the master. """
-        LOGGER.info('Setting the time on the master.')
+        logger.info('Setting the time on the master.')
         now = datetime.datetime.now()
         self.__master_communicator.do_command(
             master_api.set_time(),
@@ -393,7 +393,7 @@ class GatewayApi(object):
             if self.__master_communicator.in_maintenance_mode():
                 current_time = pytime.time()
                 if self.__last_maintenance_send_time + timeout < current_time:
-                    LOGGER.info('Stopping maintenance mode because of timeout.')
+                    logger.info('Stopping maintenance mode because of timeout.')
                     self.stop_maintenance_mode()
                 else:
                     wait_time = self.__last_maintenance_send_time + timeout - current_time
@@ -674,7 +674,7 @@ class GatewayApi(object):
 
     # Output functions
 
-    def get_output_status(self):
+    def get_outputs_status(self):
         """
         Get a list containing the status of the Outputs.
 
@@ -686,6 +686,21 @@ class GatewayApi(object):
                  'ctimer': output['ctimer'],
                  'dimmer': output['dimmer']}
                 for output in outputs]
+
+    def get_output_status(self, output_id):
+        """
+        Get a list containing the status of the Outputs.
+
+        :returns: A list is a dicts containing the following keys: id, status, ctimer and dimmer.
+        """
+        output = self.__observer.get_output(output_id)
+        if output is None:
+            raise ValueError('Output with id {} does not exist'.format(output_id))
+        else:
+            return {'id': output['id'],
+                    'status': output['status'],
+                    'ctimer': output['ctimer'],
+                    'dimmer': output['dimmer']}
 
     def set_output(self, output_id, is_on, dimmer=None, timer=None):
         """ Set the status, dimmer and timer of an output.
@@ -1008,6 +1023,8 @@ class GatewayApi(object):
 
         :returns: temperature for sensor id. None/null if not connected
         """
+        if sensor_id is None or sensor_id == 255:
+            return None
         return self.get_sensors_temperature_status()[sensor_id]
 
     def get_sensor_humidity_status(self):
@@ -1324,7 +1341,7 @@ class GatewayApi(object):
                 if retry == bank:
                     raise
                 retry = bank
-                LOGGER.warning('Got timeout reading bank {0}. Retrying...'.format(bank))
+                logger.warning('Got timeout reading bank {0}. Retrying...'.format(bank))
                 time.sleep(2)  # Doing heavy reads on eeprom can exhaust the master. Give it a bit room to breathe.
         return output
 
@@ -2047,9 +2064,9 @@ class GatewayApi(object):
 
                 output[str(module_id)] = out
             except CommunicationTimedOutException:
-                LOGGER.error('Communication timeout while fetching realtime power from {0}: CommunicationTimedOutException'.format(module_id))
+                logger.error('Communication timeout while fetching realtime power from {0}: CommunicationTimedOutException'.format(module_id))
             except Exception as ex:
-                LOGGER.exception('Got exception while fetching realtime power from {0}: {1}'.format(module_id, ex))
+                logger.exception('Got exception while fetching realtime power from {0}: {1}'.format(module_id, ex))
 
         return output
 
@@ -2079,9 +2096,9 @@ class GatewayApi(object):
 
                 output[str(module_id)] = out
             except CommunicationTimedOutException:
-                LOGGER.error('Communication timeout while fetching total energy from {0}: CommunicationTimedOutException'.format(module_id))
+                logger.error('Communication timeout while fetching total energy from {0}: CommunicationTimedOutException'.format(module_id))
             except Exception as ex:
-                LOGGER.exception('Got exception while fetching total energy from {0}: {1}'.format(module_id, ex))
+                logger.exception('Got exception while fetching total energy from {0}: {1}'.format(module_id, ex))
 
         return output
 

@@ -123,7 +123,7 @@ class ThermostatControllerMaster(ThermostatController):
         self._eeprom_controller.write_batch([ThermostatConfiguration.deserialize(o) for o in config])
         self.invalidate_cache(Observer.Types.THERMOSTATS)
 
-    def set_cooling_configuration(self, config):
+    def v0_set_cooling_configuration(self, config):
         """
         Set one cooling_configuration.
 
@@ -133,7 +133,7 @@ class ThermostatControllerMaster(ThermostatController):
         self._eeprom_controller.write(CoolingConfiguration.deserialize(config))
         self.invalidate_cache(Observer.Types.THERMOSTATS)
 
-    def set_cooling_configurations(self, config):
+    def v0_set_cooling_configurations(self, config):
         """
         Set multiple cooling_configurations.
 
@@ -345,7 +345,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         self._eeprom_controller.write_batch([PumpGroupConfiguration.deserialize(o) for o in config])
 
-    def get_cooling_configuration(self, cooling_id, fields=None):
+    def v0_get_cooling_configuration(self, cooling_id, fields=None):
         """
         Get a specific cooling_configuration defined by its id.
 
@@ -357,7 +357,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return self._eeprom_controller.read(CoolingConfiguration, cooling_id, fields).serialize()
 
-    def get_cooling_configurations(self, fields=None):
+    def v0_get_cooling_configurations(self, fields=None):
         """
         Get all cooling_configurations.
 
@@ -556,7 +556,7 @@ class ThermostatControllerMaster(ThermostatController):
 
         fields = ['sensor', 'output0', 'output1', 'name', 'room']
         if cooling:
-            self._thermostats_config = self.get_cooling_configurations(fields=fields)
+            self._thermostats_config = self.v0_get_cooling_configurations(fields=fields)
         else:
             self._thermostats_config = self.v0_get_thermostat_configurations(fields=fields)
 

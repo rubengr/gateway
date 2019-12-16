@@ -17,7 +17,7 @@ class Database(object):
         cls._db.create_tables([Output, ThermostatGroup, OutputToThermostatGroup, Thermostat, Valve,
                                ValveToThermostat, Output, Preset, DaySchedule])
         # create default data entries
-        ThermostatGroup.get_or_create(id=1, number=0, name='default')
+        ThermostatGroup.get_or_create(id=1, number=0, name='default', on=True)
 
     @classmethod
     def get_db(cls):
@@ -40,8 +40,12 @@ class ThermostatGroup(BaseModel):
     name = TextField()
     on = BooleanField(default=True)
     threshold_temp = IntegerField(null=True, default=None)
-    sensor = IntegerField(null=True)
+    sensor = IntegerField(null=True, default=None)
     mode = TextField(default='heating')  # heating or cooling # TODO: add support for 'both'
+
+    @staticmethod
+    def v0_get_global():
+        return ThermostatGroup.get(number=0)
 
 
 class OutputToThermostatGroup(BaseModel):
@@ -69,26 +73,24 @@ class Thermostat(BaseModel):
     number = IntegerField(unique=True)
     name = TextField(default='Thermostat')
     sensor = IntegerField()
-    pid_p = FloatField(default=120)
-    pid_i = FloatField(default=0)
-    pid_d = FloatField(default=0)
+
+    pid_heating_p = FloatField(default=120)
+    pid_heating_i = FloatField(default=0)
+    pid_heating_d = FloatField(default=0)
+    pid_cooling_p = FloatField(default=120)
+    pid_cooling_i = FloatField(default=0)
+    pid_cooling_d = FloatField(default=0)
+
     automatic = BooleanField(default=True)
     room = IntegerField()
     start = IntegerField()
     setpoint = FloatField(default=14.0)
     thermostat_group = ForeignKeyField(ThermostatGroup, backref='thermostats', on_delete='CASCADE', default=1)
 
-    def get_preset(self, name):
-        return Preset.select().where(Preset.name == name, Preset.thermostat == self.id)
-
-    def get_schedule_length(self):
-        return len(self._day_schedules)
-
-    def set_day_schedule(self, day, thermostat_day_schedule):
-        self._day_schedules[day] = thermostat_day_schedule
-
-    def get_day_schedule(self, day):
-        return self._day_schedules.get(day)
+    def get_preset(self, name, mode=None):
+        mode = self.thermostat_group.mode if mode is None else mode
+        presets = Preset.select().where(name=name, mode=mode, thermostat=self.id)
+        return presets[0]
 
     @property
     def mode(self):
@@ -110,7 +112,35 @@ class Thermostat(BaseModel):
                                         .where(ValveToThermostat.mode == 'cooling')
                                         .order_by(ValveToThermostat.priority)]
 
-    def to_v0_format(self, fields):
+    @property
+    def heating_presets(self):
+        return [preset for preset in Preset.select(Preset, PresetToThermostat.mode)
+                                           .join(PresetToThermostat)
+                                           .where(PresetToThermostat.thermostat == self.id)
+                                           .where(PresetToThermostat.mode == 'heating')]
+
+    @property
+    def cooling_presets(self):
+        return [preset for preset in Preset.select(Preset, PresetToThermostat.mode)
+                                           .join(PresetToThermostat)
+                                           .where(PresetToThermostat.thermostat == self.id)
+                                           .where(PresetToThermostat.mode == 'cooling')]
+
+    def v0_get_output_numbers(self, mode=None):
+        if mode is None:
+            mode = self.thermostat_group.mode
+        valves = self.cooling_valves if mode == 'cooling' else self.heating_valves
+        db_outputs = [valve.output.number for valve in valves]
+        number_of_outputs = len(db_outputs)
+
+        if number_of_outputs > 2:
+            logger.warning('Only 2 outputs are supported in the old format. Total: {} outputs.'.format(number_of_outputs))
+
+        output0 = db_outputs[0] if number_of_outputs > 0 else None
+        output1 = db_outputs[1] if number_of_outputs > 1 else None
+        return [output0, output1]
+
+    def to_v0_format(self, mode='heating', fields=None):
         """
         :returns: thermostat_configuration dict: contains 'id' (Id), 'auto_fri' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_mon' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sat' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_sun' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_thu' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_tue' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'auto_wed' ([temp_n(Temp),start_d1(Time),stop_d1(Time),temp_d1(Temp),start_d2(Time),stop_d2(Time),temp_d2(Temp)]), 'name' (String[16]), 'output0' (Byte), 'output1' (Byte), 'permanent_manual' (Boolean), 'pid_d' (Byte), 'pid_i' (Byte), 'pid_int' (Byte), 'pid_p' (Byte), 'room' (Byte), 'sensor' (Byte), 'setp0' (Temp), 'setp1' (Temp), 'setp2' (Temp), 'setp3' (Temp), 'setp4' (Temp), 'setp5' (Temp)
         """
@@ -118,24 +148,28 @@ class Thermostat(BaseModel):
         data['id'] = self.number
         data['name'] = self.name
         data['sensor'] = self.sensor
-        data['pid_p'] = self.pid_p
-        data['pid_i'] = self.pid_i
-        data['pid_d'] = self.pid_d
+        if mode == 'heating':
+            data['pid_p'] = self.pid_heating_p
+            data['pid_i'] = self.pid_heating_i
+            data['pid_d'] = self.pid_heating_d
+            presets = self.heating_presets
+        else:
+            data['pid_p'] = self.pid_cooling_p
+            data['pid_i'] = self.pid_cooling_i
+            data['pid_d'] = self.pid_cooling_d
+            presets = self.cooling_presets
+
+        for preset in presets:
+            if preset.name == 'AWAY':
+                data['setp3'] = preset.setpoint
+            if preset.name == 'VACATION':
+                data['setp4'] = preset.setpoint
+            if preset.name == 'PARTY':
+                data['setp5'] = preset.setpoint
+
         data['permanent_manual'] = self.automatic
         data['room'] = self.room
-
-        db_outputs = [db_output for db_output in self.outputs]
-        number_of_outputs = len(db_outputs)
-
-        data['output0'] = db_outputs[0].output_nr if number_of_outputs > 0 else None
-        data['output1'] = db_outputs[1].output_nr if number_of_outputs > 1 else None
-        if number_of_outputs > 2:
-            logger.warning(
-                'Only 2 outputs are supported in the old format. Total: {} outputs.'.format(number_of_outputs))
-
-        data['setp3'] = Preset.select().where(thermostat=self, name='AWAY')['temperature']
-        data['setp4'] = Preset.select().where(thermostat=self, name='VACATION')['temperature']
-        data['setp5'] = Preset.select().where(thermostat=self, name='PARTY')['temperature']
+        data['output0'], data['output1'] = self.v0_get_output_numbers(mode=mode)
 
         day_schedules = sorted(self.day_schedules, key=lambda schedule: schedule.index, reverse=False)
         start_day_of_week = (self.start / 86400 - 4) % 7  # 0: Monday, 1: Tuesday, ...
@@ -165,17 +199,31 @@ class Preset(BaseModel):
     id = PrimaryKeyField()
     name = TextField()
     setpoint = FloatField()
-    thermostat = ForeignKeyField(Thermostat, backref='presets', on_delete='CASCADE')
+    mode = TextField(default='heating')
+    thermostat = ForeignKeyField(Thermostat, on_delete='CASCADE')
+
+    @classmethod
+    def from_v0(cls, thermostat, v0_setpoint, mode='heating'):
+        if mode not in ['heating', 'cooling']:
+            raise ValueError('Preset mode should be cooling or heating')
+        mapping = {3: 'AWAY',
+                   4: 'VACATION',
+                   5: 'PARTY'}
+        name = mapping.get(v0_setpoint)
+        if name is None:
+            raise ValueError('Preset v0_setpoint {} unknown'.format(v0_setpoint))
+        return Preset(name=name, thermostat=thermostat, mode=mode).save()
 
 
 class DaySchedule(BaseModel):
     id = PrimaryKeyField()
     index = IntegerField()
     content = TextField()
+    mode = TextField(default='heating')
     thermostat = ForeignKeyField(Thermostat, backref='day_schedules', on_delete='CASCADE')
 
     @classmethod
-    def from_dict(cls, thermostat, day_index, data):
+    def from_dict(cls, thermostat, day_index, mode, data):
         """
         "data":
             {
@@ -191,7 +239,7 @@ class DaySchedule(BaseModel):
             relative_timestamp = int(key)
             if relative_timestamp < 86400:
                 data[relative_timestamp] = float(value)
-        return cls(thermostat=thermostat, index=day_index, content=json.dumps(data))
+        return cls(thermostat=thermostat, index=day_index, mode=mode, content=json.dumps(data))
 
     def to_dict(self):
         return json.loads(self.content)
@@ -216,9 +264,9 @@ class DaySchedule(BaseModel):
         self.content = json.dumps(data)
 
     @classmethod
-    def from_v0_dict(cls, thermostat, index, v0_schedule):
+    def from_v0_dict(cls, thermostat, index, mode, v0_schedule,):
         data = cls._schedule_data_from_v0(v0_schedule)
-        return cls.from_dict(thermostat, index, data)
+        return cls.from_dict(thermostat, index, mode, data)
 
     def to_v0_dict(self):
         return_data = {}
@@ -234,7 +282,9 @@ class DaySchedule(BaseModel):
             return_data['temp_d2'] = first_value
         else:
             index = 0
-            for timestamp, temperature in self.to_dict().iteritems:
+            schedule = self.to_dict()
+            for timestamp in sorted(schedule.keys()):
+                temperature = schedule[timestamp]
                 if index == 0:
                     return_data['temp_n'] = temperature
                 elif index == 1:
