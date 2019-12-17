@@ -19,15 +19,20 @@ class ThermostatPid(object):
         self._cooling_valves = []
         self._pid = None
         self._thermostat = None
-        self._preset = None
         self._mode = None
         self.update_thermostat(thermostat)
-
+        self._active_preset = None
+        self._current_temperature = None
 
     @property
     def enabled(self):
-        # 1. sensor is valid
-        # 2. outputs configured (heating or cooling)
+        # 1. PID loop is initialized
+        # 2. sensor is valid
+        # 3. outputs configured (heating or cooling)
+        if self._mode is None or self._pid is None:
+            return False
+        if self._active_preset is None:
+            return False
         if self._thermostat.sensor == 255:
             return False
         if len(self._heating_valves) == 0 and len(self._cooling_valves) == 0:
@@ -36,30 +41,11 @@ class ThermostatPid(object):
             return False
         return True
 
-    @property
-    def preset(self):
-        """
-        :return preset: the preset that is currently set
-        :rtype preset: gateway.thermostat.models.Preset
-        """
-        return self._preset
-
-    @preset.setter
-    def preset(self, name):
-        """
-        :param preset: the preset to be set
-        :type preset: gateway.thermostat.models.Preset
-        """
-        preset = self.thermostat.get_preset(name)
-        if preset is not None:
-            self._preset = preset
-            self._update_setpoint(preset.setpoint)
-        else:
-            raise ValueError('Preset with name {} not found for thermostat {}'.format(name, self.number))
-
     def update_thermostat(self, thermostat):
         with self._thermostat_change_lock:
-            self._mode = thermostat.mode  # cache this value to avoid DB lookups on every tick
+            # cache these values to avoid DB lookups on every tick
+            self._mode = thermostat.mode
+            self._active_preset = thermostat.active_preset
 
             self._heating_valves = [Valve(heating_valve, self._gateway_api) for heating_valve in thermostat.heating_valves]
             self._cooling_valves = [Valve(cooling_valve, self._gateway_api) for cooling_valve in thermostat.cooling_valves]
@@ -68,24 +54,55 @@ class ThermostatPid(object):
                 pid_p = thermostat.pid_heating_p if thermostat.pid_heating_p else self.DEFAULT_KP
                 pid_i = thermostat.pid_heating_i if thermostat.pid_heating_i else self.DEFAULT_KI
                 pid_d = thermostat.pid_heating_d if thermostat.pid_heating_d else self.DEFAULT_KD
+                setpoint = self._active_preset.heating_setpoint if self._active_preset is not None else 14.0
             else:
                 pid_p = thermostat.pid_cooling_p if thermostat.pid_cooling_p else self.DEFAULT_KP
                 pid_i = thermostat.pid_cooling_i if thermostat.pid_cooling_i else self.DEFAULT_KI
                 pid_d = thermostat.pid_cooling_d if thermostat.pid_cooling_d else self.DEFAULT_KD
+                setpoint = self._active_preset.cooling_setpoint if self._active_preset is not None else 30.0
 
             if self._pid is None:
-                self._pid = PID(pid_p, pid_i, pid_d, setpoint=thermostat.setpoint)
+                self._pid = PID(pid_p, pid_i, pid_d, setpoint=setpoint)
             else:
                 self._pid.Kp = pid_p
                 self._pid.Ki = pid_i
                 self._pid.Kd = pid_d
-                self._pid.setpoint = thermostat.setpoint
+                self._pid.setpoint = setpoint
             self._pid.output_limits = (-100, 100)
+
             self._thermostat = thermostat
 
     @property
     def thermostat(self):
         return self._thermostat
+
+    def tick(self):
+        logger.info('_tick - thermostat {} is {} enabled in {} mode'.format(self.thermostat.number, '' if self.enabled else 'not', self._mode))
+        if self.enabled:
+            logger.info('_tick - thermostat {}: preset {} with setpoint {}'.format(self.thermostat.number,
+                                                                                   self._active_preset.name,
+                                                                                   self._pid.setpoint))
+
+            current_temperature = self._gateway_api.get_sensor_temperature_status(self.thermostat.sensor)
+            if current_temperature is not None:
+                self._current_temperature = current_temperature
+            # TODO: count number of times temperature readings are faulty and disable thermostat
+
+            output_power = self._pid(self._current_temperature)
+
+            # heating needed while in cooling mode OR
+            # cooling needed while in heating mode
+            # -> no active aircon required, rely on losses of system to reach equilibrium
+            if (self._mode == 'cooling' and output_power > 0) or \
+               (self._mode == 'heating' and output_power < 0):
+                output_power = 0
+            self.steer(output_power)
+        else:
+            self.switch_off()
+
+    @property
+    def number(self):
+        return self.thermostat.number
 
     @staticmethod
     def _open_valves_cascade(total_percentage, valves):
@@ -103,7 +120,6 @@ class ThermostatPid(object):
 
     def _open_valves_equal(self, percentage, valves):
         for valve in valves:
-            logger.info('opening valve {} for {}%'.format(valve, percentage))
             valve.set(percentage)
 
     def _open_valves(self, percentage, valves):
@@ -121,43 +137,6 @@ class ThermostatPid(object):
 
     def switch_off(self):
         self.steer(0)
-
-    def tick(self):
-        logger.info('_tick - thermostat {} is {} enabled'.format(self.thermostat.number, '' if self.enabled else 'not'))
-        if self.enabled:
-            current_temperature = self._gateway_api.get_sensor_temperature_status(self.thermostat.sensor)
-            output_power = self._pid(current_temperature)
-            logger.info('_tick - PID output power {} '.format(output_power))
-
-            # heating needed while in cooling mode OR
-            # cooling needed while in heating mode
-            # -> no active aircon required, rely on losses of system to reach equilibrium
-            if (self._mode == 'cooling' and output_power > 0) or \
-               (self._mode == 'heating' and output_power < 0):
-                output_power = 0
-            self.steer(output_power)
-        else:
-            self.switch_off()
-
-    @property
-    def number(self):
-        return self.thermostat.number
-
-    def _update_setpoint(self, setpoint):
-        self._pid.setpoint = setpoint
-        if self.thermostat.setpoint != setpoint:
-            # TODO: do we want to store this on every change?
-            self.thermostat.setpoint = setpoint
-            self.thermostat.save()
-
-    @property
-    def setpoint(self):
-        return self._pid.setpoint
-
-    @setpoint.setter
-    def setpoint(self, setpoint):
-        self._update_setpoint(setpoint)
-        self._preset = None
 
     @property
     def Kp(self):

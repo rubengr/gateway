@@ -2,9 +2,9 @@ import datetime
 import json
 import logging
 import time
-
-from peewee import PrimaryKeyField, IntegerField, FloatField, BooleanField, TextField, Model, ForeignKeyField, \
-    CompositeKey, SqliteDatabase
+from playhouse.signals import Model, post_save
+from peewee import PrimaryKeyField, IntegerField, FloatField, BooleanField, TextField, ForeignKeyField, \
+    CompositeKey, SqliteDatabase, DoesNotExist
 
 logger = logging.getLogger('openmotics')
 
@@ -84,13 +84,43 @@ class Thermostat(BaseModel):
     automatic = BooleanField(default=True)
     room = IntegerField()
     start = IntegerField()
-    setpoint = FloatField(default=14.0)
     thermostat_group = ForeignKeyField(ThermostatGroup, backref='thermostats', on_delete='CASCADE', default=1)
 
-    def get_preset(self, name, mode=None):
-        mode = self.thermostat_group.mode if mode is None else mode
-        presets = Preset.select().where(name=name, mode=mode, thermostat=self.id)
-        return presets[0]
+    def get_preset(self, name):
+        presets = [preset for preset in Preset.select()
+                                              .where(Preset.name == name)
+                                              .where(Preset.thermostat == self.id)]
+        if len(presets) > 0:
+            return presets[0]
+        else:
+            raise ValueError('Preset with name {} not found.'.format(name))
+
+    @property
+    def active_preset(self):
+        preset = Preset.get_or_none(thermostat=self.id, active=True)
+        if preset is None:
+            preset = self.get_preset('SCHEDULE')
+            preset.active = True
+            preset.save()
+        return preset
+
+    @active_preset.setter
+    def active_preset(self, new_preset):
+        if new_preset is not None and new_preset.thermostat == self:
+            if new_preset != self.active_preset:
+                if self.active_preset is not None:
+                    current_active_preset = self.active_preset
+                    current_active_preset.active = False
+                    current_active_preset.save()
+                new_preset.active = True
+                new_preset.save()
+        else:
+            raise ValueError('Not a valid preset {}.'.format(new_preset))
+
+    def deactivate_all_presets(self):
+        for preset in Preset.select().where(Preset.thermostat == self.id):
+            preset.active = False
+            preset.save()
 
     @property
     def mode(self):
@@ -114,17 +144,15 @@ class Thermostat(BaseModel):
 
     @property
     def heating_presets(self):
-        return [preset for preset in Preset.select(Preset, PresetToThermostat.mode)
-                                           .join(PresetToThermostat)
-                                           .where(PresetToThermostat.thermostat == self.id)
-                                           .where(PresetToThermostat.mode == 'heating')]
+        return [preset for preset in Preset.select()
+                                           .where(Preset.thermostat == self.id)
+                                           .where(Preset.mode == 'heating')]
 
     @property
     def cooling_presets(self):
-        return [preset for preset in Preset.select(Preset, PresetToThermostat.mode)
-                                           .join(PresetToThermostat)
-                                           .where(PresetToThermostat.thermostat == self.id)
-                                           .where(PresetToThermostat.mode == 'cooling')]
+        return [preset for preset in Preset.select()
+                                           .where(Preset.thermostat == self.id)
+                                           .where(Preset.mode == 'cooling')]
 
     def v0_get_output_numbers(self, mode=None):
         if mode is None:
@@ -198,21 +226,32 @@ class ValveToThermostat(BaseModel):
 class Preset(BaseModel):
     id = PrimaryKeyField()
     name = TextField()
-    setpoint = FloatField()
-    mode = TextField(default='heating')
+    heating_setpoint = FloatField(default=14.0)
+    cooling_setpoint = FloatField(default=30.0)
+    active = BooleanField(default=False)
     thermostat = ForeignKeyField(Thermostat, on_delete='CASCADE')
 
+    def get_v0_setpoint_id(self):
+        mapping = {'MANUAL': 1,
+                   'SCHEDULE': 2,
+                   'AWAY': 3,
+                   'VACATION': 4,
+                   'PARTY': 5}
+        name = str(self.name)
+        v0_setpoint = mapping.get(name)
+        if v0_setpoint is None:
+            raise ValueError('Preset name {} not compatible with v0_setpoint. Should be one of {}.'.format(name, mapping.keys()))
+        return v0_setpoint
+
     @classmethod
-    def from_v0(cls, thermostat, v0_setpoint, mode='heating'):
-        if mode not in ['heating', 'cooling']:
-            raise ValueError('Preset mode should be cooling or heating')
+    def get_by_thermostat_and_v0_setpoint(cls, thermostat, v0_setpoint):
         mapping = {3: 'AWAY',
                    4: 'VACATION',
                    5: 'PARTY'}
         name = mapping.get(v0_setpoint)
         if name is None:
             raise ValueError('Preset v0_setpoint {} unknown'.format(v0_setpoint))
-        return Preset(name=name, thermostat=thermostat, mode=mode).save()
+        return Preset.get(name=name, thermostat=thermostat)
 
 
 class DaySchedule(BaseModel):
@@ -303,3 +342,16 @@ class DaySchedule(BaseModel):
                 break
             last_value = data[key]
         return last_value
+
+
+@post_save(sender=Thermostat)
+def on_thermostat_save_handler(model_class, instance, created):
+    if created:
+        for preset_name in ['MANUAL', 'SCHEDULE', 'AWAY', 'VACATION', 'PARTY']:
+            try:
+                preset = Preset.get(name=preset_name, thermostat=instance)
+            except DoesNotExist:
+                preset = Preset(name=preset_name, thermostat=instance)
+            if preset_name == 'SCHEDULE':
+                preset.active = True
+            preset.save()

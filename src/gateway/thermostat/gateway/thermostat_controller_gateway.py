@@ -47,21 +47,12 @@ class ThermostatControllerGateway(ThermostatController):
         self._running = False
 
     def refresh_thermostats(self):
-        configured_thermostats = set([thermostat.number for thermostat in Thermostat.select()])
-        running_thermostats = set([thermostat_pid.number for thermostat_pid in self.thermostat_pids])
-
-        thermostat_numbers_to_add = configured_thermostats.difference(running_thermostats)
-        thermostat_numbers_to_remove = running_thermostats.difference(configured_thermostats)
-
-        for number in thermostat_numbers_to_remove:
-            thermostat_pid = self.thermostat_pids.get(number)
-            thermostat_pid.stop()
-            del thermostat_pid[number]
-
-        for number in thermostat_numbers_to_add:
-            new_thermostat = Thermostat.get(number=number)
-            new_thermostat_pid = ThermostatPid(new_thermostat, self._gateway_api)
-            self.thermostat_pids[number] = new_thermostat_pid
+        for thermostat in Thermostat.select():
+            thermostat_pid = self.thermostat_pids.get(thermostat.number)
+            if thermostat_pid is None:
+                thermostat_pid = ThermostatPid(thermostat, self._gateway_api)
+                self.thermostat_pids[thermostat.number] = thermostat_pid
+            thermostat_pid.update_thermostat(thermostat)
 
     def _tick(self):
         while self._running:
@@ -122,17 +113,27 @@ class ThermostatControllerGateway(ThermostatController):
 
             for thermostat in global_thermostat.thermostats:
                 output_numbers = thermostat.v0_get_output_numbers()
+                active_preset = thermostat.active_preset
+                if global_thermostat.mode == 'cooling':
+                    csetp = active_preset.cooling_setpoint if active_preset is not None else 30.0
+                else:
+                    csetp = active_preset.heating_setpoint if active_preset is not None else 14.0
+
+                try:
+                    v0_setpoint = Preset.get(thermostat=thermostat, active=True).get_v0_setpoint_id()
+                except (ValueError, DoesNotExist):
+                    v0_setpoint = 0
 
                 data = {'id': thermostat.number,
                         'act': self._gateway_api.get_sensor_temperature_status(thermostat.sensor),
-                        'csetp': thermostat.setpoint,
+                        'csetp': csetp,
                         'outside': self._gateway_api.get_sensor_temperature_status(global_thermostat.sensor),
-                        'mode': 0,  # TODO: !!!check this!!
-                        'automatic': thermostat.automatic,
-                        'setpoint': 0,  # ---> 'AWAY': 3, 'VACATION': 4, ...
+                        'mode': 0,  # TODO: !!!check if still used!!
+                        'automatic': active_preset.name == 'SCHEDULE' if active_preset is not None else False,
+                        'setpoint': v0_setpoint,  # ---> 'AWAY': 3, 'VACATION': 4, ...
                         'name': thermostat.mode,
                         'sensor_nr': thermostat.sensor,
-                        'airco': 0,  # TODO: !!!check this!!
+                        'airco': 0,  # TODO: !!!check if still used!!
                         'output0': get_output_level(output_numbers[0]),
                         'output1': get_output_level(output_numbers[1])
                         }
@@ -144,21 +145,38 @@ class ThermostatControllerGateway(ThermostatController):
             raise RuntimeError('Global thermostat not found!')
 
     def v0_set_thermostat_mode(self, thermostat_on, cooling_mode=False, cooling_on=False, automatic=None, setpoint=None):
+        mode = 'cooling' if cooling_mode else 'heating'
         global_thermosat = ThermostatGroup.v0_get_global()
         global_thermosat.on = thermostat_on
-        global_thermosat.mode = 'cooling' if cooling_mode else 'heating'
+        global_thermosat.mode = mode
         global_thermosat.save()
 
         for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
             thermostat = Thermostat.get(number=thermostat_number)
             if thermostat is not None:
-                thermostat.automatic = automatic
-                thermostat.save()
+                if automatic is False and setpoint is not None and 3 <= setpoint <= 5:
+                    thermostat.active_preset = Preset.get_by_thermostat_and_v0_setpoint(thermostat=thermostat, v0_setpoint=setpoint)
+                else:
+                    thermostat.active_preset = thermostat.get_preset('SCHEDULE')
                 thermostat_pid.update_thermostat(thermostat)
+        return {'status': 'OK'}
 
     def v0_set_current_setpoint(self, thermostat_number, temperature):
+        thermostat = Thermostat.get(number=thermostat_number)
+        # when setting a setpoint manually, switch to manual preset except for when we are in scheduled mode
+        # scheduled mode will override the setpoint when the next edge in the schedule is triggered
+        active_preset = thermostat.active_preset
+        if active_preset.name != 'SCHEDULE':
+            active_preset = thermostat.get_preset('MANUAL')
+            thermostat.active_preset = active_preset
+
+        if thermostat.mode == 'heating':
+            active_preset.heating_setpoint = float(temperature)
+        else:
+            active_preset.cooling_setpoint = float(temperature)
+        active_preset.save()
         thermostat_pid = self.thermostat_pids.get(thermostat_number)
-        thermostat_pid.setpoint = temperature
+        thermostat_pid.update_thermostat(thermostat)
         return {'status': 'OK'}
 
     def v0_get_thermostat_configurations(self, fields=None):
@@ -337,10 +355,14 @@ class ThermostatControllerGateway(ThermostatController):
                                      ('setp5', 'PARTY')]:
             if config.get(field) is not None:
                 try:
-                    preset = Preset.get(name=preset_name, thermostat=thermo, mode=mode)
+                    preset = Preset.get(name=preset_name, thermostat=thermo)
                 except DoesNotExist:
-                    preset = Preset(name=preset_name, thermostat=thermo, mode=mode)
-                preset.setpoint = float(config[field])
+                    preset = Preset(name=preset_name, thermostat=thermo)
+                if mode == 'cooling':
+                    preset.cooling_setpoint = float(config[field])
+                else:
+                    preset.heating_setpoint = float(config[field])
+                preset.active = False
                 preset.save()
 
         return thermo
