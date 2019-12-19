@@ -3,11 +3,11 @@ import logging
 from threading import Thread
 from peewee import DoesNotExist
 from wiring import provides, scope, inject, SingletonScope
-
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Event
 from gateway.thermostat.gateway.models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, \
-    OutputToThermostatGroup, ValveToThermostat, Valve, Pump
+    OutputToThermostatGroup, ValveToThermostat, Valve
+from gateway.thermostat.gateway.pump_valve_controller import PumpValveController
 from gateway.thermostat.thermostat_controller import ThermostatController
 from gateway.thermostat.gateway.thermostat_pid import ThermostatPid
 
@@ -18,6 +18,7 @@ class ThermostatControllerGateway(ThermostatController):
 
     THERMOSTAT_PID_UPDATE_INTERVAL = 5
     PUMP_UPDATE_INTERVAL = 30
+    SYNC_CONFIG_INTERVAL = 900
 
     @provides('thermostat_controller')
     @scope(SingletonScope)
@@ -32,18 +33,23 @@ class ThermostatControllerGateway(ThermostatController):
         self._pid_loop_thread = None
         self.thermostat_pids = {}
         self.pump_ = {}
+        self._pump_valve_controller = PumpValveController(self._gateway_api)
 
     def start(self):
         logger.info('Starting gateway thermostatcontroller...')
         if not self._running:
             self._running = True
 
-            self.refresh_thermostats()
+            self.refresh_config_from_db()
             self._pid_loop_thread = Thread(target=self._pid_tick)
             self._pid_loop_thread.daemon = True
             self._pid_loop_thread.start()
 
-            self._pump_controller_thread = Thread(target=self._pump_periodic_update)
+            self._pump_controller_thread = Thread(target=self._update_pumps())
+            self._pump_controller_thread.daemon = True
+            self._pump_controller_thread.start()
+
+            self._pump_controller_thread = Thread(target=self._periodic_sync())
             self._pump_controller_thread.daemon = True
             self._pump_controller_thread.start()
             logger.info('Starting gateway thermostatcontroller... Done')
@@ -55,13 +61,20 @@ class ThermostatControllerGateway(ThermostatController):
             logger.warning('Stopping an already stopped GatewayThermostatController.')
         self._running = False
 
-    def refresh_thermostats(self):
+    def refresh_thermostats_from_db(self):
         for thermostat in Thermostat.select():
             thermostat_pid = self.thermostat_pids.get(thermostat.number)
             if thermostat_pid is None:
                 thermostat_pid = ThermostatPid(thermostat, self._gateway_api)
                 self.thermostat_pids[thermostat.number] = thermostat_pid
             thermostat_pid.update_thermostat(thermostat)
+
+    def refresh_valves_from_db(self):
+        self._pump_valve_controller.refresh_from_db()  # TODO: is this needed on every tick?
+
+    def refresh_config_from_db(self):
+        self.refresh_thermostats_from_db()
+        self.refresh_valves_from_db()
 
     def _pid_tick(self):
         while self._running:
@@ -73,30 +86,15 @@ class ThermostatControllerGateway(ThermostatController):
             time.sleep(self.THERMOSTAT_PID_UPDATE_INTERVAL)
 
     def _update_pumps(self):
-        all_pumps = set([Pump(pump) for pump in Pump.select()])
-        pumps_to_open = set()
-        for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
-            for valve in thermostat_pid.thermostat.valves:
-                for pump in valve.pumps:
-                    if valve.is_open():
-                        pumps_to_open.add(pump)
-        pumps_to_close = all_pumps.difference(pumps_to_open)
-        for pump in pumps_to_open:
-            try:
-                pump.open()
-            except Exception:
-                logger.exception('There was a problem opening pump {}'.format(pump))
-        for pump in pumps_to_close:
-            try:
-                pump.close()
-            except Exception:
-                logger.exception('There was a problem closing pump {}'.format(pump))
-        time.sleep(self.PUMP_UPDATE_INTERVAL)
-
-    def _pump_periodic_update(self):
         while self._running:
-            self.steer_pumps()
+            self._pump_valve_controller.steer_pumps()
             time.sleep(self.PUMP_UPDATE_INTERVAL)
+
+    def _periodic_sync(self):
+        while self._running:
+            time.sleep(self.SYNC_CONFIG_INTERVAL)
+            self.refresh_config_from_db()
+
 
     ################################
     # v1 APIs
@@ -288,10 +286,10 @@ class ThermostatControllerGateway(ThermostatController):
                 output_to_thermostatgroup.mode = mode
                 output_to_thermostatgroup.save()
 
-        # set valve delay for all valves in this group
+        # set valve delay for all valve_numbers in this group
         valve_delay = int(config['pump_delay'])
         for thermostat in thermostat_group.thermostats:
-            for valve in thermostat.valves:
+            for valve in thermostat.valve_numbers:
                 valve.delay = valve_delay
                 valve.save()
 
@@ -342,11 +340,11 @@ class ThermostatControllerGateway(ThermostatController):
         # update/save output configuration
         output_config_present = config.get('output0') is not None or config.get('output1') is not None
         if output_config_present:
-            # unlink all previously linked valves, we are resetting this with the new outputs we got from the API
+            # unlink all previously linked valve_numbers, we are resetting this with the new outputs we got from the API
             deleted = ValveToThermostat.delete().where(ValveToThermostat.thermostat == thermo)\
                                                 .where(ValveToThermostat.mode == mode)\
                                                 .execute()
-            logger.info('unlinked {} valves from thermostat {}'.format(deleted, thermo.name))
+            logger.info('unlinked {} valve_numbers from thermostat {}'.format(deleted, thermo.name))
 
             for field in ['output0', 'output1']:
                 if config.get(field) is not None:

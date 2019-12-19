@@ -1,7 +1,6 @@
 import logging
 from threading import Lock
 from simple_pid import PID
-from gateway.thermostat.gateway.valve import Valve
 
 logger = logging.getLogger('openmotics')
 
@@ -12,17 +11,18 @@ class ThermostatPid(object):
     DEFAULT_KI = 0.0
     DEFAULT_KD = 2.0
 
-    def __init__(self, thermostat, gateway_api):
+    def __init__(self, thermostat, valve_controller, gateway_api):
         self._gateway_api = gateway_api
+        self._valve_controller = valve_controller
         self._thermostat_change_lock = Lock()
-        self._heating_valves = []
-        self._cooling_valves = []
+        self._heating_valve_numbers = []
+        self._cooling_valve_numbers = []
         self._pid = None
         self._thermostat = None
         self._mode = None
-        self.update_thermostat(thermostat)
         self._active_preset = None
         self._current_temperature = None
+        self.update_thermostat(thermostat)
 
     @property
     def enabled(self):
@@ -35,19 +35,23 @@ class ThermostatPid(object):
             return False
         if self._thermostat.sensor == 255:
             return False
-        if len(self._heating_valves) == 0 and len(self._cooling_valves) == 0:
+        if len(self._heating_valve_numbers) == 0 and len(self._cooling_valve_numbers) == 0:
             return False
         if not self._thermostat.thermostat_group.on:
             return False
         return True
 
     @property
-    def heating_valves(self):
-        return self._heating_valves
+    def valve_numbers(self):
+        return self.heating_valve_numbers + self.cooling_valve_numbers
 
     @property
-    def cooling_valves(self):
-        return self._cooling_valves
+    def heating_valve_numbers(self):
+        return self._heating_valve_numbers
+
+    @property
+    def cooling_valve_numbers(self):
+        return self._cooling_valve_numbers
 
     def update_thermostat(self, thermostat):
         with self._thermostat_change_lock:
@@ -55,8 +59,8 @@ class ThermostatPid(object):
             self._mode = thermostat.mode
             self._active_preset = thermostat.active_preset
 
-            self._heating_valves = [Valve(heating_valve, self._gateway_api) for heating_valve in thermostat.heating_valve]
-            self._cooling_valves = [Valve(cooling_valve, self._gateway_api) for cooling_valve in thermostat.cooling_valves]
+            self._heating_valve_numbers = [valve.number for valve in self.thermostat.heating_valves]
+            self._cooling_valve_numbers = [valve.number for valve in self.thermostat.cooling_valves]
 
             if thermostat.mode == 'heating':
                 pid_p = thermostat.pid_heating_p if thermostat.pid_heating_p else self.DEFAULT_KP
@@ -111,40 +115,16 @@ class ThermostatPid(object):
     def number(self):
         return self.thermostat.number
 
-    @staticmethod
-    def _open_valves_cascade(total_percentage, valves):
-        n_valves = len(valves)
-        percentage_per_valve = 100.0 / n_valves
-        n_valves_fully_open = int(total_percentage / percentage_per_valve)
-        last_valve_open_percentage = 100.0 * (total_percentage - n_valves_fully_open * percentage_per_valve) / percentage_per_valve
-        for n in xrange(n_valves_fully_open):
-            valve = valves[n]
-            valve.set(100)
-        for n in xrange(n_valves_fully_open, n_valves):
-            valve = valves[n]
-            percentage = last_valve_open_percentage if n == n_valves_fully_open else 0
-            valve.set(percentage)
-
-    def _open_valves_equal(self, percentage, valves):
-        for valve in valves:
-            valve.set(percentage)
-
-    def _open_valves(self, percentage, valves):
-        if len(valves) > 0:
-            if self.thermostat.valve_config == 'cascade':
-                self._open_valves_cascade(percentage, valves)
-            else:
-                self._open_valves_equal(percentage, valves)
-
     def steer(self, power):
         logger.info('PID steer - power {} '.format(power))
         if power > 0:
-            # TODO: check union to avoid opening same valves in heating and cooling
-            self._open_valves(0, self._cooling_valves)
-            self._open_valves(power, self._heating_valves)
+            # TODO: check union to avoid opening same valve_numbers in heating and cooling
+            self._valve_controller.steer_valves(0, self.cooling_valve_numbers, mode=self.thermostat.valve_config)
+            self._valve_controller.steer_valves(power, self.heating_valve_numbers, mode=self.thermostat.valve_config)
         else:
-            self._open_valves(0, self._heating_valves)
-            self._open_valves(abs(power), self._cooling_valves)  # convert power to positive value for opening cooling valves
+            self._valve_controller.steer_valves(0, self.heating_valve_numbers, mode=self.thermostat.valve_config)
+            # convert power to positive value for opening cooling valve_numbers
+            self._valve_controller.steer_valves(abs(power), self.cooling_valve_numbers, mode=self.thermostat.valve_config)
 
     def switch_off(self):
         self.steer(0)

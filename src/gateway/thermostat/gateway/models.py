@@ -76,6 +76,7 @@ class Pump(BaseModel):
 
 class Valve(BaseModel):
     id = PrimaryKeyField()
+    number = IntegerField(unique=True)
     name = CharField()
     delay = IntegerField(default=60)
     output = ForeignKeyField(Output, backref='valve', on_delete='SET NULL', unique=True)

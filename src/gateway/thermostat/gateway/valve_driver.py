@@ -1,23 +1,20 @@
 import time
 import logging
 from threading import Lock
-from wiring import provides, scope, inject, SingletonScope
-
-from gateway.thermostat.gateway.pump import Pump
+from gateway.thermostat.gateway.models import Valve
+from gateway.thermostat.gateway.pump_driver import PumpDriver
 
 logger = logging.getLogger('openmotics')
 
 
-class Valve(object):
+class ValveDriver(object):
 
     def __init__(self, valve, gateway_api):
         """ Create a valve object
+        :param valve: The database valve object
+        :type valve: gateway.thermostat.gateway.models.Valve
         :param gateway_api: Gateway API Controller
         :type gateway_api: gateway.gateway_api.GatewayApi
-        :param output: The output used to drive the valve
-        :type output: int
-        :param cycle_duration: The period of the PWM modulation in minutes
-        :type cycle_duration: int
         """
         self._gateway_api = gateway_api
         self._valve = valve
@@ -29,12 +26,17 @@ class Valve(object):
         self._state_change_lock = Lock()
 
     @property
-    def pumps(self):
-        return [pump for pump in self._valve.pumps]
+    def number(self):
+        return self._valve.number
+
+    @property
+    def pump_drivers(self):
+        return [PumpDriver(pump, self._gateway_api) for pump in self._valve.pumps]
 
     def is_open(self):
-        _open = self._current_percentage > 0
-        return _open if not self.in_transition() else False
+        with self._state_change_lock:
+            _now_open = self._current_percentage > 0
+            return _now_open if not self.in_transition() else False
 
     def in_transition(self):
         with self._state_change_lock:
@@ -44,7 +46,11 @@ class Valve(object):
             else:
                 return False
 
-    def update_state(self):
+    def update_valve(self, valve):
+        with self._state_change_lock:
+            self._valve = valve
+
+    def _steer_outputs(self):
         with self._state_change_lock:
             if self._current_percentage != self._desired_percentage:
                 output_nr = self._valve.output.number
@@ -70,4 +76,23 @@ class Valve(object):
         logger.info('setting valve {} percentage to {}'.format(self._valve.output.number, _percentage))
         if self._current_percentage != self._desired_percentage:
             self._desired_percentage = _percentage
-            self.update_state()
+            self._steer_outputs()
+
+    def will_open(self, new_percentage):
+        return new_percentage > 0 and self._current_percentage == 0
+
+    def will_close(self, new_percentage):
+        return new_percentage == 0 and self._current_percentage > 0
+
+    def open(self):
+        self.set(100)
+
+    def close(self):
+        self.set(0)
+
+    def __eq__(self, other):
+        if not isinstance(other, Valve):
+            # don't attempt to compare against unrelated types
+            return NotImplemented
+
+        return self._valve.number == other.number
