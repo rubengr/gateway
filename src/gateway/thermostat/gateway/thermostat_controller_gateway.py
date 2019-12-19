@@ -29,8 +29,9 @@ class ThermostatControllerGateway(ThermostatController):
                                                           eeprom_controller)
 
         self._running = False
-        self._pump_controller_thread = None
         self._pid_loop_thread = None
+        self._update_pumps_thread = None
+        self._periodic_sync_thread = None
         self.thermostat_pids = {}
         self.pump_ = {}
         self._pump_valve_controller = PumpValveController(self._gateway_api)
@@ -45,13 +46,13 @@ class ThermostatControllerGateway(ThermostatController):
             self._pid_loop_thread.daemon = True
             self._pid_loop_thread.start()
 
-            self._pump_controller_thread = Thread(target=self._update_pumps())
-            self._pump_controller_thread.daemon = True
-            self._pump_controller_thread.start()
+            self._update_pumps_thread = Thread(target=self._update_pumps)
+            self._update_pumps_thread.daemon = True
+            self._update_pumps_thread.start()
 
-            self._pump_controller_thread = Thread(target=self._periodic_sync())
-            self._pump_controller_thread.daemon = True
-            self._pump_controller_thread.start()
+            self._periodic_sync_thread = Thread(target=self._periodic_sync)
+            self._periodic_sync_thread.daemon = True
+            self._periodic_sync_thread.start()
             logger.info('Starting gateway thermostatcontroller... Done')
         else:
             raise RuntimeError('GatewayThermostatController already running. Please stop it first.')
@@ -65,30 +66,28 @@ class ThermostatControllerGateway(ThermostatController):
         for thermostat in Thermostat.select():
             thermostat_pid = self.thermostat_pids.get(thermostat.number)
             if thermostat_pid is None:
-                thermostat_pid = ThermostatPid(thermostat, self._gateway_api)
+                thermostat_pid = ThermostatPid(thermostat, self._pump_valve_controller, self._gateway_api)
                 self.thermostat_pids[thermostat.number] = thermostat_pid
             thermostat_pid.update_thermostat(thermostat)
 
-    def refresh_valves_from_db(self):
-        self._pump_valve_controller.refresh_from_db()  # TODO: is this needed on every tick?
-
     def refresh_config_from_db(self):
         self.refresh_thermostats_from_db()
-        self.refresh_valves_from_db()
+        self._pump_valve_controller.refresh_from_db()
 
     def _pid_tick(self):
         while self._running:
             for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
                 try:
                     thermostat_pid.tick()
+                    self._pump_valve_controller.steer_pumps()
                 except Exception:
                     logger.exception('There was a problem with calculating thermostat PID {}'.format(thermostat_pid))
             time.sleep(self.THERMOSTAT_PID_UPDATE_INTERVAL)
 
     def _update_pumps(self):
         while self._running:
-            self._pump_valve_controller.steer_pumps()
             time.sleep(self.PUMP_UPDATE_INTERVAL)
+            self._pump_valve_controller.steer_pumps()
 
     def _periodic_sync(self):
         while self._running:

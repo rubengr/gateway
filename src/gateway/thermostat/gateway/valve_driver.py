@@ -50,7 +50,7 @@ class ValveDriver(object):
         with self._state_change_lock:
             self._valve = valve
 
-    def _steer_outputs(self):
+    def steer_output(self):
         with self._state_change_lock:
             if self._current_percentage != self._desired_percentage:
                 output_nr = self._valve.output.number
@@ -76,13 +76,12 @@ class ValveDriver(object):
         logger.info('setting valve {} percentage to {}'.format(self._valve.output.number, _percentage))
         if self._current_percentage != self._desired_percentage:
             self._desired_percentage = _percentage
-            self._steer_outputs()
 
-    def will_open(self, new_percentage):
-        return new_percentage > 0 and self._current_percentage == 0
+    def will_open(self):
+        return self._desired_percentage > 0 and self._current_percentage == 0
 
-    def will_close(self, new_percentage):
-        return new_percentage == 0 and self._current_percentage > 0
+    def will_close(self):
+        return self._desired_percentage and self._current_percentage > 0
 
     def open(self):
         self.set(100)

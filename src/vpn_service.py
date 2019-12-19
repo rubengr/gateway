@@ -225,7 +225,7 @@ class Gateway(object):
 
     def get_enabled_outputs(self):
         """ Get the enabled outputs. """
-        data = self.do_call("get_outputs_status?token=None")
+        data = self.do_call("get_output_status?token=None")
         if data is not None and data['success']:
             ret = []
             for output in data['status']:

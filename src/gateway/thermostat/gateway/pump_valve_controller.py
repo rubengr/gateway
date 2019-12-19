@@ -54,13 +54,39 @@ class PumpValveController(object):
         for valve_driver in valve_drivers:
             valve_driver.set(percentage)
 
-    def steer_valves(self, percentage, valve_numbers, mode='cascade'):
+    def steer(self, percentage, valve_numbers, mode='cascade'):
+        if len(valve_numbers) > 0:
+            self.prepare_valves_for_transition(percentage, valve_numbers, mode='cascade')
+            self.prepare_pumps_for_transition()
+            self.steer_valves(valve_numbers)
+            self.steer_pumps()
+
+    def prepare_valves_for_transition(self, percentage, valve_numbers, mode='cascade'):
         if len(valve_numbers) > 0:
             valve_drivers = [self.get_valve_driver(valve_number) for valve_number in valve_numbers]
             if mode == 'cascade':
                 self._open_valves_cascade(percentage, valve_drivers)
             else:
                 self._open_valves_equal(percentage, valve_drivers)
+
+    def prepare_pumps_for_transition(self):
+        active_pump_drivers = set()
+        potential_inactive_pump_drivers = set()
+        for valve_driver in self._valve_drivers:
+            if valve_driver.is_open():
+                for pump_driver in valve_driver.pump_drivers:
+                    active_pump_drivers.add(pump_driver)
+            elif valve_driver.will_close():
+                for pump_driver in valve_driver.pump_drivers:
+                    potential_inactive_pump_drivers.add(pump_driver)
+
+        inactive_pump_drivers = potential_inactive_pump_drivers.difference(active_pump_drivers)
+        for pump_driver in inactive_pump_drivers:
+            pump_driver.turn_off()
+
+    def steer_valves(self, valve_numbers):
+        for valve_driver in [self.get_valve_driver(valve_number) for valve_number in valve_numbers]:
+            valve_driver.steer_output()
 
     def steer_pumps(self):
         active_pump_drivers = set()
