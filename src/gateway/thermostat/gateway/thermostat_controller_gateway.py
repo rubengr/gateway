@@ -7,7 +7,7 @@ from wiring import provides, scope, inject, SingletonScope
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Event
 from gateway.thermostat.gateway.models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, \
-    OutputToThermostatGroup, ValveToThermostat, Valve
+    OutputToThermostatGroup, ValveToThermostat, Valve, Pump
 from gateway.thermostat.thermostat_controller import ThermostatController
 from gateway.thermostat.gateway.thermostat_pid import ThermostatPid
 
@@ -17,6 +17,7 @@ logger = logging.getLogger('openmotics')
 class ThermostatControllerGateway(ThermostatController):
 
     THERMOSTAT_PID_UPDATE_INTERVAL = 5
+    PUMP_UPDATE_INTERVAL = 30
 
     @provides('thermostat_controller')
     @scope(SingletonScope)
@@ -25,18 +26,26 @@ class ThermostatControllerGateway(ThermostatController):
     def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):
         super(ThermostatControllerGateway, self).__init__(gateway_api, message_client, observer, master_communicator,
                                                           eeprom_controller)
+
         self._running = False
-        self._loop_thread = None
+        self._pump_controller_thread = None
+        self._pid_loop_thread = None
         self.thermostat_pids = {}
+        self.pump_ = {}
 
     def start(self):
         logger.info('Starting gateway thermostatcontroller...')
         if not self._running:
-            self.refresh_thermostats()
             self._running = True
-            self._loop_thread = Thread(target=self._tick)
-            self._loop_thread.daemon = True
-            self._loop_thread.start()
+
+            self.refresh_thermostats()
+            self._pid_loop_thread = Thread(target=self._pid_tick)
+            self._pid_loop_thread.daemon = True
+            self._pid_loop_thread.start()
+
+            self._pump_controller_thread = Thread(target=self._pump_periodic_update)
+            self._pump_controller_thread.daemon = True
+            self._pump_controller_thread.start()
             logger.info('Starting gateway thermostatcontroller... Done')
         else:
             raise RuntimeError('GatewayThermostatController already running. Please stop it first.')
@@ -54,7 +63,7 @@ class ThermostatControllerGateway(ThermostatController):
                 self.thermostat_pids[thermostat.number] = thermostat_pid
             thermostat_pid.update_thermostat(thermostat)
 
-    def _tick(self):
+    def _pid_tick(self):
         while self._running:
             for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
                 try:
@@ -62,6 +71,32 @@ class ThermostatControllerGateway(ThermostatController):
                 except Exception:
                     logger.exception('There was a problem with calculating thermostat PID {}'.format(thermostat_pid))
             time.sleep(self.THERMOSTAT_PID_UPDATE_INTERVAL)
+
+    def _update_pumps(self):
+        all_pumps = set([Pump(pump) for pump in Pump.select()])
+        pumps_to_open = set()
+        for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
+            for valve in thermostat_pid.thermostat.valves:
+                for pump in valve.pumps:
+                    if valve.is_open():
+                        pumps_to_open.add(pump)
+        pumps_to_close = all_pumps.difference(pumps_to_open)
+        for pump in pumps_to_open:
+            try:
+                pump.open()
+            except Exception:
+                logger.exception('There was a problem opening pump {}'.format(pump))
+        for pump in pumps_to_close:
+            try:
+                pump.close()
+            except Exception:
+                logger.exception('There was a problem closing pump {}'.format(pump))
+        time.sleep(self.PUMP_UPDATE_INTERVAL)
+
+    def _pump_periodic_update(self):
+        while self._running:
+            self.steer_pumps()
+            time.sleep(self.PUMP_UPDATE_INTERVAL)
 
     ################################
     # v1 APIs
@@ -225,7 +260,11 @@ class ThermostatControllerGateway(ThermostatController):
         return {'status': 'OK'}
 
     def v0_get_pump_group_configurations(self, fields=None):
-        return []
+        config = {'id': 1,
+                  'outputs': 1,
+                  'output': 2,
+                  'room': 255}
+        return {'config': config}
 
     def v0_get_global_thermostat_configuration(self, fields=None):
         pass
@@ -304,7 +343,9 @@ class ThermostatControllerGateway(ThermostatController):
         output_config_present = config.get('output0') is not None or config.get('output1') is not None
         if output_config_present:
             # unlink all previously linked valves, we are resetting this with the new outputs we got from the API
-            deleted = ValveToThermostat.delete().where(ValveToThermostat.thermostat == thermo).execute()
+            deleted = ValveToThermostat.delete().where(ValveToThermostat.thermostat == thermo)\
+                                                .where(ValveToThermostat.mode == mode)\
+                                                .execute()
             logger.info('unlinked {} valves from thermostat {}'.format(deleted, thermo.name))
 
             for field in ['output0', 'output1']:
@@ -320,7 +361,7 @@ class ThermostatControllerGateway(ThermostatController):
                         valve = Valve.get(output=output)
                     except DoesNotExist:
                         valve = Valve(output=output)
-                    valve.name = field
+                    valve.name = 'Valve (output {})'.format(output_number)
                     valve.pwm = False
                     valve.save()
 

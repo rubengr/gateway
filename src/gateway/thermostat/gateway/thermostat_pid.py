@@ -41,13 +41,21 @@ class ThermostatPid(object):
             return False
         return True
 
+    @property
+    def heating_valves(self):
+        return self._heating_valves
+
+    @property
+    def cooling_valves(self):
+        return self._cooling_valves
+
     def update_thermostat(self, thermostat):
         with self._thermostat_change_lock:
             # cache these values to avoid DB lookups on every tick
             self._mode = thermostat.mode
             self._active_preset = thermostat.active_preset
 
-            self._heating_valves = [Valve(heating_valve, self._gateway_api) for heating_valve in thermostat.heating_valves]
+            self._heating_valves = [Valve(heating_valve, self._gateway_api) for heating_valve in thermostat.heating_valve]
             self._cooling_valves = [Valve(cooling_valve, self._gateway_api) for cooling_valve in thermostat.cooling_valves]
 
             if thermostat.mode == 'heating':
@@ -69,7 +77,6 @@ class ThermostatPid(object):
                 self._pid.Kd = pid_d
                 self._pid.setpoint = setpoint
             self._pid.output_limits = (-100, 100)
-
             self._thermostat = thermostat
 
     @property
@@ -77,9 +84,9 @@ class ThermostatPid(object):
         return self._thermostat
 
     def tick(self):
-        logger.info('_tick - thermostat {} is {} enabled in {} mode'.format(self.thermostat.number, '' if self.enabled else 'not', self._mode))
+        logger.info('_pid_tick - thermostat {} is {} enabled in {} mode'.format(self.thermostat.number, '' if self.enabled else 'not', self._mode))
         if self.enabled:
-            logger.info('_tick - thermostat {}: preset {} with setpoint {}'.format(self.thermostat.number,
+            logger.info('_pid_tick - thermostat {}: preset {} with setpoint {}'.format(self.thermostat.number,
                                                                                    self._active_preset.name,
                                                                                    self._pid.setpoint))
 
@@ -109,12 +116,12 @@ class ThermostatPid(object):
         n_valves = len(valves)
         percentage_per_valve = 100.0 / n_valves
         n_valves_fully_open = int(total_percentage / percentage_per_valve)
-        last_valve_open_percentage = (total_percentage - n_valves_fully_open * percentage_per_valve) / percentage_per_valve
+        last_valve_open_percentage = 100.0 * (total_percentage - n_valves_fully_open * percentage_per_valve) / percentage_per_valve
         for n in xrange(n_valves_fully_open):
             valve = valves[n]
             valve.set(100)
         for n in xrange(n_valves_fully_open, n_valves):
-            valve = valves(n)
+            valve = valves[n]
             percentage = last_valve_open_percentage if n == n_valves_fully_open else 0
             valve.set(percentage)
 
@@ -123,7 +130,11 @@ class ThermostatPid(object):
             valve.set(percentage)
 
     def _open_valves(self, percentage, valves):
-        self._open_valves_equal(percentage, valves)
+        if len(valves) > 0:
+            if self.thermostat.valve_config == 'cascade':
+                self._open_valves_cascade(percentage, valves)
+            else:
+                self._open_valves_equal(percentage, valves)
 
     def steer(self, power):
         logger.info('PID steer - power {} '.format(power))

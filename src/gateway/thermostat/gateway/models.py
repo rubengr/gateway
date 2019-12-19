@@ -4,7 +4,7 @@ import logging
 import time
 from playhouse.signals import Model, post_save
 from peewee import PrimaryKeyField, IntegerField, FloatField, BooleanField, TextField, ForeignKeyField, \
-    CompositeKey, SqliteDatabase, DoesNotExist
+    CompositeKey, SqliteDatabase, DoesNotExist, CharField
 
 logger = logging.getLogger('openmotics')
 
@@ -15,7 +15,7 @@ class Database(object):
     @classmethod
     def init(cls):
         cls._db.create_tables([Output, ThermostatGroup, OutputToThermostatGroup, Thermostat, Valve,
-                               ValveToThermostat, Output, Preset, DaySchedule])
+                               ValveToThermostat, Output, Preset, DaySchedule, Pump])
         # create default data entries
         ThermostatGroup.get_or_create(id=1, number=0, name='default', on=True)
 
@@ -32,16 +32,17 @@ class BaseModel(Model):
 class Output(BaseModel):
     id = PrimaryKeyField()
     number = IntegerField(unique=True)
+    # TODO: model AnalagOutput and DigitalOutput and use as dimmer etc
 
 
 class ThermostatGroup(BaseModel):
     id = PrimaryKeyField()
     number = IntegerField(unique=True)
-    name = TextField()
+    name = CharField()
     on = BooleanField(default=True)
     threshold_temp = IntegerField(null=True, default=None)
     sensor = IntegerField(null=True, default=None)
-    mode = TextField(default='heating')  # heating or cooling # TODO: add support for 'both'
+    mode = CharField(default='heating')  # heating or cooling # TODO: add support for 'both'
 
     @staticmethod
     def v0_get_global():
@@ -54,24 +55,52 @@ class OutputToThermostatGroup(BaseModel):
     output = ForeignKeyField(Output, on_delete='CASCADE')
     thermostat_group = ForeignKeyField(ThermostatGroup, on_delete='CASCADE')
     index = IntegerField()
-    mode = TextField()
+    mode = CharField()
 
     class Meta:
         primary_key = CompositeKey('output', 'thermostat_group')
 
 
+class Pump(BaseModel):
+    id = PrimaryKeyField()
+    number = IntegerField(unique=True)
+    name = CharField()
+    output = ForeignKeyField(Output, backref='valve', on_delete='SET NULL', unique=True)
+
+    @property
+    def valves(self):
+        return [valve for valve in Valve.select(Valve)
+                                        .join(PumpToValve)
+                                        .where(PumpToValve.pump == self.id)]
+
+
 class Valve(BaseModel):
     id = PrimaryKeyField()
-    name = TextField()
-    pwm = BooleanField(default=False)
+    name = CharField()
     delay = IntegerField(default=60)
-    output = ForeignKeyField(Output, backref='valve', on_delete='CASCADE', unique=True)
+    output = ForeignKeyField(Output, backref='valve', on_delete='SET NULL', unique=True)
+
+    @property
+    def pumps(self):
+        return [pump for pump in Pump.select(Pump)
+                                     .join(PumpToValve)
+                                     .where(PumpToValve.valve == self.id)]
+
+
+class PumpToValve(BaseModel):
+    """ Outputs on a thermostat group are sometimes used for setting the pumpgroup in a certain state
+        the index var is 0-4 of the output in setting this config """
+    pump = ForeignKeyField(Pump, on_delete='CASCADE')
+    valve = ForeignKeyField(Valve, on_delete='CASCADE')
+
+    class Meta:
+        primary_key = CompositeKey('pump', 'valve')
 
 
 class Thermostat(BaseModel):
     id = PrimaryKeyField()
     number = IntegerField(unique=True)
-    name = TextField(default='Thermostat')
+    name = CharField(default='Thermostat')
     sensor = IntegerField()
 
     pid_heating_p = FloatField(default=120)
@@ -84,6 +113,9 @@ class Thermostat(BaseModel):
     automatic = BooleanField(default=True)
     room = IntegerField()
     start = IntegerField()
+
+    valve_config = CharField(default='cascade')  # options: cascade, equal
+
     thermostat_group = ForeignKeyField(ThermostatGroup, backref='thermostats', on_delete='CASCADE', default=1)
 
     def get_preset(self, name):
@@ -125,6 +157,12 @@ class Thermostat(BaseModel):
     @property
     def mode(self):
         return self.thermostat_group.mode
+
+    @property
+    def valves(self):
+        return [valve for valve in Valve.select(Valve)
+                                        .join(ValveToThermostat)
+                                        .where(ValveToThermostat.thermostat == self.id)]
 
     @property
     def heating_valves(self):
@@ -216,7 +254,7 @@ class Thermostat(BaseModel):
 class ValveToThermostat(BaseModel):
     valve = ForeignKeyField(Valve, on_delete='CASCADE')
     thermostat = ForeignKeyField(Thermostat, on_delete='CASCADE')
-    mode = TextField(default='heating')
+    mode = CharField(default='heating')
     priority = IntegerField(default=0)
 
     class Meta:
@@ -225,7 +263,7 @@ class ValveToThermostat(BaseModel):
 
 class Preset(BaseModel):
     id = PrimaryKeyField()
-    name = TextField()
+    name = CharField()
     heating_setpoint = FloatField(default=14.0)
     cooling_setpoint = FloatField(default=30.0)
     active = BooleanField(default=False)
@@ -258,7 +296,7 @@ class DaySchedule(BaseModel):
     id = PrimaryKeyField()
     index = IntegerField()
     content = TextField()
-    mode = TextField(default='heating')
+    mode = CharField(default='heating')
     thermostat = ForeignKeyField(Thermostat, backref='day_schedules', on_delete='CASCADE')
 
     @classmethod
