@@ -243,7 +243,7 @@ class Gateway(object):
 
     def get_thermostats(self):
         """ Fetch the setpoints for the enabled thermostats from the webservice. """
-        data = self.do_call("v0_get_thermostat_status?token=None")
+        data = self.do_call("get_thermostat_status?token=None")
         if data is None or data['success'] is False:
             return None
         ret = {'thermostats_on': data['thermostats_on'],

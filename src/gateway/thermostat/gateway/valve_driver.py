@@ -34,9 +34,8 @@ class ValveDriver(object):
         return [PumpDriver(pump, self._gateway_api) for pump in self._valve.pumps]
 
     def is_open(self):
-        with self._state_change_lock:
-            _now_open = self._current_percentage > 0
-            return _now_open if not self.in_transition() else False
+        _now_open = self._current_percentage > 0
+        return _now_open if not self.in_transition() else False
 
     def in_transition(self):
         with self._state_change_lock:
@@ -59,13 +58,12 @@ class ValveDriver(object):
                                                                                   self._desired_percentage))
                 output_status = self._desired_percentage > 0
                 self._gateway_api.set_output_status(self._valve.output.number, output_status)
+                self._gateway_api.set_output_dimmer(self._valve.output.number, self._desired_percentage)
                 try:
                     dimmable_output = self._gateway_api.get_output_configuration(output_nr, fields='module_type').get('module_type') in ['d', 'D']
                 except Exception:
                     dimmable_output = False
-                if dimmable_output or self._percentage == 100:
-                    self._gateway_api.set_output_dimmer(self._valve.output.number, self._desired_percentage)
-                else:
+                if not dimmable_output:
                     # TODO: implement PWM logic
                     logger.info('Valve (output: {}) using ON/OFF approximation - desired: {}%'.format(output_nr, self._desired_percentage))
                 self._current_percentage = self._desired_percentage
@@ -73,9 +71,8 @@ class ValveDriver(object):
 
     def set(self, percentage):
         _percentage = int(percentage)
-        logger.info('setting valve {} percentage to {}'.format(self._valve.output.number, _percentage))
-        if self._current_percentage != self._desired_percentage:
-            self._desired_percentage = _percentage
+        logger.info('setting valve {} percentage to {}%'.format(self._valve.output.number, _percentage))
+        self._desired_percentage = _percentage
 
     def will_open(self):
         return self._desired_percentage > 0 and self._current_percentage == 0

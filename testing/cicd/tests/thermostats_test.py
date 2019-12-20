@@ -56,7 +56,7 @@ class ThermostatsTest(OMTestCase):
         setpoint_config = {'thermostat': 0, 'temperature': 17}
         self.tools.api_testee(api='v0_set_current_setpoint', params=setpoint_config, token=self.token, expected_failure=False)
 
-        response_dict = self.tools.api_testee(api='v0_get_thermostat_status', token=self.token, expected_failure=False)
+        response_dict = self.tools.api_testee(api='get_thermostat_status', token=self.token, expected_failure=False)
 
         self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 17, "Should return a thermostat status according to the thermostat auto config that has been set. Got: {0}".format(response_dict))
 
@@ -81,7 +81,7 @@ class ThermostatsTest(OMTestCase):
         new_token = self.tools.get_new_token(self.tools.username, self.tools.password)
         self.tools.api_testee(api='v0_set_thermostat_mode', params=thermostat_auto_config, token=new_token, expected_failure=False)
 
-        response_dict = self.tools.api_testee(api='v0_get_thermostat_status', token=new_token, expected_failure=False)
+        response_dict = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=False)
 
         self.assertTrue(response_dict.get('automatic', True) is False and response_dict.get('setpoint', 99) == 5 and response_dict.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config. Got: {0}".format(response_dict))
 
@@ -120,7 +120,7 @@ class ThermostatsTest(OMTestCase):
         start = time.time()
         while time.time() - start < timeout:
             new_token = self.tools.get_new_token(self.tools.username, self.tools.password)
-            response_dict = self.tools.api_testee(api='v0_get_thermostat_status', token=new_token, expected_failure=True)
+            response_dict = self.tools.api_testee(api='get_thermostat_status', token=new_token, expected_failure=True)
             if response_dict != "invalid_token":
                 if response_dict.get('success') is False:
                     time.sleep(0.3)

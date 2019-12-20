@@ -258,7 +258,7 @@ class IoTest(OMTestCase):
 
     def test_how_healthy_after_reboot(self):
         """ Testing how healthy the services are after power cycle. """
-        response_dict = json.loads(self.webinterface.get_outputs_status())
+        response_dict = json.loads(self.webinterface.get_output_status())
         status_list = response_dict.get('status', [])
         self.assertTrue(self.tools.is_not_empty(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
 
@@ -325,7 +325,7 @@ class IoTest(OMTestCase):
         """ Testing getting outputs status"""
         output_number = randint(0, 7)
         token = self.tools.get_new_token(self.tools.username, self.tools.password)
-        output_statuses = self.tools.api_testee(api='get_outputs_status', token=token).get('status')
+        output_statuses = self.tools.api_testee(api='get_output_status', token=token).get('status')
 
         if not output_statuses:
             self.fail('Unable to get output status.')
@@ -336,7 +336,7 @@ class IoTest(OMTestCase):
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_number, value=1),
                         'Toggled output must show input press. Got: {0}'.format(self.tools.input_status))
 
-        output_statuses = self.tools.api_testee(api='get_outputs_status', token=token).get('status')
+        output_statuses = self.tools.api_testee(api='get_output_status', token=token).get('status')
 
         if not output_statuses:
             self.fail('Unable to get output status.')
@@ -347,7 +347,7 @@ class IoTest(OMTestCase):
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_number, value=0),
                         'Untoggled output must show input release. Got: {0}'.format(self.tools.input_status))
 
-        output_statuses = self.tools.api_testee(api='get_outputs_status', token=token).get('status')
+        output_statuses = self.tools.api_testee(api='get_output_status', token=token).get('status')
 
         if not output_statuses:
             self.fail('Unable to get output status.')

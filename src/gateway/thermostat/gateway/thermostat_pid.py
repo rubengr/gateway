@@ -59,8 +59,8 @@ class ThermostatPid(object):
             self._mode = thermostat.mode
             self._active_preset = thermostat.active_preset
 
-            self._heating_valve_numbers = [valve.number for valve in self.thermostat.heating_valves]
-            self._cooling_valve_numbers = [valve.number for valve in self.thermostat.cooling_valves]
+            self._heating_valve_numbers = [valve.number for valve in thermostat.heating_valves]
+            self._cooling_valve_numbers = [valve.number for valve in thermostat.cooling_valves]
 
             if thermostat.mode == 'heating':
                 pid_p = thermostat.pid_heating_p if thermostat.pid_heating_p else self.DEFAULT_KP
@@ -119,12 +119,12 @@ class ThermostatPid(object):
         logger.info('PID steer - power {} '.format(power))
         if power > 0:
             # TODO: check union to avoid opening same valve_numbers in heating and cooling
-            self._valve_controller.steer_valves(0, self.cooling_valve_numbers, mode=self.thermostat.valve_config)
-            self._valve_controller.steer_valves(power, self.heating_valve_numbers, mode=self.thermostat.valve_config)
+            self._valve_controller.set_valves(0, self.cooling_valve_numbers, mode=self.thermostat.valve_config)
+            self._valve_controller.set_valves(power, self.heating_valve_numbers, mode=self.thermostat.valve_config)
         else:
-            self._valve_controller.steer_valves(0, self.heating_valve_numbers, mode=self.thermostat.valve_config)
+            self._valve_controller.set_valves(0, self.heating_valve_numbers, mode=self.thermostat.valve_config)
             # convert power to positive value for opening cooling valve_numbers
-            self._valve_controller.steer_valves(abs(power), self.cooling_valve_numbers, mode=self.thermostat.valve_config)
+            self._valve_controller.set_valves(abs(power), self.cooling_valve_numbers, mode=self.thermostat.valve_config)
 
     def switch_off(self):
         self.steer(0)

@@ -15,7 +15,7 @@ class Database(object):
     @classmethod
     def init(cls):
         cls._db.create_tables([Output, ThermostatGroup, OutputToThermostatGroup, Thermostat, Valve,
-                               ValveToThermostat, Output, Preset, DaySchedule, Pump])
+                               ValveToThermostat, Output, Preset, DaySchedule, Pump, PumpToValve])
         # create default data entries
         ThermostatGroup.get_or_create(id=1, number=0, name='default', on=True)
 

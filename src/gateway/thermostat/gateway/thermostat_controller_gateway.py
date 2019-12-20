@@ -79,7 +79,7 @@ class ThermostatControllerGateway(ThermostatController):
             for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
                 try:
                     thermostat_pid.tick()
-                    self._pump_valve_controller.steer_pumps()
+                    self._pump_valve_controller.steer()
                 except Exception:
                     logger.exception('There was a problem with calculating thermostat PID {}'.format(thermostat_pid))
             time.sleep(self.THERMOSTAT_PID_UPDATE_INTERVAL)
@@ -355,11 +355,11 @@ class ThermostatControllerGateway(ThermostatController):
 
                     # 2. get or create the valve and link to this output
                     try:
-                        valve = Valve.get(output=output)
+                        valve = Valve.get(output=output, number=output_number)
+
                     except DoesNotExist:
-                        valve = Valve(output=output)
+                        valve = Valve(output=output, number=output_number)
                     valve.name = 'Valve (output {})'.format(output_number)
-                    valve.pwm = False
                     valve.save()
 
                     # 3. link the valve to the thermostat, set properties
@@ -442,5 +442,5 @@ class ThermostatControllerGateway(ThermostatController):
         if thermostat_pid is not None:
             thermostat_pid.update_thermostat(thermostat)
         else:
-            self.thermostat_pids[thermostat_number] = ThermostatPid(thermostat, self._gateway_api)
+            self.thermostat_pids[thermostat_number] = ThermostatPid(thermostat, self._pump_valve_controller, self._gateway_api)
         return {'status': 'OK'}
