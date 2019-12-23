@@ -50,7 +50,8 @@ class PumpValveController(object):
             percentage = last_valve_open_percentage if n == n_valves_fully_open else 0
             valve_driver.set(percentage)
 
-    def _open_valves_equal(self, percentage, valve_drivers):
+    @staticmethod
+    def _open_valves_equal(percentage, valve_drivers):
         for valve_driver in valve_drivers:
             valve_driver.set(percentage)
 

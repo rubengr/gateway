@@ -69,6 +69,7 @@ class ThermostatControllerGateway(ThermostatController):
                 thermostat_pid = ThermostatPid(thermostat, self._pump_valve_controller, self._gateway_api)
                 self.thermostat_pids[thermostat.number] = thermostat_pid
             thermostat_pid.update_thermostat(thermostat)
+            # TODO: delete stale/removed thermostats
 
     def refresh_config_from_db(self):
         self.refresh_thermostats_from_db()
