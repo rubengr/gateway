@@ -505,5 +505,6 @@ class ThermostatControllerGateway(ThermostatController):
         else:
             thermostat_pid = ThermostatPid(thermostat, self._pump_valve_controller, self._gateway_api)
             self.thermostat_pids[thermostat_number] = thermostat_pid
+        self._sync_scheduler()
         thermostat_pid.tick()
         return {'status': 'OK'}
