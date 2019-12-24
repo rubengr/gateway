@@ -38,6 +38,23 @@ class ThermostatControllerMaster(ThermostatController):
     def start(self):
         self._monitor_thread.start()
 
+    ################################
+    # v1 APIs
+    ################################
+    @staticmethod
+    def get_current_preset(thermostat_number):
+        raise NotImplementedError
+
+    def set_current_preset(self, thermostat_number, preset_name):
+        raise NotImplementedError
+
+    def set_current_setpoint(self, thermostat_number, temperature):
+        raise NotImplementedError
+
+    ################################
+    # v0 compatible APIs
+    ################################
+
     def _thermostat_changed(self, thermostat_id, status):
         """ Executed by the Thermostat Status tracker when an output changed state """
         self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_id})

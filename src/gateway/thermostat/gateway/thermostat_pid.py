@@ -2,6 +2,8 @@ import logging
 from threading import Lock
 from simple_pid import PID
 
+from serial_utils import CommunicationTimedOutException
+
 logger = logging.getLogger('openmotics')
 
 
@@ -22,6 +24,7 @@ class ThermostatPid(object):
         self._mode = None
         self._active_preset = None
         self._current_temperature = None
+        self._errors = 0
         self.update_thermostat(thermostat)
 
     @property
@@ -38,6 +41,8 @@ class ThermostatPid(object):
         if len(self._heating_valve_numbers) == 0 and len(self._cooling_valve_numbers) == 0:
             return False
         if not self._thermostat.thermostat_group.on:
+            return False
+        if self._errors > 5:
             return False
         return True
 
@@ -76,12 +81,11 @@ class ThermostatPid(object):
             if self._pid is None:
                 self._pid = PID(pid_p, pid_i, pid_d, setpoint=setpoint)
             else:
-                self._pid.Kp = pid_p
-                self._pid.Ki = pid_i
-                self._pid.Kd = pid_d
+                self._pid.tunings = (pid_p, pid_i, pid_d)
                 self._pid.setpoint = setpoint
             self._pid.output_limits = (-100, 100)
             self._thermostat = thermostat
+            self._errors = 0
 
     @property
     def thermostat(self):
@@ -91,25 +95,33 @@ class ThermostatPid(object):
         logger.info('_pid_tick - thermostat {} is {} enabled in {} mode'.format(self.thermostat.number, '' if self.enabled else 'not', self._mode))
         if self.enabled:
             logger.info('_pid_tick - thermostat {}: preset {} with setpoint {}'.format(self.thermostat.number,
-                                                                                   self._active_preset.name,
-                                                                                   self._pid.setpoint))
+                                                                                       self._active_preset.name,
+                                                                                       self._pid.setpoint))
+            try:
+                current_temperature = self._gateway_api.get_sensor_temperature_status(self.thermostat.sensor)
+                if current_temperature is not None:
+                    self._current_temperature = current_temperature
+                else:
+                    self._errors += 1
+                output_power = self._pid(self._current_temperature)
 
-            current_temperature = self._gateway_api.get_sensor_temperature_status(self.thermostat.sensor)
-            if current_temperature is not None:
-                self._current_temperature = current_temperature
-            # TODO: count number of times temperature readings are faulty and disable thermostat
-
-            output_power = self._pid(self._current_temperature)
-
-            # heating needed while in cooling mode OR
-            # cooling needed while in heating mode
-            # -> no active aircon required, rely on losses of system to reach equilibrium
-            if (self._mode == 'cooling' and output_power > 0) or \
-               (self._mode == 'heating' and output_power < 0):
-                output_power = 0
-            self.steer(output_power)
+                # heating needed while in cooling mode OR
+                # cooling needed while in heating mode
+                # -> no active aircon required, rely on losses of system to reach equilibrium
+                if (self._mode == 'cooling' and output_power > 0) or \
+                   (self._mode == 'heating' and output_power < 0):
+                    output_power = 0
+                self.steer(output_power)
+                self._errors = 0
+            except CommunicationTimedOutException as ex:
+                logger.error('Error in PID tick for thermostat {}: {}'.format(self.thermostat.number, str(ex)))
+                self._errors += 1
         else:
             self.switch_off()
+
+    @property
+    def errors(self):
+        return self._errors
 
     @property
     def number(self):
@@ -117,6 +129,8 @@ class ThermostatPid(object):
 
     def steer(self, power):
         logger.info('PID steer - power {} '.format(power))
+
+        # configure valves and set desired opening
         if power > 0:
             # TODO: check union to avoid opening same valve_numbers in heating and cooling
             self._valve_controller.set_valves(0, self.cooling_valve_numbers, mode=self.thermostat.valve_config)
@@ -125,6 +139,9 @@ class ThermostatPid(object):
             self._valve_controller.set_valves(0, self.heating_valve_numbers, mode=self.thermostat.valve_config)
             # convert power to positive value for opening cooling valve_numbers
             self._valve_controller.set_valves(abs(power), self.cooling_valve_numbers, mode=self.thermostat.valve_config)
+
+        # effectively steer pumps and valves according to needs
+        self._valve_controller.steer()
 
     def switch_off(self):
         self.steer(0)
@@ -152,6 +169,3 @@ class ThermostatPid(object):
     @Kd.setter
     def Kd(self, Kd):
         self._pid.Kd = Kd
-
-    def update_pid_params(self, Kp, Ki, Kd):
-        self._pid.tunings = (Kp, Ki, Kd)

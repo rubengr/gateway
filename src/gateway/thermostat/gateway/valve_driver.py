@@ -78,7 +78,7 @@ class ValveDriver(object):
         return self._desired_percentage > 0 and self._current_percentage == 0
 
     def will_close(self):
-        return self._desired_percentage and self._current_percentage > 0
+        return self._desired_percentage == 0 and self._current_percentage > 0
 
     def open(self):
         self.set(100)

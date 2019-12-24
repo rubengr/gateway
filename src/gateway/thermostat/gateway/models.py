@@ -12,6 +12,8 @@ logger = logging.getLogger('openmotics')
 class Database(object):
     _db = SqliteDatabase('/opt/openmotics/etc/gateway.db', pragmas={'foreign_keys': 1})
 
+
+
     @classmethod
     def init(cls):
         cls._db.create_tables([Output, ThermostatGroup, OutputToThermostatGroup, Thermostat, Valve,
@@ -192,6 +194,18 @@ class Thermostat(BaseModel):
         return [preset for preset in Preset.select()
                                            .where(Preset.thermostat == self.id)
                                            .where(Preset.mode == 'cooling')]
+
+    def heating_schedules(self):
+        return DaySchedule.select()\
+                          .where(DaySchedule.thermostat == self.id)\
+                          .where(DaySchedule.mode == 'heating')\
+                          .order_by(DaySchedule.index)
+
+    def cooling_schedules(self):
+        return DaySchedule.select()\
+                          .where(DaySchedule.thermostat == self.id)\
+                          .where(DaySchedule.mode == 'cooling')\
+                          .order_by(DaySchedule.index)
 
     def v0_get_output_numbers(self, mode=None):
         if mode is None:

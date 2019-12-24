@@ -1,3 +1,7 @@
+from decorators import singleton
+
+
+@singleton
 class ThermostatController(object):
 
     def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):
@@ -30,6 +34,25 @@ class ThermostatController(object):
         :param callback: the callback to call
         """
         self._event_subscriptions.append(callback)
+
+    ################################
+    # v1 APIs
+    ################################
+    # TODO: implement all v1 APIs
+
+    def set_current_setpoint(self, thermostat_number, heating_temperature, cooling_temperature):
+        raise NotImplementedError
+
+    @staticmethod
+    def get_current_preset(thermostat_number):
+        raise NotImplementedError
+
+    def set_current_preset(self, thermostat_number, preset_name):
+        raise NotImplementedError
+
+    ################################
+    # v0 compatible APIs
+    ################################
 
     def v0_get_thermostat_configuration(self, thermostat_id, fields=None):
         """
