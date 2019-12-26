@@ -39,6 +39,11 @@ def get_scheduling_database_file():
     return "/opt/openmotics/etc/sched.db"
 
 
+def get_gateway_database_file():
+    """ Get the filename of the gateway database file. This file is in sqlite format. """
+    return "/opt/openmotics/etc/gateway.db"
+
+
 def get_eeprom_extension_database_file():
     """ Get the filename of the EEPROM extension database file. This file is in sqlite format. """
     return "/opt/openmotics/etc/eeprom_ext.db"

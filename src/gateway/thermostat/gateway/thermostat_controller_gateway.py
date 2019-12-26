@@ -6,7 +6,7 @@ from peewee import DoesNotExist
 from wiring import provides, scope, inject, SingletonScope
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Event
-from gateway.thermostat.gateway.models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, \
+from gateway.models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, \
     OutputToThermostatGroup, ValveToThermostat, Valve
 from gateway.thermostat.gateway.pump_valve_controller import PumpValveController
 from gateway.thermostat.thermostat_controller import ThermostatController
@@ -354,7 +354,7 @@ class ThermostatControllerGateway(ThermostatController):
                 valve.save()
 
     @staticmethod
-    def _create_or_update_thermostat_from_v0_api(thermostat_number, config, mode='heating'):
+    def create_or_update_thermostat_from_v0_api(thermostat_number, config, mode='heating'):
         """
         :param thermostat_number: the thermostat number for which the config needs to be stored
         :type thermostat_number: int
@@ -498,7 +498,7 @@ class ThermostatControllerGateway(ThermostatController):
     def v0_set_configuration(self, config, mode):
         # TODO: implement the new v1 config format
         thermostat_number = int(config['id'])
-        thermostat = ThermostatControllerGateway._create_or_update_thermostat_from_v0_api(thermostat_number, config, mode)
+        thermostat = ThermostatControllerGateway.create_or_update_thermostat_from_v0_api(thermostat_number, config, mode)
         thermostat_pid = self.thermostat_pids.get(thermostat_number)
         if thermostat_pid is not None:
             thermostat_pid.update_thermostat(thermostat)

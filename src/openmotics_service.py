@@ -21,7 +21,7 @@ System.import_eggs()
 import logging
 import time
 import constants
-from gateway.thermostat.gateway.models import Database
+from gateway.models import Database
 from gateway.thermostat.gateway.thermostat_controller_gateway import ThermostatControllerGateway
 from wiring import Graph, SingletonScope
 from bus.om_bus_service import MessageService

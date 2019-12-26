@@ -1,7 +1,7 @@
 import logging
 from threading import Lock
 
-from gateway.thermostat.gateway.models import Valve
+from gateway.models import Valve
 from gateway.thermostat.gateway.valve_driver import ValveDriver
 
 logger = logging.getLogger('openmotics')

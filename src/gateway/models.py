@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import time
+import constants
 from playhouse.signals import Model, post_save
 from peewee import PrimaryKeyField, IntegerField, FloatField, BooleanField, TextField, ForeignKeyField, \
     CompositeKey, SqliteDatabase, DoesNotExist, CharField
@@ -10,9 +11,8 @@ logger = logging.getLogger('openmotics')
 
 
 class Database(object):
-    _db = SqliteDatabase('/opt/openmotics/etc/gateway.db', pragmas={'foreign_keys': 1})
-
-
+    filename = constants.get_gateway_database_file()
+    _db = SqliteDatabase(filename, pragmas={'foreign_keys': 1})
 
     @classmethod
     def init(cls):
