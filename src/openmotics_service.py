@@ -54,6 +54,8 @@ from master.passthrough import PassthroughService
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
 from plugins.base import PluginController
+from peewee_migrate import Router
+from peewee import SqliteDatabase
 
 logger = logging.getLogger("openmotics")
 
@@ -267,8 +269,14 @@ class OpenmoticsService(object):
 
 if __name__ == "__main__":
     setup_logger()
-    logger.info("Starting OpenMotics service")
 
+    logger.info("Applying migrations")
+    # Run all unapplied migrations
+    db = Database.get_db()
+    router = Router(db)
+    router.run()
+
+    logger.info("Starting OpenMotics service")
     # TODO: move message service to separate process
     message_service = MessageService()
     message_service.start()
