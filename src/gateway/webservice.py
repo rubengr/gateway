@@ -618,7 +618,9 @@ class WebInterface(object):
         :returns: 'inputs': list of tuples (input, output).
         :rtype: dict
         """
-        return {'inputs': self._gateway_api.get_last_inputs()}
+        # for backwards compatibility reasons a list of input, output tuples is returned
+        inputs = [(changed_input, None) for changed_input in self._gateway_api.get_last_inputs()]
+        return {'inputs': inputs}
 
     @openmotics_api(auth=True)
     def get_shutter_status(self):
