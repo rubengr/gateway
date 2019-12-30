@@ -27,7 +27,7 @@ from threading import Thread
 from wiring import inject, provides, SingletonScope, scope
 from gateway.webservice import params_parser
 from master.master_communicator import CommunicationTimedOutException
-import ujson as json
+import json
 
 LOGGER = logging.getLogger('openmotics')
 

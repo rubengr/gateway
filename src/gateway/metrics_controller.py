@@ -21,7 +21,7 @@ import time
 import copy
 import logging
 import requests
-import ujson as json
+import json
 from threading import Thread
 from collections import deque
 from wiring import inject, provides, SingletonScope, scope

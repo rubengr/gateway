@@ -31,7 +31,7 @@ import shutil
 import subprocess
 import tempfile
 import ConfigParser
-import ujson as json
+import json
 from wiring import inject, scope, SingletonScope, provides
 from subprocess import check_output
 from threading import Timer, Thread

@@ -17,7 +17,7 @@ Cloud API Client
 """
 import logging
 import requests
-import ujson as json
+import json
 from wiring import inject, provides
 from requests import ConnectionError
 from requests.adapters import HTTPAdapter

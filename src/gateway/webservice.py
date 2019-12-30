@@ -28,7 +28,7 @@ import sys
 import threading
 import time
 import uuid
-import ujson as json
+import json
 from wiring import inject, provides, SingletonScope, scope
 from cherrypy.lib.static import serve_file
 from decorator import decorator

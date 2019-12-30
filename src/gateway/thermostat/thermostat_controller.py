@@ -1,7 +1,6 @@
 from decorators import singleton
 
 
-@singleton
 class ThermostatController(object):
 
     def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):

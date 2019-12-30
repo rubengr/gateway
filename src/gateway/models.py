@@ -333,8 +333,13 @@ class DaySchedule(BaseModel):
                 data[relative_timestamp] = float(value)
         return cls(thermostat=thermostat, index=day_index, mode=mode, content=json.dumps(data))
 
-    def to_dict(self):
+    @property
+    def schedule_data(self):
         return json.loads(self.content)
+
+    @schedule_data.setter
+    def schedule_data(self, content):
+        self.content = json.dumps(content)
 
     @classmethod
     def _schedule_data_from_v0(cls, v0_schedule):
@@ -353,7 +358,7 @@ class DaySchedule(BaseModel):
 
     def update_schedule_from_v0(self, v0_schedule):
         data = DaySchedule._schedule_data_from_v0(v0_schedule)
-        self.content = json.dumps(data)
+        self.schedule_data = data
 
     @classmethod
     def from_v0_dict(cls, thermostat, index, mode, v0_schedule,):
@@ -362,19 +367,18 @@ class DaySchedule(BaseModel):
 
     def to_v0_dict(self):
         return_data = {}
-        data = self.to_dict()
-        n_entries = len(data)
+        schedule = self.schedule_data
+        n_entries = len(schedule)
         if n_entries == 0:
             logger.error('Serializing an empty temperature day schedule.')
         elif n_entries < 4:
             logger.warning('Not enough data to serialize day schedule in old format. Returning best effort data.')
-            first_value = data.itervalues().next()
+            first_value = schedule.itervalues().next()
             return_data['temp_n'] = first_value
             return_data['temp_d1'] = first_value
             return_data['temp_d2'] = first_value
         else:
             index = 0
-            schedule = self.to_dict()
             for timestamp in sorted(schedule.keys()):
                 temperature = schedule[timestamp]
                 if index == 0:
@@ -388,7 +392,7 @@ class DaySchedule(BaseModel):
 
     def get_scheduled_temperature(self, seconds_in_day):
         seconds_in_day = seconds_in_day % 86400
-        data = self.to_dict()
+        data = self.schedule_data
         last_value = data.get(0)
         for key in sorted(data):
             if key > seconds_in_day:

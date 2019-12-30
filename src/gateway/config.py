@@ -19,7 +19,7 @@ Configuration controller
 import time
 import sqlite3
 import logging
-import ujson as json
+import json
 from random import randint
 from wiring import inject, provides, SingletonScope, scope
 

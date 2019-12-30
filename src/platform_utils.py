@@ -211,11 +211,13 @@ class System(object):
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         os.environ['PYTHON_EGG_CACHE'] = '/tmp/.eggs-cache/'
 
-        eggs = (glob.glob('{0}/eggs/*.egg'.format(current_file_path)) +
-                glob.glob('{0}/eggs/{1}/*.egg'.format(current_file_path, operating_system)))
-        for egg in eggs:
-            logger.info('Loading egg... {}'.format(egg))
-            sys.path.insert(0, egg)
+        libs = (glob.glob('{0}/eggs/*.egg'.format(current_file_path)) +
+                glob.glob('{0}/eggs/{1}/*.egg'.format(current_file_path, operating_system)) +
+                glob.glob('{0}/eggs/*.whl'.format(current_file_path)) +
+                glob.glob('{0}/eggs/{1}/*.whl'.format(current_file_path, operating_system)))
+        for lib in libs:
+            logger.info('Loading lib... {}'.format(lib))
+            sys.path.insert(0, lib)
 
         # Patching where/if required
         if operating_system == System.OS.ANGSTROM:
