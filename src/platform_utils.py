@@ -20,6 +20,8 @@ import os
 import sys
 import subprocess
 import logging
+import constants
+from ConfigParser import ConfigParser
 
 logger = logging.getLogger('openmotics')
 
@@ -222,3 +224,26 @@ class System(object):
             from pkg_resources import resource_filename, resource_stream, Requirement
             resource_stream(Requirement.parse('requests'), 'requests/cacert.pem')
             os.environ['REQUESTS_CA_BUNDLE'] = resource_filename(Requirement.parse('requests'), 'requests/cacert.pem')
+
+
+class Platform(object):
+    """
+    Abstracts the platform related functions
+    """
+
+    class Type(object):
+        CLASSIC = 'CLASSIC'
+        CORE_PLUS = 'CORE_PLUS'
+
+    Types = [Type.CLASSIC, Type.CORE_PLUS]
+
+    @staticmethod
+    def get_platform():
+        config = ConfigParser()
+        config.read(constants.get_config_file())
+
+        if config.has_option('OpenMotics', 'platform'):
+            platform = config.get('OpenMotics', 'platform')
+            if platform in Platform.Types:
+                return platform
+        return Platform.Type.CLASSIC

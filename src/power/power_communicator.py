@@ -29,7 +29,7 @@ from power import power_api
 from power.power_command import crc7
 from power.time_keeper import TimeKeeper
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class PowerCommunicator(object):
@@ -96,7 +96,7 @@ class PowerCommunicator(object):
     @staticmethod
     def __log(action, data):
         if data is not None:
-            LOGGER.info("%.3f %s power: %s" % (time.time(), action, printable(data)))
+            logger.info("%.3f %s power: %s" % (time.time(), action, printable(data)))
 
     def __write_to_serial(self, data):
         """ Write data to the serial port.
@@ -146,7 +146,7 @@ class PowerCommunicator(object):
                         if _cmd.is_nack(header, _address, cid) and response_data == "\x02":
                             raise UnkownCommandException('Unknown command')
                         tries += 1
-                        LOGGER.warning("Header did not match command ({0})".format(tries))
+                        logger.warning("Header did not match command ({0})".format(tries))
                         if tries == 3:
                             raise Exception("Header did not match command ({0})".format(tries))
                     else:
@@ -160,7 +160,7 @@ class PowerCommunicator(object):
                 return do_once(address, cmd, *data)
             except UnkownCommandException:
                 # This happens when the module is stuck in the bootloader.
-                LOGGER.error("Got UnkownCommandException")
+                logger.error("Got UnkownCommandException")
                 do_once(address, power_api.bootloader_jump_application())
                 time.sleep(1)
                 return self.do_command(address, cmd, *data)
@@ -168,7 +168,7 @@ class PowerCommunicator(object):
                 # Communication timed out, try again.
                 return do_once(address, cmd, *data)
             except Exception as ex:
-                LOGGER.exception("Unexpected error: {0}".format(ex))
+                logger.exception("Unexpected error: {0}".format(ex))
                 time.sleep(0.25)
                 return do_once(address, cmd, *data)
 
@@ -216,7 +216,7 @@ class PowerCommunicator(object):
                 waa_12 = want_an_address_12.check_header_partial(header)
 
                 if not waa_8 and not waa_12:
-                    LOGGER.warning("Received non WAA/WAD message in address mode")
+                    logger.warning("Received non WAA/WAD message in address mode")
                 else:
                     (old_address, cid) = (ord(header[:2][1]), header[2:3])
                     # Ask power_controller for new address, and register it.
@@ -237,7 +237,7 @@ class PowerCommunicator(object):
                 pass  # Didn't receive a command, no problem.
             except Exception as exception:
                 traceback.print_exc()
-                LOGGER.warning("Got exception in address mode: %s", exception)
+                logger.warning("Got exception in address mode: %s", exception)
 
         # AGT stop
         data = address_mode.create_input(power_api.BROADCAST_ADDRESS,

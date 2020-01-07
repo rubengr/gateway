@@ -19,9 +19,8 @@ import logging
 import time
 from threading import Lock
 from wiring import inject, provides, SingletonScope, scope
-from master.master_api import BA_SHUTTER_DOWN, BA_SHUTTER_STOP, BA_SHUTTER_UP
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class ShutterController(object):
@@ -60,14 +59,14 @@ class ShutterController(object):
 
     @provides('shutter_controller')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator')
-    def __init__(self, master_communicator, verbose=False):
+    @inject(master_controller='master_controller')
+    def __init__(self, master_controller, verbose=False):
         """
         Initializes a ShutterController
-        :param master_communicator: Master communicator
-        :type master_communicator: master.master_communicator.MasterCommunicator
+        :param master_controller: Master controller
+        :type master_controller: gateway.master_controller.MasterController
         """
-        self._master_communicator = master_communicator
+        self._master_controller = master_controller
 
         self._shutters = {}
         self._actual_positions = {}
@@ -84,7 +83,7 @@ class ShutterController(object):
 
     def _log(self, message):
         if self._verbose:
-            LOGGER.info('ShutterController: {0}'.format(message))
+            logger.info('ShutterController: {0}'.format(message))
 
     # Update internal shutter configuration cache
 
@@ -197,11 +196,11 @@ class ShutterController(object):
 
     def _execute_shutter(self, shutter_id, direction):
         if direction == ShutterController.Direction.UP:
-            self._master_communicator.do_basic_action(BA_SHUTTER_UP, shutter_id)
+            self._master_controller.shutter_up(shutter_id)
         elif direction == ShutterController.Direction.DOWN:
-            self._master_communicator.do_basic_action(BA_SHUTTER_DOWN, shutter_id)
+            self._master_controller.shutter_down(shutter_id)
         elif direction == ShutterController.Direction.STOP:
-            self._master_communicator.do_basic_action(BA_SHUTTER_STOP, shutter_id)
+            self._master_controller.shutter_stop(shutter_id)
 
     # Internal checks and validators
 

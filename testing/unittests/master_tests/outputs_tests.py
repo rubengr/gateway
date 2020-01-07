@@ -19,7 +19,7 @@ Tests for the outputs module.
 import unittest
 import xmlrunner
 
-from gateway.outputs import OutputStatus
+from master.outputs import OutputStatus
 
 
 class OutputStatusTest(unittest.TestCase):

@@ -11,7 +11,7 @@ class CommunicationLedController(object):
 
     @provides('observer')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', power_communicator='power_communicator', message_client='message_client')
+    @inject(master_communicator='master_classic_communicator', power_communicator='power_communicator', message_client='message_client')
     def __init__(self, master_communicator, power_communicator, message_client):
         """
         Blink the serial leds if necessary.

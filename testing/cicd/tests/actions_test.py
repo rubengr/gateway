@@ -22,7 +22,7 @@ from random import randint
 import simplejson as json
 from toolbox import exception_handler, OMTestCase
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class ActionsTest(OMTestCase):

@@ -29,7 +29,7 @@ from gateway.webservice import params_parser
 from master.master_communicator import CommunicationTimedOutException
 import json
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class Schedule(object):
@@ -241,16 +241,16 @@ class SchedulingController(object):
                 func = getattr(self._web_interface, schedule.arguments['name'])
                 func(**schedule.arguments['parameters'])
             else:
-                LOGGER.warning('Did not process schedule {0}'.format(schedule.name))
+                logger.warning('Did not process schedule {0}'.format(schedule.name))
 
             # Cleanup or prepare for next start
             schedule.last_executed = time.time()
             if schedule.has_ended:
                 self._update_schedule_status(schedule.id, 'COMPLETED')
         except CommunicationTimedOutException:
-            LOGGER.error('Got error while executing schedule: CommunicationTimedOutException')
+            logger.error('Got error while executing schedule: CommunicationTimedOutException')
         except Exception as ex:
-            LOGGER.error('Got error while executing schedule: {0}'.format(ex))
+            logger.error('Got error while executing schedule: {0}'.format(ex))
             schedule.last_executed = time.time()
         finally:
             if self._semaphore is not None:

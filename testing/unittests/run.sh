@@ -45,12 +45,11 @@ python2 plugins_tests/base_tests.py
 
 echo "Running plugin interfaces tests"
 python2 plugins_tests/interfaces_tests.py
-
-echo "Running observer tests"
-python2 gateway_tests/observer_tests.py
-
 echo "Running pulse counter controller tests"
 python2 gateway_tests/pulses_tests.py
+
+echo "Running Core uCAN tests"
+python2 -m master_core_tests.ucan_communicator_tests
 
 echo "Running metrics tests"
 python2 gateway_tests/metrics_tests.py

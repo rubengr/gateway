@@ -30,12 +30,16 @@ class CommunicationTimedOutException(Exception):
         Exception.__init__(self, message)
 
 
-def printable(string):
-    """ Converts non-printable characters into hex notation """
+def printable(data):
+    """ prints data in a human-redable way """
 
-    hex_notation = " ".join(['%3d' % ord(c) for c in string])
-    readable = "".join([c if 32 < ord(c) <= 126 else '.' for c in string])
-    return hex_notation + "    " + readable
+    if isinstance(data, list):
+        byte_notation = ' '.join(['{0: >3}'.format(i) for i in data])
+        string_notation = ''.join([str(chr(i)) if 32 < i <= 126 else '.' for i in data])
+    else:
+        byte_notation = ' '.join(['{0: >3}'.format(ord(c)) for c in data])
+        string_notation = ''.join([c if 32 < ord(c) <= 126 else '.' for c in data])
+    return '{0}    {1}'.format(byte_notation, string_notation)
 
 
 class RS485(object):

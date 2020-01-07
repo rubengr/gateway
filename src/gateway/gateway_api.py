@@ -20,7 +20,6 @@ and call the master_api to complete the actions.
 import os
 import time
 import threading
-import time as pytime
 import datetime
 import math
 import sqlite3
@@ -35,14 +34,15 @@ import json
 from wiring import inject, scope, SingletonScope, provides
 from subprocess import check_output
 from threading import Timer, Thread
+from platform_utils import Platform
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Observer
+from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api
 from power import power_api
 from master.master_communicator import BackgroundConsumer
 from master.eeprom_controller import EepromAddress
-from master.eeprom_models import OutputConfiguration, InputConfiguration,  \
-    SensorConfiguration, GroupActionConfiguration, \
+from master.eeprom_models import SensorConfiguration, GroupActionConfiguration, \
     ScheduledActionConfiguration, StartupActionConfiguration, \
     ShutterConfiguration, ShutterGroupConfiguration, DimmerConfiguration, \
     CanLedConfiguration, RoomConfiguration
@@ -63,14 +63,16 @@ class GatewayApi(object):
 
     @provides('gateway_api')
     @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', power_communicator='power_communicator',
+    @inject(master_communicator='master_classic_communicator', master_controller='master_controller', power_communicator='power_communicator',
             power_controller='power_controller', eeprom_controller='eeprom_controller',
             pulse_controller='pulse_controller', message_client='message_client', observer='observer',
             config_controller='config_controller', shutter_controller='shutter_controller')
-    def __init__(self, master_communicator, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
+    def __init__(self, master_communicator, master_controller, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
+        :param master_controller: Master controller
+        :type master_controller: gateway.master_controller.MasterController
         :param power_communicator: Power communicator
         :type power_communicator: power.power_communicator.PowerCommunicator
         :param power_controller: Power controller
@@ -89,6 +91,7 @@ class GatewayApi(object):
         :type shutter_controller: gateway.shutters.ShutterController
         """
         self.__master_communicator = master_communicator
+        self.__master_controller = master_controller
         self.__config_controller = config_controller
         self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
@@ -99,27 +102,26 @@ class GatewayApi(object):
         self.__observer = observer
         self.__shutter_controller = shutter_controller
 
-        self.__last_maintenance_send_time = 0
-        self.__maintenance_timeout_timer = None
-
         self.__discover_mode_timer = None
 
         self.__module_log = []
 
         self.__previous_on_outputs = set()
 
-        self.__master_communicator.register_consumer(
-            BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
-        )
-        self.__master_communicator.register_consumer(
-            BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
-        )
+        if Platform.get_platform() == Platform.Type.CLASSIC:
+            self.__master_communicator.register_consumer(
+                BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
+            )
+            self.__master_communicator.register_consumer(
+                BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
+            )
 
         self.__master_checker_thread = Thread(target=self.__master_checker)
         self.__master_checker_thread.daemon = True
 
     def start(self):
-        self.__master_checker_thread.start()
+        if Platform.get_platform() == Platform.Type.CLASSIC:
+            self.__master_checker_thread.start()
 
     def set_plugin_controller(self, plugin_controller):
         """
@@ -157,6 +159,9 @@ class GatewayApi(object):
             except CommunicationTimedOutException:
                 logger.error('Got communication timeout while checking the master.')
                 time.sleep(60)
+            except InMaintenanceModeException:
+                # This is an expected situation
+                time.sleep(10)
             except Exception as ex:
                 logger.exception('Got unexpected exception while checking the master: {0}'.format(ex))
                 time.sleep(60)
@@ -379,53 +384,8 @@ class GatewayApi(object):
         if self.__plugin_controller is not None:
             self.__plugin_controller.process_event(code)
 
-    # Maintenance functions
-
-    def start_maintenance_mode(self, timeout=600):
-        """ Start maintenance mode, if the time between send_maintenance_data calls exceeds the
-        timeout, the maintenance mode will be closed automatically. """
-        self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
-        self.__master_communicator.start_maintenance_mode()
-
-        def check_maintenance_timeout():
-            """ Checks if the maintenance if the timeout is exceeded, and closes maintenance mode
-            if required. """
-            if self.__master_communicator.in_maintenance_mode():
-                current_time = pytime.time()
-                if self.__last_maintenance_send_time + timeout < current_time:
-                    logger.info('Stopping maintenance mode because of timeout.')
-                    self.stop_maintenance_mode()
-                else:
-                    wait_time = self.__last_maintenance_send_time + timeout - current_time
-                    self.__maintenance_timeout_timer = Timer(wait_time, check_maintenance_timeout)
-                    self.__maintenance_timeout_timer.start()
-
-        self.__maintenance_timeout_timer = Timer(timeout, check_maintenance_timeout)
-        self.__maintenance_timeout_timer.start()
-
-    def send_maintenance_data(self, data):
-        """ Send data to the master in maintenance mode.
-
-        :param data: data to send to the master
-        :type data: string
-        """
-        self.__last_maintenance_send_time = pytime.time()
-        self.__master_communicator.send_maintenance_data(data)
-
-    def get_maintenance_data(self):
-        """ Get data from the master in maintenance mode.
-
-        :returns: string containing unprocessed output
-        """
-        return self.__master_communicator.get_maintenance_data()
-
-    def stop_maintenance_mode(self):
-        """ Stop maintenance mode. """
-        self.__master_communicator.stop_maintenance_mode()
-
-        if self.__maintenance_timeout_timer is not None:
-            self.__maintenance_timeout_timer.cancel()
-            self.__maintenance_timeout_timer = None
+    def maintenance_mode_stopped(self):
+        """ Called when maintenance mode is stopped """
         self.__observer.invalidate_cache()
         self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
         self.__eeprom_controller.dirty = True
@@ -474,7 +434,7 @@ class GatewayApi(object):
             gpio_file.close()
 
         power(False)
-        pytime.sleep(5)
+        time.sleep(5)
         power(True)
 
         return {'status': 'OK'}
@@ -706,119 +666,17 @@ class GatewayApi(object):
         """ Set the status, dimmer and timer of an output.
 
         :param output_id: The id of the output to set
-        :type output_id: Integer [0, 240]
+        :type output_id: int
         :param is_on: Whether the output should be on
-        :type is_on: Boolean
+        :type is_on: bool
         :param dimmer: The dimmer value to set, None if unchanged
-        :type dimmer: Integer [0, 100] or None
+        :type dimmer: int | None
         :param timer: The timer value to set, None if unchanged
-        :type timer: Integer in [150, 450, 900, 1500, 2220, 3120]
+        :type timer: int | None
         :returns: emtpy dict.
         """
-        if not is_on:
-            if dimmer is not None or timer is not None:
-                raise ValueError('Cannot set timer and dimmer when setting output to off')
-            else:
-                self.set_output_status(output_id, False)
-        else:
-            if dimmer is not None:
-                self.set_output_dimmer(output_id, dimmer)
-
-            self.set_output_status(output_id, True)
-
-            if timer is not None:
-                self.set_output_timer(output_id, timer)
-
-        return dict()
-
-    def set_output_status(self, output_id, is_on):
-        """ Set the status of an output.
-
-        :param output_id: The id of the output to set
-        :type output_id: Integer [0, 240]
-        :param is_on: Whether the output should be on
-        :type is_on: Boolean
-        :returns: empty dict.
-        """
-        if output_id < 0 or output_id > 240:
-            raise ValueError('id not in [0, 240]: %d' % output_id)
-
-        if is_on:
-            self.__master_communicator.do_command(
-                master_api.basic_action(),
-                {'action_type': master_api.BA_LIGHT_ON, 'action_number': output_id}
-            )
-        else:
-            self.__master_communicator.do_command(
-                master_api.basic_action(),
-                {'action_type': master_api.BA_LIGHT_OFF, 'action_number': output_id}
-            )
-
-        return dict()
-
-    def set_output_dimmer(self, output_id, dimmer):
-        """ Set the dimmer of an output.
-
-        :param output_id: The id of the output to set
-        :type output_id: Integer [0, 240]
-        :param dimmer: The dimmer value to set
-        :type dimmer: Integer [0, 100]
-        :returns: empty dict.
-        """
-        if output_id < 0 or output_id > 240:
-            raise ValueError('id not in [0, 240]: %d' % output_id)
-
-        if dimmer < 0 or dimmer > 100:
-            raise ValueError('Dimmer value not in [0, 100]: %d' % dimmer)
-
-        master_version = self.get_master_version()
-        if master_version >= (3, 143, 79):
-            dimmer = int(0.63 * dimmer)
-
-            self.__master_communicator.do_command(
-                master_api.write_dimmer(),
-                {'output_nr': output_id, 'dimmer_value': dimmer}
-            )
-        else:
-            dimmer = int(dimmer) / 10 * 10
-
-            if dimmer == 0:
-                dimmer_action = master_api.BA_DIMMER_MIN
-            elif dimmer == 100:
-                dimmer_action = master_api.BA_DIMMER_MAX
-            else:
-                dimmer_action = master_api.__dict__['BA_LIGHT_ON_DIMMER_' + str(dimmer)]
-
-            self.__master_communicator.do_command(
-                master_api.basic_action(),
-                {'action_type': dimmer_action, 'action_number': output_id}
-            )
-
+        self.__master_controller.set_output(output_id=output_id, state=is_on, dimmer=dimmer, timer=timer)
         return {}
-
-    def set_output_timer(self, output_id, timer):
-        """ Set the timer of an output.
-
-        :param output_id: The id of the output to set
-        :type output_id: Integer [0, 240]
-        :param timer: The timer value to set, None if unchanged
-        :type timer: Integer in [150, 450, 900, 1500, 2220, 3120]
-        :returns: empty dict.
-        """
-        if output_id < 0 or output_id > 240:
-            raise ValueError('id not in [0, 240]: %d' % output_id)
-
-        if timer not in [150, 450, 900, 1500, 2220, 3120]:
-            raise ValueError('Timer value not in [150, 450, 900, 1500, 2220, 3120]: %d' % timer)
-
-        timer_action = master_api.__dict__['BA_LIGHT_ON_TIMER_' + str(timer) + '_OVERRULE']
-
-        self.__master_communicator.do_command(
-            master_api.basic_action(),
-            {'action_type': timer_action, 'action_number': output_id}
-        )
-
-        return dict()
 
     def set_all_lights_off(self):
         """ Turn all lights off.
@@ -1503,59 +1361,20 @@ class GatewayApi(object):
     # Below are the auto generated master configuration functions
 
     def get_output_configuration(self, output_id, fields=None):
-        """
-        Get a specific output_configuration defined by its id.
-
-        :param output_id: The id of the output_configuration
-        :type output_id: Id
-        :param fields: The field of the output_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'module_type' (String[1]), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
-        """
-        return self.__eeprom_controller.read(OutputConfiguration, output_id, fields).serialize()
+        """ Get a specific output_configuration defined by its id. """
+        return self.__master_controller.load_output(output_id, fields)
 
     def get_output_configurations(self, fields=None):
-        """
-        Get all output_configurations.
-
-        :param fields: The field of the output_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'module_type' (String[1]), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(OutputConfiguration, fields)]
+        """ Get all output_configurations. """
+        return self.__master_controller.load_outputs(fields)
 
     def set_output_configuration(self, config):
-        """
-        Set one output_configuration.
-
-        :param config: The output_configuration to set
-        :type config: output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
-        """
-        output_nr, timer = config['id'], config.get('timer')
-        self.__eeprom_controller.write(OutputConfiguration.deserialize(config))
-        if timer is not None:
-            self.__master_communicator.do_command(
-                master_api.write_timer(),
-                {'id': output_nr, 'timer': timer}
-            )
-        self.__observer.invalidate_cache(Observer.Types.OUTPUTS)
+        """ Set one output_configuration. """
+        self.__master_controller.save_outputs([config])
 
     def set_output_configurations(self, config):
-        """
-        Set multiple output_configurations.
-
-        :param config: The list of output_configurations to set
-        :type config: list of output_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'floor' (Byte), 'name' (String[16]), 'room' (Byte), 'timer' (Word), 'type' (Byte)
-        """
-        timers = dict((o['id'], o.get('timer')) for o in config)
-        self.__eeprom_controller.write_batch([OutputConfiguration.deserialize(o) for o in config])
-        for output_nr, timer in timers.iteritems():
-            if timer is not None:
-                self.__master_communicator.do_command(
-                    master_api.write_timer(),
-                    {'id': output_nr, 'timer': timer}
-                )
-        self.__observer.invalidate_cache(Observer.Types.OUTPUTS)
+        """ Set multiple output_configurations. """
+        self.__master_controller.save_outputs(config)
 
     def get_shutter_configuration(self, shutter_id, fields=None):
         """
@@ -1642,52 +1461,24 @@ class GatewayApi(object):
         self.__eeprom_controller.write_batch([ShutterGroupConfiguration.deserialize(o) for o in config])
 
     def get_input_configuration(self, input_id, fields=None):
-        """
-        Get a specific input_configuration defined by its id.
-
-        :param input_id: The id of the input_configuration
-        :type input_id: Id
-        :param fields: The field of the input_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'module_type' (String[1]), 'name' (String[8]), 'room' (Byte), 'can' (String[1])
-        """
-        o = self.__eeprom_controller.read(InputConfiguration, input_id, fields)
-        if o.module_type not in ['i', 'I']:  # Only return 'real' inputs
-            raise TypeError('The given id {} is not an input. Module type: {}'.format(input_id, o.module_type))
-        return o.serialize()
+        """ Get a specific input_configuration defined by its id. """
+        return self.__master_controller.load_input(input_id, fields)
 
     def get_input_module_type(self, input_module_id):
-        o = self.__eeprom_controller.read(InputConfiguration, input_module_id * 8, ['module_type'])
-        return o.module_type
+        """ Gets the module type for a given Input Module ID """
+        return self.__master_controller.get_input_module_type(input_module_id)
 
     def get_input_configurations(self, fields=None):
-        """
-        Get all input_configurations.
-
-        :param fields: The field of the input_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'module_type' (String[1]), 'name' (String[8]), 'room' (Byte), 'can' (String[1])
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(InputConfiguration, fields)
-                if o.module_type in ['i', 'I']]  # Only return 'real' inputs
+        """ Get all input_configurations. """
+        return self.__master_controller.load_inputs(fields)
 
     def set_input_configuration(self, config):
-        """
-        Set one input_configuration.
-
-        :param config: The input_configuration to set
-        :type config: input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte)
-        """
-        self.__eeprom_controller.write(InputConfiguration.deserialize(config))
+        """ Set one input_configuration. """
+        self.__master_controller.save_inputs([config])
 
     def set_input_configurations(self, config):
-        """
-        Set multiple input_configurations.
-
-        :param config: The list of input_configurations to set
-        :type config: list of input_configuration dict: contains 'id' (Id), 'action' (Byte), 'basic_actions' (Actions[15]), 'invert' (Byte), 'name' (String[8]), 'room' (Byte), 'event_enabled' (Bool)
-        """
-        self.__eeprom_controller.write_batch([InputConfiguration.deserialize(o) for o in config])
+        """ Set multiple input_configurations. """
+        self.__master_controller.save_inputs(config)
 
     def get_sensor_configuration(self, sensor_id, fields=None):
         """

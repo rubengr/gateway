@@ -15,7 +15,7 @@
 """
 The main module for the OpenMotics
 """
-from platform_utils import System
+from platform_utils import System, Platform
 System.import_eggs()
 
 import logging
@@ -45,12 +45,19 @@ from gateway.scheduling import SchedulingController
 from gateway.pulses import PulseCounterController
 from gateway.observer import Observer
 from gateway.shutters import ShutterController
+from gateway.hal.master_controller_classic import MasterClassicController
+from gateway.hal.master_controller_core import MasterCoreController
+from gateway.maintenance_controller import MaintenanceController
 from urlparse import urlparse
 from master.eeprom_controller import EepromController, EepromFile
 from master.eeprom_extension import EepromExtension
-from master.maintenance import MaintenanceService
+from master.maintenance import MaintenanceClassicCommunicator
 from master.master_communicator import MasterCommunicator
 from master.passthrough import PassthroughService
+from master_core.core_communicator import CoreCommunicator
+from master_core.ucan_communicator import UCANCommunicator
+from master_core.memory_file import MemoryFile
+from master_core.maintenance import MaintenanceCoreCommunicator
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
 from plugins.base import PluginController
@@ -142,21 +149,43 @@ class OpenmoticsService(object):
 
         # Master Controller
         controller_serial_port = config.get('OpenMotics', 'controller_serial')
-        passthrough_serial_port = config.get('OpenMotics', 'passthrough_serial')
         self.graph.register_instance('controller_serial', Serial(controller_serial_port, 115200))
-        self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
-        self.graph.register_factory('master_communicator', MasterCommunicator, scope=SingletonScope)
-        self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
-        self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
-        self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
-        if passthrough_serial_port:
-            self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
-            self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
+        if Platform.get_platform() == Platform.Type.CORE_PLUS:
+            core_cli_serial_port = config.get('OpenMotics', 'cli_serial')
+            self.graph.register_factory('master_controller', MasterCoreController, scope=SingletonScope)
+            self.graph.register_factory('master_core_communicator', CoreCommunicator, scope=SingletonScope)
+            self.graph.register_factory('ucan_communicator', UCANCommunicator, scope=SingletonScope)
+            self.graph.register_factory('memory_file', MemoryFile, scope=SingletonScope)
+            self.graph.register_instance('ucan_communicator_verbose', False)
+            self.graph.register_instance('core_communicator_verbose', False)
+            self.graph.register_instance('cli_serial', Serial(core_cli_serial_port, 115200))
+            self.graph.register_instance('passthrough_service', None)  # Mark as "not needed"
+            # TODO: Remove; should not be needed for Core
+            self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
+            self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
+            self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
+            self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
+            self.graph.register_factory('master_classic_communicator', CoreCommunicator, scope=SingletonScope)
         else:
-            self.graph.register_instance('passthrough_service', None)
+            passthrough_serial_port = config.get('OpenMotics', 'passthrough_serial')
+            self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
+            self.graph.register_factory('master_controller', MasterClassicController, scope=SingletonScope)
+            self.graph.register_factory('master_classic_communicator', MasterCommunicator, scope=SingletonScope)
+            self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
+            self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
+            self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
+            if passthrough_serial_port:
+                self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
+                self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
+            else:
+                self.graph.register_instance('passthrough_service', None)
 
         # Maintenance Controller
-        self.graph.register_factory('maintenance_service', MaintenanceService, scope=SingletonScope)
+        self.graph.register_factory('maintenance_controller', MaintenanceController, scope=SingletonScope)
+        if Platform.get_platform() == Platform.Type.CORE_PLUS:
+            self.graph.register_factory('maintenance_communicator', MaintenanceCoreCommunicator, scope=SingletonScope)
+        else:
+            self.graph.register_factory('maintenance_communicator', MaintenanceClassicCommunicator, scope=SingletonScope)
 
         # Metrics Controller
         self.graph.register_instance('metrics_db', constants.get_metrics_database_file())
@@ -197,6 +226,7 @@ class OpenmoticsService(object):
         web_service = self.graph.get('web_service')
         event_sender = self.graph.get('event_sender')
         thermostat_controller = self.graph.get('thermostat_controller')
+        maintenance_controller = self.graph.get('maintenance_controller')
 
         message_client.add_event_handler(metrics_controller.event_receiver)
         web_interface.set_plugin_controller(plugin_controller)
@@ -211,19 +241,8 @@ class OpenmoticsService(object):
         plugin_controller.set_metrics_controller(metrics_controller)
         plugin_controller.set_metrics_collector(metrics_collector)
         observer.set_gateway_api(gateway_api)
-        # TODO: make sure all subscribers only subscribe to the observer, not master directly
-
-        # send master events to metrics collector
-        observer.subscribe_master(Observer.MasterEvents.ON_INPUT_CHANGE, metrics_collector.on_input)
-        observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, metrics_collector.on_output)
-
-        # send state changes to plugin_controller
+        observer.subscribe_events(metrics_collector.process_observer_event)
         observer.subscribe_events(plugin_controller.process_observer_event)
-        # TODO: move output and shutter also to plugin_controller.process_observer_event
-        observer.subscribe_master(Observer.MasterEvents.ON_OUTPUTS, plugin_controller.process_output_status)
-        observer.subscribe_master(Observer.MasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
-
-        # send all other events
         observer.subscribe_events(web_interface.send_event_websocket)
         observer.subscribe_events(event_sender.enqueue_event)
 
@@ -231,6 +250,11 @@ class OpenmoticsService(object):
         thermostat_controller.subscribe_events(web_interface.send_event_websocket)
         thermostat_controller.subscribe_events(event_sender.enqueue_event)
         thermostat_controller.subscribe_events(plugin_controller.process_observer_event)
+        # TODO: make sure all subscribers only subscribe to the observer, not master directly
+        observer.subscribe_master(Observer.LegacyMasterEvents.ON_INPUT_CHANGE, metrics_collector.on_input)
+        observer.subscribe_master(Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
+
+        maintenance_controller.subscribe_maintenance_stopped(gateway_api.maintenance_mode_stopped)
 
     def start(self):
         """ Main function. """
@@ -241,7 +265,8 @@ class OpenmoticsService(object):
 
         Database.init()  # this verifies and creates the necessary DB tables if not yet existing
 
-        service_names = ['master_communicator', 'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
+        service_names = ['master_controller', 'maintenance_controller',
+                         'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
                          'scheduling_controller', 'thermostat_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
                          'communication_led_controller', 'event_sender']
         for name in service_names:
@@ -255,7 +280,9 @@ class OpenmoticsService(object):
             """ This function is called on SIGTERM. """
             _ = signum, frame
             logger.info('Stopping OM core service...')
-            services_to_stop = ['web_service', 'metrics_collector', 'metrics_controller', 'thermostat_controller', 'plugin_controller', 'event_sender']
+            services_to_stop = ['master_controller', 'maintenance_controller',
+                                'web_service', 'metrics_collector', 'metrics_controller', 'thermostat_controller', 'plugin_controller', 'event_sender']
+
             for service_to_stop in services_to_stop:
                 self.graph.get(service_to_stop).stop()
             logger.info('Stopping OM core service... Done')

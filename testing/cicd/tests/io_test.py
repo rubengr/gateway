@@ -25,7 +25,7 @@ from pytz import timezone
 from toolbox import exception_handler, OMTestCase
 from random import randint
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class IoTest(OMTestCase):

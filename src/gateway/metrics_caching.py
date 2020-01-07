@@ -23,7 +23,7 @@ import json
 from random import randint
 from wiring import provides, inject, SingletonScope, scope
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class MetricsCacheController(object):
