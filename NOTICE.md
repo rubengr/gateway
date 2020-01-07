@@ -1,6 +1,6 @@
 OpenMotics Gateway
 
-Copyright 2018 OpenMotics BVBA
+Copyright 2018 OpenMotics BV
 
 This product includes and/or uses software developed by third parties. This
 software is listed below in no particular order, together with their licenses. The

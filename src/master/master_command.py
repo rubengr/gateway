@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -191,7 +191,7 @@ class Result(object):
 
     def __str__(self):
         return str(self.fields)
-    
+
     def __iter__(self):
         return self.fields.__iter__()
 
