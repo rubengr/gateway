@@ -110,7 +110,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return self._eeprom_controller.read(ThermostatConfiguration, thermostat_id, fields).serialize()
 
-    def v0_get_thermostats_configurations(self, fields=None):
+    def v0_get_thermostat_configurations(self, fields=None):
         """
         Get all thermostat_configurations.
 
