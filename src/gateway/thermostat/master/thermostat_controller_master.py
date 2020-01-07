@@ -6,8 +6,8 @@ from wiring import provides, scope, inject, SingletonScope
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Observer, Event
 from gateway.thermostat.thermostat_controller import ThermostatController
-from gateway.thermostat.thermostat_status import ThermostatStatus
-from gateway.thermostat.master import master_api
+from gateway.thermostat.master.thermostat_status_master import ThermostatStatusMaster
+from master import master_api
 from master.eeprom_models import ThermostatConfiguration, GlobalThermostatConfiguration, CoolingConfiguration, \
     CoolingPumpGroupConfiguration, GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
     PumpGroupConfiguration
@@ -27,8 +27,8 @@ class ThermostatControllerMaster(ThermostatController):
         self._monitor_thread = Thread(target=self._monitor)
         self._monitor_thread.daemon = True
 
-        self._thermostat_status = ThermostatStatus(on_thermostat_change=self._thermostat_changed,
-                                                   on_thermostat_group_change=self._thermostat_group_changed)
+        self._thermostat_status = ThermostatStatusMaster(on_thermostat_change=self._thermostat_changed,
+                                                         on_thermostat_group_change=self._thermostat_group_changed)
         self._thermostats_original_interval = 30
         self._thermostats_interval = self._thermostats_original_interval
         self._thermostats_last_updated = 0
@@ -48,7 +48,7 @@ class ThermostatControllerMaster(ThermostatController):
     def set_current_preset(self, thermostat_number, preset_name):
         raise NotImplementedError
 
-    def set_current_setpoint(self, thermostat_number, temperature):
+    def set_current_setpoint(self, thermostat_number, heating_temperature, cooling_temperature):
         raise NotImplementedError
 
     ################################

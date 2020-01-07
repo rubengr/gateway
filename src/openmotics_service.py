@@ -145,6 +145,8 @@ class OpenmoticsService(object):
         self.graph.register_instance('scheduling_db', constants.get_scheduling_database_file())
         self.graph.register_instance('scheduling_db_lock', scheduling_lock)
         self.graph.register_factory('scheduling_controller', SchedulingController, scope=SingletonScope)
+
+        # Thermostat Controller
         self.graph.register_factory('thermostat_controller', ThermostatControllerGateway, scope=SingletonScope)
 
         # Master Controller
