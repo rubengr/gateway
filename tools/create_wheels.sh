@@ -1,2 +1,2 @@
 OS_DIST=$(awk -F= '$1=="ID" { print $2 ;}' /etc/os-release)
-pip wheel -r requirements.txt -w $OS_DIST
+pip wheel -r ../requirements.txt -w libs/$OS_DIST
