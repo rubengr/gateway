@@ -75,6 +75,22 @@ class Pump(BaseModel):
                                         .join(PumpToValve)
                                         .where(PumpToValve.pump == self.id)]
 
+    @property
+    def heating_valves(self):
+        return self.__valves(mode='heating')
+
+    @property
+    def cooling_valves(self):
+        return self.__valves(mode='cooling')
+
+    def __valves(self, mode):
+        valves = [valve for valve in Valve.select(Valve, ValveToThermostat.mode, ValveToThermostat.priority)
+                                          .join(ValveToThermostat)
+                                          .where(ValveToThermostat.mode == mode)
+                                          .order_by(ValveToThermostat.priority)]
+
+        return set([valve for valve in valves if self.number in valve.pumps])
+
 
 class Valve(BaseModel):
     id = PrimaryKeyField()
@@ -184,16 +200,8 @@ class Thermostat(BaseModel):
                                         .order_by(ValveToThermostat.priority)]
 
     @property
-    def heating_presets(self):
-        return [preset for preset in Preset.select()
-                                           .where(Preset.thermostat == self.id)
-                                           .where(Preset.mode == 'heating')]
-
-    @property
-    def cooling_presets(self):
-        return [preset for preset in Preset.select()
-                                           .where(Preset.thermostat == self.id)
-                                           .where(Preset.mode == 'cooling')]
+    def presets(self):
+        return [preset for preset in Preset.select().where(Preset.thermostat == self.id)]
 
     def heating_schedules(self):
         return DaySchedule.select()\
@@ -233,20 +241,19 @@ class Thermostat(BaseModel):
             data['pid_p'] = self.pid_heating_p
             data['pid_i'] = self.pid_heating_i
             data['pid_d'] = self.pid_heating_d
-            presets = self.heating_presets
         else:
             data['pid_p'] = self.pid_cooling_p
             data['pid_i'] = self.pid_cooling_i
             data['pid_d'] = self.pid_cooling_d
-            presets = self.cooling_presets
 
-        for preset in presets:
+        for preset in self.presets:
+            setpoint = preset.heating_setpoint if mode == 'heating' else preset.cooling_setpoint
             if preset.name == 'AWAY':
-                data['setp3'] = preset.setpoint
+                data['setp3'] = setpoint
             if preset.name == 'VACATION':
-                data['setp4'] = preset.setpoint
+                data['setp4'] = setpoint
             if preset.name == 'PARTY':
-                data['setp5'] = preset.setpoint
+                data['setp5'] = setpoint
 
         data['permanent_manual'] = self.automatic
         data['room'] = self.room

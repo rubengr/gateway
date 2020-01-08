@@ -203,6 +203,9 @@ class MasterCoreController(MasterController):
             output = OutputConfiguration.deserialize(new_data, self._memory_files)
             output.save()  # TODO: Batch saving - postpone eeprom activate if relevant for the Core
 
+    def get_output_status(self, output_id):
+        return self._output_states.get(output_id)
+
     def get_output_statuses(self):
         return self._output_states.values()
 

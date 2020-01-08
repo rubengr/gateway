@@ -102,8 +102,18 @@ class ThermostatPid(object):
                 if current_temperature is not None:
                     self._current_temperature = current_temperature
                 else:
+                    # keep using old temperature reading and count the errors
+                    logger.warning('_pid_tick - thermostat {}: invalid temperature reading {}, using last known value {}'
+                                   .format(self.thermostat.number, current_temperature, self._current_temperature))
                     self._errors += 1
-                output_power = self._pid(self._current_temperature)
+
+                if self._current_temperature is not None:
+                    output_power = self._pid(self._current_temperature)
+                else:
+                    logger.error('_pid_tick - thermostat {}: cannot calculate thermostat output power due to invalid temperature reading: {}'
+                                 .format(self.thermostat.number, self._current_temperature))
+                    self._errors += 1
+                    output_power = 0
 
                 # heating needed while in cooling mode OR
                 # cooling needed while in heating mode
@@ -112,7 +122,6 @@ class ThermostatPid(object):
                    (self._mode == 'heating' and output_power < 0):
                     output_power = 0
                 self.steer(output_power)
-                self._errors = 0
             except CommunicationTimedOutException as ex:
                 logger.error('Error in PID tick for thermostat {}: {}'.format(self.thermostat.number, str(ex)))
                 self._errors += 1

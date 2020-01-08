@@ -1304,7 +1304,7 @@ class WebInterface(object):
         :returns: 'config': pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         :rtype: dict
         """
-        return {'config': self._thermostat_controller.get_pump_group_configuration(id, fields)}
+        return {'config': self._thermostat_controller.v0_get_pump_group_configuration(id, fields)}
 
     @openmotics_api(auth=True, check=types(fields='json'))
     def get_pump_group_configurations(self, fields=None):
@@ -1326,7 +1326,7 @@ class WebInterface(object):
         :param config: The pump_group_configuration to set: pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         :type config: dict
         """
-        self._thermostat_controller.set_pump_group_configuration(config)
+        self._thermostat_controller.v0_set_pump_group_configuration(config)
         return {}
 
     @openmotics_api(auth=True, check=types(config='json'))
@@ -1337,7 +1337,7 @@ class WebInterface(object):
         :param config: The list of pump_group_configurations to set: list of pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         :type config: list
         """
-        self._thermostat_controller.set_pump_group_configurations(config)
+        self._thermostat_controller.v0_set_pump_group_configurations(config)
         return {}
 
     @openmotics_api(auth=True, check=types(id=int, fields='json'))
@@ -1400,7 +1400,7 @@ class WebInterface(object):
         :returns: 'config': cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         :rtype: dict
         """
-        return {'config': self._thermostat_controller.get_cooling_pump_group_configuration(id, fields)}
+        return {'config': self._thermostat_controller.v0_get_cooling_pump_group_configuration(id, fields)}
 
     @openmotics_api(auth=True, check=types(fields='json'))
     def get_cooling_pump_group_configurations(self, fields=None):
@@ -1412,7 +1412,7 @@ class WebInterface(object):
         :returns: 'config': list of cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         :rtype: dict
         """
-        return {'config': self._thermostat_controller.get_cooling_pump_group_configurations(fields)}
+        return {'config': self._thermostat_controller.v0_get_cooling_pump_group_configurations(fields)}
 
     @openmotics_api(auth=True, check=types(config='json'))
     def set_cooling_pump_group_configuration(self, config):
@@ -1422,7 +1422,7 @@ class WebInterface(object):
         :param config: The cooling_pump_group_configuration to set: cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         :type config: dict
         """
-        self._thermostat_controller.set_cooling_pump_group_configuration(config)
+        self._thermostat_controller.v0_set_cooling_pump_group_configuration(config)
         return {}
 
     @openmotics_api(auth=True, check=types(config='json'))
@@ -1433,7 +1433,7 @@ class WebInterface(object):
         :param config: The list of cooling_pump_group_configurations to set: list of cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         :type config: list
         """
-        self._thermostat_controller.set_cooling_pump_group_configurations(config)
+        self._thermostat_controller.v0_set_cooling_pump_group_configurations(config)
         return {}
 
     @openmotics_api(auth=True, check=types(fields='json'))
@@ -1446,7 +1446,7 @@ class WebInterface(object):
         :returns: 'config': global_rtd10_configuration dict: contains 'output_value_cooling_16' (Byte), 'output_value_cooling_16_5' (Byte), 'output_value_cooling_17' (Byte), 'output_value_cooling_17_5' (Byte), 'output_value_cooling_18' (Byte), 'output_value_cooling_18_5' (Byte), 'output_value_cooling_19' (Byte), 'output_value_cooling_19_5' (Byte), 'output_value_cooling_20' (Byte), 'output_value_cooling_20_5' (Byte), 'output_value_cooling_21' (Byte), 'output_value_cooling_21_5' (Byte), 'output_value_cooling_22' (Byte), 'output_value_cooling_22_5' (Byte), 'output_value_cooling_23' (Byte), 'output_value_cooling_23_5' (Byte), 'output_value_cooling_24' (Byte), 'output_value_heating_16' (Byte), 'output_value_heating_16_5' (Byte), 'output_value_heating_17' (Byte), 'output_value_heating_17_5' (Byte), 'output_value_heating_18' (Byte), 'output_value_heating_18_5' (Byte), 'output_value_heating_19' (Byte), 'output_value_heating_19_5' (Byte), 'output_value_heating_20' (Byte), 'output_value_heating_20_5' (Byte), 'output_value_heating_21' (Byte), 'output_value_heating_21_5' (Byte), 'output_value_heating_22' (Byte), 'output_value_heating_22_5' (Byte), 'output_value_heating_23' (Byte), 'output_value_heating_23_5' (Byte), 'output_value_heating_24' (Byte)
         :rtype: dict
         """
-        return {'config': self._thermostat_controller.get_global_rtd10_configuration(fields)}
+        return {'config': self._thermostat_controller.v0_get_global_rtd10_configuration(fields)}
 
     @openmotics_api(auth=True, check=types(config='json'))
     def set_global_rtd10_configuration(self, config):
@@ -1456,7 +1456,7 @@ class WebInterface(object):
         :param config: The global_rtd10_configuration to set: global_rtd10_configuration dict: contains 'output_value_cooling_16' (Byte), 'output_value_cooling_16_5' (Byte), 'output_value_cooling_17' (Byte), 'output_value_cooling_17_5' (Byte), 'output_value_cooling_18' (Byte), 'output_value_cooling_18_5' (Byte), 'output_value_cooling_19' (Byte), 'output_value_cooling_19_5' (Byte), 'output_value_cooling_20' (Byte), 'output_value_cooling_20_5' (Byte), 'output_value_cooling_21' (Byte), 'output_value_cooling_21_5' (Byte), 'output_value_cooling_22' (Byte), 'output_value_cooling_22_5' (Byte), 'output_value_cooling_23' (Byte), 'output_value_cooling_23_5' (Byte), 'output_value_cooling_24' (Byte), 'output_value_heating_16' (Byte), 'output_value_heating_16_5' (Byte), 'output_value_heating_17' (Byte), 'output_value_heating_17_5' (Byte), 'output_value_heating_18' (Byte), 'output_value_heating_18_5' (Byte), 'output_value_heating_19' (Byte), 'output_value_heating_19_5' (Byte), 'output_value_heating_20' (Byte), 'output_value_heating_20_5' (Byte), 'output_value_heating_21' (Byte), 'output_value_heating_21_5' (Byte), 'output_value_heating_22' (Byte), 'output_value_heating_22_5' (Byte), 'output_value_heating_23' (Byte), 'output_value_heating_23_5' (Byte), 'output_value_heating_24' (Byte)
         :type config: dict
         """
-        self._thermostat_controller.set_global_rtd10_configuration(config)
+        self._thermostat_controller.v0_set_global_rtd10_configuration(config)
         return {}
 
     @openmotics_api(auth=True, check=types(id=int, fields='json'))
@@ -1471,7 +1471,7 @@ class WebInterface(object):
         :returns: 'config': rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         :rtype: dict
         """
-        return {'config': self._thermostat_controller.get_rtd10_heating_configuration(id, fields)}
+        return {'config': self._thermostat_controller.v0_get_rtd10_heating_configuration(id, fields)}
 
     @openmotics_api(auth=True, check=types(fields='json'))
     def get_rtd10_heating_configurations(self, fields=None):
@@ -1483,7 +1483,7 @@ class WebInterface(object):
         :returns: 'config': list of rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         :rtype: dict
         """
-        return {'config': self._thermostat_controller.get_rtd10_heating_configurations(fields)}
+        return {'config': self._thermostat_controller.v0_get_rtd10_heating_configurations(fields)}
 
     @openmotics_api(auth=True, check=types(config='json'))
     def set_rtd10_heating_configuration(self, config):
@@ -1493,7 +1493,7 @@ class WebInterface(object):
         :param config: The rtd10_heating_configuration to set: rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         :type config: dict
         """
-        self._thermostat_controller.set_rtd10_heating_configuration(config)
+        self._thermostat_controller.v0_set_rtd10_heating_configuration(config)
         return {}
 
     @openmotics_api(auth=True, check=types(config='json'))
@@ -1504,7 +1504,7 @@ class WebInterface(object):
         :param config: The list of rtd10_heating_configurations to set: list of rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         :type config: list
         """
-        self._thermostat_controller.set_rtd10_heating_configurations(config)
+        self._thermostat_controller.v0_set_rtd10_heating_configurations(config)
         return {}
 
     @openmotics_api(auth=True, check=types(id=int, fields='json'))
@@ -1519,7 +1519,7 @@ class WebInterface(object):
         :returns: 'config': rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         :rtype: dict
         """
-        return {'config': self._thermostat_controller.get_rtd10_cooling_configuration(id, fields)}
+        return {'config': self._thermostat_controller.v0_get_rtd10_cooling_configuration(id, fields)}
 
     @openmotics_api(auth=True, check=types(fields='json'))
     def get_rtd10_cooling_configurations(self, fields=None):
@@ -1531,7 +1531,7 @@ class WebInterface(object):
         :returns: 'config': list of rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         :rtype: dict
         """
-        return {'config': self._thermostat_controller.get_rtd10_cooling_configurations(fields)}
+        return {'config': self._thermostat_controller.v0_get_rtd10_cooling_configurations(fields)}
 
     @openmotics_api(auth=True, check=types(config='json'))
     def set_rtd10_cooling_configuration(self, config):
@@ -1541,7 +1541,7 @@ class WebInterface(object):
         :param config: The rtd10_cooling_configuration to set: rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         :type config: dict
         """
-        self._thermostat_controller.set_rtd10_cooling_configuration(config)
+        self._thermostat_controller.v0_set_rtd10_cooling_configuration(config)
         return {}
 
     @openmotics_api(auth=True, check=types(config='json'))
@@ -1552,7 +1552,7 @@ class WebInterface(object):
         :param config: The list of rtd10_cooling_configurations to set: list of rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         :type config: list
         """
-        self._thermostat_controller.set_rtd10_cooling_configurations(config)
+        self._thermostat_controller.v0_set_rtd10_cooling_configurations(config)
         return {}
 
     @openmotics_api(auth=True, check=types(id=int, fields='json'))

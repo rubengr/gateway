@@ -10,7 +10,7 @@ from bus.om_bus_events import OMBusEvents
 from decorators import singleton
 from gateway.observer import Event
 from gateway.models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, \
-    OutputToThermostatGroup, ValveToThermostat, Valve
+    OutputToThermostatGroup, ValveToThermostat, Valve, Pump
 from gateway.thermostat.gateway.pump_valve_controller import PumpValveController
 from gateway.thermostat.thermostat_controller import ThermostatController
 from gateway.thermostat.gateway.thermostat_pid import ThermostatPid
@@ -31,9 +31,9 @@ class ThermostatControllerGateway(ThermostatController):
     @provides('thermostat_controller')
     @scope(SingletonScope)
     @inject(gateway_api='gateway_api', message_client='message_client', observer='observer',
-            master_communicator='master_communicator', eeprom_controller='eeprom_controller')
-    def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):
-        super(ThermostatControllerGateway, self).__init__(gateway_api, message_client, observer, master_communicator,
+            master_classic_communicator='master_classic_communicator', eeprom_controller='eeprom_controller')
+    def __init__(self, gateway_api, message_client, observer, master_classic_communicator, eeprom_controller):
+        super(ThermostatControllerGateway, self).__init__(gateway_api, message_client, observer, master_classic_communicator,
                                                           eeprom_controller)
 
         # make this a singleton class
@@ -358,14 +358,8 @@ class ThermostatControllerGateway(ThermostatController):
             thermostat_pid.tick()
         return {'status': 'OK'}
 
-    def v0_get_pump_group_configurations(self, fields=None):
-        config = {'id': 1,
-                  'outputs': 1,
-                  'output': 2,
-                  'room': 255}
-        return {'config': config}
-
     def v0_get_global_thermostat_configuration(self, fields=None):
+        # TODO: implement this with sqlite as backing
         pass
 
     def v0_set_global_thermostat_configuration(self, config):
@@ -393,6 +387,76 @@ class ThermostatControllerGateway(ThermostatController):
             for valve in thermostat.valve_numbers:
                 valve.delay = valve_delay
                 valve.save()
+
+    def v0_get_pump_group_configurations(self, fields=None):
+        config = []
+        for pump in Pump.select():
+            pump_config = {'id': pump.number,
+                           'outputs': ','.join([valve.number for valve in pump.heating_valves]),
+                           'output': pump.number,
+                           'room': 255}
+            config.append(pump_config)
+        return {'config': config}
+
+    def v0_set_pump_group_configuration(self, config):
+        raise NotImplementedError
+
+    def v0_set_pump_group_configurations(self, config):
+        raise NotImplementedError
+
+    def v0_get_cooling_pump_group_configuration(self, id, fields=None):
+        pump = Pump.get(number=id)
+        pump_config = {'id': pump.number,
+                       'outputs': ','.join([valve.output.number for valve in pump.cooling_valves]),
+                       'output': pump.output.number,
+                       'room': 255}
+        return {'config': pump_config}
+
+    def v0_get_cooling_pump_group_configurations(self, fields=None):
+        config = []
+        for pump in Pump.select():
+            pump_config = {'id': pump.number,
+                           'outputs': [valve.number for valve in pump.cooling_valves],
+                           'output': pump.number,
+                           'room': 255}
+            config.append(pump_config)
+        return {'config': config}
+
+    def v0_set_cooling_pump_group_configuration(self, config):
+        raise NotImplementedError
+
+    def v0_set_cooling_pump_group_configurations(self, config):
+        raise NotImplementedError
+
+    def v0_get_rtd10_heating_configuration(self, heating_id, fields=None):
+        raise NotImplementedError
+
+    def v0_get_rtd10_heating_configurations(self, fields=None):
+        raise NotImplementedError
+
+    def v0_set_rtd10_heating_configuration(self, config):
+        raise NotImplementedError
+
+    def v0_set_rtd10_heating_configurations(self, config):
+        raise NotImplementedError
+
+    def v0_get_rtd10_cooling_configuration(self, cooling_id, fields=None):
+        raise NotImplementedError
+
+    def v0_get_rtd10_cooling_configurations(self, fields=None):
+        raise NotImplementedError
+
+    def v0_set_rtd10_cooling_configuration(self, config):
+        raise NotImplementedError
+
+    def v0_set_rtd10_cooling_configurations(self, config):
+        raise NotImplementedError
+
+    def v0_set_airco_status(self, thermostat_id, airco_on):
+        raise NotImplementedError
+
+    def v0_get_airco_status(self):
+        raise NotImplementedError
 
     @staticmethod
     def create_or_update_thermostat_from_v0_api(thermostat_number, config, mode='heating'):

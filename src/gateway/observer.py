@@ -244,6 +244,9 @@ class Observer(object):
         """ Returns a list of Outputs with their status """
         return self._master_controller.get_output_statuses()
 
+    def get_output(self, output_id):
+        return self._master_controller.get_output_status(output_id)
+
     # Inputs
 
     def get_inputs(self):

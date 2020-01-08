@@ -215,6 +215,9 @@ class MasterClassicController(MasterController):
     def get_output_statuses(self):
         return self._output_status.get_outputs()
 
+    def get_output_status(self, output_id):
+        return self._output_status.get_output(output_id)
+
     def _refresh_outputs(self):
         self._output_config = self.load_outputs()
         number_of_outputs = self._master_communicator.do_command(master_api.number_of_io_modules())['out'] * 8

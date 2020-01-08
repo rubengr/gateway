@@ -125,6 +125,9 @@ class MasterController(object):
     def save_outputs(self, outputs, fields=None):
         raise NotImplementedError()
 
+    def get_output_status(self, output_id):
+        raise NotImplementedError()
+
     def get_output_statuses(self):
         raise NotImplementedError()
 

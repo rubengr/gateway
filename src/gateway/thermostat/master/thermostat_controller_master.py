@@ -2,7 +2,6 @@ import logging
 import time
 from threading import Thread
 from wiring import provides, scope, inject, SingletonScope
-
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Observer, Event
 from gateway.thermostat.thermostat_controller import ThermostatController
@@ -11,7 +10,7 @@ from master import master_api
 from master.eeprom_models import ThermostatConfiguration, GlobalThermostatConfiguration, CoolingConfiguration, \
     CoolingPumpGroupConfiguration, GlobalRTD10Configuration, RTD10HeatingConfiguration, RTD10CoolingConfiguration, \
     PumpGroupConfiguration
-from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
+from master.master_communicator import CommunicationTimedOutException
 
 logger = logging.getLogger("openmotics")
 
@@ -20,9 +19,9 @@ class ThermostatControllerMaster(ThermostatController):
 
     @provides('thermostat_controller')
     @scope(SingletonScope)
-    @inject(gateway_api='gateway_api', message_client='message_client', observer='observer', master_communicator='master_communicator', eeprom_controller='eeprom_controller')
-    def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):
-        super(ThermostatControllerMaster, self).__init__(gateway_api, message_client, observer, master_communicator,
+    @inject(gateway_api='gateway_api', message_client='message_client', observer='observer', master_classic_communicator='master_classic_communicator', eeprom_controller='eeprom_controller')
+    def __init__(self, gateway_api, message_client, observer, master_classic_communicator, eeprom_controller):
+        super(ThermostatControllerMaster, self).__init__(gateway_api, message_client, observer, master_classic_communicator,
                                                           eeprom_controller)
         self._monitor_thread = Thread(target=self._monitor)
         self._monitor_thread.daemon = True
@@ -160,7 +159,7 @@ class ThermostatControllerMaster(ThermostatController):
         self._eeprom_controller.write_batch([CoolingConfiguration.deserialize(o) for o in config])
         self.invalidate_cache(Observer.Types.THERMOSTATS)
 
-    def get_cooling_pump_group_configuration(self, pump_group_id, fields=None):
+    def v0_get_cooling_pump_group_configuration(self, pump_group_id, fields=None):
         """
         Get a specific cooling_pump_group_configuration defined by its id.
 
@@ -172,7 +171,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return self._eeprom_controller.read(CoolingPumpGroupConfiguration, pump_group_id, fields).serialize()
 
-    def get_cooling_pump_group_configurations(self, fields=None):
+    def v0_get_cooling_pump_group_configurations(self, fields=None):
         """
         Get all cooling_pump_group_configurations.
 
@@ -182,7 +181,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return [o.serialize() for o in self._eeprom_controller.read_all(CoolingPumpGroupConfiguration, fields)]
 
-    def set_cooling_pump_group_configuration(self, config):
+    def v0_set_cooling_pump_group_configuration(self, config):
         """
         Set one cooling_pump_group_configuration.
 
@@ -191,7 +190,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         self._eeprom_controller.write(CoolingPumpGroupConfiguration.deserialize(config))
 
-    def set_cooling_pump_group_configurations(self, config):
+    def v0_set_cooling_pump_group_configurations(self, config):
         """
         Set multiple cooling_pump_group_configurations.
 
@@ -200,7 +199,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         self._eeprom_controller.write_batch([CoolingPumpGroupConfiguration.deserialize(o) for o in config])
 
-    def get_global_rtd10_configuration(self, fields=None):
+    def v0_get_global_rtd10_configuration(self, fields=None):
         """
         Get the global_rtd10_configuration.
 
@@ -210,7 +209,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return self._eeprom_controller.read(GlobalRTD10Configuration, fields).serialize()
 
-    def set_global_rtd10_configuration(self, config):
+    def v0_set_global_rtd10_configuration(self, config):
         """
         Set the global_rtd10_configuration.
 
@@ -219,7 +218,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         self._eeprom_controller.write(GlobalRTD10Configuration.deserialize(config))
 
-    def get_rtd10_heating_configuration(self, heating_id, fields=None):
+    def v0_get_rtd10_heating_configuration(self, heating_id, fields=None):
         """
         Get a specific rtd10_heating_configuration defined by its id.
 
@@ -231,7 +230,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return self._eeprom_controller.read(RTD10HeatingConfiguration, heating_id, fields).serialize()
 
-    def get_rtd10_heating_configurations(self, fields=None):
+    def v0_get_rtd10_heating_configurations(self, fields=None):
         """
         Get all rtd10_heating_configurations.
 
@@ -241,7 +240,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return [o.serialize() for o in self._eeprom_controller.read_all(RTD10HeatingConfiguration, fields)]
 
-    def set_rtd10_heating_configuration(self, config):
+    def v0_set_rtd10_heating_configuration(self, config):
         """
         Set one rtd10_heating_configuration.
 
@@ -250,7 +249,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         self._eeprom_controller.write(RTD10HeatingConfiguration.deserialize(config))
 
-    def set_rtd10_heating_configurations(self, config):
+    def v0_set_rtd10_heating_configurations(self, config):
         """
         Set multiple rtd10_heating_configurations.
 
@@ -259,7 +258,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         self._eeprom_controller.write_batch([RTD10HeatingConfiguration.deserialize(o) for o in config])
 
-    def get_rtd10_cooling_configuration(self, cooling_id, fields=None):
+    def v0_get_rtd10_cooling_configuration(self, cooling_id, fields=None):
         """
         Get a specific rtd10_cooling_configuration defined by its id.
 
@@ -271,7 +270,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return self._eeprom_controller.read(RTD10CoolingConfiguration, cooling_id, fields).serialize()
 
-    def get_rtd10_cooling_configurations(self, fields=None):
+    def v0_get_rtd10_cooling_configurations(self, fields=None):
         """
         Get all rtd10_cooling_configurations.
 
@@ -281,7 +280,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return [o.serialize() for o in self._eeprom_controller.read_all(RTD10CoolingConfiguration, fields)]
 
-    def set_rtd10_cooling_configuration(self, config):
+    def v0_set_rtd10_cooling_configuration(self, config):
         """
         Set one rtd10_cooling_configuration.
 
@@ -290,7 +289,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         self._eeprom_controller.write(RTD10CoolingConfiguration.deserialize(config))
 
-    def set_rtd10_cooling_configurations(self, config):
+    def v0_set_rtd10_cooling_configurations(self, config):
         """
         Set multiple rtd10_cooling_configurations.
 
@@ -322,7 +321,7 @@ class ThermostatControllerMaster(ThermostatController):
         self._eeprom_controller.write(GlobalThermostatConfiguration.deserialize(config))
         self.invalidate_cache(Observer.Types.THERMOSTATS)
 
-    def get_pump_group_configuration(self, pump_group_id, fields=None):
+    def v0_get_pump_group_configuration(self, pump_group_id, fields=None):
         """
         Get a specific pump_group_configuration defined by its id.
 
@@ -344,7 +343,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         return [o.serialize() for o in self._eeprom_controller.read_all(PumpGroupConfiguration, fields)]
 
-    def set_pump_group_configuration(self, config):
+    def v0_set_pump_group_configuration(self, config):
         """
         Set one pump_group_configuration.
 
@@ -353,7 +352,7 @@ class ThermostatControllerMaster(ThermostatController):
         """
         self._eeprom_controller.write(PumpGroupConfiguration.deserialize(config))
 
-    def set_pump_group_configurations(self, config):
+    def v0_set_pump_group_configurations(self, config):
         """
         Set multiple pump_group_configurations.
 
@@ -486,7 +485,7 @@ class ThermostatControllerMaster(ThermostatController):
         self.increase_interval(Observer.Types.THERMOSTATS, interval=2, window=10)
         return {'status': 'OK'}
 
-    def set_airco_status(self, thermostat_id, airco_on):
+    def v0_set_airco_status(self, thermostat_id, airco_on):
         """ Set the mode of the airco attached to a given thermostat.
         :param thermostat_id: The thermostat id.
         :type thermostat_id: Integer [0, 31]
@@ -505,7 +504,7 @@ class ThermostatControllerMaster(ThermostatController):
 
         return {'status': 'OK'}
 
-    def get_airco_status(self):
+    def v0_get_airco_status(self):
         """ Get the mode of the airco attached to a all thermostats.
         :returns: dict with ASB0-ASB31.
         """

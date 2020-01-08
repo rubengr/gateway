@@ -62,14 +62,12 @@ from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
 from plugins.base import PluginController
 from peewee_migrate import Router
-from peewee import SqliteDatabase
 
 logger = logging.getLogger("openmotics")
 
 
 def setup_logger():
     """ Setup the OpenMotics logger. """
-
     logger.setLevel(logging.INFO)
     logger.propagate = False
 
@@ -146,9 +144,6 @@ class OpenmoticsService(object):
         self.graph.register_instance('scheduling_db_lock', scheduling_lock)
         self.graph.register_factory('scheduling_controller', SchedulingController, scope=SingletonScope)
 
-        # Thermostat Controller
-        self.graph.register_factory('thermostat_controller', ThermostatControllerGateway, scope=SingletonScope)
-
         # Master Controller
         controller_serial_port = config.get('OpenMotics', 'controller_serial')
         self.graph.register_instance('controller_serial', Serial(controller_serial_port, 115200))
@@ -181,6 +176,9 @@ class OpenmoticsService(object):
                 self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
             else:
                 self.graph.register_instance('passthrough_service', None)
+
+        # Thermostat Controller
+        self.graph.register_factory('thermostat_controller', ThermostatControllerGateway, scope=SingletonScope)
 
         # Maintenance Controller
         self.graph.register_factory('maintenance_controller', MaintenanceController, scope=SingletonScope)

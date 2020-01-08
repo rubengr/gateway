@@ -18,7 +18,7 @@ IPC Bus messaging service
 
 import logging
 import time
-import json
+import ujson as json
 from multiprocessing.connection import Listener
 from threading import Thread
 from signal import signal, SIGTERM
