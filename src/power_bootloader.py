@@ -149,32 +149,32 @@ def bootload_power_module(module_address, hex_file, power_communicator):
     :param hex_file: The filename of the hex file to write.
     :param power_communicator: Communication with the power modules.
     """
-    logger.info('E{0} - Version: {0}'.format(module_address, get_module_firmware_version(module_address, power_api.POWER_MODULE, power_communicator)))
-    logger.info('E{0} - Start bootloading'.format(module_address))
+    logger.info('P{0} - Version: {0}'.format(module_address, get_module_firmware_version(module_address, power_api.POWER_MODULE, power_communicator)))
+    logger.info('P{0} - Start bootloading'.format(module_address))
     reader = HexReader(hex_file)
 
-    logger.info('E{0} - Going to bootloader'.format(module_address))
-    power_communicator.do_command(module_address, power_api.bootloader_goto(), 10)
+    logger.info('P{0} - Going to bootloader'.format(module_address))
+    power_communicator.do_command(module_address, power_api.bootloader_goto(power_api.POWER_MODULE), 10)
 
-    logger.info('E{0} - Reading chip id'.format(module_address))
+    logger.info('P{0} - Reading chip id'.format(module_address))
     chip_id = power_communicator.do_command(module_address, power_api.bootloader_read_id())
     if chip_id[0] != 213:
         raise Exception('Unknown chip id: {0}'.format(chip_id[0]))
 
-    logger.info('E{0} - Writing vector tabel'.format(module_address))
+    logger.info('P{0} - Writing vector tabel'.format(module_address))
     for address in range(0, 1024, 128):      # 0x000 - 0x400
         data = reader.get_bytes_version_8(address)
         power_communicator.do_command(module_address, power_api.bootloader_write_code(power_api.POWER_MODULE), *data)
 
-    logger.info('E{0} -  Writing code'.format(module_address))
+    logger.info('P{0} -  Writing code'.format(module_address))
     for address in range(8192, 44032, 128):  # 0x2000 - 0xAC00
         data = reader.get_bytes_version_8(address)
         power_communicator.do_command(module_address, power_api.bootloader_write_code(power_api.POWER_MODULE), *data)
 
-    logger.info('E{0} - Jumping to application'.format(module_address))
+    logger.info('P{0} - Jumping to application'.format(module_address))
     power_communicator.do_command(module_address, power_api.bootloader_jump_application())
 
-    logger.info('E{0} - Done'.format(module_address))
+    logger.info('P{0} - Done'.format(module_address))
 
 
 def bootload_energy_module(module_address, hex_file, power_communicator):
@@ -199,7 +199,7 @@ def bootload_energy_module(module_address, hex_file, power_communicator):
     reader = HexReader(hex_file)
 
     logger.info('E{0} - Going to bootloader'.format(module_address))
-    power_communicator.do_command(module_address, power_api.bootloader_goto(), 10)
+    power_communicator.do_command(module_address, power_api.bootloader_goto(power_api.ENERGY_MODULE), 10)
 
     try:
         logger.info('E{0} - Erasing code...'.format(module_address))
@@ -223,19 +223,29 @@ def bootload_energy_module(module_address, hex_file, power_communicator):
 
 
 def bootload_p1_concentrator(module_address, hex_file, power_communicator):
-    pass
+    """ Bootload a P1 Concentrator module """
+
+    logger.info('C{0} - Version: {1}'.format(module_address, get_module_firmware_version(module_address, power_api.P1_CONCENTRATOR, power_communicator)))
+    logger.info('C{0} - Start bootloading'.format(module_address))
+
+    logger.info('C{0} - Going to bootloader'.format(module_address))
+    power_communicator.do_command(module_address, power_api.bootloader_goto(power_api.P1_CONCENTRATOR), 10)
+
+    # No clue yet. Most likely this will use the same approach as regular master slave modules
+
+    logger.info('C{0} - Done'.format(module_address))
 
 
 def main():
     """ The main function. """
-    logger.info('Energy/Power Module bootloader')
+    logger.info('Bootloader for Energy/Power Modules and P1 Concentrator')
     logger.info('Command: {0}'.format(' '.join(sys.argv)))
 
-    parser = argparse.ArgumentParser(description='Tool to bootload a power module.')
+    parser = argparse.ArgumentParser(description='Tool to bootload a module.')
     parser.add_argument('--address', dest='address', type=int,
-                        help='the address of the power module to bootload')
+                        help='the address of the module to bootload')
     parser.add_argument('--all', dest='all', action='store_true',
-                        help='bootload all power modules')
+                        help='bootload all modules')
     parser.add_argument('--file', dest='file',
                         help='the filename of the hex file to bootload')
     parser.add_argument('--8', dest='old', action='store_true',

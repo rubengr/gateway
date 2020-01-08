@@ -400,8 +400,10 @@ def reset_night_energy(version):
 
 # Below are the bootloader functions
 
-def bootloader_goto():
+def bootloader_goto(version):
     """ Go to bootloader and wait for a number of seconds (b parameter) """
+    if version == P1_CONCENTRATOR:
+        return PowerCommand('S', 'RES', 'B', '', module_type='C')
     return PowerCommand('S', 'BGT', 'B', '')
 
 
