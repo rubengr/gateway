@@ -21,11 +21,8 @@ class PumpDriver(object):
 
     def _set_state(self, active):
         output_number = self._pump.output.number
-        dimmable_output = self._gateway_api.get_output_configuration(output_number, fields='module_type').get('module_type') in ['d', 'D']
-        if dimmable_output:
-            dimmer = 100 if active else 0
-            self._gateway_api.set_output_dimmer(output_number, dimmer=dimmer)
-        self._gateway_api.set_output_status(output_number, active)
+        dimmer = 100 if active else 0
+        self._gateway_api.set_output_status(output_number, active, dimmer=dimmer)
 
     def turn_on(self):
         logger.info('turning on pump {}'.format(self._pump.number))

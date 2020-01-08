@@ -662,7 +662,7 @@ class GatewayApi(object):
                     'ctimer': output['ctimer'],
                     'dimmer': output['dimmer']}
 
-    def set_output(self, output_id, is_on, dimmer=None, timer=None):
+    def set_output_status(self, output_id, is_on, dimmer=None, timer=None):
         """ Set the status, dimmer and timer of an output.
 
         :param output_id: The id of the output to set
@@ -675,6 +675,7 @@ class GatewayApi(object):
         :type timer: int | None
         :returns: emtpy dict.
         """
+        # TODO: implement output controller and let her handle routing to either master or e.g. plugin based outputs
         self.__master_controller.set_output(output_id=output_id, state=is_on, dimmer=dimmer, timer=timer)
         return {}
 

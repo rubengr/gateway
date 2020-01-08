@@ -78,9 +78,9 @@ class WebsocketTest(OMTestCase):
                                    protocols=['authorization.bearer.{0}'.format(base64.b64encode(self.token.encode('ascii')).decode('utf-8').replace('=', ''))], event_name='INPUT_TRIGGER', callback=_callback)
         socket.connect()
 
-        self.webinterface.set_output(id=4, is_on=True)
+        self.webinterface.set_output_status(id=4, is_on=True)
         time.sleep(0.5)
-        self.webinterface.set_output(id=4, is_on=False)
+        self.webinterface.set_output_status(id=4, is_on=False)
 
         websocket_event_occurred = WebsocketTest._look_for_ws_event(callback_data, expected_id=4, expected_event='INPUT_TRIGGER')
 
@@ -91,9 +91,9 @@ class WebsocketTest(OMTestCase):
         time.sleep(0.5)
         callback_data.update({'data': []})
 
-        self.webinterface.set_output(id=4, is_on=True)
+        self.webinterface.set_output_status(id=4, is_on=True)
         time.sleep(0.5)
-        self.webinterface.set_output(id=4, is_on=False)
+        self.webinterface.set_output_status(id=4, is_on=False)
 
         websocket_event_occurred = WebsocketTest._look_for_ws_event(callback_data, expected_id=4, expected_event='INPUT_TRIGGER')
 

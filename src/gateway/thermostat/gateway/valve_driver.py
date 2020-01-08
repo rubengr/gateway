@@ -57,8 +57,8 @@ class ValveDriver(object):
                                                                                   self._current_percentage,
                                                                                   self._desired_percentage))
                 output_status = self._desired_percentage > 0
-                self._gateway_api.set_output_status(self._valve.output.number, output_status)
-                self._gateway_api.set_output_dimmer(self._valve.output.number, self._desired_percentage)
+
+                self._gateway_api.set_output_status(self._valve.output.number, output_status, dimmer=self._desired_percentage)
                 try:
                     dimmable_output = self._gateway_api.get_output_configuration(output_nr, fields='module_type').get('module_type') in ['d', 'D']
                 except Exception:

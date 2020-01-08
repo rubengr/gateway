@@ -50,14 +50,29 @@ class ThermostatGroup(BaseModel):
     def v0_get_global():
         return ThermostatGroup.get(number=0)
 
+    @property
+    def v0_switch_to_heating_outputs(self):
+        return [(link.output.number, link.value) for link in OutputToThermostatGroup.select()
+                                                                                    .where(OutputToThermostatGroup.thermostat_group == self.id)
+                                                                                    .where(OutputToThermostatGroup.mode == 'heating')
+                                                                                    .order_by(OutputToThermostatGroup.index)]
+
+    @property
+    def v0_switch_to_cooling_outputs(self):
+        return [(link.output.number, link.value) for link in OutputToThermostatGroup.select()
+                                                                                    .where(OutputToThermostatGroup.thermostat_group == self.id)
+                                                                                    .where(OutputToThermostatGroup.mode == 'cooling')
+                                                                                    .order_by(OutputToThermostatGroup.index)]
+
 
 class OutputToThermostatGroup(BaseModel):
     """ Outputs on a thermostat group are sometimes used for setting the pumpgroup in a certain state
         the index var is 0-4 of the output in setting this config """
     output = ForeignKeyField(Output, on_delete='CASCADE')
     thermostat_group = ForeignKeyField(ThermostatGroup, on_delete='CASCADE')
-    index = IntegerField()
-    mode = CharField()
+    index = IntegerField()   # the index of this output in the config 0-3
+    mode = CharField()       # the mode this config is used for e.g. cooling or heating
+    value = IntegerField()   # the value that needs to be set on the output when in this mode (0-100)
 
     class Meta:
         primary_key = CompositeKey('output', 'thermostat_group')

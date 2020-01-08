@@ -264,7 +264,7 @@ class Observer(object):
         for callback in self._event_subscriptions:
             resp_data = {'id': input_id,
                          'status': status,
-                         'location': {'room_id': self._input_config[input_id]['room']}}
+                         'location': {'room_id': self._input_config[input_id].get('room', 255)}}
             callback(Event(event_type=Event.Types.INPUT_CHANGE, data=resp_data))
 
     def _refresh_inputs(self):

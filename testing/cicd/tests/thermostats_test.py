@@ -68,9 +68,9 @@ class ThermostatsTest(OMTestCase):
         self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 17,
                         "Should return a thermostat status according to the thermostat auto config that has been set after resetting the master. Got: {0}".format(response_dict))
 
-        self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
+        self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=False)
         time.sleep(0.5)
-        self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
+        self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=True)
 
         response_dict = self._get_new_thermostat_status(timeout=120)
         self.assertTrue(response_dict.get('automatic', False) is True and response_dict.get('setpoint', 99) == 0 and response_dict.get('status')[0].get('csetp') == 17, "Should return a thermostat status according to the thermostat auto config that has been set after a full power cycle. Got: {0}".format(response_dict))
@@ -91,9 +91,9 @@ class ThermostatsTest(OMTestCase):
 
         self.assertTrue(response_dict.get('automatic', True) is False and response_dict.get('setpoint', 99) == 5 and response_dict.get('status')[0].get('csetp') == self.NIGHT_TEMP_INIT + 15, "Should return a thermostat status according to the thermostat party config after resetting the master. Got: {0}".format(response_dict))
 
-        self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
+        self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=False)
         time.sleep(0.5)
-        self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
+        self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=True)
 
         response_dict = self._get_new_thermostat_status(timeout=120)
 
@@ -108,9 +108,9 @@ class ThermostatsTest(OMTestCase):
 
         self.assertTrue(response_dict.get('automatic', True) is False and response_dict.get('setpoint', 99) == 5 and response_dict.get('status')[0].get('csetp') == 9, "Should return a thermostat status according to the thermostat configuration with the new settings after resetting the master. Got: {0}".format(response_dict))
 
-        self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
+        self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=False)
         time.sleep(0.5)
-        self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
+        self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=True)
 
         response_dict = self._get_new_thermostat_status(timeout=120)
 

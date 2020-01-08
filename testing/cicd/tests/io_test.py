@@ -153,7 +153,7 @@ class IoTest(OMTestCase):
         self.assertEqual(response_dict, 'invalid_token')
 
         params = {'id': 3, 'is_on': True}
-        response_dict = self.tools.api_testee(api='set_output', params=params, token='some_token', expected_failure=True)
+        response_dict = self.tools.api_testee(api='set_output_status', params=params, token='some_token', expected_failure=True)
         self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler
@@ -265,11 +265,11 @@ class IoTest(OMTestCase):
         # if it's already off, turn on. Else, turn off and back on.
 
         if status_list[self.TESTEE_POWER].get('status') == 0:
-            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
+            self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=True)
         else:
-            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
+            self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=False)
             time.sleep(0.5)
-            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
+            self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=True)
 
         response_dict = self.tools.api_testee(api='health_check')
 

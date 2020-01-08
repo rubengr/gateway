@@ -360,7 +360,30 @@ class ThermostatControllerGateway(ThermostatController):
 
     def v0_get_global_thermostat_configuration(self, fields=None):
         # TODO: implement this with sqlite as backing
-        pass
+        global_thermostat_group = ThermostatGroup.v0_get_global()
+        config = {'outside_sensor': global_thermostat_group.sensor,
+                  'pump_delay': 255,
+                  'threshold_temp': global_thermostat_group.threshold_temp}
+
+        cooling_outputs = global_thermostat_group.v0_switch_to_cooling_outputs
+        n = len(cooling_outputs)
+        for i in xrange(n):
+            config['switch_to_cooling_output_{}'.format(i)] = cooling_outputs[0]
+            config['switch_to_cooling_value_{}'.format(i)] = cooling_outputs[1]
+        for i in xrange(n, 4-n):
+            config['switch_to_cooling_output_{}'.format(i)] = 255
+            config['switch_to_cooling_value_{}'.format(i)] = 255
+
+        heating_outputs = global_thermostat_group.v0_switch_to_heating_outputs
+        n = len(heating_outputs)
+        for i in xrange(n):
+            config['switch_to_heating_output_{}'.format(i)] = cooling_outputs[0]
+            config['switch_to_heating_value_{}'.format(i)] = cooling_outputs[1]
+        for i in xrange(n, 4-n):
+            config['switch_to_heating_output_{}'.format(i)] = 255
+            config['switch_to_heating_value_{}'.format(i)] = 255
+
+        return config
 
     def v0_set_global_thermostat_configuration(self, config):
         # update thermostat group configuration
@@ -389,14 +412,14 @@ class ThermostatControllerGateway(ThermostatController):
                 valve.save()
 
     def v0_get_pump_group_configurations(self, fields=None):
-        config = []
+        pump_config_list = []
         for pump in Pump.select():
             pump_config = {'id': pump.number,
                            'outputs': ','.join([valve.number for valve in pump.heating_valves]),
                            'output': pump.number,
                            'room': 255}
-            config.append(pump_config)
-        return {'config': config}
+            pump_config_list.append(pump_config)
+        return pump_config_list
 
     def v0_set_pump_group_configuration(self, config):
         raise NotImplementedError
@@ -410,17 +433,17 @@ class ThermostatControllerGateway(ThermostatController):
                        'outputs': ','.join([valve.output.number for valve in pump.cooling_valves]),
                        'output': pump.output.number,
                        'room': 255}
-        return {'config': pump_config}
+        return pump_config
 
     def v0_get_cooling_pump_group_configurations(self, fields=None):
-        config = []
+        pump_config_list = []
         for pump in Pump.select():
             pump_config = {'id': pump.number,
                            'outputs': [valve.number for valve in pump.cooling_valves],
                            'output': pump.number,
                            'room': 255}
-            config.append(pump_config)
-        return {'config': config}
+            pump_config_list.append(pump_config)
+        return pump_config_list
 
     def v0_set_cooling_pump_group_configuration(self, config):
         raise NotImplementedError

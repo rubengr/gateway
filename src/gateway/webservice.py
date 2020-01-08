@@ -584,7 +584,7 @@ class WebInterface(object):
         :param timer: The timer value to set, None if unchanged
         :type timer: int
         """
-        return self._gateway_api.set_output(id, is_on, dimmer, timer)
+        return self._gateway_api.set_output_status(id, is_on, dimmer, timer)
 
     @openmotics_api(auth=True)
     def set_all_lights_off(self):
