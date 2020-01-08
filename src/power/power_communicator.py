@@ -14,8 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Module to communicate with the power modules.
-
-@author: fryckbos
 """
 
 import logging
@@ -26,7 +24,7 @@ from wiring import inject, scope, SingletonScope, provides
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
 from power import power_api
-from power.power_command import crc7
+from power.power_command import crc7, crc8
 from power.time_keeper import TimeKeeper
 
 logger = logging.getLogger("openmotics")
@@ -38,14 +36,14 @@ class PowerCommunicator(object):
     @provides('power_communicator')
     @scope(SingletonScope)
     @inject(serial='power_serial', power_controller='power_controller')
-    def __init__(self, serial, power_controller, verbose=False, time_keeper_period=60,
-                 address_mode_timeout=300):
+    def __init__(self, serial, power_controller, verbose=True, time_keeper_period=60, address_mode_timeout=300):
         """ Default constructor.
 
+        :type power_controller: power.power_controller.PowerController
         :param serial: Serial port to communicate with
-        :type serial: Instance of :class`RS485`
+        :type serial: serial_utils.RS485
         :param verbose: Print all serial communication to stdout.
-        :type verbose: boolean.
+        :type verbose: bool
         """
         self.__serial = serial
         self.__serial_lock = RLock()
@@ -196,15 +194,22 @@ class PowerCommunicator(object):
             self.__address_thread = None
 
         expire = time.time() + self.__address_mode_timeout
-        address_mode = power_api.set_addressmode()
-        want_an_address_8 = power_api.want_an_address(power_api.POWER_API_8_PORTS)
-        want_an_address_12 = power_api.want_an_address(power_api.POWER_API_12_PORTS)
-        set_address = power_api.set_address()
+        address_mode = power_api.set_addressmode(power_api.ENERGY_MODULE)
+        address_mode_p1c = power_api.set_addressmode(power_api.P1_CONCENTRATOR)
+        want_an_address_8 = power_api.want_an_address(power_api.POWER_MODULE)
+        want_an_address_12 = power_api.want_an_address(power_api.ENERGY_MODULE)
+        want_an_address_p1c = power_api.want_an_address(power_api.P1_CONCENTRATOR)
+        set_address = power_api.set_address(power_api.ENERGY_MODULE)
+        set_address_p1c = power_api.set_address(power_api.P1_CONCENTRATOR)
 
         # AGT start
         data = address_mode.create_input(power_api.BROADCAST_ADDRESS,
                                          self.__get_cid(),
                                          power_api.ADDRESS_MODE)
+        self.__write_to_serial(data)
+        data = address_mode_p1c.create_input(power_api.BROADCAST_ADDRESS,
+                                             self.__get_cid(),
+                                             power_api.ADDRESS_MODE)
         self.__write_to_serial(data)
 
         # Wait for WAA and answer.
@@ -212,11 +217,19 @@ class PowerCommunicator(object):
             try:
                 header, data = self.__read_from_serial()
 
-                waa_8 = want_an_address_8.check_header_partial(header)
-                waa_12 = want_an_address_12.check_header_partial(header)
+                if set_address.check_header_partial(header) or set_address_p1c.check_header_partial(header):
+                    continue
 
-                if not waa_8 and not waa_12:
-                    logger.warning("Received non WAA/WAD message in address mode")
+                version = None
+                if want_an_address_8.check_header_partial(header):
+                    version = power_api.POWER_MODULE
+                elif want_an_address_12.check_header_partial(header):
+                    version = power_api.ENERGY_MODULE
+                elif want_an_address_p1c.check_header_partial(header):
+                    version = power_api.P1_CONCENTRATOR
+
+                if version is None:
+                    logger.warning("Received unexpected message in address mode")
                 else:
                     (old_address, cid) = (ord(header[:2][1]), header[2:3])
                     # Ask power_controller for new address, and register it.
@@ -225,12 +238,13 @@ class PowerCommunicator(object):
                     if self.__power_controller.module_exists(old_address):
                         self.__power_controller.readdress_power_module(old_address, new_address)
                     else:
-                        version = power_api.POWER_API_8_PORTS if waa_8 else power_api.POWER_API_12_PORTS
-
                         self.__power_controller.register_power_module(new_address, version)
 
                     # Send new address to power module
-                    address_data = set_address.create_input(old_address, ord(cid), new_address)
+                    if version == power_api.P1_CONCENTRATOR:
+                        address_data = set_address_p1c.create_input(old_address, ord(cid), new_address)
+                    else:
+                        address_data = set_address.create_input(old_address, ord(cid), new_address)
                     self.__write_to_serial(address_data)
 
             except CommunicationTimedOutException:
@@ -243,6 +257,10 @@ class PowerCommunicator(object):
         data = address_mode.create_input(power_api.BROADCAST_ADDRESS,
                                          self.__get_cid(),
                                          power_api.NORMAL_MODE)
+        self.__write_to_serial(data)
+        data = address_mode_p1c.create_input(power_api.BROADCAST_ADDRESS,
+                                             self.__get_cid(),
+                                             power_api.NORMAL_MODE)
         self.__write_to_serial(data)
 
         self.__address_mode = False
@@ -321,7 +339,7 @@ class PowerCommunicator(object):
                         phase = 8
                     else:
                         raise Exception("Unexpected character")
-            if crc7(header + data) != crc:
+            if crc7(header + data) != crc and crc8(data) != crc:
                 raise Exception("CRC doesn't match")
         except Empty:
             raise CommunicationTimedOutException('Communication timed out')

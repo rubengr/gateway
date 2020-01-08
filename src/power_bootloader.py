@@ -29,10 +29,7 @@ from serial import Serial
 from serial_utils import RS485, CommunicationTimedOutException
 from power.power_communicator import PowerCommunicator
 from power.power_controller import PowerController
-from power.power_api import bootloader_goto, bootloader_read_id, bootloader_write_code, \
-                            bootloader_jump_application, bootloader_erase_code, get_version, \
-                            read_eeprom, write_eeprom, \
-                            POWER_API_8_PORTS, POWER_API_12_PORTS
+from power import power_api
 
 logger = logging.getLogger("openmotics")
 
@@ -125,22 +122,26 @@ class HexReader(object):
         return self.__crc
 
 
-def get_module_firmware_version(module_address, power_communicator):
+def get_module_firmware_version(module_address, version, power_communicator):
     """
     Get the version of a power module.
 
     :param module_address: The address of a power module (integer).
+    :param version: The version
     :param power_communicator: Communication with the power modules.
     """
-    raw_version = power_communicator.do_command(module_address, get_version())[0]
-    cleaned_version = raw_version.split('\x00', 1)[0]
-    parsed_version = cleaned_version.split('_')
-    if len(parsed_version) != 4:
-        return cleaned_version
-    return '{0}.{1}.{2} ({3})'.format(parsed_version[1], parsed_version[2], parsed_version[3], parsed_version[0])
+    raw_version = power_communicator.do_command(module_address, power_api.get_version(version))[0]
+    if version == power_api.P1_CONCENTRATOR:
+        return '{0}.{1}.{2} ({3})'.format(raw_version[1], raw_version[2], raw_version[3], raw_version[0])
+    else:
+        cleaned_version = raw_version.split('\x00', 1)[0]
+        parsed_version = cleaned_version.split('_')
+        if len(parsed_version) != 4:
+            return cleaned_version
+        return '{0}.{1}.{2} ({3})'.format(parsed_version[1], parsed_version[2], parsed_version[3], parsed_version[0])
 
 
-def bootload_8(module_address, hex_file, power_communicator):
+def bootload_power_module(module_address, hex_file, power_communicator):
     """
     Bootload a 8 port power module.
 
@@ -148,35 +149,35 @@ def bootload_8(module_address, hex_file, power_communicator):
     :param hex_file: The filename of the hex file to write.
     :param power_communicator: Communication with the power modules.
     """
-    logger.info('E{0} - Version: {0}'.format(module_address, get_module_firmware_version(module_address, power_communicator)))
+    logger.info('E{0} - Version: {0}'.format(module_address, get_module_firmware_version(module_address, power_api.POWER_MODULE, power_communicator)))
     logger.info('E{0} - Start bootloading'.format(module_address))
     reader = HexReader(hex_file)
 
     logger.info('E{0} - Going to bootloader'.format(module_address))
-    power_communicator.do_command(module_address, bootloader_goto(), 10)
+    power_communicator.do_command(module_address, power_api.bootloader_goto(), 10)
 
     logger.info('E{0} - Reading chip id'.format(module_address))
-    chip_id = power_communicator.do_command(module_address, bootloader_read_id())
+    chip_id = power_communicator.do_command(module_address, power_api.bootloader_read_id())
     if chip_id[0] != 213:
         raise Exception('Unknown chip id: {0}'.format(chip_id[0]))
 
     logger.info('E{0} - Writing vector tabel'.format(module_address))
     for address in range(0, 1024, 128):      # 0x000 - 0x400
         data = reader.get_bytes_version_8(address)
-        power_communicator.do_command(module_address, bootloader_write_code(POWER_API_8_PORTS), *data)
+        power_communicator.do_command(module_address, power_api.bootloader_write_code(power_api.POWER_MODULE), *data)
 
     logger.info('E{0} -  Writing code'.format(module_address))
     for address in range(8192, 44032, 128):  # 0x2000 - 0xAC00
         data = reader.get_bytes_version_8(address)
-        power_communicator.do_command(module_address, bootloader_write_code(POWER_API_8_PORTS), *data)
+        power_communicator.do_command(module_address, power_api.bootloader_write_code(power_api.POWER_MODULE), *data)
 
     logger.info('E{0} - Jumping to application'.format(module_address))
-    power_communicator.do_command(module_address, bootloader_jump_application())
+    power_communicator.do_command(module_address, power_api.bootloader_jump_application())
 
     logger.info('E{0} - Done'.format(module_address))
 
 
-def bootload_12(module_address, hex_file, power_communicator):
+def bootload_energy_module(module_address, hex_file, power_communicator):
     """
     Bootload a 12 port power module.
 
@@ -184,12 +185,12 @@ def bootload_12(module_address, hex_file, power_communicator):
     :param hex_file: The filename of the hex file to write.
     :param power_communicator: Communication with the power modules.
     """
-    logger.info('E{0} - Version: {1}'.format(module_address, get_module_firmware_version(module_address, power_communicator)))
+    logger.info('E{0} - Version: {1}'.format(module_address, get_module_firmware_version(module_address, power_api.ENERGY_MODULE, power_communicator)))
     logger.info('E{0} - Start bootloading'.format(module_address))
 
     try:
         logger.info('E{0} - Reading calibration data'.format(module_address))
-        calibration_data = list(power_communicator.do_command(module_address, read_eeprom(12, 100), *[256, 100]))
+        calibration_data = list(power_communicator.do_command(module_address, power_api.read_eeprom(12, 100), *[256, 100]))
         logger.info('E{0} - Calibration data: {1}'.format(module_address, ','.join([str(d) for d in calibration_data])))
     except Exception as ex:
         logger.info('E{0} - Could not read calibration data: {1}'.format(module_address, ex))
@@ -198,27 +199,31 @@ def bootload_12(module_address, hex_file, power_communicator):
     reader = HexReader(hex_file)
 
     logger.info('E{0} - Going to bootloader'.format(module_address))
-    power_communicator.do_command(module_address, bootloader_goto(), 10)
+    power_communicator.do_command(module_address, power_api.bootloader_goto(), 10)
 
     try:
         logger.info('E{0} - Erasing code...'.format(module_address))
         for page in range(6, 64):
-            power_communicator.do_command(module_address, bootloader_erase_code(), page)
+            power_communicator.do_command(module_address, power_api.bootloader_erase_code(), page)
 
         logger.info('E{0} - Writing code...'.format(module_address))
         for address in range(0x1D006000, 0x1D03FFFB, 128):
             data = reader.get_bytes_version_12(address)
-            power_communicator.do_command(module_address, bootloader_write_code(POWER_API_12_PORTS), *data)
+            power_communicator.do_command(module_address, power_api.bootloader_write_code(power_api.ENERGY_MODULE), *data)
     finally:
         logger.info('E{0} - Jumping to application'.format(module_address))
-        power_communicator.do_command(module_address, bootloader_jump_application())
+        power_communicator.do_command(module_address, power_api.bootloader_jump_application())
 
     if calibration_data is not None:
         time.sleep(1)
         logger.info('E{0} - Restoring calibration data'.format(module_address))
-        power_communicator.do_command(module_address, write_eeprom(12, 100), *([256] + calibration_data))
+        power_communicator.do_command(module_address, power_api.write_eeprom(12, 100), *([256] + calibration_data))
 
     logger.info('E{0} - Done'.format(module_address))
+
+
+def bootload_p1_concentrator(module_address, hex_file, power_communicator):
+    pass
 
 
 def main():
@@ -235,6 +240,8 @@ def main():
                         help='the filename of the hex file to bootload')
     parser.add_argument('--8', dest='old', action='store_true',
                         help='bootload for the 8-port power modules')
+    parser.add_argument('--p1c', dest='p1c', action='store_true',
+                        help='bootload for the P1 concentrator modules')
     parser.add_argument('--verbose', dest='verbose', action='store_true',
                         help='show the serial output')
 
@@ -252,12 +259,20 @@ def main():
     power_communicator = PowerCommunicator(power_serial, None, time_keeper_period=0, verbose=args.verbose)
     power_communicator.start()
 
-    def _bootload(_module, _module_address, filename, is_power_module):
+    version = power_api.ENERGY_MODULE
+    if args.old:
+        version = power_api.POWER_MODULE
+    elif args.p1c:
+        version = power_api.P1_CONCENTRATOR
+
+    def _bootload(_module, _module_address, filename):
         try:
-            if is_power_module and _module['version'] == POWER_API_8_PORTS:
-                bootload_8(_module_address, filename, power_communicator)
-            elif not is_power_module and _module['version'] == POWER_API_12_PORTS:
-                bootload_12(_module_address, filename, power_communicator)
+            if version == _module['version'] == power_api.POWER_MODULE:
+                bootload_power_module(_module_address, filename, power_communicator)
+            elif version == _module['version'] == power_api.ENERGY_MODULE:
+                bootload_energy_module(_module_address, filename, power_communicator)
+            elif version == _module['version'] == power_api.P1_CONCENTRATOR:
+                bootload_p1_concentrator(_module_address, filename, power_communicator)
         except CommunicationTimedOutException:
             logger.warning('E{0} - Module unavailable. Skipping...'.format(address))
         except Exception:
@@ -270,7 +285,7 @@ def main():
             for module_id in power_modules:
                 module = power_modules[module_id]
                 address = module['address']
-                _bootload(module, address, args.file, is_power_module=args.old)
+                _bootload(module, address, args.file)
         else:
             address = args.address
             modules = [module for module in power_modules.values() if module['address'] == address]
@@ -278,7 +293,7 @@ def main():
                 logger.info('ERROR: Cannot find a module with address {0}'.format(address))
                 sys.exit(0)
             module = modules[0]
-            _bootload(module, address, args.file, is_power_module=args.old)
+            _bootload(module, address, args.file)
     else:
         parser.print_help()
 

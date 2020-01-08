@@ -12,10 +12,9 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-""" Contains PowerCommandClass that describes a command to the power modules. The PowerCommand
+"""
+Contains PowerCommandClass that describes a command to the power modules. The PowerCommand
 class is used to create the power_api.
-
-@author: fryckbos
 """
 
 import struct
@@ -37,7 +36,8 @@ CRC_TABLE = [0, 49, 98, 83, 196, 245, 166, 151, 185, 136, 219, 234, 125, 76, 31,
 
 
 def crc7(to_send):
-    """ Calculate the crc7 checksum of a string.
+    """
+    Calculate the crc7 checksum of a string.
     :param to_send: input string
     :rtype: integer
     """
@@ -47,15 +47,39 @@ def crc7(to_send):
     return ret
 
 
+def crc8(to_send):
+    """
+    Calculate the crc7 checksum of a string.
+    :param to_send: input string
+    :rtype: integer
+    """
+    def _add_crc(crc, data):
+        for bitnumber in range(0, 8):
+            if (data ^ crc) & 0x80:
+                crc = (crc << 1) ^ 0x31
+            else:
+                crc = (crc << 1)
+            data = data << 1
+        print hex(crc & 0xFF)
+        return crc & 0xFF
+
+    ret = 0
+    for part in to_send:
+        ret = _add_crc(ret, ord(part))
+    return ret
+
+
 class PowerCommand(object):
-    """ A PowerCommand is an command that can be send to a Power Module over RS485. The commands
-    look like this: 'STR' 'E' Address CID Mode(G/S) Type LEN Data CRC7 '\r\n'.
+    """
+    A PowerCommand is an command that can be send to a Power Module over RS485. The commands
+    look like this: 'STR' 'E' Address CID Mode(G/S) Type LEN Data CRC7/8 '\r\n'.
     """
 
-    def __init__(self, mode, type, input_format, output_format):
-        """ Create PowerCommand using the fixed fields of the input command and the format of the
+    def __init__(self, mode, type, input_format, output_format, module_type='E'):
+        """
+        Create PowerCommand using the fixed fields of the input command and the format of the
         command returned by the power module.
-
+        :param module_type: 1 character, E (energy/power module) or C (P1 concentrator)
         :param mode: 1 character, S or G
         :param type: 3 byte string, type of the command
         :param input_format: the format of the data in the command
@@ -65,10 +89,12 @@ class PowerCommand(object):
         self.type = type
         self.input_format = input_format
         self.output_format = output_format
+        self.module_type = module_type
+        self._crc = crc7 if module_type == 'E' else crc8
 
     def create_input(self, address, cid, *data):
-        """ Create an input string for the power module using this command and the provided fields.
-
+        """
+        Create an input string for the power module using this command and the provided fields.
         :param address: 1 byte, the address of the module
         :param cid: 1 byte, communication id
         :param data: data to send to the power module
@@ -76,41 +102,43 @@ class PowerCommand(object):
         """
         data = struct.pack(self.input_format, *data)
 
-        command = "E" + chr(address) + chr(cid) + str(self.mode) + str(self.type)
+        command = self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
         command += chr(len(data)) + str(data)
-        return "STR" + command + chr(crc7(command)) + "\r\n"
+        return "STR" + command + chr(self._crc(command)) + "\r\n"
 
     def create_output(self, address, cid, *data):
-        """ Create an output command from the power module using this command and the provided
+        """
+        Create an output command from the power module using this command and the provided
         fields. --- Only used for testing !
-
         :param address: 1 byte, the address of the module
         :param cid: 1 byte, communication id
         :param data: data to send to the power module
         :rtype: string
         """
         data = struct.pack(self.output_format, *data)
-        command = "E" + chr(address) + chr(cid) + str(self.mode) + str(self.type)
+        command = self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
         command += chr(len(data)) + str(data)
-        return "RTR" + command + chr(crc7(command)) + "\r\n"
+        return "RTR" + command + chr(self._crc(command)) + "\r\n"
 
     def check_header(self, header, address, cid):
-        """ Check if the response header matches the command,
+        """
+        Check if the response header matches the command,
         when an address and cid are provided. """
-        return header[:-1] == "E" + chr(address) + chr(cid) + str(self.mode) + str(self.type)
+        return header[:-1] == self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
 
     def is_nack(self, header, address, cid):
-        """ Check if the response header is a nack to the command, when an address and cid are
+        """
+        Check if the response header is a nack to the command, when an address and cid are
         provided. """
-        return header[:-1] == "E" + chr(address) + chr(cid) + "N" + str(self.type)
+        return header[:-1] == self.module_type + chr(address) + chr(cid) + "N" + str(self.type)
 
     def check_header_partial(self, header):
         """ Check if the header matches the command, does not check address and cid. """
         return header[3:-1] == self.mode + self.type
 
     def read_output(self, data):
-        """ Parse the output using the output_format.
-
+        """
+        Parse the output using the output_format.
         :param data: string containing the data.
         """
         if self.output_format is None:
