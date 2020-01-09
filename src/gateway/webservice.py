@@ -37,6 +37,7 @@ from gateway.maintenance_communicator import InMaintenanceModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
 from gateway.websockets import OMPlugin, OMSocketTool, MetricsSocket, EventsSocket, MaintenanceSocket
+from models import Feature
 
 logger = logging.getLogger("openmotics")
 
@@ -524,6 +525,9 @@ class WebInterface(object):
             features.append('100_steps_dimmer')
         if master_version >= (3, 143, 88):
             features.append('input_states')
+
+        enabled_features = Feature.select(Feature.name).where(Feature.enabled == True)
+        features.extend(enabled_features)
 
         return {'features': features}
 

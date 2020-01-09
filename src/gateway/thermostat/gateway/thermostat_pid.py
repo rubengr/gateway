@@ -1,7 +1,6 @@
 import logging
 from threading import Lock
 from simple_pid import PID
-
 from serial_utils import CommunicationTimedOutException
 
 logger = logging.getLogger('openmotics')

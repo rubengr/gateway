@@ -5,7 +5,7 @@ import time
 import constants
 from playhouse.signals import Model, post_save
 from peewee import PrimaryKeyField, IntegerField, FloatField, BooleanField, TextField, ForeignKeyField, \
-    CompositeKey, SqliteDatabase, DoesNotExist, CharField
+                   CompositeKey, SqliteDatabase, DoesNotExist, CharField
 
 logger = logging.getLogger('openmotics')
 
@@ -15,13 +15,6 @@ class Database(object):
     _db = SqliteDatabase(filename, pragmas={'foreign_keys': 1})
 
     @classmethod
-    def init(cls):
-        cls._db.create_tables([Output, ThermostatGroup, OutputToThermostatGroup, Thermostat, Valve,
-                               ValveToThermostat, Output, Preset, DaySchedule, Pump, PumpToValve])
-        # create default data entries
-        ThermostatGroup.get_or_create(id=1, number=0, name='default', on=True)
-
-    @classmethod
     def get_db(cls):
         return cls._db
 
@@ -29,6 +22,12 @@ class Database(object):
 class BaseModel(Model):
     class Meta:
         database = Database.get_db()
+
+
+class Feature(BaseModel):
+    id = PrimaryKeyField()
+    name = CharField(unique=True)
+    enabled = BooleanField()
 
 
 class Output(BaseModel):

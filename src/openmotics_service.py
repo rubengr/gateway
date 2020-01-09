@@ -21,8 +21,7 @@ System.import_eggs()
 import logging
 import time
 import constants
-from gateway.models import Database
-from gateway.thermostat.gateway.thermostat_controller_gateway import ThermostatControllerGateway
+from models import Database
 from wiring import Graph, SingletonScope
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
@@ -33,6 +32,8 @@ from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
 from threading import Lock
 from serial_utils import RS485
+from gateway.thermostat.gateway.thermostat_controller_gateway import ThermostatControllerGateway
+from gateway.thermostat.master.thermostat_controller_master import ThermostatControllerMaster
 from gateway.webservice import WebInterface, WebService
 from gateway.comm_led_controller import CommunicationLedController
 from gateway.gateway_api import GatewayApi
@@ -256,23 +257,30 @@ class OpenmoticsService(object):
 
         maintenance_controller.subscribe_maintenance_stopped(gateway_api.maintenance_mode_stopped)
 
+    def start_service(self, name):
+        service = self.graph.get(name)
+        if service is not None:
+            service.start()
+        else:
+            logger.warning('Could not start service {}'.format(name))
+
     def start(self):
         """ Main function. """
         logger.info('Starting OM core service...')
 
         self._build_graph()
+        thermostat_controller = self.graph.get('thermostat_controller')
+        if not thermostat_controller.migrate_master_config_to_gateway():
+            logger.warn('Falling back to master thermostats')
+            self.graph.register_factory('thermostat_controller', ThermostatControllerMaster, scope=SingletonScope)
         self._fix_dependencies()
-
-        Database.init()  # this verifies and creates the necessary DB tables if not yet existing
 
         service_names = ['master_controller', 'maintenance_controller',
                          'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
                          'scheduling_controller', 'thermostat_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
                          'communication_led_controller', 'event_sender']
         for name in service_names:
-            service = self.graph.get(name)
-            if service is not None:
-                service.start()
+            self.start_service(name)
 
         signal_request = {'stop': False}
 
@@ -300,7 +308,7 @@ if __name__ == "__main__":
     logger.info("Applying migrations")
     # Run all unapplied migrations
     db = Database.get_db()
-    router = Router(db)
+    router = Router(db, migrate_dir='/opt/openmotics/python/migrations')
     router.run()
 
     logger.info("Starting OpenMotics service")

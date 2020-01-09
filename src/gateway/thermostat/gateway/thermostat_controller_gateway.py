@@ -7,15 +7,14 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from peewee import DoesNotExist
 from wiring import provides, scope, inject, SingletonScope
 from bus.om_bus_events import OMBusEvents
-from decorators import singleton
 from gateway.observer import Event
-from gateway.models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, \
-    OutputToThermostatGroup, ValveToThermostat, Valve, Pump
+from master.eeprom_models import ThermostatConfiguration, CoolingConfiguration
+from models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, \
+    OutputToThermostatGroup, ValveToThermostat, Valve, Pump, Feature
 from gateway.thermostat.gateway.pump_valve_controller import PumpValveController
 from gateway.thermostat.thermostat_controller import ThermostatController
 from gateway.thermostat.gateway.thermostat_pid import ThermostatPid
 from apscheduler.schedulers.background import BackgroundScheduler
-from pytz import utc
 
 logger = logging.getLogger('openmotics')
 
@@ -35,13 +34,6 @@ class ThermostatControllerGateway(ThermostatController):
     def __init__(self, gateway_api, message_client, observer, master_classic_communicator, eeprom_controller):
         super(ThermostatControllerGateway, self).__init__(gateway_api, message_client, observer, master_classic_communicator,
                                                           eeprom_controller)
-
-        # make this a singleton class
-        if ThermostatControllerGateway.__instance is not None:
-            raise Exception("This class is a singleton. Please use get_instance() to access the instance.")
-        else:
-            ThermostatControllerGateway.__instance = self
-
         self._running = False
         self._pid_loop_thread = None
         self._update_pumps_thread = None
@@ -163,6 +155,64 @@ class ThermostatControllerGateway(ThermostatController):
                                                 args=args,
                                                 name='T{}: {} ({}) {}'.format(thermostat_number, new_setpoint, schedule.mode, seconds_of_day))
 
+    def migrate_master_config_to_gateway(self):
+        # validate if valid config
+        # 1. output0 <= 240
+        # 2. sensor < 32 or 240
+        # 3. timing check e.g. '42:30' is not valid time (255)
+        # 4. valid PID params
+        def is_valid(config):
+            if config.get('output0', 255) <= 240:
+                return False
+            if config.get('pid_p', 255) == 255:
+                return False
+            sensor = config.get('sensor', 255)
+            if not (sensor < 32 or sensor == 240):
+                return False
+            for key, value in config.iteritems():
+                if key.startswith('auto_') and ('42:30' in value or 255 in value):
+                    return False
+            return True
+
+        self._master_communicator.start()
+
+        try:
+            # 0. check if migration already done
+            f = Feature.get(name='thermostats_gateway')
+            if not f.enabled:
+                # 1. try to read all config from master and save it in the db
+                try:
+                    for thermostat_id in xrange(32):
+                        for mode, config_mapper in {'heating': ThermostatConfiguration,
+                                                    'cooling': CoolingConfiguration}.iteritems():
+                            config = self._eeprom_controller.read(config_mapper, thermostat_id).serialize()
+                            if is_valid(config):
+                                ThermostatControllerGateway.create_or_update_thermostat_from_v0_api(thermostat_id,
+                                                                                                    config,
+                                                                                                    mode)
+                except Exception:
+                    logger.exception('Error occurred while migrating thermostats configuration from master eeprom.')
+                    return False
+
+                # 2. disable all thermostats on the master
+                try:
+                    for thermostat_id in xrange(32):
+                        # TODO: use new master API to disable thermostat
+                        # self._master_communicator.xyz
+                        pass
+                except Exception:
+                    logger.exception('Error occurred while stopping master thermostats.')
+                    return False
+
+                # 3. write flag in database to enable gateway thermostats
+                f.enabled = True
+                f.save()
+            return True
+        except Exception:
+            logger.exception('Error migrating master thermostats')
+            return False
+
+
     ################################
     # v1 APIs
     ################################
@@ -252,7 +302,7 @@ class ThermostatControllerGateway(ThermostatController):
         global_thermostat = ThermostatGroup.get(number=0)
         if global_thermostat is not None:
             return_data = {'thermostats_on': global_thermostat.on,
-                           'automatic': True,  #TODO: if any thermnostat is automatic
+                           'automatic': True,  # TODO: if any thermnostat is automatic
                            'setpoint': 0,      # can be ignored
                            'cooling': str(global_thermostat.mode).lower() == 'cooling'}
             status = []
