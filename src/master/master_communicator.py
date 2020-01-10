@@ -28,8 +28,7 @@ from serial_utils import CommunicationTimedOutException
 
 logger = logging.getLogger("openmotics")
 
-import traceback
-logger.warning(traceback.format_stack())
+
 @Injectable.named('master_communicator')
 @Singleton
 class MasterCommunicator(object):
