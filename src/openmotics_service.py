@@ -65,25 +65,28 @@ class OpenmoticsService(object):
         # TODO: Clean up dependencies more to reduce complexity
 
         # IOC announcements
-        # When below modules are imported, the classes are registerd in the IOC graph.
+        # When below modules are imported, the classes are registerd in the IOC graph. This is required for
+        # instances that are used in @Inject decorated functions below, and is also needed to specify
+        # abstract implementations depending on e.g. the platform (classic vs core) or certain settings (classic
+        # thermostats vs gateway thermostats)
         from power import power_communicator, power_controller
         from plugins import base
-        from gateway import (shutters, maintenance_controller, webservice, comm_led_controller,
-                             gateway_api, users, metrics_controller, metrics_collector, metrics_caching,
-                             config as config_module, scheduling, pulses)
-        from cloud import cloud_api_client, events
-        _ = (power_communicator, power_controller, base, shutters, maintenance_controller, webservice,
-             comm_led_controller, gateway_api, users, metrics_controller, metrics_collector, metrics_caching,
-             config_module, scheduling, pulses, cloud_api_client, events)
+        from gateway import (metrics_controller, webservice, scheduling, observer, gateway_api, metrics_collector,
+                             maintenance_controller, comm_led_controller, users, pulses, config as config_controller,
+                             metrics_caching)
+        from cloud import events
+        _ = (metrics_controller, webservice, scheduling, observer, gateway_api, metrics_collector,
+             maintenance_controller, base, events, power_communicator, comm_led_controller, users,
+             power_controller, pulses, config_controller, metrics_caching)
         if Platform.get_platform() == Platform.Type.CORE_PLUS:
-            from master_core import memory_file, core_communicator, ucan_communicator, maintenance
             from gateway.hal import master_controller_core
-            from master import eeprom_extension  # TODO: Should be made obsolete
-            _ = (memory_file, core_communicator, ucan_communicator, maintenance, master_controller_core, eeprom_extension)
+            from master_core import maintenance, core_communicator, ucan_communicator
+            from master import eeprom_extension  # TODO: Obsolete, need to be removed
+            _ = master_controller_core, maintenance, core_communicator, ucan_communicator
         else:
-            from master import master_communicator, eeprom_controller, eeprom_extension, passthrough, maintenance
             from gateway.hal import master_controller_classic
-            _ = (master_communicator, eeprom_controller, eeprom_extension, passthrough, maintenance, master_controller_classic)
+            from master import maintenance, master_communicator, eeprom_extension
+            _ = master_controller_classic, maintenance, master_communicator, eeprom_extension
 
         # IPC
         Injectable.value(message_client=MessageClient('openmotics_service'))
@@ -130,8 +133,6 @@ class OpenmoticsService(object):
         if Platform.get_platform() == Platform.Type.CORE_PLUS:
             from master_core.memory_file import MemoryFile, MemoryTypes
             core_cli_serial_port = config.get('OpenMotics', 'cli_serial')
-            Injectable.value(ucan_communicator_verbose=False)
-            Injectable.value(core_communicator_verbose=False)
             Injectable.value(cli_serial=Serial(core_cli_serial_port, 115200))
             Injectable.value(passthrough_service=None)  # Mark as "not needed"
             Injectable.value(memory_files={MemoryTypes.EEPROM: MemoryFile(MemoryTypes.EEPROM),
@@ -143,6 +144,8 @@ class OpenmoticsService(object):
             Injectable.value(eeprom_db=constants.get_eeprom_extension_database_file())
             if passthrough_serial_port:
                 Injectable.value(passthrough_serial=Serial(passthrough_serial_port, 115200))
+                from master.passthrough import PassthroughService
+                _ = PassthroughService  # IOC announcement
             else:
                 Injectable.value(passthrough_service=None)
 

@@ -46,9 +46,9 @@ class UCANCommunicatorTest(unittest.TestCase):
         def send_command(_cid, _command, _fields):
             received_commands.append(_fields)
 
-        core_communicator = CoreCommunicator(controller_serial=Mock(), core_communicator_verbose=True)
+        core_communicator = CoreCommunicator(controller_serial=Mock(), verbose=True)
         core_communicator._send_command = send_command
-        ucan_communicator = UCANCommunicator(master_communicator=core_communicator, ucan_communicator_verbose=True)
+        ucan_communicator = UCANCommunicator(master_communicator=core_communicator, verbose=True)
         cc_address = '000.000.000.000'
         ucan_address = '000.000.000'
         pallet_type = PalletType.MCU_ID_REQUEST  # Not important for this test
@@ -96,7 +96,7 @@ class UCANCommunicatorTest(unittest.TestCase):
 
     def test_string_parsing(self):
         core_communicator = Mock()
-        ucan_communicator = UCANCommunicator(master_communicator=core_communicator, ucan_communicator_verbose=True)
+        ucan_communicator = UCANCommunicator(master_communicator=core_communicator, verbose=True)
         cc_address = '000.000.000.000'
         ucan_address = '000.000.000'
         pallet_type = PalletType.MCU_ID_REQUEST  # Not important for this test
@@ -126,7 +126,7 @@ class UCANCommunicatorTest(unittest.TestCase):
 
     def test_bootload_lock(self):
         core_communicator = Mock()
-        ucan_communicator = UCANCommunicator(master_communicator=core_communicator, ucan_communicator_verbose=True)
+        ucan_communicator = UCANCommunicator(master_communicator=core_communicator, verbose=True)
         cc_address = '000.000.000.000'
         ucan_address = '000.000.000'
 

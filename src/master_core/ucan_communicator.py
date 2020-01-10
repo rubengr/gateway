@@ -38,14 +38,14 @@ class UCANCommunicator(object):
     """
 
     @Inject
-    def __init__(self, master_communicator=INJECTED, ucan_communicator_verbose=INJECTED):
+    def __init__(self, master_communicator=INJECTED, verbose=False):
         """
         :param master_communicator: CoreCommunicator
         :type master_communicator: master_core.core_communicator.CoreCommunicator
-        :param ucan_communicator_verbose: Log all communication
-        :type ucan_communicator_verbose: boolean.
+        :param verbose: Log all communication
+        :type verbose: boolean.
         """
-        self._verbose = ucan_communicator_verbose
+        self._verbose = verbose
         self._communicator = master_communicator
         self._read_buffer = []
         self._consumers = {}
