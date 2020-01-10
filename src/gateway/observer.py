@@ -234,7 +234,7 @@ class Observer(object):
 
     def _register_background_consumers(self):
         if self._master_version and not self._background_consumers_registered:
-            if platform.get_platform() == Platform.Type.CLASSIC:
+            if Platform.get_platform() == Platform.Type.CLASSIC:
                 from master.master_communicator import BackgroundConsumer
                 self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(self._master_version), 0, self._on_input))
                 self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(self._master_version), 0, self._on_shutter_update))

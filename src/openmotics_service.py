@@ -49,10 +49,8 @@ def setup_logger():
 
 class OpenmoticsService(object):
 
-    def __init__(self):
-        pass
-
-    def build_graph(self):
+    @staticmethod
+    def build_graph():
         config = ConfigParser()
         config.read(constants.get_config_file())
 
@@ -157,11 +155,9 @@ class OpenmoticsService(object):
         Injectable.value(ssl_private_key=constants.get_ssl_private_key_file())
         Injectable.value(ssl_certificate=constants.get_ssl_certificate_file())
 
-        DumpInjectionStack()
-
+    @staticmethod
     @Inject
-    def fix_dependencies(self,
-                         metrics_controller=INJECTED, message_client=INJECTED, web_interface=INJECTED, scheduling_controller=INJECTED,
+    def fix_dependencies(metrics_controller=INJECTED, message_client=INJECTED, web_interface=INJECTED, scheduling_controller=INJECTED,
                          observer=INJECTED, gateway_api=INJECTED, metrics_collector=INJECTED, plugin_controller=INJECTED,
                          web_service=INJECTED, event_sender=INJECTED, maintenance_controller=INJECTED):
         # TODO: Fix circular dependencies
@@ -190,13 +186,12 @@ class OpenmoticsService(object):
 
         maintenance_controller.subscribe_maintenance_stopped(gateway_api.maintenance_mode_stopped)
 
+    @staticmethod
     @Inject
-    def start(self,
-              master_controller=INJECTED, maintenance_controller=INJECTED,
+    def start(master_controller=INJECTED, maintenance_controller=INJECTED,
               observer=INJECTED, power_communicator=INJECTED, metrics_controller=INJECTED, passthrough_service=INJECTED,
               scheduling_controller=INJECTED, metrics_collector=INJECTED, web_service=INJECTED, gateway_api=INJECTED, plugin_controller=INJECTED,
-              communication_led_controller=INJECTED, event_sender=INJECTED
-    ):
+              communication_led_controller=INJECTED, event_sender=INJECTED):
         """ Main function. """
         logger.info('Starting OM core service...')
 
@@ -245,7 +240,6 @@ if __name__ == "__main__":
     message_service = MessageService()
     message_service.start()
 
-    openmotics_service = OpenmoticsService()
-    openmotics_service.build_graph()
-    openmotics_service.fix_dependencies()
-    openmotics_service.start()
+    OpenmoticsService.build_graph()
+    OpenmoticsService.fix_dependencies()
+    OpenmoticsService.start()
