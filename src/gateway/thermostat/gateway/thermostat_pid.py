@@ -12,12 +12,13 @@ class ThermostatPid(object):
     DEFAULT_KI = 0.0
     DEFAULT_KD = 2.0
 
-    def __init__(self, thermostat, valve_controller, gateway_api):
+    def __init__(self, thermostat, pump_valve_controller, gateway_api):
         self._gateway_api = gateway_api
-        self._valve_controller = valve_controller
+        self._pump_valve_controller = pump_valve_controller
         self._thermostat_change_lock = Lock()
         self._heating_valve_numbers = []
         self._cooling_valve_numbers = []
+        self._report_state_callbacks = []
         self._pid = None
         self._thermostat = None
         self._mode = None
@@ -90,6 +91,18 @@ class ThermostatPid(object):
     def thermostat(self):
         return self._thermostat
 
+    def subscribe_state_changes(self, callback):
+        """
+        Subscribes a callback to generic events
+        :param callback: the callback to call
+        """
+        self._report_state_callbacks.append(callback)
+
+    def report_state_change(self):
+        for callback in self._report_state_callbacks:
+            callback(self.number, self._active_preset.name, self.setpoint, self.current_temperature,
+                     self.get_active_valves_percentage(), self.thermostat.room)
+
     def tick(self):
         logger.info('_pid_tick - thermostat {} is {} enabled in {} mode'.format(self.thermostat.number, '' if self.enabled else 'not', self._mode))
         if self.enabled:
@@ -121,11 +134,15 @@ class ThermostatPid(object):
                    (self._mode == 'heating' and output_power < 0):
                     output_power = 0
                 self.steer(output_power)
+                self.report_state_change()
             except CommunicationTimedOutException as ex:
                 logger.error('Error in PID tick for thermostat {}: {}'.format(self.thermostat.number, str(ex)))
                 self._errors += 1
         else:
             self.switch_off()
+
+    def get_active_valves_percentage(self):
+        return [self._pump_valve_controller.get_valve_driver(valve.number).percentage for valve in self.thermostat.active_valves]
 
     @property
     def errors(self):
@@ -135,21 +152,29 @@ class ThermostatPid(object):
     def number(self):
         return self.thermostat.number
 
+    @property
+    def setpoint(self):
+        return self._pid.setpoint
+
+    @property
+    def current_temperature(self):
+        return self._current_temperature
+
     def steer(self, power):
         logger.info('PID steer - power {} '.format(power))
 
         # configure valves and set desired opening
         if power > 0:
             # TODO: check union to avoid opening same valve_numbers in heating and cooling
-            self._valve_controller.set_valves(0, self.cooling_valve_numbers, mode=self.thermostat.valve_config)
-            self._valve_controller.set_valves(power, self.heating_valve_numbers, mode=self.thermostat.valve_config)
+            self._pump_valve_controller.set_valves(0, self.cooling_valve_numbers, mode=self.thermostat.valve_config)
+            self._pump_valve_controller.set_valves(power, self.heating_valve_numbers, mode=self.thermostat.valve_config)
         else:
-            self._valve_controller.set_valves(0, self.heating_valve_numbers, mode=self.thermostat.valve_config)
+            self._pump_valve_controller.set_valves(0, self.heating_valve_numbers, mode=self.thermostat.valve_config)
             # convert power to positive value for opening cooling valve_numbers
-            self._valve_controller.set_valves(abs(power), self.cooling_valve_numbers, mode=self.thermostat.valve_config)
+            self._pump_valve_controller.set_valves(abs(power), self.cooling_valve_numbers, mode=self.thermostat.valve_config)
 
         # effectively steer pumps and valves according to needs
-        self._valve_controller.steer()
+        self._pump_valve_controller.steer()
 
     def switch_off(self):
         self.steer(0)

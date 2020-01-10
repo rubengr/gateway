@@ -2,15 +2,14 @@ import datetime
 import time
 import logging
 from threading import Thread
-
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from peewee import DoesNotExist
+from playhouse.signals import post_save
 from wiring import provides, scope, inject, SingletonScope
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Event
 from master.eeprom_models import ThermostatConfiguration, CoolingConfiguration
-from models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, \
-    OutputToThermostatGroup, ValveToThermostat, Valve, Pump, Feature
+from models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, OutputToThermostatGroup, ValveToThermostat, Valve, Pump, Feature
 from gateway.thermostat.gateway.pump_valve_controller import PumpValveController
 from gateway.thermostat.thermostat_controller import ThermostatController
 from gateway.thermostat.gateway.thermostat_pid import ThermostatPid
@@ -49,6 +48,8 @@ class ThermostatControllerGateway(ThermostatController):
         # e.g. in case when gateway was rebooting during a scheduled transition
         jobstores = {'default': SQLAlchemyJobStore(url='sqlite:////opt/openmotics/etc/thermostat-scheduler.db')}
         self._scheduler = BackgroundScheduler(jobstores=jobstores, timezone=timezone)
+
+        ThermostatControllerGateway.__instance = self
 
     @staticmethod
     def get_instance():
@@ -103,6 +104,7 @@ class ThermostatControllerGateway(ThermostatController):
             thermostat_pid = self.thermostat_pids.get(thermostat.number)
             if thermostat_pid is None:
                 thermostat_pid = ThermostatPid(thermostat, self._pump_valve_controller, self._gateway_api)
+                thermostat_pid.subscribe_state_changes(self.v0_event_thermostat_changed)
                 self.thermostat_pids[thermostat.number] = thermostat_pid
             thermostat_pid.update_thermostat(thermostat)
             thermostat_pid.tick()
@@ -644,35 +646,6 @@ class ThermostatControllerGateway(ThermostatController):
 
         return thermo
 
-    def _v0_event_thermostat_changed(self, thermostat):
-        """
-        :type thermostat: gateway.thermostat.models.Thermostat
-        """
-        """ Executed by the Thermostat Status tracker when an output changed state """
-        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat.number})
-        location = {'room_id': thermostat.room}
-        for callback in self._event_subscriptions:
-            callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
-                           data={'id': thermostat.number,
-                                 'status': {'preset': 'AWAY',  # TODO: get real value from somewhere
-                                            'current_setpoint': thermostat.setpoint,
-                                            'actual_temperature': 21,  # TODO: get real value from somewhere
-                                            'output_0': thermostat.heating_valves[0],
-                                            'output_1': thermostat.heating_valves[1]},
-                                 'location': location}))
-
-    def _v0_event_thermostat_group_changed(self, thermostat_group):
-        """
-        :type thermostat_group: gateway.thermostat.models.ThermostatGroup
-        """
-        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
-        for callback in self._event_subscriptions:
-            callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
-                           data={'id': 0,
-                                 'status': {'state': 'ON' if thermostat_group.on else 'OFF',
-                                            'mode': 'COOLING' if thermostat_group.mode == 'cooling' else 'HEATING'},
-                                 'location': {}}))
-
     def v0_set_configuration(self, config, mode):
         # TODO: implement the new v1 config format
         thermostat_number = int(config['id'])
@@ -686,3 +659,38 @@ class ThermostatControllerGateway(ThermostatController):
         self._sync_scheduler()
         thermostat_pid.tick()
         return {'status': 'OK'}
+
+    def v0_event_thermostat_changed(self, thermostat_number, active_preset, current_setpoint, actual_temperature, percentages, room):
+        """
+        :type thermostat_number: int
+        """
+        logger.info('v0_event_thermostat_changed: {}'.format(thermostat_number))
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_number})
+        location = {'room_id': room}
+        for callback in self._event_subscriptions:
+            callback(Event(event_type=Event.Types.THERMOSTAT_CHANGE,
+                           data={'id': thermostat_number,
+                                 'status': {'preset': active_preset,
+                                            'current_setpoint': current_setpoint,
+                                            'actual_temperature': actual_temperature,
+                                            'output_0': percentages[0],
+                                            'output_1': percentages[1]},
+                                 'location': location}))
+
+    def v0_event_thermostat_group_changed(self, thermostat_group):
+        """
+        :type thermostat_group: models.ThermostatGroup
+        """
+        logger.info('v0_event_thermostat_group_changed: {}'.format(thermostat_group))
+        self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
+        for callback in self._event_subscriptions:
+            callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
+                           data={'id': 0,
+                                 'status': {'state': 'ON' if thermostat_group.on else 'OFF',
+                                            'mode': 'COOLING' if thermostat_group.mode == 'cooling' else 'HEATING'},
+                                 'location': {}}))
+
+@post_save(sender=ThermostatGroup)
+def on_thermostat_group_change_handler(model_class, instance, created):
+    if not created:
+        ThermostatControllerGateway.get_instance().v0_event_thermostat_group_changed(instance)

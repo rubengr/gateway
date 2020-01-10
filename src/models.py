@@ -2,8 +2,9 @@ import datetime
 import json
 import logging
 import time
+from playhouse.signals import post_save, Model
+
 import constants
-from playhouse.signals import Model, post_save
 from peewee import PrimaryKeyField, IntegerField, FloatField, BooleanField, TextField, ForeignKeyField, \
                    CompositeKey, SqliteDatabase, DoesNotExist, CharField
 
@@ -161,6 +162,10 @@ class Thermostat(BaseModel):
             raise ValueError('Preset with name {} not found.'.format(name))
 
     @property
+    def setpoint(self):
+        return self.active_preset.heating_setpoint if self.mode == 'heating' else self.active_preset.cooling_setpoint
+
+    @property
     def active_preset(self):
         preset = Preset.get_or_none(thermostat=self.id, active=True)
         if preset is None:
@@ -195,23 +200,27 @@ class Thermostat(BaseModel):
     def valves(self):
         return [valve for valve in Valve.select(Valve)
                                         .join(ValveToThermostat)
-                                        .where(ValveToThermostat.thermostat == self.id)]
+                                        .where(ValveToThermostat.thermostat == self.id)
+                                        .order_by(ValveToThermostat.priority)]
+
+    def _valves(self, mode):
+        return [valve for valve in Valve.select(Valve, ValveToThermostat.mode, ValveToThermostat.priority)
+                                        .join(ValveToThermostat)
+                                        .where(ValveToThermostat.thermostat == self.id)
+                                        .where(ValveToThermostat.mode == mode)
+                                        .order_by(ValveToThermostat.priority)]
+
+    @property
+    def active_valves(self):
+        return self._valves(mode=self.mode)
 
     @property
     def heating_valves(self):
-        return [valve for valve in Valve.select(Valve, ValveToThermostat.mode, ValveToThermostat.priority)
-                                        .join(ValveToThermostat)
-                                        .where(ValveToThermostat.thermostat == self.id)
-                                        .where(ValveToThermostat.mode == 'heating')
-                                        .order_by(ValveToThermostat.priority)]
+        return self._valves(mode='heating')
 
     @property
     def cooling_valves(self):
-        return [valve for valve in Valve.select(Valve, ValveToThermostat.mode, ValveToThermostat.priority)
-                                        .join(ValveToThermostat)
-                                        .where(ValveToThermostat.thermostat == self.id)
-                                        .where(ValveToThermostat.mode == 'cooling')
-                                        .order_by(ValveToThermostat.priority)]
+        return self._valves(mode='cooling')
 
     @property
     def presets(self):

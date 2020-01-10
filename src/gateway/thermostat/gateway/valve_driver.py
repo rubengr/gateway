@@ -30,6 +30,10 @@ class ValveDriver(object):
         return self._valve.number
 
     @property
+    def percentage(self):
+        return self._current_percentage
+
+    @property
     def pump_drivers(self):
         return [PumpDriver(pump, self._gateway_api) for pump in self._valve.pumps]
 
