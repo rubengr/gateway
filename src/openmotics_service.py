@@ -21,44 +21,16 @@ System.import_eggs()
 import logging
 import time
 import constants
-from wiring import Graph, SingletonScope
+from ioc import Injectable, Inject, INJECTED, DumpInjectionStack
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
-from cloud.cloud_api_client import CloudAPIClient
-from cloud.events import EventSender
 from serial import Serial
 from signal import signal, SIGTERM
 from ConfigParser import ConfigParser
 from threading import Lock
 from serial_utils import RS485
-from gateway.webservice import WebInterface, WebService
-from gateway.comm_led_controller import CommunicationLedController
-from gateway.gateway_api import GatewayApi
-from gateway.users import UserController
-from gateway.metrics_controller import MetricsController
-from gateway.metrics_collector import MetricsCollector
-from gateway.metrics_caching import MetricsCacheController
-from gateway.config import ConfigurationController
-from gateway.scheduling import SchedulingController
-from gateway.pulses import PulseCounterController
-from gateway.observer import Observer, Event
-from gateway.shutters import ShutterController
-from gateway.hal.master_controller_classic import MasterClassicController
-from gateway.hal.master_controller_core import MasterCoreController
-from gateway.maintenance_controller import MaintenanceController
+from gateway.observer import Observer
 from urlparse import urlparse
-from master.eeprom_controller import EepromController, EepromFile
-from master.eeprom_extension import EepromExtension
-from master.maintenance import MaintenanceClassicCommunicator
-from master.master_communicator import MasterCommunicator
-from master.passthrough import PassthroughService
-from master_core.core_communicator import CoreCommunicator
-from master_core.ucan_communicator import UCANCommunicator
-from master_core.memory_file import MemoryFile
-from master_core.maintenance import MaintenanceCoreCommunicator
-from power.power_communicator import PowerCommunicator
-from power.power_controller import PowerController
-from plugins.base import PluginController
 
 logger = logging.getLogger("openmotics")
 
@@ -78,9 +50,9 @@ def setup_logger():
 class OpenmoticsService(object):
 
     def __init__(self):
-        self.graph = Graph()
+        pass
 
-    def _build_graph(self):
+    def build_graph(self):
         config = ConfigParser()
         config.read(constants.get_config_file())
 
@@ -90,137 +62,106 @@ class OpenmoticsService(object):
 
         config_database_file = constants.get_config_database_file()
 
-        # TODO: Write below code with wiring Modules etc
         # TODO: Clean up dependencies more to reduce complexity
 
+        # IOC announcements
+        # When below modules are imported, the classes are registerd in the IOC graph.
+        from power import power_communicator, power_controller
+        from plugins import base
+        from gateway import (shutters, maintenance_controller, webservice, comm_led_controller,
+                             gateway_api, users, metrics_controller, metrics_collector, metrics_caching,
+                             config as config_module, scheduling, pulses)
+        from cloud import cloud_api_client, events
+        _ = (power_communicator, power_controller, base, shutters, maintenance_controller, webservice,
+             comm_led_controller, gateway_api, users, metrics_controller, metrics_collector, metrics_caching,
+             config_module, scheduling, pulses, cloud_api_client, events)
+        if Platform.get_platform() == Platform.Type.CORE_PLUS:
+            from master_core import memory_file, core_communicator, ucan_communicator, maintenance
+            from gateway.hal import master_controller_core
+            from master import eeprom_extension  # TODO: Should be made obsolete
+            _ = (memory_file, core_communicator, ucan_communicator, maintenance, master_controller_core, eeprom_extension)
+        else:
+            from master import master_communicator, eeprom_controller, eeprom_extension, passthrough, maintenance
+            from gateway.hal import master_controller_classic
+            _ = (master_communicator, eeprom_controller, eeprom_extension, passthrough, maintenance, master_controller_classic)
+
         # IPC
-        self.graph.register_instance('message_client', MessageClient('openmotics_service'))
+        Injectable.value(message_client=MessageClient('openmotics_service'))
 
         # Cloud API
         parsed_url = urlparse(config.get('OpenMotics', 'vpn_check_url'))
-        self.graph.register_instance('gateway_uuid', config.get('OpenMotics', 'uuid'))
-        self.graph.register_instance('cloud_endpoint', parsed_url.hostname)
-        self.graph.register_instance('cloud_port', parsed_url.port)
-        self.graph.register_instance('cloud_ssl', parsed_url.scheme == 'https')
-        self.graph.register_instance('cloud_api_version', 0)
-        self.graph.register_factory('cloud_api_client', CloudAPIClient)
-
-        # Events
-        self.graph.register_factory('event_sender', EventSender, scope=SingletonScope)
+        Injectable.value(gateway_uuid=config.get('OpenMotics', 'uuid'))
+        Injectable.value(cloud_endpoint=parsed_url.hostname)
+        Injectable.value(cloud_port=parsed_url.port)
+        Injectable.value(cloud_ssl=parsed_url.scheme == 'https')
+        Injectable.value(cloud_api_version=0)
 
         # User Controller
-        self.graph.register_instance('user_db', config_database_file)
-        self.graph.register_instance('user_db_lock', config_lock)
-        self.graph.register_instance('token_timeout', 3600)
-        self.graph.register_instance('config', {'username': config.get('OpenMotics', 'cloud_user'),
-                                                'password': config.get('OpenMotics', 'cloud_pass')})
-        self.graph.register_factory('user_controller', UserController, scope=SingletonScope)
+        Injectable.value(user_db=config_database_file)
+        Injectable.value(user_db_lock=config_lock)
+        Injectable.value(token_timeout=3600)
+        Injectable.value(config={'username': config.get('OpenMotics', 'cloud_user'),
+                                 'password': config.get('OpenMotics', 'cloud_pass')})
 
         # Configuration Controller
-        self.graph.register_instance('config_db', config_database_file)
-        self.graph.register_instance('config_db_lock', config_lock)
-        self.graph.register_factory('config_controller', ConfigurationController, scope=SingletonScope)
+        Injectable.value(config_db=config_database_file)
+        Injectable.value(config_db_lock=config_lock)
 
         # Energy Controller
         power_serial_port = config.get('OpenMotics', 'power_serial')
-        self.graph.register_instance('power_db', constants.get_power_database_file())
+        Injectable.value(power_db=constants.get_power_database_file())
         if power_serial_port:
-            self.graph.register_instance('power_serial', RS485(Serial(power_serial_port, 115200, timeout=None)))
-            self.graph.register_factory('power_communicator', PowerCommunicator, scope=SingletonScope)
-            self.graph.register_factory('power_controller', PowerController, scope=SingletonScope)
+            Injectable.value(power_serial=RS485(Serial(power_serial_port, 115200, timeout=None)))
         else:
-            self.graph.register_instance('power_serial', None)
-            self.graph.register_instance('power_communicator', None)
-            self.graph.register_instance('power_controller', None)
+            Injectable.value(power_serial=None)
+            Injectable.value(power_communicator=None)
+            Injectable.value(power_controller=None)
 
         # Pulse Controller
-        self.graph.register_instance('pulse_db', constants.get_pulse_counter_database_file())
-        self.graph.register_factory('pulse_controller', PulseCounterController, scope=SingletonScope)
+        Injectable.value(pulse_db=constants.get_pulse_counter_database_file())
 
         # Scheduling Controller
-        self.graph.register_instance('scheduling_db', constants.get_scheduling_database_file())
-        self.graph.register_instance('scheduling_db_lock', scheduling_lock)
-        self.graph.register_factory('scheduling_controller', SchedulingController, scope=SingletonScope)
+        Injectable.value(scheduling_db=constants.get_scheduling_database_file())
+        Injectable.value(scheduling_db_lock=scheduling_lock)
 
         # Master Controller
         controller_serial_port = config.get('OpenMotics', 'controller_serial')
-        self.graph.register_instance('controller_serial', Serial(controller_serial_port, 115200))
+        Injectable.value(controller_serial=Serial(controller_serial_port, 115200))
         if Platform.get_platform() == Platform.Type.CORE_PLUS:
+            from master_core.memory_file import MemoryFile, MemoryTypes
             core_cli_serial_port = config.get('OpenMotics', 'cli_serial')
-            self.graph.register_factory('master_controller', MasterCoreController, scope=SingletonScope)
-            self.graph.register_factory('master_core_communicator', CoreCommunicator, scope=SingletonScope)
-            self.graph.register_factory('ucan_communicator', UCANCommunicator, scope=SingletonScope)
-            self.graph.register_factory('memory_file', MemoryFile, scope=SingletonScope)
-            self.graph.register_instance('ucan_communicator_verbose', False)
-            self.graph.register_instance('core_communicator_verbose', False)
-            self.graph.register_instance('cli_serial', Serial(core_cli_serial_port, 115200))
-            self.graph.register_instance('passthrough_service', None)  # Mark as "not needed"
+            Injectable.value(ucan_communicator_verbose=False)
+            Injectable.value(core_communicator_verbose=False)
+            Injectable.value(cli_serial=Serial(core_cli_serial_port, 115200))
+            Injectable.value(passthrough_service=None)  # Mark as "not needed"
+            Injectable.value(memory_files={MemoryTypes.EEPROM: MemoryFile(MemoryTypes.EEPROM),
+                                           MemoryTypes.FRAM: MemoryFile(MemoryTypes.FRAM)})
             # TODO: Remove; should not be needed for Core
-            self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
-            self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
-            self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
-            self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
-            self.graph.register_factory('master_classic_communicator', CoreCommunicator, scope=SingletonScope)
+            Injectable.value(eeprom_db=constants.get_eeprom_extension_database_file())
         else:
             passthrough_serial_port = config.get('OpenMotics', 'passthrough_serial')
-            self.graph.register_instance('eeprom_db', constants.get_eeprom_extension_database_file())
-            self.graph.register_factory('master_controller', MasterClassicController, scope=SingletonScope)
-            self.graph.register_factory('master_classic_communicator', MasterCommunicator, scope=SingletonScope)
-            self.graph.register_factory('eeprom_controller', EepromController, scope=SingletonScope)
-            self.graph.register_factory('eeprom_file', EepromFile, scope=SingletonScope)
-            self.graph.register_factory('eeprom_extension', EepromExtension, scope=SingletonScope)
+            Injectable.value(eeprom_db=constants.get_eeprom_extension_database_file())
             if passthrough_serial_port:
-                self.graph.register_instance('passthrough_serial', Serial(passthrough_serial_port, 115200))
-                self.graph.register_factory('passthrough_service', PassthroughService, scope=SingletonScope)
+                Injectable.value(passthrough_serial=Serial(passthrough_serial_port, 115200))
             else:
-                self.graph.register_instance('passthrough_service', None)
-
-        # Maintenance Controller
-        self.graph.register_factory('maintenance_controller', MaintenanceController, scope=SingletonScope)
-        if Platform.get_platform() == Platform.Type.CORE_PLUS:
-            self.graph.register_factory('maintenance_communicator', MaintenanceCoreCommunicator, scope=SingletonScope)
-        else:
-            self.graph.register_factory('maintenance_communicator', MaintenanceClassicCommunicator, scope=SingletonScope)
+                Injectable.value(passthrough_service=None)
 
         # Metrics Controller
-        self.graph.register_instance('metrics_db', constants.get_metrics_database_file())
-        self.graph.register_instance('metrics_db_lock', metrics_lock)
-        self.graph.register_factory('metrics_collector', MetricsCollector, scope=SingletonScope)
-        self.graph.register_factory('metrics_controller', MetricsController, scope=SingletonScope)
-        self.graph.register_factory('metrics_cache_controller', MetricsCacheController, scope=SingletonScope)
-
-        # Plugin Controller
-        self.graph.register_factory('plugin_controller', PluginController, scope=SingletonScope)
-
-        # Shutter Controller
-        self.graph.register_factory('shutter_controller', ShutterController, scope=SingletonScope)
+        Injectable.value(metrics_db=constants.get_metrics_database_file())
+        Injectable.value(metrics_db_lock=metrics_lock)
 
         # Webserver / Presentation layer
-        self.graph.register_instance('ssl_private_key', constants.get_ssl_private_key_file())
-        self.graph.register_instance('ssl_certificate', constants.get_ssl_certificate_file())
-        self.graph.register_factory('web_interface', WebInterface, scope=SingletonScope)
-        self.graph.register_factory('web_service', WebService, scope=SingletonScope)
-        self.graph.register_factory('communication_led_controller', CommunicationLedController, scope=SingletonScope)
+        Injectable.value(ssl_private_key=constants.get_ssl_private_key_file())
+        Injectable.value(ssl_certificate=constants.get_ssl_certificate_file())
 
-        # Middlewares
-        self.graph.register_factory('observer', Observer, scope=SingletonScope)
-        self.graph.register_factory('gateway_api', GatewayApi, scope=SingletonScope)
+        DumpInjectionStack()
 
-        self.graph.validate()
-
-    def _fix_dependencies(self):
+    @Inject
+    def fix_dependencies(self,
+                         metrics_controller=INJECTED, message_client=INJECTED, web_interface=INJECTED, scheduling_controller=INJECTED,
+                         observer=INJECTED, gateway_api=INJECTED, metrics_collector=INJECTED, plugin_controller=INJECTED,
+                         web_service=INJECTED, event_sender=INJECTED, maintenance_controller=INJECTED):
         # TODO: Fix circular dependencies
-        metrics_controller = self.graph.get('metrics_controller')
-        message_client = self.graph.get('message_client')
-        web_interface = self.graph.get('web_interface')
-        scheduling_controller = self.graph.get('scheduling_controller')
-        observer = self.graph.get('observer')
-        gateway_api = self.graph.get('gateway_api')
-        metrics_collector = self.graph.get('metrics_collector')
-        plugin_controller = self.graph.get('plugin_controller')
-        web_service = self.graph.get('web_service')
-        event_sender = self.graph.get('event_sender')
-        maintenance_controller = self.graph.get('maintenance_controller')
 
         message_client.add_event_handler(metrics_controller.event_receiver)
         web_interface.set_plugin_controller(plugin_controller)
@@ -246,21 +187,30 @@ class OpenmoticsService(object):
 
         maintenance_controller.subscribe_maintenance_stopped(gateway_api.maintenance_mode_stopped)
 
-    def start(self):
+    @Inject
+    def start(self,
+              master_controller=INJECTED, maintenance_controller=INJECTED,
+              observer=INJECTED, power_communicator=INJECTED, metrics_controller=INJECTED, passthrough_service=INJECTED,
+              scheduling_controller=INJECTED, metrics_collector=INJECTED, web_service=INJECTED, gateway_api=INJECTED, plugin_controller=INJECTED,
+              communication_led_controller=INJECTED, event_sender=INJECTED
+    ):
         """ Main function. """
         logger.info('Starting OM core service...')
 
-        self._build_graph()
-        self._fix_dependencies()
-
-        service_names = ['master_controller', 'maintenance_controller',
-                         'observer', 'power_communicator', 'metrics_controller', 'passthrough_service',
-                         'scheduling_controller', 'metrics_collector', 'web_service', 'gateway_api', 'plugin_controller',
-                         'communication_led_controller', 'event_sender']
-        for name in service_names:
-            service = self.graph.get(name)
-            if service is not None:
-                service.start()
+        master_controller.start()
+        maintenance_controller.start()
+        observer.start()
+        power_communicator.start()
+        metrics_controller.start()
+        if passthrough_service:
+            passthrough_service.start()
+        scheduling_controller.start()
+        metrics_collector.start()
+        web_service.start()
+        gateway_api.start()
+        plugin_controller.start()
+        communication_led_controller.start()
+        event_sender.start()
 
         signal_request = {'stop': False}
 
@@ -268,10 +218,13 @@ class OpenmoticsService(object):
             """ This function is called on SIGTERM. """
             _ = signum, frame
             logger.info('Stopping OM core service...')
-            services_to_stop = ['master_controller', 'maintenance_controller',
-                                'web_service', 'metrics_collector', 'metrics_controller', 'plugin_controller', 'event_sender']
-            for service_to_stop in services_to_stop:
-                self.graph.get(service_to_stop).stop()
+            master_controller.stop()
+            maintenance_controller.stop()
+            web_service.stop()
+            metrics_collector.stop()
+            metrics_controller.stop()
+            plugin_controller.stop()
+            event_sender.stop()
             logger.info('Stopping OM core service... Done')
             signal_request['stop'] = True
 
@@ -290,4 +243,6 @@ if __name__ == "__main__":
     message_service.start()
 
     openmotics_service = OpenmoticsService()
+    openmotics_service.build_graph()
+    openmotics_service.fix_dependencies()
     openmotics_service.start()

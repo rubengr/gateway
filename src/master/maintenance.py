@@ -19,12 +19,14 @@ The maintenance module contains the MaintenanceCommunicator class.
 import time
 import logging
 from threading import Timer, Thread
-from wiring import provides, inject, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.maintenance_communicator import MaintenanceCommunicator
 
 logger = logging.getLogger('openmotics')
 
 
+@Injectable.named('maintenance_communicator')
+@Singleton
 class MaintenanceClassicCommunicator(MaintenanceCommunicator):
     """
     The maintenance communicator handles maintenance communication with the Master
@@ -32,10 +34,8 @@ class MaintenanceClassicCommunicator(MaintenanceCommunicator):
 
     MAINTENANCE_TIMEOUT = 600
 
-    @provides('maintenance_communicator')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_classic_communicator')
-    def __init__(self, master_communicator):
+    @Inject
+    def __init__(self, master_communicator=INJECTED):
         """
         Construct a MaintenanceCommunicator.
 

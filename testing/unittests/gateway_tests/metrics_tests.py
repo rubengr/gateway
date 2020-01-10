@@ -76,7 +76,7 @@ class MetricsTest(unittest.TestCase):
         metrics_controller = MetricsController(plugin_controller=plugin_controller,
                                                metrics_collector=metrics_collector,
                                                metrics_cache_controller=metrics_cache_controller,
-                                               config_controller=config_controller,
+                                               configuration_controller=config_controller,
                                                gateway_uuid='none')
         return config_controller, metrics_controller
 

@@ -20,29 +20,28 @@ import pkgutil
 import traceback
 from gateway.observer import Event
 from datetime import datetime
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from plugins.runner import PluginRunner
 
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('plugin_controller')
+@Singleton
 class PluginController(object):
     """ The controller keeps track of all plugins in the system. """
 
-    @provides('plugin_controller')
-    @scope(SingletonScope)
-    @inject(webinterface='web_interface', config_controller='config_controller', observer='observer')
-    def __init__(
-        self, webinterface, config_controller, observer,
-        runtime_path='/opt/openmotics/python/plugin_runtime',
-        plugins_path='/opt/openmotics/python/plugins',
-        plugin_config_path='/opt/openmotics/etc'
-    ):
+    @Inject
+    def __init__(self,
+                 web_interface=INJECTED, configuration_controller=INJECTED, observer=INJECTED,
+                 runtime_path='/opt/openmotics/python/plugin_runtime',
+                 plugins_path='/opt/openmotics/python/plugins',
+                 plugin_config_path='/opt/openmotics/etc'):
         """
         :type observer: gateway.observer.Observer
         """
-        self.__webinterface = webinterface
-        self.__config_controller = config_controller
+        self.__webinterface = web_interface
+        self.__config_controller = configuration_controller
         self.__runtime_path = runtime_path
         self.__plugins_path = plugins_path
         self.__plugin_config_path = plugin_config_path

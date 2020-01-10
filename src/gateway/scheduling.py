@@ -24,10 +24,18 @@ from datetime import datetime
 from croniter import croniter
 from random import randint
 from threading import Thread
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
+from platform_utils import Platform
 from gateway.webservice import params_parser
-from master.master_communicator import CommunicationTimedOutException
 import ujson as json
+
+if Platform.get_platform() == Platform.Type.CLASSIC:
+    from master.master_communicator import CommunicationTimedOutException
+else:
+    # TODO: Replace for the Core+
+    class CommunicationTimedOutException(Exception):
+        pass
+
 
 logger = logging.getLogger('openmotics')
 
@@ -93,6 +101,8 @@ class Schedule(object):
                 'next_execution': self.next_execution}
 
 
+@Injectable.named('scheduling_controller')
+@Singleton
 class SchedulingController(object):
     """
     The SchedulingController controls schedules and executes them. Based on their type, they can trigger different
@@ -114,23 +124,21 @@ class SchedulingController(object):
     * String: Cron format, docs at https://github.com/kiorky/croniter
     """
 
-    @provides('scheduling_controller')
-    @scope(SingletonScope)
-    @inject(db_filename='scheduling_db', lock='scheduling_db_lock', gateway_api='gateway_api')
-    def __init__(self, db_filename, lock, gateway_api):
+    @Inject
+    def __init__(self, scheduling_db=INJECTED, scheduling_db_lock=INJECTED, gateway_api=INJECTED):
         """
         Constructs a new ConfigController.
 
-        :param db_filename: filename of the sqlite database used to store the scheduling
-        :param lock: DB lock
+        :param scheduling_db: filename of the sqlite database used to store the scheduling
+        :param scheduling_db_lock: DB lock
         :param gateway_api: GatewayAPI
         :type gateway_api: gateway.gateway_api.GatewayApi
         """
         self._gateway_api = gateway_api
         self._web_interface = None
 
-        self._lock = lock
-        self._connection = sqlite3.connect(db_filename,
+        self._lock = scheduling_db_lock
+        self._connection = sqlite3.connect(scheduling_db,
                                            detect_types=sqlite3.PARSE_DECLTYPES,
                                            check_same_thread=False,
                                            isolation_level=None)

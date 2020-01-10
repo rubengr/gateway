@@ -21,25 +21,25 @@ import sqlite3
 import logging
 import ujson as json
 from random import randint
-from wiring import provides, inject, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('metrics_cache_controller')
+@Singleton
 class MetricsCacheController(object):
 
-    @provides('metrics_cache_controller')
-    @scope(SingletonScope)
-    @inject(db_filename='metrics_db', lock='metrics_db_lock')
-    def __init__(self, db_filename, lock):
+    @Inject
+    def __init__(self, metrics_db=INJECTED, metrics_db_lock=INJECTED):
         """
         Constructs a new MetricsCacheController.
 
-        :param db_filename: filename of the sqlite database used to store the cache/buffer
-        :param lock: DB lock
+        :param metrics_db: filename of the sqlite database used to store the cache/buffer
+        :param metrics_db_lock: DB lock
         """
-        self._lock = lock
-        self._connection = sqlite3.connect(db_filename,
+        self._lock = metrics_db_lock
+        self._connection = sqlite3.connect(metrics_db,
                                            detect_types=sqlite3.PARSE_DECLTYPES,
                                            check_same_thread=False,
                                            isolation_level=None)

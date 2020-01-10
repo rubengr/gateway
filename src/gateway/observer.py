@@ -19,16 +19,22 @@ The observer module contains logic to observe various states of the system. It k
 import time
 import logging
 import ujson as json
-from wiring import provides, inject, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from threading import Thread
 from platform_utils import Platform
 from gateway.hal.master_controller import MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
-from master.master_communicator import BackgroundConsumer, CommunicationTimedOutException
 from master.thermostats import ThermostatStatus
 from master.inputs import InputStatus
 from master import master_api
 from bus.om_bus_events import OMBusEvents
+
+if Platform.get_platform() == Platform.Type.CLASSIC:
+    from master.master_communicator import CommunicationTimedOutException
+else:
+    # TODO: Replace for the Core+
+    class CommunicationTimedOutException(Exception):
+        pass
 
 
 logger = logging.getLogger("openmotics")
@@ -67,6 +73,8 @@ class Event(object):
                      data=data['data'])
 
 
+@Injectable.named('observer')
+@Singleton
 class Observer(object):
     """
     The Observer gets various (change) events and will also monitor certain datasets to manually detect changes
@@ -82,10 +90,8 @@ class Observer(object):
         THERMOSTATS = 'THERMOSTATS'
         SHUTTERS = 'SHUTTERS'
 
-    @provides('observer')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_classic_communicator', master_controller='master_controller', message_client='message_client', shutter_controller='shutter_controller')
-    def __init__(self, master_communicator, master_controller, message_client, shutter_controller):
+    @Inject
+    def __init__(self, master_communicator=INJECTED, master_controller=INJECTED, message_client=INJECTED, shutter_controller=INJECTED):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -228,9 +234,11 @@ class Observer(object):
 
     def _register_background_consumers(self):
         if self._master_version and not self._background_consumers_registered:
-            self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(self._master_version), 0, self._on_input))
-            self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(self._master_version), 0, self._on_shutter_update))
-            self._background_consumers_registered = True
+            if platform.get_platform() == Platform.Type.CLASSIC:
+                from master.master_communicator import BackgroundConsumer
+                self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(self._master_version), 0, self._on_input))
+                self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(self._master_version), 0, self._on_shutter_update))
+                self._background_consumers_registered = True
 
     # Handle master "events"
 

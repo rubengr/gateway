@@ -21,22 +21,22 @@ to communicate with the master.
 
 import logging
 import threading
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.maintenance_communicator import InMaintenanceModeException
 from master.master_command import printable
 
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('passthrough_service')
+@Singleton
 class PassthroughService(object):
     """ The Passthrough service creates two threads: one for reading from and one for writing
     to the master.
     """
 
-    @provides('passthrough_service')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_classic_communicator', passthrough_serial='passthrough_serial')
-    def __init__(self, master_communicator, passthrough_serial, verbose=False):
+    @Inject
+    def __init__(self, master_communicator=INJECTED, passthrough_serial=INJECTED, verbose=False):
         self.__master_communicator = master_communicator
         self.__passthrough_serial = passthrough_serial
         self.__verbose = verbose
