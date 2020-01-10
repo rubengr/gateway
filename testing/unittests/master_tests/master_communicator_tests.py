@@ -20,6 +20,7 @@ import unittest
 import xmlrunner
 import threading
 import time
+from ioc import SetTestMode, SetUpTestInjections
 from master.master_communicator import MasterCommunicator,  BackgroundConsumer, CrcCheckFailedException
 from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api
@@ -30,6 +31,10 @@ from serial_utils import CommunicationTimedOutException
 class MasterCommunicatorTest(unittest.TestCase):
     """ Tests for MasterCommunicator class """
 
+    @classmethod
+    def setUpClass(cls):
+        SetTestMode()
+
     def test_do_command(self):
         """ Test for standard behavior MasterCommunicator.do_command. """
         action = master_api.basic_action()
@@ -39,8 +44,9 @@ class MasterCommunicatorTest(unittest.TestCase):
         serial_mock = SerialMock(
                         [sin(action.create_input(1, in_fields)),
                          sout(action.create_output(1, out_fields))])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.start()
 
         output = comm.do_command(action, in_fields)
@@ -52,8 +58,9 @@ class MasterCommunicatorTest(unittest.TestCase):
         in_fields = {"action_type": 1, "action_number": 2}
 
         serial_mock = SerialMock([sin(action.create_input(1, in_fields))])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.start()
 
         try:
@@ -71,8 +78,9 @@ class MasterCommunicatorTest(unittest.TestCase):
         serial_mock = SerialMock([sin(action.create_input(1, in_fields)),
                                   sin(action.create_input(2, in_fields)),
                                   sout(action.create_output(2, out_fields))])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.start()
 
         try:
@@ -99,8 +107,9 @@ class MasterCommunicatorTest(unittest.TestCase):
                          sout("hello" + action.create_output(3, out_fields) + " world"),
                          sin(action.create_input(4, in_fields)),
                          sout("hello"), sout(action.create_output(4, out_fields))])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.enable_passthrough()
         comm.start()
 
@@ -130,8 +139,9 @@ class MasterCommunicatorTest(unittest.TestCase):
             sequence.append(sout(output_bytes[i:]))
 
         serial_mock = SerialMock(sequence)
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.start()
 
         for i in range(1, 18):
@@ -142,8 +152,9 @@ class MasterCommunicatorTest(unittest.TestCase):
         pt_input = "data from passthrough"
         pt_output = "got it !"
         serial_mock = SerialMock([sin(pt_input), sout(pt_output)])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.enable_passthrough()
         comm.start()
 
@@ -153,8 +164,9 @@ class MasterCommunicatorTest(unittest.TestCase):
     def test_passthrough_output(self):
         """ Test the passthrough output if no other communications are going on. """
         serial_mock = SerialMock([sout("passthrough"), sout(" my "), sout("data")])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.enable_passthrough()
         comm.start()
 
@@ -167,8 +179,9 @@ class MasterCommunicatorTest(unittest.TestCase):
         serial_mock = SerialMock([sin(master_api.to_cli_mode().create_input(0)),
                                   sout("OK"), sin("error list\r\n"), sout("the list\n"),
                                   sin("exit\r\n")])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.start()
 
         comm.start_maintenance_mode()
@@ -196,8 +209,9 @@ class MasterCommunicatorTest(unittest.TestCase):
                         sout("For passthrough"), sin(master_api.to_cli_mode().create_input(0)),
                         sout("OK"), sin("error list\r\n"), sout("the list\n"),
                         sin("exit\r\n"), sout("Passthrough again")])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.enable_passthrough()
         comm.start()
 
@@ -227,8 +241,9 @@ class MasterCommunicatorTest(unittest.TestCase):
                         sout("OL\x00\x01\x03\x0c\r\n"), sin(action.create_input(1, in_fields)),
                         sout("junkOL\x00\x02\x03\x0c\x05\x06\r\n here"),
                         sout(action.create_output(1, out_fields))])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.enable_passthrough()
 
         got_output = {"phase": 1}
@@ -253,7 +268,9 @@ class MasterCommunicatorTest(unittest.TestCase):
     def test_background_consumer_passthrough(self):
         """ Test the background consumer with passing the data to the passthrough. """
         serial_mock = SerialMock([sout("OL\x00\x01"), sout("\x03\x0c\r\n")])
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        SetUpTestInjections(controller_serial=serial_mock)
+
+        comm = MasterCommunicator(init_master=False)
         comm.enable_passthrough()
 
         got_output = {"passed": False}
@@ -280,8 +297,9 @@ class MasterCommunicatorTest(unittest.TestCase):
                         [sin(action.create_input(1, in_fields)),
                          sout("hello"),
                          sout(action.create_output(1, out_fields))])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.enable_passthrough()
         comm.start()
 
@@ -309,8 +327,9 @@ class MasterCommunicatorTest(unittest.TestCase):
                                   sout(action.create_output(1, out_fields)),
                                   sin(action.create_input(2)),
                                   sout(action.create_output(2, out_fields2))])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        comm = MasterCommunicator(serial_mock, init_master=False)
+        comm = MasterCommunicator(init_master=False)
         comm.start()
 
         output = comm.do_command(action)

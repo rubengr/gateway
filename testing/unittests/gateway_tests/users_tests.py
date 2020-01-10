@@ -23,12 +23,16 @@ import xmlrunner
 import time
 import os
 from threading import Lock
-
+from ioc import SetTestMode, SetUpTestInjections
 from gateway.users import UserController
 
 
 class UserControllerTest(unittest.TestCase):
     """ Tests for UserController. """
+
+    @classmethod
+    def setUpClass(cls):
+        SetTestMode()
 
     def setUp(self):  # pylint: disable=C0103
         """ Run before each test. """
@@ -43,7 +47,11 @@ class UserControllerTest(unittest.TestCase):
 
     def _get_controller(self):
         """ Get a UserController using FILE. """
-        return UserController(self._db, Lock(), {'username': 'om', 'password': 'pass'}, 10)
+        SetUpTestInjections(user_db=self._db,
+                            user_db_lock=Lock(),
+                            config={'username': 'om', 'password': 'pass'},
+                            token_timeout=10)
+        return UserController()
 
     def test_empty(self):
         """ Test an empty database. """
@@ -92,7 +100,9 @@ class UserControllerTest(unittest.TestCase):
 
     def test_token_timeout(self):
         """ Test the timeout on the tokens. """
-        user_controller = UserController(self._db, Lock(), {'username': 'om', 'password': 'pass'}, 3)
+        SetUpTestInjections(config={'username': 'om', 'password': 'pass'},
+                            token_timeout=3)
+        user_controller = UserController()
 
         token = user_controller.login('om', 'pass')[1]
         self.assertNotEquals(None, token)
@@ -108,7 +118,9 @@ class UserControllerTest(unittest.TestCase):
 
     def test_timeout(self):
         """ Test logout. """
-        user_controller = UserController(self._db, Lock(), {'username': 'om', 'password': 'pass'}, 3)
+        SetUpTestInjections(config={'username': 'om', 'password': 'pass'},
+                            token_timeout=3)
+        user_controller = UserController()
 
         token = user_controller.login('om', 'pass')[1]
         self.assertNotEquals(None, token)

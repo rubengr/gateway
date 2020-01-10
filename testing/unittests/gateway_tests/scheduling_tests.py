@@ -21,8 +21,7 @@ import xmlrunner
 import time
 import fakesleep
 from threading import Lock, Semaphore
-from mock import Mock
-
+from ioc import SetTestMode, SetUpTestInjections
 from gateway.webservice import WebInterface
 from gateway.scheduling import SchedulingController
 
@@ -37,15 +36,18 @@ class GatewayApi(object):
     def do_group_action(self, group_action_id):
         _ = self
         GatewayApi.RETURN_DATA['do_group_action'] = group_action_id
+        return {}
 
     def do_basic_action(self, action_type, action_number):
         _ = self
         GatewayApi.RETURN_DATA['do_basic_action'] = (action_type, action_number)
+        return {}
 
 
 class SchedulingControllerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        SetTestMode()
         fakesleep.monkey_patch()
 
     @classmethod
@@ -64,9 +66,16 @@ class SchedulingControllerTest(unittest.TestCase):
             os.remove(self._db)
 
     def _get_controller(self):
-        gateway_api = GatewayApi()
-        controller = SchedulingController(self._db, Lock(), gateway_api)
-        controller.set_webinterface(WebInterface(None, gateway_api, None, None, None, controller))
+        SetUpTestInjections(scheduling_db=self._db,
+                            scheduling_db_lock=Lock(),
+                            gateway_api=GatewayApi(),
+                            user_controller=None,
+                            maintenance_controller=None,
+                            message_client=None,
+                            configuration_controller=None)
+        controller = SchedulingController()
+        SetUpTestInjections(scheduling_controller=controller)
+        controller.set_webinterface(WebInterface())
         return controller
 
     def test_base_validation(self):
