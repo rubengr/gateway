@@ -155,8 +155,8 @@ class GlobalMemoryModelDefinition(MemoryModelDefinition):
     Represents a model definition
     """
 
-    def __init__(self, memory_files):
-        super(MemoryModelDefinition).__init__(id=None, memory_files=memory_files)
+    def __init__(self):
+        super(MemoryModelDefinition).__init__(id=None)
 
 
 class MemoryFieldContainer(object):
@@ -341,7 +341,7 @@ class MemoryVersionField(MemoryAddressField):
 class MemoryRelation(object):
     def __init__(self, relation_type, id_spec):
         """
-        :type relation_type: typeof(master_core.memory_models.MemoryModelDefinition)
+        :type relation_type: type
         """
         self._relation_type = relation_type
         self._id_spec = id_spec
