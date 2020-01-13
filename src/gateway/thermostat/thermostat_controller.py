@@ -9,9 +9,7 @@ class ThermostatController(object):
         :param observer: Observer
         :type observer: gateway.observer.Observer
         """
-        self._master_communicator = None  # TODO
         self._gateway_api = gateway_api
-        self._eeprom_controller = None  # TODO
         self._message_client = message_client
         self._observer = observer
 
