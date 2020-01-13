@@ -19,27 +19,27 @@ import logging
 import socket
 import random
 from threading import Thread
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.maintenance_communicator import InMaintenanceModeException
 from platform_utils import System
 
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('maintenance_controller')
+@Singleton
 class MaintenanceController(object):
 
     SOCKET_TIMEOUT = 60
 
-    @provides('maintenance_controller')
-    @scope(SingletonScope)
-    @inject(maintenance_communicator='maintenance_communicator', privatekey_filename='ssl_private_key', certificate_filename='ssl_certificate')
-    def __init__(self, maintenance_communicator, privatekey_filename, certificate_filename):
+    @Inject
+    def __init__(self, maintenance_communicator=INJECTED, ssl_private_key=INJECTED, ssl_certificate=INJECTED):
         """
         :type maintenance_communicator: gateway.maintenance_communicator.MaintenanceCommunicator
         """
         self._consumers = {}
-        self._privatekey_filename = privatekey_filename
-        self._certificate_filename = certificate_filename
+        self._privatekey_filename = ssl_private_key
+        self._certificate_filename = ssl_certificate
         self._maintenance_communicator = maintenance_communicator
         self._maintenance_communicator.set_receiver(self._received_data)
         self._maintenance_communicator.set_deactivated(self._deactivated)

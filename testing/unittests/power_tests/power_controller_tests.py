@@ -21,7 +21,7 @@ Tests for the power controller module.
 import unittest
 import xmlrunner
 import os
-
+from ioc import SetTestMode, SetUpTestInjections
 from power.power_controller import PowerController
 from power.power_api import POWER_MODULE
 
@@ -30,6 +30,10 @@ class PowerControllerTest(unittest.TestCase):
     """ Tests for PowerController. """
 
     FILE = "test.db"
+
+    @classmethod
+    def setUpClass(cls):
+        SetTestMode()
 
     def setUp(self):  # pylint: disable=C0103
         """ Run before each test. """
@@ -43,7 +47,8 @@ class PowerControllerTest(unittest.TestCase):
 
     def __get_controller(self):
         """ Get a PowerController using FILE. """
-        return PowerController(PowerControllerTest.FILE)
+        SetUpTestInjections(power_db=PowerControllerTest.FILE)
+        return PowerController()
 
     def test_empty(self):
         """ Test an empty database. """

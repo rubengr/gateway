@@ -40,6 +40,9 @@ INCLUDED AND/OR USED SOFTWARE
     
     WebSocket for Python        BSD 3           A.k.a ws4py
         Copyright (c) 2011-2016, Sylvain Hellegouarch 
+        
+    dPy                         MIT             Embedded as ioc.py
+        Copyright (c) 2013 Google, Inc.
 
 LICENSES
 

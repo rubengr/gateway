@@ -14,15 +14,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Tests for PowerCommunicator module.
-
-@author: fryckbos
 """
 
 import unittest
 import xmlrunner
 import os
 import time
-
+from ioc import SetTestMode, SetUpTestInjections
 import power.power_api as power_api
 from power.power_controller import PowerController
 from power.power_communicator import PowerCommunicator, InAddressModeException
@@ -36,12 +34,16 @@ class PowerCommunicatorTest(unittest.TestCase):
 
     FILE = "test.db"
 
-    def setUp(self): #pylint: disable=C0103
+    @classmethod
+    def setUpClass(cls):
+        SetTestMode()
+
+    def setUp(self):
         """ Run before each test. """
         if os.path.exists(PowerCommunicatorTest.FILE):
             os.remove(PowerCommunicatorTest.FILE)
 
-    def tearDown(self): #pylint: disable=C0103
+    def tearDown(self):
         """ Run after each test. """
         if os.path.exists(PowerCommunicatorTest.FILE):
             os.remove(PowerCommunicatorTest.FILE)
@@ -49,11 +51,11 @@ class PowerCommunicatorTest(unittest.TestCase):
     def __get_communicator(self, serial_mock, time_keeper_period=0, address_mode_timeout=60,
                            power_controller=None):
         """ Get a PowerCommunicator. """
-        if power_controller == None:
-            power_controller = PowerController(PowerCommunicatorTest.FILE)
-
-        return PowerCommunicator(serial_mock, power_controller,
-                                 time_keeper_period=time_keeper_period,
+        SetUpTestInjections(power_db=PowerCommunicatorTest.FILE,
+                            power_serial=serial_mock)
+        if power_controller is not None:
+            SetUpTestInjections(power_controller=power_controller)
+        return PowerCommunicator(time_keeper_period=time_keeper_period,
                                  address_mode_timeout=address_mode_timeout)
 
     def test_do_command(self):
@@ -79,8 +81,8 @@ class PowerCommunicatorTest(unittest.TestCase):
         action = power_api.get_voltage(power_api.POWER_MODULE)
 
         serial_mock = RS485(SerialMock([sin(action.create_input(1, 1)), sout(''),
-                                  sin(action.create_input(1, 2)),
-                                  sout(action.create_output(1, 2, 49.5))]))
+                                        sin(action.create_input(1, 2)),
+                                        sout(action.create_output(1, 2, 49.5))]))
 
         comm = self.__get_communicator(serial_mock)
         comm.start()
@@ -93,8 +95,8 @@ class PowerCommunicatorTest(unittest.TestCase):
         action = power_api.get_voltage(power_api.POWER_MODULE)
 
         serial_mock = RS485(SerialMock([sin(action.create_input(1, 1)), sout(''),
-                                  sin(action.create_input(1, 2)),
-                                  sout('')]))
+                                        sin(action.create_input(1, 2)),
+                                        sout('')]))
 
         comm = self.__get_communicator(serial_mock)
         comm.start()
@@ -127,7 +129,7 @@ class PowerCommunicatorTest(unittest.TestCase):
         action_2 = power_api.get_frequency(power_api.POWER_MODULE)
 
         serial_mock = RS485(SerialMock([sin(action_1.create_input(1, 1)),
-                                  sout(action_2.create_output(3, 2, 49.5))]))
+                                        sout(action_2.create_output(3, 2, 49.5))]))
 
         comm = self.__get_communicator(serial_mock)
         comm.start()
@@ -147,11 +149,13 @@ class PowerCommunicatorTest(unittest.TestCase):
              sin(power_api.set_address().create_input(0, 0, 1)),
              sout(power_api.want_an_address(power_api.ENERGY_MODULE).create_output(0, 0)),
              sin(power_api.set_address().create_input(0, 0, 2)),
-             sout(''), ## Timeout read after 1 second
-             sin(sad.create_input(power_api.BROADCAST_ADDRESS, 2, power_api.NORMAL_MODE))
-            ], 1))
+             sout(''),  # Timeout read after 1 second
+             sin(sad.create_input(power_api.BROADCAST_ADDRESS, 2, power_api.NORMAL_MODE))],
+            1
+        ))
+        SetUpTestInjections(power_db=PowerCommunicatorTest.FILE)
 
-        controller = PowerController(PowerCommunicatorTest.FILE)
+        controller = PowerController()
         comm = self.__get_communicator(serial_mock, power_controller=controller)
         comm.start()
 
@@ -172,11 +176,12 @@ class PowerCommunicatorTest(unittest.TestCase):
 
         serial_mock = RS485(SerialMock(
             [sin(sad.create_input(power_api.BROADCAST_ADDRESS, 1, power_api.ADDRESS_MODE)),
-             sout(''), ## Timeout read after 1 second
+             sout(''),  # Timeout read after 1 second
              sin(sad.create_input(power_api.BROADCAST_ADDRESS, 2, power_api.NORMAL_MODE)),
              sin(action.create_input(1, 3)),
-             sout(action.create_output(1, 3, 49.5))
-            ], 1))
+             sout(action.create_output(1, 3, 49.5))],
+            1
+        ))
 
         comm = self.__get_communicator(serial_mock)
         comm.start()
@@ -200,11 +205,12 @@ class PowerCommunicatorTest(unittest.TestCase):
 
         serial_mock = RS485(SerialMock(
             [sin(sad.create_input(power_api.BROADCAST_ADDRESS, 1, power_api.ADDRESS_MODE)),
-             sout(''), ## Timeout read after 1 second
+             sout(''),  # Timeout read after 1 second
              sin(sad.create_input(power_api.BROADCAST_ADDRESS, 2, power_api.NORMAL_MODE)),
              sin(action.create_input(1, 3)),
-             sout(action.create_output(1, 3, 49.5))
-            ], 1))
+             sout(action.create_output(1, 3, 49.5))],
+            1
+        ))
 
         comm = self.__get_communicator(serial_mock, address_mode_timeout=1)
         comm.start()
@@ -216,7 +222,8 @@ class PowerCommunicatorTest(unittest.TestCase):
 
     def test_timekeeper(self):
         """ Test the TimeKeeper. """
-        power_controller = PowerController(PowerCommunicatorTest.FILE)
+        SetUpTestInjections(power_db=PowerCommunicatorTest.FILE)
+        power_controller = PowerController()
         power_controller.register_power_module(1, power_api.POWER_MODULE)
 
         time_action = power_api.set_day_night(power_api.POWER_MODULE)
@@ -227,8 +234,9 @@ class PowerCommunicatorTest(unittest.TestCase):
             [sin(time_action.create_input(1, 1, *times)),
              sout(time_action.create_output(1, 1)),
              sin(action.create_input(1, 2)),
-             sout(action.create_output(1, 2, 243))
-            ], 1))
+             sout(action.create_output(1, 2, 243))],
+            1
+        ))
 
         comm = self.__get_communicator(serial_mock, 1, power_controller=power_controller)
         comm.start()

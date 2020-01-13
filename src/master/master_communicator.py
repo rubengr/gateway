@@ -20,7 +20,7 @@ import logging
 import time
 from threading import Thread, Lock, Event
 from toolbox import Queue, Empty
-from wiring import inject, provides, scope, SingletonScope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api
 from master_command import Field, printable
@@ -29,19 +29,19 @@ from serial_utils import CommunicationTimedOutException
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('master_communicator')
+@Singleton
 class MasterCommunicator(object):
     """
     Uses a serial port to communicate with the master and updates the output state.
     Provides methods to send MasterCommands, Passthrough and Maintenance.
     """
 
-    @provides('master_classic_communicator')
-    @scope(SingletonScope)
-    @inject(serial='controller_serial')
-    def __init__(self, serial, init_master=True, verbose=False, passthrough_timeout=0.2):
+    @Inject
+    def __init__(self, controller_serial=INJECTED, init_master=True, verbose=False, passthrough_timeout=0.2):
         """
-        :param serial: Serial port to communicate with
-        :type serial: Instance of :class`serial.Serial`
+        :param controller_serial: Serial port to communicate with
+        :type controller_serial: Instance of :class`serial.Serial`
         :param init_master: Send an initialization sequence to the master to make sure we are in CLI mode. This can be turned of for testing.
         :type init_master: boolean.
         :param verbose: Print all serial communication to stdout.
@@ -52,7 +52,7 @@ class MasterCommunicator(object):
         self.__init_master = init_master
         self.__verbose = verbose
 
-        self.__serial = serial
+        self.__serial = controller_serial
         self.__serial_write_lock = Lock()
         self.__command_lock = Lock()
         self.__serial_bytes_written = 0

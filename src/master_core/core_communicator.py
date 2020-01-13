@@ -21,7 +21,7 @@ import logging
 import time
 from threading import Thread, Lock
 from Queue import Queue, Empty
-from wiring import provides, inject, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from master_core.core_api import CoreAPI
 from master_core.fields import WordField
 from serial_utils import CommunicationTimedOutException, printable
@@ -29,6 +29,8 @@ from serial_utils import CommunicationTimedOutException, printable
 logger = logging.getLogger('openmotics')
 
 
+@Injectable.named('master_communicator')
+@Singleton
 class CoreCommunicator(object):
     """
     Uses a serial port to communicate with the Core and updates the output state.
@@ -41,19 +43,16 @@ class CoreCommunicator(object):
     START_OF_REPLY = 'RTR'
     END_OF_REPLY = '\r\n'
 
-    @provides('master_core_communicator')
-    @scope(SingletonScope)
-    @inject(serial='controller_serial', verbose='core_communicator_verbose')
-    def __init__(self, serial, verbose):
+    @Inject
+    def __init__(self, controller_serial=INJECTED, verbose=False):
         """
-        :param serial: Serial port to communicate with
-        :type serial: serial.Serial
+        :param controller_serial: Serial port to communicate with
+        :type controller_serial: serial.Serial
         :param verbose: Log all serial communication
         :type verbose: boolean.
         """
         self._verbose = verbose
-
-        self._serial = serial
+        self._serial = controller_serial
         self._serial_write_lock = Lock()
         self._cid_lock = Lock()
         self._serial_bytes_written = 0

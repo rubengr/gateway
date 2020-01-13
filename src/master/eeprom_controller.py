@@ -20,19 +20,19 @@ import inspect
 import types
 import logging
 from threading import Lock
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from master_api import eeprom_list, write_eeprom, activate_eeprom
 
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('eeprom_controller')
+@Singleton
 class EepromController(object):
     """ The controller takes EepromModels and reads or writes them from and to an EepromFile. """
 
-    @provides('eeprom_controller')
-    @scope(SingletonScope)
-    @inject(eeprom_file='eeprom_file', eeprom_extension='eeprom_extension')
-    def __init__(self, eeprom_file, eeprom_extension):
+    @Inject
+    def __init__(self, eeprom_file=INJECTED, eeprom_extension=INJECTED):
         """
         Constructor takes the eeprom_file (for reading and writes from the eeprom) and the
         eeprom_extension (for reading the extensions from sqlite).
@@ -128,15 +128,15 @@ class EepromController(object):
             self.dirty = True
 
 
+@Injectable.named('eeprom_file')
+@Singleton
 class EepromFile(object):
     """ Reads from and writes to the Master EEPROM. """
 
     BATCH_SIZE = 10
 
-    @provides('eeprom_file')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_classic_communicator')
-    def __init__(self, master_communicator):
+    @Inject
+    def __init__(self, master_communicator=INJECTED):
         """
         Create an EepromFile.
 

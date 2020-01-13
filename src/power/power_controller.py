@@ -19,21 +19,21 @@ power modules and their address.
 
 import sqlite3
 from threading import Lock
-from wiring import inject, SingletonScope, scope, provides
+from ioc import Injectable, Inject, INJECTED, Singleton
 from power_api import POWER_MODULE, ENERGY_MODULE, P1_CONCENTRATOR, NUM_PORTS
 
 
+@Injectable.named('power_controller')
+@Singleton
 class PowerController(object):
     """ The PowerController keeps track of the registered power modules. """
 
-    @provides('power_controller')
-    @scope(SingletonScope)
-    @inject(db_filename='power_db')
-    def __init__(self, db_filename):
+    @Inject
+    def __init__(self, power_db=INJECTED):
         """
         Constructor a new PowerController.
 
-        :param db_filename: filename of the sqlite database.
+        :param power_db: filename of the sqlite database.
         """
 
         self._power_schema = {'name': 'TEXT default \'\'',
@@ -45,7 +45,7 @@ class PowerController(object):
                                        'times{0}'.format(i): 'TEXT',
                                        'inverted{0}'.format(i): 'INT default 0'})
 
-        self.__connection = sqlite3.connect(db_filename,
+        self.__connection = sqlite3.connect(power_db,
                                             detect_types=sqlite3.PARSE_DECLTYPES,
                                             check_same_thread=False,
                                             isolation_level=None)
