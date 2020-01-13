@@ -191,7 +191,7 @@ class Result(object):
 
     def __str__(self):
         return str(self.fields)
-    
+
     def __iter__(self):
         return self.fields.__iter__()
 

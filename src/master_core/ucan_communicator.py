@@ -19,7 +19,7 @@ Module to communicate with the uCANs.
 import logging
 import time
 from Queue import Queue, Empty
-from wiring import provides, inject, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from master_core.core_api import CoreAPI
 from master_core.core_communicator import BackgroundConsumer
 from master_core.exceptions import BootloadingException
@@ -30,23 +30,23 @@ from serial_utils import CommunicationTimedOutException, printable
 logger = logging.getLogger('openmotics')
 
 
+@Injectable.named('ucan_communicator')
+@Singleton
 class UCANCommunicator(object):
     """
     Uses a CoreCommunicator to communicate with uCANs
     """
 
-    @provides('ucan_communicator')
-    @scope(SingletonScope)
-    @inject(core_communicator='master_core_communicator', verbose='ucan_communicator_verbose')
-    def __init__(self, core_communicator, verbose):
+    @Inject
+    def __init__(self, master_communicator=INJECTED, verbose=False):
         """
-        :param core_communicator: CoreCommunicator
-        :type core_communicator: master_core.core_communicator.CoreCommunicator
+        :param master_communicator: CoreCommunicator
+        :type master_communicator: master_core.core_communicator.CoreCommunicator
         :param verbose: Log all communication
         :type verbose: boolean.
         """
         self._verbose = verbose
-        self._communicator = core_communicator
+        self._communicator = master_communicator
         self._read_buffer = []
         self._consumers = {}
         self._cc_pallet_mode = {}

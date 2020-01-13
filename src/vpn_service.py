@@ -33,6 +33,7 @@ import json
 from threading import Thread, Lock
 from collections import deque
 from ConfigParser import ConfigParser
+from ioc import Injectable, INJECTED, Inject
 from gateway.config import ConfigurationController
 from bus.om_bus_client import MessageClient
 from bus.om_bus_events import OMBusEvents
@@ -312,7 +313,8 @@ class DataCollector(object):
 class VPNService(object):
     """ The VPNService contains all logic to be able to send the heartbeat and check whether the VPN should be opened """
 
-    def __init__(self):
+    @Inject
+    def __init__(self, configuration_controller=INJECTED):
         config = ConfigParser()
         config.read(constants.get_config_file())
 
@@ -330,7 +332,7 @@ class VPNService(object):
         self._eeprom_events = deque()
         self._gateway = Gateway()
         self._vpn_controller = VpnController()
-        self._config_controller = ConfigurationController(constants.get_config_database_file(), Lock())
+        self._config_controller = configuration_controller
         self._cloud = Cloud(config.get('OpenMotics', 'vpn_check_url') % config.get('OpenMotics', 'uuid'),
                             self._message_client,
                             self._config_controller)
@@ -534,5 +536,9 @@ class VPNService(object):
 if __name__ == '__main__':
     setup_logger()
     logger.info("Starting VPN service")
+
+    Injectable.value(config_db=constants.get_config_database_file())
+    Injectable.value(config_db_lock=Lock())
+
     vpn_service = VPNService()
     vpn_service.start()

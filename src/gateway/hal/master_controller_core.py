@@ -18,7 +18,7 @@ Module for communicating with the Master
 import logging
 import time
 from threading import Thread
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
 from master_core.core_api import CoreAPI
@@ -32,21 +32,20 @@ from serial_utils import CommunicationTimedOutException
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('master_controller')
+@Singleton
 class MasterCoreController(MasterController):
 
-    @provides('master_controller')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_core_communicator', ucan_communicator='ucan_communicator')
-    def __init__(self, master_communicator, ucan_communicator):
+    @Inject
+    def __init__(self, master_communicator=INJECTED, ucan_communicator=INJECTED, memory_files=INJECTED):
         """
         :type master_communicator: master_core.core_communicator.CoreCommunicator
         :type ucan_communicator: master_core.ucan_communicator.UCANCommunicator
+        :type memory_files: dict[master_core.memory_file.MemoryTypes, master_core.memory_file.MemoryFile]
         """
         super(MasterCoreController, self).__init__(master_communicator)
         self._ucan_communicator = ucan_communicator
-        self._memory_files = {MemoryTypes.EEPROM: MemoryFile(MemoryTypes.EEPROM, self._master_communicator),
-                              MemoryTypes.FRAM: MemoryFile(MemoryTypes.FRAM, self._master_communicator)}
-
+        self._memory_files = memory_files
         self._synchronization_thread = Thread(target=self._synchronize, name='CoreMasterSynchronization')
         self._master_online = False
         self._output_interval = 600
@@ -164,7 +163,7 @@ class MasterCoreController(MasterController):
                                                                       'extra_parameter': 0})
 
     def load_output(self, output_id, fields=None):
-        output = OutputConfiguration(output_id, self._memory_files)
+        output = OutputConfiguration(output_id)
         timer = 0
         if output.timer_type == 2:
             timer = output.timer_value
@@ -200,7 +199,7 @@ class MasterCoreController(MasterController):
         for output_data in outputs:
             new_data = {'id': output_data['id'],
                         'name': output_data['name']}  # TODO: Rest of the mapping
-            output = OutputConfiguration.deserialize(new_data, self._memory_files)
+            output = OutputConfiguration.deserialize(new_data)
             output.save()  # TODO: Batch saving - postpone eeprom activate if relevant for the Core
 
     def get_output_status(self, output_id):

@@ -21,7 +21,7 @@ import logging
 import psutil
 from threading import Thread, Event
 from collections import deque
-from wiring import provides, inject, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Event as ObserverEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
@@ -29,6 +29,8 @@ from gateway.maintenance_communicator import InMaintenanceModeException
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('metrics_collector')
+@Singleton
 class MetricsCollector(object):
     """
     The Metrics Collector collects OpenMotics metrics and makes them available.

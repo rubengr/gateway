@@ -77,8 +77,8 @@ class PluginControllerTest(unittest.TestCase):
     @staticmethod
     def _get_controller(observer=None):
         from plugins.base import PluginController
-        controller = PluginController(webinterface=None,
-                                      config_controller=None,
+        controller = PluginController(web_interface=None,
+                                      configuration_controller=None,
                                       observer=observer,
                                       runtime_path=PluginControllerTest.RUNTIME_PATH,
                                       plugins_path=PluginControllerTest.PLUGINS_PATH,

@@ -19,29 +19,29 @@ The pulses module contains the PulseCounterController.
 import sqlite3
 import logging
 import master.master_api as master_api
-from wiring import inject, provides, scope, SingletonScope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from master.eeprom_models import PulseCounterConfiguration
 
 logger = logging.getLogger('openmotics')
 MASTER_PULSE_COUNTERS = 24
 
 
+@Injectable.named('pulse_controller')
+@Singleton
 class PulseCounterController(object):
     """
     The PulseCounterController stores the configuation and values of the virtual pulse counters.
     It abstracts the master (id < 24) and virtual pulse counters (id >= 24).
     """
 
-    @provides('pulse_counter_controller')
-    @scope(SingletonScope)
-    @inject(db_filename='pulse_db', master_communicator='master_classic_communicator', eeprom_controller='eeprom_controller')
-    def __init__(self, db_filename, master_communicator, eeprom_controller):
+    @Inject
+    def __init__(self, pulse_db=INJECTED, master_communicator=INJECTED, eeprom_controller=INJECTED):
         """
         Constructs a new PulseCounterController.
 
-        :param db_filename: filename of the sqlite database used to store the pulse counters.
+        :param pulse_db: filename of the sqlite database used to store the pulse counters.
         """
-        self._connection = sqlite3.connect(db_filename,
+        self._connection = sqlite3.connect(pulse_db,
                                            detect_types=sqlite3.PARSE_DECLTYPES,
                                            check_same_thread=False,
                                            isolation_level=None)

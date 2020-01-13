@@ -28,7 +28,7 @@ import threading
 import time
 import uuid
 import json
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from cherrypy.lib.static import serve_file
 from decorator import decorator
 from bus.om_bus_events import OMBusEvents
@@ -231,6 +231,8 @@ def types(**kwargs):
     return kwargs
 
 
+@Injectable.named('web_interface')
+@Singleton
 class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
@@ -248,13 +250,13 @@ class WebInterface(object):
         :type gateway_api: gateway.gateway_api.GatewayApi
         :type maintenance_controller: gateway.hal.maintenance_controller.MaintenanceController
         :type message_client: bus.om_bus_client.MessageClient
-        :type config_controller: gateway.config.ConfigController
+        :type configuration_controller: gateway.config.ConfigController
         :type scheduling_controller: gateway.scheduling.SchedulingController
         :param thermostat_controller: Thermostat Controller
         :type thermostat_controller: gateway.thermostat.thermostat_controller.ThermostatController
         """
         self._user_controller = user_controller
-        self._config_controller = config_controller
+        self._config_controller = configuration_controller
         self._scheduling_controller = scheduling_controller
         self._thermostat_controller = thermostat_controller
         self._plugin_controller = None
@@ -2385,17 +2387,17 @@ class WebInterface(object):
                                                 'interface': self}
 
 
+@Injectable.named('web_service')
+@Singleton
 class WebService(object):
     """ The web service serves the gateway api over http. """
 
     name = 'web'
 
-    @provides('web_service')
-    @scope(SingletonScope)
-    @inject(webinterface='web_interface', config_controller='config_controller')
-    def __init__(self, webinterface, config_controller, verbose=False):
-        self._webinterface = webinterface
-        self._config_controller = config_controller
+    @Inject
+    def __init__(self, web_interface=INJECTED, configuration_controller=INJECTED, verbose=False):
+        self._webinterface = web_interface
+        self._config_controller = configuration_controller
         self._https_server = None
         self._http_server = None
         self._running = False

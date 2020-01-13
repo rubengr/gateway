@@ -19,23 +19,23 @@ The maintenance module contains the MaintenanceService class.
 import time
 import logging
 from threading import Thread, Lock
-from wiring import provides, inject, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.maintenance_communicator import MaintenanceCommunicator
 
 logger = logging.getLogger('openmotics')
 
 
+@Injectable.named('maintenance_communicator')
+@Singleton
 class MaintenanceCoreCommunicator(MaintenanceCommunicator):
 
-    @provides('maintenance_communicator')
-    @scope(SingletonScope)
-    @inject(serial='cli_serial')
-    def __init__(self, serial):
+    @Inject
+    def __init__(self, cli_serial=INJECTED):
         """
-        :param serial: Serial port to communicate with
-        :type serial: serial.Serial
+        :param cli_serial: Serial port to communicate with
+        :type cli_serial: serial.Serial
         """
-        self._serial = serial
+        self._serial = cli_serial
         self._write_lock = Lock()
 
         self._receiver_callback = None

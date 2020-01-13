@@ -31,7 +31,7 @@ import subprocess
 import tempfile
 import ConfigParser
 import json
-from wiring import inject, scope, SingletonScope, provides
+from ioc import Injectable, Inject, INJECTED, Singleton
 from subprocess import check_output
 from threading import Timer, Thread
 from platform_utils import Platform
@@ -40,7 +40,6 @@ from gateway.observer import Observer
 from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api
 from power import power_api
-from master.master_communicator import BackgroundConsumer
 from master.eeprom_controller import EepromAddress
 from master.eeprom_models import SensorConfiguration, GroupActionConfiguration, \
     ScheduledActionConfiguration, StartupActionConfiguration, \
@@ -58,16 +57,16 @@ def convert_nan(number):
     return 0.0 if math.isnan(number) else number
 
 
+@Injectable.named('gateway_api')
+@Singleton
 class GatewayApi(object):
     """ The GatewayApi combines master_api functions into high level functions. """
 
-    @provides('gateway_api')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_classic_communicator', master_controller='master_controller', power_communicator='power_communicator',
-            power_controller='power_controller', eeprom_controller='eeprom_controller',
-            pulse_controller='pulse_controller', message_client='message_client', observer='observer',
-            config_controller='config_controller', shutter_controller='shutter_controller')
-    def __init__(self, master_communicator, master_controller, power_communicator, power_controller, eeprom_controller, pulse_controller, message_client, observer, config_controller, shutter_controller):
+    @Inject
+    def __init__(self,
+                 master_communicator=INJECTED, master_controller=INJECTED, power_communicator=INJECTED,
+                 power_controller=INJECTED, eeprom_controller=INJECTED, pulse_controller=INJECTED,
+                 message_client=INJECTED, observer=INJECTED, configuration_controller=INJECTED, shutter_controller=INJECTED):
         """
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
@@ -85,14 +84,14 @@ class GatewayApi(object):
         :type message_client: bus.om_bus_client.MessageClient
         :param observer: Observer
         :type observer: gateway.observer.Observer
-        :param config_controller: Configuration controller
-        :type config_controller: gateway.config.ConfigurationController
+        :param configuration_controller: Configuration controller
+        :type configuration_controller: gateway.config.ConfigurationController
         :param shutter_controller: Shutter Controller
         :type shutter_controller: gateway.shutters.ShutterController
         """
         self.__master_communicator = master_communicator
         self.__master_controller = master_controller
-        self.__config_controller = config_controller
+        self.__config_controller = configuration_controller
         self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
         self.__power_controller = power_controller
@@ -109,6 +108,7 @@ class GatewayApi(object):
         self.__previous_on_outputs = set()
 
         if Platform.get_platform() == Platform.Type.CLASSIC:
+            from master.master_communicator import BackgroundConsumer
             self.__master_communicator.register_consumer(
                 BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
             )
