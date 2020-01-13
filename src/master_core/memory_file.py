@@ -16,7 +16,7 @@
 Contains a memory representation
 """
 import logging
-from wiring import provides, inject, SingletonScope, scope
+from ioc import Inject, INJECTED
 from master_core.core_api import CoreAPI
 
 logger = logging.getLogger("openmotics")
@@ -29,17 +29,17 @@ class MemoryTypes(object):
 
 class MemoryFile(object):
 
-    @provides('memory_file')
-    @scope(SingletonScope)
-    @inject(core_communicator='master_core_communicator')
-    def __init__(self, memory_type, core_communicator):
+    @Inject
+    def __init__(self, memory_type, master_communicator=INJECTED):
         """
         Initializes the MemoryFile instance, reprensenting one of the supported memory types
 
-        :type core_communicator: master_core.core_communicator.CoreCommunicator
+        :type master_communicator: master_core.core_communicator.CoreCommunicator
         """
+        if not master_communicator:
+            raise RuntimeError('Could not inject argument: core_communicator')
 
-        self._core_communicator = core_communicator
+        self._core_communicator = master_communicator
         self.type = memory_type
         if memory_type == MemoryTypes.EEPROM:
             self._pages = 512

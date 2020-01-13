@@ -21,7 +21,7 @@ import logging
 import psutil
 from threading import Thread, Event
 from collections import deque
-from wiring import provides, inject, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Event as ObserverEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
@@ -29,20 +29,22 @@ from gateway.maintenance_communicator import InMaintenanceModeException
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('metrics_collector')
+@Singleton
 class MetricsCollector(object):
     """
     The Metrics Collector collects OpenMotics metrics and makes them available.
     """
 
-    @provides('metrics_collector')
-    @scope(SingletonScope)
-    @inject(gateway_api='gateway_api', pulse_controller='pulse_controller', thermostat_controller='thermostat_controller')
-    def __init__(self, gateway_api, pulse_controller, thermostat_controller):
+    @Inject
+    def __init__(self, gateway_api=INJECTED, pulse_controller=INJECTED, thermostat_controller=INJECTED):
         """
         :param gateway_api: Gateway API
         :type gateway_api: gateway.gateway_api.GatewayApi
         :param pulse_controller: Pulse Controller
         :type pulse_controller: gateway.pulses.PulseCounterController
+        :param thermostat_controller: Thermostat Controller
+        :type thermostat_controller: gateway.thermostat.thermostat_controller.ThermostatController
         """
         self._start = time.time()
         self._last_service_uptime = 0

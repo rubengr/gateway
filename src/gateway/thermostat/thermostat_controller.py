@@ -1,21 +1,15 @@
 class ThermostatController(object):
 
-    def __init__(self, gateway_api, message_client, observer, master_communicator, eeprom_controller):
+    def __init__(self, gateway_api, message_client, observer):
         """
         :param gateway_api: Gateway API Controller
         :type gateway_api: gateway.gateway_api.GatewayApi
-        :param master_communicator: Master communicator
-        :type master_communicator: master.master_communicator.MasterCommunicator
-        :param eeprom_controller: EEPROM controller
-        :type eeprom_controller: master.eeprom_controller.EepromController
         :param message_client: Om Message Client
         :type message_client: bus.om_bus_client.MessageClient
         :param observer: Observer
         :type observer: gateway.observer.Observer
         """
-        self._master_communicator = master_communicator
         self._gateway_api = gateway_api
-        self._eeprom_controller = eeprom_controller
         self._message_client = message_client
         self._observer = observer
 
