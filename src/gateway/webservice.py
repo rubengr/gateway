@@ -238,7 +238,8 @@ class WebInterface(object):
 
     @Inject
     def __init__(self, user_controller=INJECTED, gateway_api=INJECTED, maintenance_controller=INJECTED,
-                 message_client=INJECTED, configuration_controller=INJECTED, scheduling_controller=INJECTED, thermostat_controller=INJECTED):
+                 message_client=INJECTED, configuration_controller=INJECTED, scheduling_controller=INJECTED,
+                 thermostat_controller=INJECTED):
         """
         Constructor for the WebInterface.
 
