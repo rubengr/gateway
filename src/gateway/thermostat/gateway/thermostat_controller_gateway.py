@@ -6,10 +6,9 @@ from threading import Thread
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from peewee import DoesNotExist
 from playhouse.signals import post_save
-from wiring import provides, scope, inject, SingletonScope
+from ioc import Injectable, Inject, Singleton, INJECTED
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Event
-from master.eeprom_models import ThermostatConfiguration, CoolingConfiguration
 from models import Output, DaySchedule, Preset, Thermostat, ThermostatGroup, OutputToThermostatGroup, ValveToThermostat, Valve, Pump, Feature
 from gateway.thermostat.gateway.pump_valve_controller import PumpValveController
 from gateway.thermostat.thermostat_controller import ThermostatController
@@ -19,6 +18,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 logger = logging.getLogger('openmotics')
 
 
+@Injectable.named('thermostat_controller')
+@Singleton
 class ThermostatControllerGateway(ThermostatController):
 
     THERMOSTAT_PID_UPDATE_INTERVAL = 60
@@ -27,13 +28,9 @@ class ThermostatControllerGateway(ThermostatController):
 
     __instance = None
 
-    @provides('thermostat_controller')
-    @scope(SingletonScope)
-    @inject(gateway_api='gateway_api', message_client='message_client', observer='observer',
-            master_classic_communicator='master_classic_communicator', eeprom_controller='eeprom_controller')
-    def __init__(self, gateway_api, message_client, observer, master_classic_communicator, eeprom_controller):
-        super(ThermostatControllerGateway, self).__init__(gateway_api, message_client, observer, master_classic_communicator,
-                                                          eeprom_controller)
+    @Inject
+    def __init__(self, gateway_api=INJECTED, message_client=INJECTED, observer=INJECTED):
+        super(ThermostatControllerGateway, self).__init__(gateway_api, message_client, observer)
         self._running = False
         self._pid_loop_thread = None
         self._update_pumps_thread = None
@@ -135,7 +132,7 @@ class ThermostatControllerGateway(ThermostatController):
                 self.refresh_config_from_db()
             except Exception:
                 logger.exception('Could not get thermostat config.')
-            
+
     def _sync_scheduler(self):
         self._scheduler.remove_all_jobs()
         for thermostat_number, thermostat_pid in self.thermostat_pids.iteritems():
@@ -169,6 +166,9 @@ class ThermostatControllerGateway(ThermostatController):
                                                 name='T{}: {} ({}) {}'.format(thermostat_number, new_setpoint, schedule.mode, seconds_of_day))
 
     def migrate_master_config_to_gateway(self):
+        # TODO: Migrate this code since it uses legacy master models and helpers such as eeprom controller and
+        #  master communicator. This cannot be imported/used in Core+ context
+        from master.eeprom_models import ThermostatConfiguration, CoolingConfiguration
         # validate if valid config
         # 1. output0 <= 240
         # 2. sensor < 32 or 240

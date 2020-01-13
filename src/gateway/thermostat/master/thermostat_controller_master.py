@@ -1,7 +1,7 @@
 import logging
 import time
 from threading import Thread
-from wiring import provides, scope, inject, SingletonScope
+from ioc import Injectable, Inject, Singleton, INJECTED
 from bus.om_bus_events import OMBusEvents
 from gateway.observer import Observer, Event
 from gateway.thermostat.thermostat_controller import ThermostatController
@@ -15,14 +15,16 @@ from master.master_communicator import CommunicationTimedOutException
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('thermostat_controller')
+@Singleton
 class ThermostatControllerMaster(ThermostatController):
 
-    @provides('thermostat_controller')
-    @scope(SingletonScope)
-    @inject(gateway_api='gateway_api', message_client='message_client', observer='observer', master_classic_communicator='master_classic_communicator', eeprom_controller='eeprom_controller')
-    def __init__(self, gateway_api, message_client, observer, master_classic_communicator, eeprom_controller):
-        super(ThermostatControllerMaster, self).__init__(gateway_api, message_client, observer, master_classic_communicator,
-                                                          eeprom_controller)
+    @Inject
+    def __init__(self, gateway_api=INJECTED, message_client=INJECTED, observer=INJECTED, master_communicator=INJECTED, eeprom_controller=INJECTED):
+        super(ThermostatControllerMaster, self).__init__(gateway_api, message_client, observer)
+        self._eeprom_controller = eeprom_controller
+        self._master_communicator = master_communicator
+
         self._monitor_thread = Thread(target=self._monitor)
         self._monitor_thread.daemon = True
 

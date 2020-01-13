@@ -236,13 +236,9 @@ def types(**kwargs):
 class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
-    @provides('web_interface')
-    @scope(SingletonScope)
-    @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_controller='maintenance_controller',
-            message_client='message_client', config_controller='config_controller',
-            scheduling_controller='scheduling_controller', thermostat_controller='thermostat_controller')
-    def __init__(self, user_controller, gateway_api, maintenance_controller,
-                 message_client, config_controller, scheduling_controller, thermostat_controller):
+    @Inject
+    def __init__(self, user_controller=INJECTED, gateway_api=INJECTED, maintenance_controller=INJECTED,
+                 message_client=INJECTED, configuration_controller=INJECTED, scheduling_controller=INJECTED, thermostat_controller=INJECTED):
         """
         Constructor for the WebInterface.
 
@@ -252,7 +248,6 @@ class WebInterface(object):
         :type message_client: bus.om_bus_client.MessageClient
         :type configuration_controller: gateway.config.ConfigController
         :type scheduling_controller: gateway.scheduling.SchedulingController
-        :param thermostat_controller: Thermostat Controller
         :type thermostat_controller: gateway.thermostat.thermostat_controller.ThermostatController
         """
         self._user_controller = user_controller
