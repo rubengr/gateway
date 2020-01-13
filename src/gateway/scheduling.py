@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -54,7 +54,7 @@ class Schedule(object):
         if self.status != 'ACTIVE':
             return False
         if self.repeat is None:
-            # Single-start schedules should start on their set starting time if not yet executed
+            # Single-run schedules should start on their set starting time if not yet executed
             if self.last_executed is not None:
                 return False
             return self.start <= time.time()

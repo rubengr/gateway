@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -179,7 +179,10 @@ class OpenmoticsService(object):
                 self.graph.register_instance('passthrough_service', None)
 
         # Thermostat Controller
-        self.graph.register_factory('thermostat_controller', ThermostatControllerGateway, scope=SingletonScope)
+        if Platform.get_platform() == Platform.Type.CORE_PLUS:
+            self.graph.register_factory('thermostat_controller', ThermostatControllerGateway, scope=SingletonScope)
+        else:
+            self.graph.register_factory('thermostat_controller', ThermostatControllerMaster, scope=SingletonScope)
 
         # Maintenance Controller
         self.graph.register_factory('maintenance_controller', MaintenanceController, scope=SingletonScope)
@@ -269,10 +272,12 @@ class OpenmoticsService(object):
         logger.info('Starting OM core service...')
 
         self._build_graph()
-        thermostat_controller = self.graph.get('thermostat_controller')
-        if not thermostat_controller.migrate_master_config_to_gateway():
-            logger.warn('Falling back to master thermostats')
-            self.graph.register_factory('thermostat_controller', ThermostatControllerMaster, scope=SingletonScope)
+
+        # Implement this when thermostat migrations are ready
+        #thermostat_controller = self.graph.get('thermostat_controller')
+        #if not thermostat_controller.migrate_master_config_to_gateway():
+        #    logger.warn('Falling back to master thermostats')
+        #    self.graph.register_factory('thermostat_controller', ThermostatControllerMaster, scope=SingletonScope)
         self._fix_dependencies()
 
         service_names = ['master_controller', 'maintenance_controller',

@@ -1,4 +1,4 @@
-# Copyright (C) 2017 OpenMotics BVBA
+# Copyright (C) 2017 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -19,7 +19,7 @@ Configuration controller
 import time
 import sqlite3
 import logging
-import json
+import ujson as json
 from random import randint
 from wiring import inject, provides, SingletonScope, scope
 

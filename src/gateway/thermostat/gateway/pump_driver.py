@@ -31,9 +31,9 @@ class PumpDriver(object):
             self._state = True
             self._error = False
         except Exception as e:
-            logger.exception('There was a problem turning on pump {}'.format(self._pump.number))
+            logger.error('There was a problem turning on pump {}'.format(self._pump.number))
             self._error = True
-            raise RuntimeError('Error turning on pump {}: {}'.format(self._pump.number, str(e)))
+            raise
 
     def turn_off(self):
         logger.info('turning off pump {}'.format(self._pump.number))
@@ -42,9 +42,9 @@ class PumpDriver(object):
             self._state = False
             self._error = False
         except Exception as e:
-            logger.exception('There was a problem turning off pump {}'.format(self._pump.number))
+            logger.error('There was a problem turning off pump {}'.format(self._pump.number))
             self._error = True
-            raise RuntimeError('Error turning off pump {}: {}'.format(self._pump.number, str(e)))
+            raise
 
     @property
     def state(self):
@@ -60,7 +60,6 @@ class PumpDriver(object):
 
     def __eq__(self, other):
         if not isinstance(other, PumpDriver):
-            # don't attempt to compare against unrelated types
-            return NotImplemented
+            return False
 
         return self._pump.number == other.number

@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -526,8 +526,9 @@ class WebInterface(object):
         if master_version >= (3, 143, 88):
             features.append('input_states')
 
-        enabled_features = Feature.select(Feature.name).where(Feature.enabled == True)
-        features.extend(enabled_features)
+        thermostats_gateway = Feature.get_or_none(name='thermostats_gateway')
+        if thermostats_gateway is not None and thermostats_gateway.enabled:
+            features.append('thermostats_gateway')
 
         return {'features': features}
 

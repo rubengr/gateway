@@ -1,4 +1,4 @@
-# Copyright (C) 2018 OpenMotics BVBA
+# Copyright (C) 2018 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -213,11 +213,11 @@ class System(object):
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         os.environ['PYTHON_EGG_CACHE'] = '/tmp/.eggs-cache/'
 
-        libs = (glob.glob('{0}/eggs/*.egg'.format(current_file_path)) +
+        eggs = (glob.glob('{0}/eggs/*.egg'.format(current_file_path)) +
                 glob.glob('{0}/eggs/{1}/*.egg'.format(current_file_path, operating_system)))
-        for lib in libs:
-            logger.info('Loading egg... {}'.format(lib))
-            sys.path.insert(0, lib)
+        for egg in eggs:
+            logger.info('Loading egg... {}'.format(egg))
+            sys.path.insert(0, egg)
 
         # Patching where/if required
         if operating_system == System.OS.ANGSTROM:

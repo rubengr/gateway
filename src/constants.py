@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -42,6 +42,11 @@ def get_scheduling_database_file():
 def get_gateway_database_file():
     """ Get the filename of the gateway database file. This file is in sqlite format. """
     return "/opt/openmotics/etc/gateway.db"
+
+
+def get_thermostats_scheduler_database_file():
+    """ Get the filename of the gateway database file. This file is in sqlite format. """
+    return "/opt/openmotics/etc/thermostat-scheduler.db'"
 
 
 def get_eeprom_extension_database_file():

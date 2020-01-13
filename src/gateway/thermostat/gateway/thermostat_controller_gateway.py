@@ -1,6 +1,7 @@
 import datetime
 import time
 import logging
+import constants
 from threading import Thread
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from peewee import DoesNotExist
@@ -20,7 +21,7 @@ logger = logging.getLogger('openmotics')
 
 class ThermostatControllerGateway(ThermostatController):
 
-    THERMOSTAT_PID_UPDATE_INTERVAL = 5
+    THERMOSTAT_PID_UPDATE_INTERVAL = 60
     PUMP_UPDATE_INTERVAL = 30
     SYNC_CONFIG_INTERVAL = 900
 
@@ -46,7 +47,8 @@ class ThermostatControllerGateway(ThermostatController):
 
         # we could also use an in-memory store, but this allows us to detect 'missed' transitions
         # e.g. in case when gateway was rebooting during a scheduled transition
-        jobstores = {'default': SQLAlchemyJobStore(url='sqlite:////opt/openmotics/etc/thermostat-scheduler.db')}
+        db_filename = constants.get_thermostats_scheduler_database_file()
+        jobstores = {'default': SQLAlchemyJobStore(url='sqlite:///{})'.format(db_filename))}
         self._scheduler = BackgroundScheduler(jobstores=jobstores, timezone=timezone)
 
         ThermostatControllerGateway.__instance = self
@@ -85,6 +87,9 @@ class ThermostatControllerGateway(ThermostatController):
             logger.warning('Stopping an already stopped GatewayThermostatController.')
         self._running = False
         self._scheduler.shutdown(wait=False)
+        self._pid_loop_thread.join()
+        self._update_pumps_thread.join()
+        self._periodic_sync_thread.join()
 
     def _pid_tick(self):
         while self._running:
@@ -117,13 +122,19 @@ class ThermostatControllerGateway(ThermostatController):
 
     def _update_pumps(self):
         while self._running:
-            time.sleep(self.PUMP_UPDATE_INTERVAL)
-            self._pump_valve_controller.steer_pumps()
+            try:
+                time.sleep(self.PUMP_UPDATE_INTERVAL)
+                self._pump_valve_controller.steer_pumps()
+            except Exception:
+                logger.exception('Could not update pumps.')
 
     def _periodic_sync(self):
         while self._running:
-            time.sleep(self.SYNC_CONFIG_INTERVAL)
-            self.refresh_config_from_db()
+            try:
+                time.sleep(self.SYNC_CONFIG_INTERVAL)
+                self.refresh_config_from_db()
+            except Exception:
+                logger.exception('Could not get thermostat config.')
             
     def _sync_scheduler(self):
         self._scheduler.remove_all_jobs()
@@ -664,7 +675,7 @@ class ThermostatControllerGateway(ThermostatController):
         """
         :type thermostat_number: int
         """
-        logger.info('v0_event_thermostat_changed: {}'.format(thermostat_number))
+        logger.debug('v0_event_thermostat_changed: {}'.format(thermostat_number))
         self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_number})
         location = {'room_id': room}
         for callback in self._event_subscriptions:
@@ -681,7 +692,7 @@ class ThermostatControllerGateway(ThermostatController):
         """
         :type thermostat_group: models.ThermostatGroup
         """
-        logger.info('v0_event_thermostat_group_changed: {}'.format(thermostat_group))
+        logger.debug('v0_event_thermostat_group_changed: {}'.format(thermostat_group))
         self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': None})
         for callback in self._event_subscriptions:
             callback(Event(event_type=Event.Types.THERMOSTAT_GROUP_CHANGE,
@@ -689,6 +700,7 @@ class ThermostatControllerGateway(ThermostatController):
                                  'status': {'state': 'ON' if thermostat_group.on else 'OFF',
                                             'mode': 'COOLING' if thermostat_group.mode == 'cooling' else 'HEATING'},
                                  'location': {}}))
+
 
 @post_save(sender=ThermostatGroup)
 def on_thermostat_group_change_handler(model_class, instance, created):
