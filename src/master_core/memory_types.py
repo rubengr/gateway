@@ -20,6 +20,7 @@ import json
 import logging
 import types
 from threading import Lock
+from ioc import Inject, INJECTED
 
 logger = logging.getLogger("openmotics")
 
@@ -39,7 +40,8 @@ class MemoryModelDefinition(object):
     cache_addresses = {}
     cache_lock = Lock()
 
-    def __init__(self, id, memory_files):
+    @Inject
+    def __init__(self, id, memory_files=INJECTED):
         self.id = id
         self._memory_files = memory_files
         self._fields = []
@@ -87,7 +89,7 @@ class MemoryModelDefinition(object):
 
     def _get_relation(self, field_name):
         relation = getattr(self, '_{0}'.format(field_name))
-        return relation.yield_instance(self.id, self._memory_files)
+        return relation.yield_instance(self.id)
 
     def save(self):
         for field_name in self._loaded_fields:
@@ -95,9 +97,9 @@ class MemoryModelDefinition(object):
             field_container.save()
 
     @classmethod
-    def deserialize(cls, data, memory_files):
+    def deserialize(cls, data):
         instance_id = data['id']
-        instance = cls(instance_id, memory_files)
+        instance = cls(instance_id)
         for field_name, value in data.iteritems():
             if field_name != 'id' and field_name in instance._fields:
                 setattr(instance, field_name, value)
@@ -146,6 +148,15 @@ class MemoryModelDefinition(object):
                 cache[field_name] = field_type.get_address(id)
             class_cache[id] = cache
         return cache
+
+
+class GlobalMemoryModelDefinition(MemoryModelDefinition):
+    """
+    Represents a model definition
+    """
+
+    def __init__(self):
+        super(MemoryModelDefinition).__init__(id=None)
 
 
 class MemoryFieldContainer(object):
@@ -329,11 +340,14 @@ class MemoryVersionField(MemoryAddressField):
 
 class MemoryRelation(object):
     def __init__(self, relation_type, id_spec):
+        """
+        :type relation_type: type
+        """
         self._relation_type = relation_type
         self._id_spec = id_spec
 
-    def yield_instance(self, own_id, memory_files):
-        return self._relation_type(self._id_spec(own_id), memory_files)
+    def yield_instance(self, own_id):
+        return self._relation_type(self._id_spec(own_id))
 
 
 class MemoryAddress(object):

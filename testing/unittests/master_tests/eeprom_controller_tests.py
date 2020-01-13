@@ -19,12 +19,11 @@ Tests for the eeprom_controller module.
 import unittest
 import xmlrunner
 import os
-
+from ioc import SetTestMode, SetUpTestInjections
 from master.eeprom_controller import EepromController, EepromFile, EepromModel, EepromAddress, \
                                      EepromData, EepromId, EepromString, EepromByte, EepromWord, \
                                      CompositeDataType, EepromActions, EepromSignedTemp, \
                                      EepromIBool, EextByte, EextString
-
 from master.eeprom_extension import EepromExtension
 import master.master_api as master_api
 
@@ -107,7 +106,8 @@ def get_eeprom_file_dummy(banks):
 
         banks[data["bank"]] = bank[0:address] + data_bytes + bank[address+len(data_bytes):]
 
-    return EepromFile(MasterCommunicator(list_fct, write_fct))
+    SetUpTestInjections(master_communicator=MasterCommunicator(list_fct, write_fct))
+    return EepromFile()
 
 
 EEPROM_DB_FILE = 'test.db'
@@ -115,11 +115,18 @@ EEPROM_DB_FILE = 'test.db'
 
 def get_eeprom_controller_dummy(banks):
     """ Create a dummy EepromController, banks is passed to get_eeprom_file_dummy. """
-    return EepromController(get_eeprom_file_dummy(banks), EepromExtension(EEPROM_DB_FILE))
+    SetUpTestInjections(eeprom_file=get_eeprom_file_dummy(banks),
+                        eeprom_db=EEPROM_DB_FILE)
+    SetUpTestInjections(eeprom_extension=EepromExtension())
+    return EepromController()
 
 
 class EepromControllerTest(unittest.TestCase):
     """ Tests for EepromController. """
+
+    @classmethod
+    def setUpClass(cls):
+        SetTestMode()
 
     def setUp(self):  # pylint: disable=C0103
         """ Run before each test. """
@@ -433,8 +440,9 @@ class EepromFileTest(unittest.TestCase):
                 return {"data": "abc" + "\xff" * 200 + "def" + "\xff" * 48}
             else:
                 raise Exception("Wrong page")
+        SetUpTestInjections(master_communicator=MasterCommunicator(read))
 
-        eeprom_file = EepromFile(MasterCommunicator(read))
+        eeprom_file = EepromFile()
         address = EepromAddress(1, 0, 3)
         data = eeprom_file.read([address])
 
@@ -450,8 +458,9 @@ class EepromFileTest(unittest.TestCase):
                 return {"data": "abc" + "\xff" * 200 + "def" + "\xff" * 48}
             else:
                 raise Exception("Wrong page")
+        SetUpTestInjections(master_communicator=MasterCommunicator(read))
 
-        eeprom_file = EepromFile(MasterCommunicator(read))
+        eeprom_file = EepromFile()
 
         address1 = EepromAddress(1, 2, 10)
         address2 = EepromAddress(1, 203, 4)
@@ -475,8 +484,9 @@ class EepromFileTest(unittest.TestCase):
                 return {"data": "hello" + "\x00" * 100 + "world" + "\x00" * 146}
             else:
                 raise Exception("Wrong page")
+        SetUpTestInjections(master_communicator=MasterCommunicator(read))
 
-        eeprom_file = EepromFile(MasterCommunicator(read))
+        eeprom_file = EepromFile()
 
         address1 = EepromAddress(1, 2, 10)
         address2 = EepromAddress(100, 4, 10)
@@ -513,9 +523,9 @@ class EepromFileTest(unittest.TestCase):
             self.assertEquals("abc", data["data"])
             done['write'] = True
 
-        communicator = MasterCommunicator(read, write)
+        SetUpTestInjections(master_communicator=MasterCommunicator(read, write))
 
-        eeprom_file = EepromFile(communicator)
+        eeprom_file = EepromFile()
         eeprom_file.write([EepromData(EepromAddress(1, 2, 3), "abc")])
 
         self.assertTrue('read1' in done)
@@ -556,9 +566,9 @@ class EepromFileTest(unittest.TestCase):
             else:
                 raise Exception("Too many writes")
 
-        communicator = MasterCommunicator(read, write)
+        SetUpTestInjections(master_communicator=MasterCommunicator(read, write))
 
-        eeprom_file = EepromFile(communicator)
+        eeprom_file = EepromFile()
         eeprom_file.write([EepromData(EepromAddress(1, 2, 3), "abc"),
                            EepromData(EepromAddress(2, 123, 18), "More bytes than 10")])
 
@@ -595,9 +605,9 @@ class EepromFileTest(unittest.TestCase):
             else:
                 raise Exception("Too many writes")
 
-        communicator = MasterCommunicator(read, write)
+        SetUpTestInjections(master_communicator=MasterCommunicator(read, write))
 
-        eeprom_file = EepromFile(communicator)
+        eeprom_file = EepromFile()
         eeprom_file.write([EepromData(EepromAddress(1, 2, 3), "abc"),
                            EepromData(EepromAddress(1, 8, 11), "defghijklmn")])
 
@@ -616,10 +626,9 @@ class EepromFileTest(unittest.TestCase):
                 return {"data": "\xff" * 256}
             else:
                 raise Exception("Too many reads !")
+        SetUpTestInjections(master_communicator=MasterCommunicator(read))
 
-        communicator = MasterCommunicator(read, None)
-
-        eeprom_file = EepromFile(communicator)
+        eeprom_file = EepromFile()
         address = EepromAddress(1, 0, 256)
         read = eeprom_file.read([address])
         self.assertEquals("\xff" * 256, read[address].bytes)
@@ -645,9 +654,9 @@ class EepromFileTest(unittest.TestCase):
             else:
                 raise Exception("Too many reads !")
 
-        communicator = MasterCommunicator(read, None)
+        SetUpTestInjections(master_communicator=MasterCommunicator(read))
 
-        eeprom_file = EepromFile(communicator)
+        eeprom_file = EepromFile()
         address = EepromAddress(1, 0, 256)
         read = eeprom_file.read([address])
         self.assertEquals("\xff" * 256, read[address].bytes)
@@ -692,8 +701,9 @@ class EepromFileTest(unittest.TestCase):
             else:
                 raise Exception("Too many writes !")
 
-        communicator = MasterCommunicator(read, write)
-        eeprom_file = EepromFile(communicator)
+        SetUpTestInjections(master_communicator=MasterCommunicator(read, write))
+
+        eeprom_file = EepromFile()
 
         address = EepromAddress(1, 0, 256)
         read = eeprom_file.read([address])
@@ -728,8 +738,9 @@ class EepromFileTest(unittest.TestCase):
             state['write'] += 1
             raise Exception("write fails...")
 
-        communicator = MasterCommunicator(read, write)
-        eeprom_file = EepromFile(communicator)
+        SetUpTestInjections(master_communicator=MasterCommunicator(read, write))
+
+        eeprom_file = EepromFile()
 
         address = EepromAddress(1, 0, 256)
         read = eeprom_file.read([address])
@@ -763,9 +774,9 @@ class EepromFileTest(unittest.TestCase):
             self.assertEquals("test\xff\xff\xff\xff", data["data"])
             done['done'] = True
 
-        communicator = MasterCommunicator(read, write)
+        SetUpTestInjections(master_communicator=MasterCommunicator(read, write))
 
-        eeprom_file = EepromFile(communicator)
+        eeprom_file = EepromFile()
         eeprom_file.write([EepromData(EepromAddress(117, 248, 8), "test\xff\xff\xff\xff")])
         self.assertTrue(done['done'])
 

@@ -22,7 +22,7 @@ import logging
 import traceback
 import time
 from toolbox import Empty
-from wiring import inject, scope, SingletonScope, provides
+from ioc import Injectable, Inject, INJECTED, Singleton
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
 from power import power_api
@@ -32,22 +32,22 @@ from power.time_keeper import TimeKeeper
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('power_communicator')
+@Singleton
 class PowerCommunicator(object):
     """ Uses a serial port to communicate with the power modules. """
 
-    @provides('power_communicator')
-    @scope(SingletonScope)
-    @inject(serial='power_serial', power_controller='power_controller')
-    def __init__(self, serial, power_controller, verbose=False, time_keeper_period=60,
+    @Inject
+    def __init__(self, power_serial=INJECTED, power_controller=INJECTED, verbose=False, time_keeper_period=60,
                  address_mode_timeout=300):
         """ Default constructor.
 
-        :param serial: Serial port to communicate with
-        :type serial: Instance of :class`RS485`
+        :param power_serial: Serial port to communicate with
+        :type power_serial: Instance of :class`RS485`
         :param verbose: Print all serial communication to stdout.
         :type verbose: boolean.
         """
-        self.__serial = serial
+        self.__serial = power_serial
         self.__serial_lock = RLock()
         self.__serial_bytes_written = 0
         self.__serial_bytes_read = 0

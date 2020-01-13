@@ -1,18 +1,18 @@
 import time
 import logging
-from wiring import provides, scope, inject, SingletonScope
+from ioc import Injectable, Singleton, Inject, INJECTED
 from threading import Thread
 from bus.om_bus_events import OMBusEvents
 
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('communication_led_controller')
+@Singleton
 class CommunicationLedController(object):
 
-    @provides('observer')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_classic_communicator', power_communicator='power_communicator', message_client='message_client')
-    def __init__(self, master_communicator, power_communicator, message_client):
+    @Inject
+    def __init__(self, master_communicator=INJECTED, power_communicator=INJECTED, message_client=INJECTED):
         """
         Blink the serial leds if necessary.
         :type message_client: bus.om_bus_client.MessageClient

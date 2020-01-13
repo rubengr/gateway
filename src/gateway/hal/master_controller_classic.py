@@ -18,7 +18,7 @@ Module for communicating with the Master
 import logging
 import time
 from threading import Thread
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api, eeprom_models
@@ -29,12 +29,12 @@ from serial_utils import CommunicationTimedOutException
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('master_controller')
+@Singleton
 class MasterClassicController(MasterController):
 
-    @provides('master_controller')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_classic_communicator', eeprom_controller='eeprom_controller')
-    def __init__(self, master_communicator, eeprom_controller):
+    @Inject
+    def __init__(self, master_communicator=INJECTED, eeprom_controller=INJECTED):
         """
         :type master_communicator: master.master_communicator.MasterCommunicator
         :type eeprom_controller: master.eeprom_controller.EepromController

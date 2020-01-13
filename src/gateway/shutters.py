@@ -18,11 +18,13 @@ This module contains logic to handle shutters with their state/position
 import logging
 import time
 from threading import Lock
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 
 logger = logging.getLogger('openmotics')
 
 
+@Injectable.named('shutter_controller')
+@Singleton
 class ShutterController(object):
     """
     Controls everything related to shutters.
@@ -57,10 +59,8 @@ class ShutterController(object):
                            State.GOING_DOWN: Direction.DOWN,
                            State.STOPPED: Direction.STOP}
 
-    @provides('shutter_controller')
-    @scope(SingletonScope)
-    @inject(master_controller='master_controller')
-    def __init__(self, master_controller, verbose=False):
+    @Inject
+    def __init__(self, master_controller=INJECTED, verbose=False):
         """
         Initializes a ShutterController
         :param master_controller: Master controller

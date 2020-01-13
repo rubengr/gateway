@@ -24,22 +24,21 @@ import requests
 import ujson as json
 from threading import Thread
 from collections import deque
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from bus.om_bus_events import OMBusEvents
 
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('metrics_controller')
+@Singleton
 class MetricsController(object):
     """
     The Metrics Controller collects all metrics and pushses them to all subscribers
     """
 
-    @provides('metrics_controller')
-    @scope(SingletonScope)
-    @inject(plugin_controller='plugin_controller', metrics_collector='metrics_collector',
-            metrics_cache_controller='metrics_cache_controller', config_controller='config_controller', gateway_uuid='gateway_uuid')
-    def __init__(self, plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid):
+    @Inject
+    def __init__(self, plugin_controller=INJECTED, metrics_collector=INJECTED, metrics_cache_controller=INJECTED, configuration_controller=INJECTED, gateway_uuid=INJECTED):
         """
         :param plugin_controller: Plugin Controller
         :type plugin_controller: plugins.base.PluginController
@@ -47,8 +46,8 @@ class MetricsController(object):
         :type metrics_collector: gateway.metrics_collector.MetricsCollector
         :param metrics_cache_controller: Metrics cache Controller
         :type metrics_cache_controller: gateway.metrics_caching.MetricsCacheController
-        :param config_controller: Configuration Controller
-        :type config_controller: gateway.config.ConfigurationController
+        :param configuration_controller: Configuration Controller
+        :type configuration_controller: gateway.config.ConfigurationController
         :param gateway_uuid: Gateway UUID
         :type gateway_uuid: basestring
         """
@@ -57,7 +56,7 @@ class MetricsController(object):
         self._plugin_controller = plugin_controller
         self._metrics_collector = metrics_collector
         self._metrics_cache_controller = metrics_cache_controller
-        self._config_controller = config_controller
+        self._config_controller = configuration_controller
         self._persist_counters = {}
         self._buffer_counters = {}
         self.definitions = {}
