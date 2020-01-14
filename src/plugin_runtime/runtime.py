@@ -149,8 +149,8 @@ class PluginRuntime:
                     ret = self._handle_get_metric_definitions()
                 elif action == 'collect_metrics':
                     ret = self._handle_collect_metrics(command['name'])
-                elif action == 'distribute_metric':
-                    ret = self._handle_distribute_metric(command['name'], command['metric'])
+                elif action == 'distribute_metrics':
+                    ret = self._handle_distribute_metrics(command['name'], command['metrics'])
                 elif action == 'request':
                     ret = self._handle_request(command['method'], command['args'], command['kwargs'])
                 elif action == 'remove_callback':
@@ -238,9 +238,10 @@ class PluginRuntime:
             IO._log_exception('collect metrics', exception)
         return {'metrics': metrics}
 
-    def _handle_distribute_metric(self, name, metric):
+    def _handle_distribute_metrics(self, name, metrics):
         receive = getattr(self._plugin, name)
-        IO._with_catch('distribute metric', receive, [metric])
+        for metric in metrics:
+            IO._with_catch('distribute metric', receive, [metric])
 
     def _handle_request(self, method, args, kwargs):
         func = getattr(self._plugin, method)

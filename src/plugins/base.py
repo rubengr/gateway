@@ -345,20 +345,32 @@ class PluginController(object):
                 else:
                     yield metric
 
-    def distribute_metric(self, metric):
+    def distribute_metrics(self, metrics):
         """ Enqueues all metrics in a separate queue per plugin """
-        delivery_count = 0
+        rates = {'total': 0}
+        rate_keys = []
+        # Preprocess rate keys
+        for metric in metrics:
+            rate_key = '{0}.{1}'.format(metric['source'].lower(), metric['type'].lower())
+            if rate_key not in rates:
+                rates[rate_key] = 0
+            rate_keys.append(rate_key)
+        # Distribute
         for runner in self.__iter_running_runners():
             for receiver in runner.get_metric_receivers():
+                receiver_metrics = []
                 try:
                     sources = self.__metrics_controller.get_filter('source', receiver['source'])
                     metric_types = self.__metrics_controller.get_filter('metric_type', receiver['metric_type'])
-                    if metric['source'] in sources and metric['type'] in metric_types:
-                        runner.distribute_metric(receiver['name'], metric)
-                        delivery_count += 1
-                except Exception as exception:
-                    self.log(runner.name, 'Exception while distributing metrics', exception, traceback.format_exc())
-        return delivery_count
+                    for index, metric in enumerate(metrics):
+                        if metric['source'] in sources and metric['type'] in metric_types:
+                            receiver_metrics.append(metric)
+                            rates[rate_keys[index]] += 1
+                            rates['total'] += 1
+                    runner.distribute_metrics(receiver['name'], receiver_metrics)
+                except Exception as ex:
+                    self.log(runner.name, 'Exception while distributing metrics', ex, traceback.format_exc())
+        return rates
 
     def __get_cherrypy_mounts(self):
         mounts = []
