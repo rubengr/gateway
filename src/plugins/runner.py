@@ -214,13 +214,10 @@ class PluginRunner:
                 self.logger('[Runner] Stopped with exit code {0}'.format(exit_code))
                 self._process_running = False
                 break
-            try:
-                line = self._proc.stdout.readline()
-                if line is None:
-                    line = ''
-            except Exception as ex:
-                self.logger('[Runner] Exception while reading output: {0}'.format(ex))
-                continue
+
+            line = ''
+            while line == '':
+                line = self._proc.stdout.readline().strip()
 
             try:
                 response = stream.feed(line)
