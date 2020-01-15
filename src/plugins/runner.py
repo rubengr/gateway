@@ -183,9 +183,9 @@ class PluginRunner:
     def get_metric_receivers(self):
         return self._metric_receivers
 
-    def distribute_metric(self, method, metric):
-        self._do_async('distribute_metric', {'name': method,
-                                             'metric': metric})
+    def distribute_metrics(self, method, metrics):
+        self._do_async('distribute_metrics', {'name': method,
+                                              'metrics': metrics})
 
     def get_metric_definitions(self):
         return self._do_command('get_metric_definitions')['metric_definitions']
@@ -214,13 +214,10 @@ class PluginRunner:
                 self.logger('[Runner] Stopped with exit code {0}'.format(exit_code))
                 self._process_running = False
                 break
-            try:
-                line = self._proc.stdout.readline()
-                if line is None:
-                    line = ''
-            except Exception as ex:
-                self.logger('[Runner] Exception while reading output: {0}'.format(ex))
-                continue
+
+            line = ''
+            while line == '':
+                line = self._proc.stdout.readline().strip()
 
             try:
                 response = stream.feed(line)
