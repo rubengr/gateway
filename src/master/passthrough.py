@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -21,22 +21,22 @@ to communicate with the master.
 
 import logging
 import threading
-from wiring import inject, provides, SingletonScope, scope
-from master_communicator import InMaintenanceModeException
-from master_command import printable
+from ioc import Injectable, Inject, INJECTED, Singleton
+from gateway.maintenance_communicator import InMaintenanceModeException
+from master.master_command import printable
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('passthrough_service')
+@Singleton
 class PassthroughService(object):
     """ The Passthrough service creates two threads: one for reading from and one for writing
     to the master.
     """
 
-    @provides('passthrough_service')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_communicator', passthrough_serial='passthrough_serial')
-    def __init__(self, master_communicator, passthrough_serial, verbose=False):
+    @Inject
+    def __init__(self, master_communicator=INJECTED, passthrough_serial=INJECTED, verbose=False):
         self.__master_communicator = master_communicator
         self.__passthrough_serial = passthrough_serial
         self.__verbose = verbose
@@ -65,7 +65,7 @@ class PassthroughService(object):
             data = self.__master_communicator.get_passthrough_data()
             if data and len(data) > 0:
                 if self.__verbose:
-                    LOGGER.info("Data for passthrough: %s", printable(data))
+                    logger.info("Data for passthrough: %s", printable(data))
                 self.__passthrough_serial.write(data)
 
     def __writer(self):
@@ -78,10 +78,10 @@ class PassthroughService(object):
                     data += self.__passthrough_serial.read(num_bytes)
                 try:
                     if self.__verbose:
-                        LOGGER.info("Data from passthrough: %s", printable(data))
+                        logger.info("Data from passthrough: %s", printable(data))
                     self.__master_communicator.send_passthrough_data(data)
                 except InMaintenanceModeException:
-                    LOGGER.info("Dropped passthrough communication in maintenance mode.")
+                    logger.info("Dropped passthrough communication in maintenance mode.")
 
     def stop(self):
         """ Stop the Passthrough service. """

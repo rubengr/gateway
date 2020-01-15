@@ -1,4 +1,4 @@
-# Copyright (C) 2019 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -25,7 +25,7 @@ from pytz import timezone
 from toolbox import exception_handler, OMTestCase
 from random import randint
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
 class IoTest(OMTestCase):

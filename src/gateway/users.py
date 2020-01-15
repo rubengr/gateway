@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -22,30 +22,30 @@ import hashlib
 import uuid
 import time
 from random import randint
-from wiring import inject, scope, SingletonScope, provides
+from ioc import Injectable, Inject, Singleton, INJECTED
 
 
+@Injectable.named('user_controller')
+@Singleton
 class UserController(object):
     """ The UserController provides methods for the creation and authentication of users. """
 
     TERMS_VERSION = 1
 
-    @provides('user_controller')
-    @scope(SingletonScope)
-    @inject(db_filename='user_db', lock='user_db_lock', config='config', token_timeout='token_timeout')
-    def __init__(self, db_filename, lock, config, token_timeout=3600):
+    @Inject
+    def __init__(self, user_db=INJECTED, user_db_lock=INJECTED, config=INJECTED, token_timeout=INJECTED):
         """ Constructor a new UserController.
 
-        :param db_filename: filename of the sqlite database used to store the users and tokens.
+        :param user_db: filename of the sqlite database used to store the users and tokens.
         :param lock: shared lock for the given DB
         :type lock: threading.Lock
         :param config: Contains the OpenMotics cloud username and password.
         :type config: A dict with keys 'username' and 'password'.
         :param token_timeout: the number of seconds a token is valid.
         """
-        self._lock = lock
+        self._lock = user_db_lock
         self._config = config
-        self._connection = sqlite3.connect(db_filename,
+        self._connection = sqlite3.connect(user_db,
                                            detect_types=sqlite3.PARSE_DECLTYPES,
                                            check_same_thread=False,
                                            isolation_level=None)

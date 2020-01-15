@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -14,36 +14,34 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Module to communicate with the master.
-
-@author: fryckbos
 """
 
 import logging
 import time
 from threading import Thread, Lock, Event
 from toolbox import Queue, Empty
-from wiring import inject, provides, scope, SingletonScope
+from ioc import Injectable, Inject, INJECTED, Singleton
+from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api
 from master_command import Field, printable
 from serial_utils import CommunicationTimedOutException
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('master_communicator')
+@Singleton
 class MasterCommunicator(object):
-    """ Uses a serial port to communicate with the master and updates the output state.
-    Provides methods to send MasterCommands, Passthrough and Maintenance. A watchdog checks the
-    state of the communication: if more than 1 timeout between 2 watchdog checks is received, the
-    communication is not working properly and watchdog callback is called.
+    """
+    Uses a serial port to communicate with the master and updates the output state.
+    Provides methods to send MasterCommands, Passthrough and Maintenance.
     """
 
-    @provides('master_communicator')
-    @scope(SingletonScope)
-    @inject(serial='controller_serial')
-    def __init__(self, serial, init_master=True, verbose=False, passthrough_timeout=0.2):
+    @Inject
+    def __init__(self, controller_serial=INJECTED, init_master=True, verbose=False, passthrough_timeout=0.2):
         """
-        :param serial: Serial port to communicate with
-        :type serial: Instance of :class`serial.Serial`
+        :param controller_serial: Serial port to communicate with
+        :type controller_serial: Instance of :class`serial.Serial`
         :param init_master: Send an initialization sequence to the master to make sure we are in CLI mode. This can be turned of for testing.
         :type init_master: boolean.
         :param verbose: Print all serial communication to stdout.
@@ -54,7 +52,7 @@ class MasterCommunicator(object):
         self.__init_master = init_master
         self.__verbose = verbose
 
-        self.__serial = serial
+        self.__serial = controller_serial
         self.__serial_write_lock = Lock()
         self.__command_lock = Lock()
         self.__serial_bytes_written = 0
@@ -112,6 +110,9 @@ class MasterCommunicator(object):
         self.__stop = False
         self.__read_thread.start()
 
+    def stop(self):
+        pass  # Not supported/used
+
     def enable_passthrough(self):
         self.__passthrough_enabled = True
 
@@ -149,7 +150,7 @@ class MasterCommunicator(object):
         """
         with self.__serial_write_lock:
             if self.__verbose:
-                LOGGER.info('Writing to Master serial:   {0}'.format(printable(data)))
+                logger.info('Writing to Master serial:   {0}'.format(printable(data)))
 
             threshold = time.time() - self.__debug_buffer_duration
             self.__debug_buffer['write'][time.time()] = printable(data)
@@ -182,7 +183,7 @@ class MasterCommunicator(object):
         :raises: :class`InMaintenanceModeException` if master is in maintenance mode
         :returns: dict containing the output fields of the command
         """
-        LOGGER.info('BA: Execute {0} {1}'.format(action_type, action_number))
+        logger.info('BA: Execute {0} {1}'.format(action_type, action_number))
         return self.do_command(
             master_api.basic_action(),
             {'action_type': action_type,
@@ -256,7 +257,7 @@ class MasterCommunicator(object):
     def __passthrough_wait(self):
         """ Waits until the passthrough is done or a timeout is reached. """
         if not self.__passthrough_done.wait(self.__passthrough_timeout):
-            LOGGER.info("Timed out on passthrough message")
+            logger.info("Timed out on passthrough message")
 
         self.__passthrough_mode = False
         self.__command_lock.release()
@@ -303,8 +304,9 @@ class MasterCommunicator(object):
         if self.__maintenance_mode:
             raise InMaintenanceModeException()
 
-        self.__maintenance_mode = True
+        self.__maintenance_queue.clear()
 
+        self.__maintenance_mode = True
         self.send_maintenance_data(master_api.to_cli_mode().create_input(0))
 
     def send_maintenance_data(self, data):
@@ -333,11 +335,8 @@ class MasterCommunicator(object):
 
     def stop_maintenance_mode(self):
         """ Stop maintenance mode. """
-        if not self.__maintenance_mode:
-            raise Exception("Not in maintenance mode !")
-
-        self.send_maintenance_data("exit\r\n")
-
+        if self.__maintenance_mode:
+            self.send_maintenance_data("exit\r\n")
         self.__maintenance_mode = False
 
     def in_maintenance_mode(self):
@@ -392,7 +391,7 @@ class MasterCommunicator(object):
                 try:
                     bytes_consumed, result, done = read_state.current_consumer.consume(_data, read_state.partial_result)
                 except ValueError, value_error:
-                    LOGGER.error('Could not consume/decode message from the master: {0}'.format(value_error))
+                    logger.error('Could not consume/decode message from the master: {0}'.format(value_error))
                     return ''
 
                 if done:
@@ -425,7 +424,7 @@ class MasterCommunicator(object):
                         del self.__debug_buffer['read'][t]
 
                 if self.__verbose:
-                    LOGGER.info('Reading from Master serial: {0}'.format(printable(data)))
+                    logger.info('Reading from Master serial: {0}'.format(printable(data)))
 
                 if read_state.should_resume():
                     data = read_state.consume(data)
@@ -465,12 +464,6 @@ class MasterCommunicator(object):
                             self.__push_passthrough_data(leftovers)
                         else:
                             self.__maintenance_queue.put(leftovers)
-
-
-class InMaintenanceModeException(Exception):
-    """ An exception that is raised when the master is in maintenance mode. """
-    def __init__(self):
-        Exception.__init__(self)
 
 
 class CrcCheckFailedException(Exception):

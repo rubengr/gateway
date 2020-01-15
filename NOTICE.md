@@ -1,6 +1,6 @@
 OpenMotics Gateway
 
-Copyright 2018 OpenMotics BVBA
+Copyright 2018 OpenMotics BV
 
 This product includes and/or uses software developed by third parties. This
 software is listed below in no particular order, together with their licenses. The
@@ -40,6 +40,9 @@ INCLUDED AND/OR USED SOFTWARE
     
     WebSocket for Python        BSD 3           A.k.a ws4py
         Copyright (c) 2011-2016, Sylvain Hellegouarch 
+        
+    dPy                         MIT             Embedded as ioc.py
+        Copyright (c) 2013 Google, Inc.
 
 LICENSES
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -22,7 +22,7 @@ from datetime import datetime
 from threading import Thread
 
 import power.power_api as power_api
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class TimeKeeper(object):
@@ -41,7 +41,7 @@ class TimeKeeper(object):
     def start(self):
         """ Start the background thread of the TimeKeeper. """
         if self.__thread is None:
-            LOGGER.info("Starting TimeKeeper")
+            logger.info("Starting TimeKeeper")
             self.__stop = False
             self.__thread = Thread(target=self.__run, name="TimeKeeper thread")
             self.__thread.daemon = True
@@ -62,11 +62,11 @@ class TimeKeeper(object):
             try:
                 self.__run_once()
             except Exception:
-                LOGGER.exception("Exception in TimeKeeper")
+                logger.exception("Exception in TimeKeeper")
 
             time.sleep(self.__period)
 
-        LOGGER.info("Stopped TimeKeeper")
+        logger.info("Stopped TimeKeeper")
         self.__thread = None
 
     def __run_once(self):
@@ -102,6 +102,6 @@ class TimeKeeper(object):
     def __set_mode(self, version, address, bytes):
         """ Set the power modules mode. """
         if address not in self.__mode or self.__mode[address] != bytes:
-            LOGGER.info("Setting day/night mode to " + str(bytes))
+            logger.info("Setting day/night mode to " + str(bytes))
             self.__power_communicator.do_command(address, power_api.set_day_night(version), *bytes)
             self.__mode[address] = bytes

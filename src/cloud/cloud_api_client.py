@@ -1,4 +1,4 @@
-# Copyright (C) 2019 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -18,7 +18,7 @@ Cloud API Client
 import logging
 import requests
 import ujson as json
-from wiring import inject, provides
+from ioc import Injectable, Inject, INJECTED
 from requests import ConnectionError
 from requests.adapters import HTTPAdapter
 
@@ -31,6 +31,7 @@ class APIException(Exception):
         super(APIException, self).__init__(message)
 
 
+@Injectable.named('cloud_api_client')
 class CloudAPIClient(object):
     """
     The openmotics cloud client
@@ -38,14 +39,13 @@ class CloudAPIClient(object):
 
     API_TIMEOUT = 5.0
 
-    @provides('cloud_api_client')
-    @inject('gateway_uuid', endpoint='cloud_endpoint', port='cloud_port', api_version='cloud_api_version', ssl='cloud_ssl')
-    def __init__(self, gateway_uuid, endpoint=None, port=443, api_version=0, ssl=True):
+    @Inject
+    def __init__(self, gateway_uuid=INJECTED, cloud_endpoint=INJECTED, cloud_port=INJECTED, cloud_api_version=INJECTED, cloud_ssl=INJECTED):
         self._gateway_uuid = gateway_uuid
-        self._hostname = 'cloud.openmotics.com' if endpoint is None else endpoint
-        self._ssl = True if ssl is None else ssl
-        self._port = 443 if port is None else port
-        self.api_version = 0 if api_version is None else api_version
+        self._hostname = 'cloud.openmotics.com' if cloud_endpoint is None else cloud_endpoint
+        self._ssl = True if cloud_ssl is None else cloud_ssl
+        self._port = 443 if cloud_port is None else cloud_port
+        self.api_version = 0 if cloud_api_version is None else cloud_api_version
 
         self._session = requests.Session()
         openmotics_adapter = HTTPAdapter(max_retries=3)
@@ -80,6 +80,5 @@ class CloudAPIClient(object):
         except ConnectionError as ce:
             raise APIException('Error while sending events to {}. Reason: {}'.format(self._hostname, ce))
         except Exception as e:
-            logger.exception(e)
             raise APIException('Unknown error while executing API request on {}. Reason: {}'.format(self._hostname, e))
 

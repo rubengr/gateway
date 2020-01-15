@@ -1,4 +1,4 @@
-# Copyright (C) 2019 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -19,26 +19,26 @@ import logging
 import time
 from collections import deque
 from threading import Thread
-from wiring import inject, provides, scope, SingletonScope
+from ioc import Injectable, Singleton, INJECTED, Inject
 from cloud.cloud_api_client import APIException
 from gateway.observer import Event
 
 logger = logging.getLogger('openmotics')
 
 
+@Injectable.named('event_sender')
+@Singleton
 class EventSender(object):
 
-    @provides('event_sender')
-    @scope(SingletonScope)
-    @inject(cloud_client='cloud_api_client', gateway_api='gateway_api')
-    def __init__(self, cloud_client, gateway_api):
+    @Inject
+    def __init__(self, cloud_api_client=INJECTED, gateway_api=INJECTED):
         """
-        :param cloud_client: The cloud API object
-        :type cloud_client: cloud.client.Client
+        :param cloud_api_client: The cloud API object
+        :type cloud_api_client: cloud.cloud_api_client.CloudAPIClient
         """
         self._queue = deque()
         self._stopped = True
-        self._cloud_client = cloud_client
+        self._cloud_client = cloud_api_client
         self._gateway_api = gateway_api
 
         self._events_queue = deque()

@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -34,6 +34,7 @@ import ujson as json
 from threading import Thread, Lock
 from collections import deque
 from ConfigParser import ConfigParser
+from ioc import Injectable, INJECTED, Inject
 from gateway.config import ConfigurationController
 from bus.om_bus_client import MessageClient
 from bus.om_bus_events import OMBusEvents
@@ -313,7 +314,8 @@ class DataCollector(object):
 class VPNService(object):
     """ The VPNService contains all logic to be able to send the heartbeat and check whether the VPN should be opened """
 
-    def __init__(self):
+    @Inject
+    def __init__(self, configuration_controller=INJECTED):
         config = ConfigParser()
         config.read(constants.get_config_file())
 
@@ -331,7 +333,7 @@ class VPNService(object):
         self._eeprom_events = deque()
         self._gateway = Gateway()
         self._vpn_controller = VpnController()
-        self._config_controller = ConfigurationController(constants.get_config_database_file(), Lock())
+        self._config_controller = configuration_controller
         self._cloud = Cloud(config.get('OpenMotics', 'vpn_check_url') % config.get('OpenMotics', 'uuid'),
                             self._message_client,
                             self._config_controller)
@@ -509,10 +511,9 @@ class VPNService(object):
                     self._clean_debug_dumps()
 
                 if self._iterations > 20 and self._cloud.get_last_connect() < time.time() - REBOOT_TIMEOUT:
-                    # The cloud is not responding for a while.
-                    if not VPNService.ping('cloud.openmotics.com') and not VPNService.ping('8.8.8.8') and not VPNService.ping(VPNService._get_gateway()):
-                        # Perhaps the BeagleBone network stack is hanging, reboot the gateway
-                        # to reset the BeagleBone.
+                    # We can't connect for over `REBOOT_TIMEOUT` seconds and we tried for at least 20 times.
+                    # Try to figure out whether the network stack works as expected
+                    if not VPNService.has_connectivity():
                         reboot_gateway()
                 self._iterations += 1
                 # Open or close the VPN
@@ -535,5 +536,9 @@ class VPNService(object):
 if __name__ == '__main__':
     setup_logger()
     logger.info("Starting VPN service")
+
+    Injectable.value(config_db=constants.get_config_database_file())
+    Injectable.value(config_db_lock=Lock())
+
     vpn_service = VPNService()
     vpn_service.start()

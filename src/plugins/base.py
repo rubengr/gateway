@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -20,29 +20,32 @@ import pkgutil
 import traceback
 from gateway.observer import Event
 from datetime import datetime
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from plugins.runner import PluginRunner
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('plugin_controller')
+@Singleton
 class PluginController(object):
     """ The controller keeps track of all plugins in the system. """
 
-    @provides('plugin_controller')
-    @scope(SingletonScope)
-    @inject(webinterface='web_interface', config_controller='config_controller')
-    def __init__(
-        self, webinterface, config_controller,
-        runtime_path='/opt/openmotics/python/plugin_runtime',
-        plugins_path='/opt/openmotics/python/plugins',
-        plugin_config_path='/opt/openmotics/etc'
-    ):
-        self.__webinterface = webinterface
-        self.__config_controller = config_controller
+    @Inject
+    def __init__(self,
+                 web_interface=INJECTED, configuration_controller=INJECTED, observer=INJECTED,
+                 runtime_path='/opt/openmotics/python/plugin_runtime',
+                 plugins_path='/opt/openmotics/python/plugins',
+                 plugin_config_path='/opt/openmotics/etc'):
+        """
+        :type observer: gateway.observer.Observer
+        """
+        self.__webinterface = web_interface
+        self.__config_controller = configuration_controller
         self.__runtime_path = runtime_path
         self.__plugins_path = plugins_path
         self.__plugin_config_path = plugin_config_path
+        self.__observer = observer
 
         self.__stopped = True
         self.__logs = {}
@@ -58,7 +61,7 @@ class PluginController(object):
             self.__init_runners()
             self.__update_dependencies()
         else:
-            LOGGER.error('The PluginController is already running')
+            logger.error('The PluginController is already running')
 
     def stop(self):
         for runner_name in self.__runners.keys():
@@ -108,9 +111,9 @@ class PluginController(object):
     def __start_plugin_runner(self, runner, runner_name):
         """ Starts a single plugin runner """
         try:
-            LOGGER.info('Plugin {0}: {1}'.format(runner_name, 'Starting...'))
+            logger.info('Plugin {0}: {1}'.format(runner_name, 'Starting...'))
             runner.start()
-            LOGGER.info('Plugin {0}: {1}'.format(runner_name, 'Starting... Done'))
+            logger.info('Plugin {0}: {1}'.format(runner_name, 'Starting... Done'))
         except Exception as exception:
             try:
                 runner.stop()
@@ -133,9 +136,9 @@ class PluginController(object):
         if runner is None:
             return
         try:
-            LOGGER.info('Plugin {0}: {1}'.format(runner.name, 'Stopping...'))
+            logger.info('Plugin {0}: {1}'.format(runner.name, 'Stopping...'))
             runner.stop()
-            LOGGER.info('Plugin {0}: {1}'.format(runner.name, 'Stopping... Done'))
+            logger.info('Plugin {0}: {1}'.format(runner.name, 'Stopping... Done'))
         except Exception as exception:
             self.log(runner.name, '[Runner] Could not stop plugin', exception)
 
@@ -275,7 +278,7 @@ class PluginController(object):
         try:
             plugin.remove_callback()
         except Exception as exception:
-            LOGGER.error('Exception while removing plugin \'{0}\': {1}'.format(name, exception))
+            logger.error('Exception while removing plugin \'{0}\': {1}'.format(name, exception))
 
         # Stop the plugin process
         self.__destroy_plugin_runner(name)
@@ -306,15 +309,16 @@ class PluginController(object):
 
     def process_observer_event(self, event):
         if event.type == Event.Types.INPUT_CHANGE:
-            """ Should be called when the input status changes, notifies all plugins. """
+            # Should be called when the input status changes, notifies all plugins.
             for runner in self.__iter_running_runners():
                 runner.process_input_status(event)
-        # TODO: implement/move also for other events (outputs, shutters, ...)
-
-    def process_output_status(self, output_status_inst):
-        """ Should be called when the output status changes, notifies all plugins. """
-        for runner in self.__iter_running_runners():
-            runner.process_output_status(output_status_inst)
+        if event.type == Event.Types.OUTPUT_CHANGE:
+            # TODO: Implement versioning so a plugin can also receive "normal" events on version 2
+            # Should be called when the output status changes, notifies all plugins.
+            states = [(output['id'], output['dimmer']) for output in self.__observer.get_outputs()
+                      if output['status'] == 1]
+            for runner in self.__iter_running_runners():
+                runner.process_output_status(states)
 
     def process_shutter_status(self, shutter_status_inst):
         """ Should be called when the shutter status changes, notifies all plugins. """
@@ -341,20 +345,32 @@ class PluginController(object):
                 else:
                     yield metric
 
-    def distribute_metric(self, metric):
+    def distribute_metrics(self, metrics):
         """ Enqueues all metrics in a separate queue per plugin """
-        delivery_count = 0
+        rates = {'total': 0}
+        rate_keys = []
+        # Preprocess rate keys
+        for metric in metrics:
+            rate_key = '{0}.{1}'.format(metric['source'].lower(), metric['type'].lower())
+            if rate_key not in rates:
+                rates[rate_key] = 0
+            rate_keys.append(rate_key)
+        # Distribute
         for runner in self.__iter_running_runners():
             for receiver in runner.get_metric_receivers():
+                receiver_metrics = []
                 try:
                     sources = self.__metrics_controller.get_filter('source', receiver['source'])
                     metric_types = self.__metrics_controller.get_filter('metric_type', receiver['metric_type'])
-                    if metric['source'] in sources and metric['type'] in metric_types:
-                        runner.distribute_metric(receiver['name'], metric)
-                        delivery_count += 1
-                except Exception as exception:
-                    self.log(runner.name, 'Exception while distributing metrics', exception, traceback.format_exc())
-        return delivery_count
+                    for index, metric in enumerate(metrics):
+                        if metric['source'] in sources and metric['type'] in metric_types:
+                            receiver_metrics.append(metric)
+                            rates[rate_keys[index]] += 1
+                            rates['total'] += 1
+                    runner.distribute_metrics(receiver['name'], receiver_metrics)
+                except Exception as ex:
+                    self.log(runner.name, 'Exception while distributing metrics', ex, traceback.format_exc())
+        return rates
 
     def __get_cherrypy_mounts(self):
         mounts = []
@@ -385,7 +401,7 @@ class PluginController(object):
         if plugin not in self.__logs:
             self.__logs[plugin] = []
 
-        LOGGER.error('Plugin {0}: {1} ({2})'.format(plugin, msg, exception))
+        logger.error('Plugin {0}: {1} ({2})'.format(plugin, msg, exception))
         if stacktrace is None:
             self.__logs[plugin].append('{0} - {1}: {2}'.format(datetime.now(), msg, exception))
         else:

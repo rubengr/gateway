@@ -1,4 +1,4 @@
-# Copyright (C) 2019 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -60,6 +60,9 @@ class Queue(object):
 
     def qsize(self):
         return len(self._queue)
+
+    def clear(self):
+        return self._queue.clear()
 
 
 class PluginIPCStream(object):

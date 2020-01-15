@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -20,20 +20,20 @@ data is stored in a sqlite database on the gateways filesystem.
 import sqlite3
 import os.path
 from threading import Lock
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 
 
+@Injectable.named('eeprom_extension')
+@Singleton
 class EepromExtension(object):
     """ Provides the interface for reading and writing EepromExtension objects to the sqlite
     database. """
 
-    @provides('eeprom_extension')
-    @scope(SingletonScope)
-    @inject(db_filename='eeprom_db')
-    def __init__(self, db_filename):
+    @Inject
+    def __init__(self, eeprom_db=INJECTED):
         self._lock = Lock()
-        create_tables = not os.path.exists(db_filename)
-        self._connection = sqlite3.connect(db_filename,
+        create_tables = not os.path.exists(eeprom_db)
+        self._connection = sqlite3.connect(eeprom_db,
                                            detect_types=sqlite3.PARSE_DECLTYPES,
                                            check_same_thread=False,
                                            isolation_level=None)

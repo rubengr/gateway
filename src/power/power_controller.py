@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -20,20 +20,20 @@ power modules and their address.
 import sqlite3
 import os.path
 from threading import Lock
-from wiring import inject, SingletonScope, scope, provides
+from ioc import Injectable, Inject, INJECTED, Singleton
 from power_api import POWER_API_8_PORTS, POWER_API_12_PORTS, NUM_PORTS
 
 
+@Injectable.named('power_controller')
+@Singleton
 class PowerController(object):
     """ The PowerController keeps track of the registered power modules. """
 
-    @provides('power_controller')
-    @scope(SingletonScope)
-    @inject(db_filename='power_db')
-    def __init__(self, db_filename):
+    @Inject
+    def __init__(self, power_db=INJECTED):
         """ Constructor a new PowerController.
 
-        :param db_filename: filename of the sqlite database.
+        :param power_db: filename of the sqlite database.
         """
 
         self._schema = {'name': "TEXT default ''",
@@ -44,8 +44,8 @@ class PowerController(object):
         self._schema.update(dict([('times%d' % i, "TEXT") for i in xrange(12)]))
         self._schema.update(dict([('inverted%d' % i, "INT default 0") for i in xrange(12)]))
 
-        new_database = not os.path.exists(db_filename)
-        self.__connection = sqlite3.connect(db_filename, detect_types=sqlite3.PARSE_DECLTYPES,
+        new_database = not os.path.exists(power_db)
+        self.__connection = sqlite3.connect(power_db, detect_types=sqlite3.PARSE_DECLTYPES,
                                             check_same_thread=False, isolation_level=None)
         self.__cursor = self.__connection.cursor()
         self.__lock = Lock()

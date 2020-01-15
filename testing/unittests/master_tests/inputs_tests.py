@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -20,7 +20,7 @@ import unittest
 import xmlrunner
 import time
 
-from gateway.inputs import InputStatus
+from master.inputs import InputStatus
 
 
 class InputStatusTest(unittest.TestCase):

@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -19,7 +19,7 @@ Tests for the eeprom extensions module.
 import unittest
 import xmlrunner
 import os
-
+from ioc import SetTestMode, SetUpTestInjections
 from master.eeprom_extension import EepromExtension
 
 
@@ -27,6 +27,10 @@ class EepromExtensionTest(unittest.TestCase):
     """ Tests for EepromExtension. """
 
     FILE = "test.db"
+
+    @classmethod
+    def setUpClass(cls):
+        SetTestMode()
 
     def setUp(self):
         """ Run before each test. """
@@ -43,7 +47,8 @@ class EepromExtensionTest(unittest.TestCase):
     @staticmethod
     def _get_extension():
         """ Get a EepromExtension using FILE. """
-        return EepromExtension(EepromExtensionTest.FILE)
+        SetUpTestInjections(eeprom_db=EepromExtensionTest.FILE)
+        return EepromExtension()
 
     def test_read_write(self):
         """ Test reading written data """

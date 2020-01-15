@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -18,28 +18,26 @@ The metrics module collects and re-distributes metric data
 
 import re
 import time
-import copy
 import logging
 import requests
 import ujson as json
 from threading import Thread
 from collections import deque
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from bus.om_bus_events import OMBusEvents
 
 logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('metrics_controller')
+@Singleton
 class MetricsController(object):
     """
     The Metrics Controller collects all metrics and pushses them to all subscribers
     """
 
-    @provides('metrics_controller')
-    @scope(SingletonScope)
-    @inject(plugin_controller='plugin_controller', metrics_collector='metrics_collector',
-            metrics_cache_controller='metrics_cache_controller', config_controller='config_controller', gateway_uuid='gateway_uuid')
-    def __init__(self, plugin_controller, metrics_collector, metrics_cache_controller, config_controller, gateway_uuid):
+    @Inject
+    def __init__(self, plugin_controller=INJECTED, metrics_collector=INJECTED, metrics_cache_controller=INJECTED, configuration_controller=INJECTED, gateway_uuid=INJECTED):
         """
         :param plugin_controller: Plugin Controller
         :type plugin_controller: plugins.base.PluginController
@@ -47,8 +45,8 @@ class MetricsController(object):
         :type metrics_collector: gateway.metrics_collector.MetricsCollector
         :param metrics_cache_controller: Metrics cache Controller
         :type metrics_cache_controller: gateway.metrics_caching.MetricsCacheController
-        :param config_controller: Configuration Controller
-        :type config_controller: gateway.config.ConfigurationController
+        :param configuration_controller: Configuration Controller
+        :type configuration_controller: gateway.config.ConfigurationController
         :param gateway_uuid: Gateway UUID
         :type gateway_uuid: basestring
         """
@@ -57,7 +55,7 @@ class MetricsController(object):
         self._plugin_controller = plugin_controller
         self._metrics_collector = metrics_collector
         self._metrics_cache_controller = metrics_cache_controller
-        self._config_controller = config_controller
+        self._config_controller = configuration_controller
         self._persist_counters = {}
         self._buffer_counters = {}
         self.definitions = {}
@@ -497,16 +495,22 @@ class MetricsController(object):
     def _distribute_plugins(self):
         while not self._stopped:
             try:
-                metric = self.metrics_queue_plugins.pop()
-                delivery_count = self._plugin_controller.distribute_metric(metric)
-                if delivery_count > 0:
-                    rate_key = '{0}.{1}'.format(metric['source'].lower(), metric['type'].lower())
-                    if rate_key not in self.outbound_rates:
-                        self.outbound_rates[rate_key] = 0
-                    self.outbound_rates[rate_key] += delivery_count
-                    self.outbound_rates['total'] += delivery_count
-            except IndexError:
-                time.sleep(0.1)
+                metrics = []
+                try:
+                    while len(metrics) < 250:
+                        metrics.append(self.metrics_queue_plugins.pop())
+                except IndexError:
+                    pass
+                if metrics:
+                    rates = self._plugin_controller.distribute_metrics(metrics)
+                    for key, rate in rates.iteritems():
+                        if key not in self.outbound_rates:
+                            self.outbound_rates[key] = 0
+                        self.outbound_rates[key] += rate
+                else:
+                    time.sleep(0.1)
+            except Exception as ex:
+                logger.exception('Error distributing metrics to plugins: {0}'.format(ex))
 
     def _distribute_openmotics(self):
         while not self._stopped:

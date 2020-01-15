@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -21,10 +21,9 @@ Tests for the pulses module.
 import unittest
 import xmlrunner
 import os
-
+from ioc import SetTestMode, SetUpTestInjections
 from master.master_communicator import MasterCommunicator
 from gateway.pulses import PulseCounterController
-
 import master.master_api as master_api
 from master_tests.eeprom_controller_tests import get_eeprom_controller_dummy
 from serial_tests import SerialMock, sout, sin
@@ -34,6 +33,10 @@ class PulseCounterControllerTest(unittest.TestCase):
     """ Tests for PulseCounterController. """
 
     FILE = 'test.db'
+
+    @classmethod
+    def setUpClass(cls):
+        SetTestMode()
 
     def setUp(self):  # pylint: disable=C0103
         """ Run before each test. """
@@ -54,8 +57,10 @@ class PulseCounterControllerTest(unittest.TestCase):
             banks.append("\xff" * 256)
 
         eeprom_controller = get_eeprom_controller_dummy(banks)
-
-        return PulseCounterController(PulseCounterControllerTest.FILE, master_communicator, eeprom_controller)
+        SetUpTestInjections(pulse_db=PulseCounterControllerTest.FILE,
+                            master_communicator=master_communicator,
+                            eeprom_controller=eeprom_controller)
+        return PulseCounterController()
 
     def test_pulse_counter_up_down(self):
         """ Test adding and removing pulse counters. """
@@ -99,8 +104,9 @@ class PulseCounterControllerTest(unittest.TestCase):
 
         serial_mock = SerialMock([sin(action.create_input(1, in_fields)),
                                   sout(action.create_output(1, out_fields))])
+        SetUpTestInjections(controller_serial=serial_mock)
 
-        master_communicator = MasterCommunicator(serial_mock, init_master=False)
+        master_communicator = MasterCommunicator(init_master=False)
         master_communicator.start()
 
         controller = self._get_controller(master_communicator)

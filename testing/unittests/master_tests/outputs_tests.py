@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -19,7 +19,7 @@ Tests for the outputs module.
 import unittest
 import xmlrunner
 
-from gateway.outputs import OutputStatus
+from master.outputs import OutputStatus
 
 
 class OutputStatusTest(unittest.TestCase):

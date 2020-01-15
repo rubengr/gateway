@@ -9,7 +9,7 @@ except ImportError:
 
 from decorators import *  # Import for backwards compatibility
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
 class PluginException(Exception):
@@ -56,7 +56,7 @@ class OMPluginBase(object):
             try:
                 return json.loads(config)
             except Exception as exception:
-                LOGGER.error('Exception while getting config for plugin \'{0}\': {1}'.format(self.__class__.name, exception))
+                logger.error('Exception while getting config for plugin \'{0}\': {1}'.format(self.__class__.name, exception))
 
         return default_config
 

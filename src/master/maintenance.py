@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -13,170 +13,130 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-The maintenance module contains the MaintenanceService class.
+The maintenance module contains the MaintenanceCommunicator class.
 """
 
+import time
 import logging
-import threading
-import traceback
-import socket
-from wiring import provides, inject, SingletonScope, scope
-from platform_utils import System
-from master_communicator import InMaintenanceModeException
+from threading import Timer, Thread
+from ioc import Injectable, Inject, INJECTED, Singleton
+from gateway.maintenance_communicator import MaintenanceCommunicator
 
-LOGGER = logging.getLogger('openmotics')
+logger = logging.getLogger('openmotics')
 
 
-class MaintenanceService(object):
+@Injectable.named('maintenance_communicator')
+@Singleton
+class MaintenanceClassicCommunicator(MaintenanceCommunicator):
     """
-    The maintenance service accepts tcp connections. If a connection is accepted it
-    grabs the serial port, sets the gateway mode to CLI and forwards input and output
-    over the tcp connection.
+    The maintenance communicator handles maintenance communication with the Master
     """
 
-    @provides('maintenance_service')
-    @scope(SingletonScope)
-    @inject(gateway_api='gateway_api', privatekey_filename='ssl_private_key', certificate_filename='ssl_certificate')
-    def __init__(self, gateway_api, privatekey_filename, certificate_filename):
+    MAINTENANCE_TIMEOUT = 600
+
+    @Inject
+    def __init__(self, master_communicator=INJECTED):
         """
-        Construct a MaintenanceServer.
+        Construct a MaintenanceCommunicator.
 
-        :param gateway_api: the communication with the master.
-        :param privatekey_filename: the filename of the private key for the SSL connection.
-        :param certificate_filename: the filename of the certificate for the SSL connection.
+        :param master_communicator: the communication with the master.
+        :type master_communicator: master.master_communicator.MasterCommunicator
         """
-        self.__gateway_api = gateway_api
-        self._privatekey_filename = privatekey_filename
-        self._certificate_filename = certificate_filename
+        self._master_communicator = master_communicator
+        self._receiver_callback = None
+        self._deactivated_callback = None
+        self._deactivated_sent = False
+        self._last_maintenance_send_time = 0
+        self._maintenance_timeout_timer = None
+        self._last_maintenance_send_time = 0
+        self._read_data_thread = None
+        self._stopped = False
 
-    def start_in_thread(self, port, connection_timeout=60):
-        """
-        Start the maintenance service in a new thread. The maintenance service only accepts
-        one connection. If this connection is not established within the connection_timeout, the
-        server socket is closed.
-
-        :param port: the port for the SSL socket.
-        :param connection_timeout: timeout for the server socket.
-        """
-        thread = threading.Thread(target=self.start, args=(port, connection_timeout))
-        thread.setName('Maintenance thread')
-        thread.daemon = True
-        thread.start()
-
-    def start(self, port, connection_timeout):
-        """
-        Run the maintenance service, accepts a connection. Starts a serial
-        redirector when a connection is accepted.
-        """
-        LOGGER.info('Starting maintenance socket on port %s', port)
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.settimeout(connection_timeout)
-        sock = System.get_ssl_socket(sock,
-                                     private_key_filename=self._privatekey_filename,
-                                     certificate_filename=self._certificate_filename)
-        sock.bind(('', port))
-        sock.listen(1)
-
-        try:
-            LOGGER.info('Waiting for maintenance connection.')
-            connection, addr = sock.accept()
-            self.handle_connection(connection, str(addr))
-            LOGGER.info('Maintenance session ended, closing maintenance socket')
-            sock.close()
-        except socket.timeout:
-            LOGGER.info('Maintenance socket timed out, closing.')
-            sock.close()
-        except Exception:
-            LOGGER.error('Error in maintenance service: %s\n', traceback.format_exc())
-            sock.close()
-
-    def handle_connection(self, connection, addr):
-        """
-        Handles one incoming connection.
-        """
-        LOGGER.info('Maintenance connection from %s\n', addr)
-        connection.settimeout(1)
-        try:
-            connection.sendall('Starting maintenance mode, '
-                               'waiting for other actions to complete ...\n')
-            self.__gateway_api.start_maintenance_mode()
-            LOGGER.info('Maintenance connection got lock\n')
-
-            serial_redirector = SerialRedirector(self.__gateway_api, connection)
-            serial_redirector.run()
-        except InMaintenanceModeException:
-            connection.sendall('Maintenance mode already started. Closing connection.')
-        finally:
-            LOGGER.info('Maintenance connection closed')
-            self.__gateway_api.stop_maintenance_mode()
-            connection.close()
-
-
-class SerialRedirector(object):
-    """
-    Takes an acquired serial connection and a socket an redirects
-    the serial traffic over the socket.
-    """
-
-    def __init__(self, gateway_api, connection):
-        self.__gateway_api = gateway_api
-        self.__connection = connection
-        self.__reader_thread = None
-        self.__stopped = False
-
-    def run(self):
-        """
-        Run the serial redirector, spins off a reader thread and uses
-        the current thread for writing
-        """
-        self.__reader_thread = threading.Thread(target=self.reader)
-        self.__reader_thread.setName('Maintenance reader thread')
-        self.__reader_thread.start()
-        self.writer()
+    def start(self):
+        pass  # Classis doesn't have a permanent running maintenance
 
     def stop(self):
-        """ Stop the serial redirector. """
-        self.__stopped = True
+        pass  # Classis doesn't have a permanent running maintenance
 
-    def is_running(self):
-        """ Check whether the SerialRedirector is still running. """
-        return not self.__stopped
+    def set_receiver(self, callback):
+        self._receiver_callback = callback
 
-    def writer(self):
-        """ Reads from the socket and writes to the serial port. """
-        while not self.__stopped:
-            try:
-                try:
-                    data = self.__connection.recv(1024)
-                    if not data:
-                        LOGGER.info('Stopping maintenance mode due to no data.')
-                        break
-                    if data.startswith('exit'):
-                        LOGGER.info('Stopping maintenance mode due to exit.')
-                        break
-                    self.__gateway_api.send_maintenance_data(data)
-                except Exception as exception:
-                    if System.handle_socket_exception(self.__connection, exception, LOGGER):
-                        continue
-                    else:
-                        break
-            except Exception:
-                LOGGER.error('Exception in maintenance mode: %s\n', traceback.format_exc())
-                break
+    def set_deactivated(self, callback):
+        self._deactivated_callback = callback
 
-        self.__stopped = True
-        self.__reader_thread.join()
+    def is_active(self):
+        return self._master_communicator.in_maintenance_mode()
 
-    def reader(self):
+    def activate(self):
+        """
+        Activates maintenance mode, If no data is send for too long, maintenance mode will be closed automatically.
+        """
+        logger.info('Activating maintenance mode')
+        self._last_maintenance_send_time = time.time()
+        self._master_communicator.start_maintenance_mode()
+        self._maintenance_timeout_timer = Timer(MaintenanceClassicCommunicator.MAINTENANCE_TIMEOUT, self._check_maintenance_timeout)
+        self._maintenance_timeout_timer.start()
+        self._stopped = False
+        self._read_data_thread = Thread(target=self._read_data, name='Classic maintenance read thread')
+        self._read_data_thread.daemon = True
+        self._read_data_thread.start()
+        self._deactivated_sent = False
+
+    def deactivate(self, join=True):
+        logger.info('Deactivating maintenance mode')
+        self._stopped = True
+        if join and self._read_data_thread is not None:
+            self._read_data_thread.join()
+            self._read_data_thread = None
+        self._master_communicator.stop_maintenance_mode()
+
+        if self._maintenance_timeout_timer is not None:
+            self._maintenance_timeout_timer.cancel()
+            self._maintenance_timeout_timer = None
+
+        if self._deactivated_callback is not None and self._deactivated_sent is False:
+            self._deactivated_callback()
+            self._deactivated_sent = True
+
+    def _check_maintenance_timeout(self):
+        """
+        Checks if the maintenance if the timeout is exceeded, and closes maintenance mode
+        if required.
+        """
+        timeout = MaintenanceClassicCommunicator.MAINTENANCE_TIMEOUT
+        if self._master_communicator.in_maintenance_mode():
+            current_time = time.time()
+            if self._last_maintenance_send_time + timeout < current_time:
+                logger.info('Stopping maintenance mode because of timeout.')
+                self.deactivate()
+            else:
+                wait_time = self._last_maintenance_send_time + timeout - current_time
+                self._maintenance_timeout_timer = Timer(wait_time, self._check_maintenance_timeout)
+                self._maintenance_timeout_timer.start()
+        else:
+            self.deactivate()
+
+    def write(self, message):
+        self._last_maintenance_send_time = time.time()
+        self._master_communicator.send_maintenance_data('{0}\r\n'.format(message.strip()))
+
+    def _read_data(self):
         """ Reads from the serial port and writes to the socket. """
-        while not self.__stopped:
+        buffer = ''
+        while not self._stopped:
             try:
-                data = self.__gateway_api.get_maintenance_data()
-                if data:
-                    self.__connection.sendall(data)
+                data = self._master_communicator.get_maintenance_data()
+                if data is None:
+                    continue
+                buffer += data
+                while '\n' in buffer:
+                    message, buffer = buffer.split('\n', 1)
+                    if self._receiver_callback is not None:
+                        try:
+                            self._receiver_callback(message.rstrip())
+                        except Exception:
+                            logger.exception('Unexpected exception during maintenance callback')
             except Exception:
-                LOGGER.error('Exception in maintenance mode: %s\n', traceback.format_exc())
+                logger.exception('Exception in maintenance read thread')
                 break
-
-        self.__stopped = True
+        self.deactivate(join=False)

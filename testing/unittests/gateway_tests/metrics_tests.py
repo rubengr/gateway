@@ -1,4 +1,4 @@
-# Copyright (C) 2019 OpenMotics BVBA
+# Copyright (C) 2019 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -25,6 +25,7 @@ import xmlrunner
 import time
 from threading import Lock
 from mock import Mock
+from ioc import SetTestMode, SetUpTestInjections
 from gateway.config import ConfigurationController
 from gateway.metrics_controller import MetricsController
 from gateway.metrics_caching import MetricsCacheController
@@ -38,6 +39,7 @@ class MetricsTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        SetTestMode()
         fakesleep.monkey_patch()
         fakesleep.reset(seconds=0)
 
@@ -71,13 +73,15 @@ class MetricsTest(unittest.TestCase):
                                                           'set_cloud_interval': MetricsTest._set_cloud_interval})()
         metrics_cache_controller = type('MetricsCacheController', (), {'load_buffer': lambda *args, **kwargs: []})()
         plugin_controller = type('PluginController', (), {'get_metric_definitions': lambda *args, **kwargs: {}})()
-
-        config_controller = ConfigurationController(MetricsTest.CONFIG_FILE, Lock())
-        metrics_controller = MetricsController(plugin_controller=plugin_controller,
-                                               metrics_collector=metrics_collector,
-                                               metrics_cache_controller=metrics_cache_controller,
-                                               config_controller=config_controller,
-                                               gateway_uuid='none')
+        SetUpTestInjections(config_db=MetricsTest.CONFIG_FILE,
+                            config_db_lock=Lock())
+        config_controller = ConfigurationController()
+        SetUpTestInjections(plugin_controller=plugin_controller,
+                            metrics_collector=metrics_collector,
+                            metrics_cache_controller=metrics_cache_controller,
+                            configuration_controller=config_controller,
+                            gateway_uuid='none')
+        metrics_controller = MetricsController()
         return config_controller, metrics_controller
 
     def test_base_validation(self):
@@ -118,7 +122,13 @@ class MetricsTest(unittest.TestCase):
 
         definitions = {'OpenMotics': {'counter': Mock(), 'energy': Mock()}}
 
-        metrics_controller = MetricsController(Mock(), metrics_collector_mock, metrics_cache_mock, config_controller, Mock())
+        SetUpTestInjections(plugin_controller=Mock(),
+                            metrics_collector=metrics_collector_mock,
+                            metrics_cache_controller=metrics_cache_mock,
+                            configuration_controller=config_controller,
+                            gateway_uuid=Mock())
+
+        metrics_controller = MetricsController()
         metrics_controller.definitions = definitions
 
         # 2. test simple metric
@@ -201,7 +211,9 @@ class MetricsTest(unittest.TestCase):
 
         requests.post = post
 
-        metrics_cache = MetricsCacheController(MetricsTest.BUFFER_FILE, Lock())
+        SetUpTestInjections(metrics_db=MetricsTest.BUFFER_FILE, metrics_db_lock=Lock())
+
+        metrics_cache = MetricsCacheController()
         config_controller = Mock()
         config_controller.get_setting = get_setting
         metrics_collector_mock = Mock()
@@ -216,7 +228,13 @@ class MetricsTest(unittest.TestCase):
                                      'unit': ''}]}]
         metrics_collector_mock.get_definitions = lambda: definitions
 
-        metrics_controller = MetricsController(Mock(), metrics_collector_mock, metrics_cache, config_controller, 'uuid')
+        SetUpTestInjections(plugin_controller=Mock(),
+                            metrics_collector=metrics_collector_mock,
+                            metrics_cache_controller=metrics_cache,
+                            configuration_controller=config_controller,
+                            gateway_uuid='uuid')
+
+        metrics_controller = MetricsController()
         metrics_controller._needs_upload_to_cloud = lambda *args, **kwargs: True
         self.assertEqual(metrics_controller._buffer_counters, {'OpenMotics': {'foobar': {'counter': True}}})
 
@@ -418,7 +436,7 @@ class MetricsTest(unittest.TestCase):
 
         # Emulate service restart
 
-        metrics_controller = MetricsController(Mock(), metrics_collector_mock, metrics_cache, config_controller, 'uuid')
+        metrics_controller = MetricsController()
         metrics_controller._needs_upload_to_cloud = lambda *args, **kwargs: True
 
         # Validate startup state
@@ -457,7 +475,9 @@ class MetricsTest(unittest.TestCase):
         self.assertEqual(buffered_metrics, [])
 
     def test_buffer(self):
-        controller = MetricsCacheController(MetricsTest.BUFFER_FILE, Lock())
+        SetUpTestInjections(metrics_db=MetricsTest.BUFFER_FILE,
+                            metrics_db_lock=Lock())
+        controller = MetricsCacheController()
         tags = {'name': 'name', 'id': 0}
 
         expected_metrics = []

@@ -1,4 +1,4 @@
-# Copyright (C) 2017 OpenMotics BVBA
+# Copyright (C) 2017 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -21,25 +21,25 @@ import sqlite3
 import logging
 import ujson as json
 from random import randint
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, Singleton, INJECTED
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('configuration_controller')
+@Singleton
 class ConfigurationController(object):
 
-    @provides('config_controller')
-    @scope(SingletonScope)
-    @inject(db_filename='config_db', lock='config_db_lock')
-    def __init__(self, db_filename, lock):
+    @Inject
+    def __init__(self, config_db=INJECTED, config_db_lock=INJECTED):
         """
         Constructs a new ConfigController.
 
-        :param db_filename: filename of the sqlite database used to store the configuration
-        :param lock: DB lock
+        :param config_db: filename of the sqlite database used to store the configuration
+        :param config_db_lock: DB lock
         """
-        self.__lock = lock
-        self.__connection = sqlite3.connect(db_filename,
+        self.__lock = config_db_lock
+        self.__connection = sqlite3.connect(config_db,
                                             detect_types=sqlite3.PARSE_DECLTYPES,
                                             check_same_thread=False,
                                             isolation_level=None)

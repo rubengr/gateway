@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -20,19 +20,19 @@ import inspect
 import types
 import logging
 from threading import Lock
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from master_api import eeprom_list, write_eeprom, activate_eeprom
 
-LOGGER = logging.getLogger("openmotics")
+logger = logging.getLogger("openmotics")
 
 
+@Injectable.named('eeprom_controller')
+@Singleton
 class EepromController(object):
     """ The controller takes EepromModels and reads or writes them from and to an EepromFile. """
 
-    @provides('eeprom_controller')
-    @scope(SingletonScope)
-    @inject(eeprom_file='eeprom_file', eeprom_extension='eeprom_extension')
-    def __init__(self, eeprom_file, eeprom_extension):
+    @Inject
+    def __init__(self, eeprom_file=INJECTED, eeprom_extension=INJECTED):
         """
         Constructor takes the eeprom_file (for reading and writes from the eeprom) and the
         eeprom_extension (for reading the extensions from sqlite).
@@ -128,15 +128,15 @@ class EepromController(object):
             self.dirty = True
 
 
+@Injectable.named('eeprom_file')
+@Singleton
 class EepromFile(object):
     """ Reads from and writes to the Master EEPROM. """
 
     BATCH_SIZE = 10
 
-    @provides('eeprom_file')
-    @scope(SingletonScope)
-    @inject(master_communicator='master_communicator')
-    def __init__(self, master_communicator):
+    @Inject
+    def __init__(self, master_communicator=INJECTED):
         """
         Create an EepromFile.
 
@@ -155,7 +155,7 @@ class EepromFile(object):
         Activate a change in the Eeprom. The master will read the eeprom
         and adjust the current settings.
         """
-        LOGGER.info("EEPROM - Activate")
+        logger.info("EEPROM - Activate")
         self._master_communicator.do_command(activate_eeprom(), {'eep': 0})
 
     def read(self, addresses):
@@ -241,7 +241,7 @@ class EepromFile(object):
 
     def _write(self, bank, offset, to_write):
         """ Write a byte array to a specific location defined by the bank and the offset. """
-        LOGGER.info("EEPROM - Write: B{0} A{1} D[{2}]".format(bank, offset, ' '.join(['%3d' % ord(c) for c in to_write])))
+        logger.info("EEPROM - Write: B{0} A{1} D[{2}]".format(bank, offset, ' '.join(['%3d' % ord(c) for c in to_write])))
         self._master_communicator.do_command(
             write_eeprom(), {'bank': bank, 'address': offset, 'data': to_write}
         )

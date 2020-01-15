@@ -1,4 +1,4 @@
-# Copyright (C) 2016 OpenMotics BVBA
+# Copyright (C) 2016 OpenMotics BV
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -21,7 +21,6 @@ import constants
 import logging
 import msgpack
 import os
-import random
 import requests
 import subprocess
 import sys
@@ -29,19 +28,15 @@ import threading
 import time
 import uuid
 import ujson as json
-from wiring import inject, provides, SingletonScope, scope
+from ioc import Injectable, Inject, INJECTED, Singleton
 from cherrypy.lib.static import serve_file
 from decorator import decorator
-from ws4py import WS_VERSION
-from ws4py.server.cherrypyserver import WebSocketPlugin, WebSocketTool
-from ws4py.websocket import WebSocket
-from cloud.cloud_api_client import APIException
 from bus.om_bus_events import OMBusEvents
-from gateway.observer import Event
 from gateway.shutters import ShutterController
-from master.master_communicator import InMaintenanceModeException
+from gateway.maintenance_communicator import InMaintenanceModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
+from gateway.websockets import OMPlugin, OMSocketTool, MetricsSocket, EventsSocket, MaintenanceSocket
 
 logger = logging.getLogger("openmotics")
 
@@ -235,205 +230,32 @@ def types(**kwargs):
     return kwargs
 
 
-class OMPlugin(WebSocketPlugin):
-    def __init__(self, bus):
-        WebSocketPlugin.__init__(self, bus)
-        self.metrics_receivers = {}
-        self.events_receivers = {}
-
-    def start(self):
-        WebSocketPlugin.start(self)
-        self.bus.subscribe('add-metrics-receiver', self.add_metrics_receiver)
-        self.bus.subscribe('get-metrics-receivers', self.get_metrics_receivers)
-        self.bus.subscribe('remove-metrics-receiver', self.remove_metrics_receiver)
-        self.bus.subscribe('add-events-receiver', self.add_events_receiver)
-        self.bus.subscribe('get-events-receivers', self.get_events_receivers)
-        self.bus.subscribe('remove-events-receiver', self.remove_events_receiver)
-        self.bus.subscribe('update-events-receiver', self.update_events_receiver)
-
-    def stop(self):
-        WebSocketPlugin.stop(self)
-        self.bus.unsubscribe('add-metrics-receiver', self.add_metrics_receiver)
-        self.bus.unsubscribe('get-metrics-receivers', self.get_metrics_receivers)
-        self.bus.unsubscribe('remove-metrics-receiver', self.remove_metrics_receiver)
-        self.bus.unsubscribe('add-events-receiver', self.add_events_receiver)
-        self.bus.unsubscribe('get-events-receivers', self.get_events_receivers)
-        self.bus.unsubscribe('remove-events-receiver', self.remove_events_receiver)
-        self.bus.unsubscribe('update-events-receiver', self.update_events_receiver)
-
-    def add_metrics_receiver(self, client_id, receiver_info):
-        self.metrics_receivers[client_id] = receiver_info
-
-    def get_metrics_receivers(self):
-        return self.metrics_receivers
-
-    def remove_metrics_receiver(self, client_id):
-        self.metrics_receivers.pop(client_id, None)
-
-    def add_events_receiver(self, client_id, receiver_info):
-        self.events_receivers[client_id] = receiver_info
-
-    def get_events_receivers(self):
-        return self.events_receivers
-
-    def remove_events_receiver(self, client_id):
-        self.events_receivers.pop(client_id, None)
-
-    def update_events_receiver(self, client_id, receiver_info):
-        self.events_receivers[client_id].update(receiver_info)
-
-
-class OMSocketTool(WebSocketTool):
-    def upgrade(self, protocols=None, extensions=None, version=WS_VERSION, handler_cls=WebSocket, heartbeat_freq=None):
-        _ = protocols  # ws4py doesn't support protocols the way we like (using them for authentication)
-        request = cherrypy.serving.request
-        allowed_protocols = []
-        requested_protocols = request.headers.get('Sec-WebSocket-Protocol')
-        if requested_protocols:
-            for protocol in requested_protocols.split(','):
-                protocol = protocol.strip()
-                if 'authorization.bearer.' in protocol:
-                    allowed_protocols.append(protocol)
-        return WebSocketTool.upgrade(self,
-                                     protocols=allowed_protocols,
-                                     extensions=extensions,
-                                     version=version,
-                                     handler_cls=handler_cls,
-                                     heartbeat_freq=heartbeat_freq)
-
-
-class OMSocket(WebSocket):
-    def once(self):
-        """
-        Almost exact the same code as in `WebSocket`, but somehow resolves an issue where not all
-        data was read from the (secure) socket.
-        """
-        if self.terminated:
-            return False
-
-        try:
-            b = self.sock.recv(self.reading_buffer_size)
-            if self._is_secure:
-                extra_b = self._get_from_pending()
-                while len(extra_b) > 0:
-                    b += extra_b
-                    extra_b = self._get_from_pending()
-        except Exception as e:
-            self.unhandled_error(e)
-            return False
-        else:
-            if not self.process(b):
-                return False
-
-        return True
-
-
-# noinspection PyUnresolvedReferences
-class MetricsSocket(OMSocket):
-    """
-    Handles web socket communications for metrics
-    """
-    def opened(self):
-        if not hasattr(self, 'metadata'):
-            return
-        cherrypy.engine.publish('add-metrics-receiver',
-                                self.metadata['client_id'],
-                                {'source': self.metadata['source'],
-                                 'metric_type': self.metadata['metric_type'],
-                                 'token': self.metadata['token'],
-                                 'socket': self})
-        self.metadata['interface']._metrics_collector.set_websocket_interval(self.metadata['client_id'],
-                                                                            self.metadata['metric_type'],
-                                                                            self.metadata['interval'])
-
-    def closed(self, *args, **kwargs):
-        _ = args, kwargs
-        if not hasattr(self, 'metadata'):
-            return
-        client_id = self.metadata['client_id']
-        cherrypy.engine.publish('remove-metrics-receiver', client_id)
-        self.metadata['interface']._metrics_collector.set_websocket_interval(client_id, self.metadata['metric_type'], None)
-
-
-# noinspection PyUnresolvedReferences
-class EventsSocket(OMSocket):
-    """
-    Handles web socket communications for events
-    """
-    def opened(self):
-        if not hasattr(self, 'metadata'):
-            return
-        cherrypy.engine.publish('add-events-receiver',
-                                self.metadata['client_id'],
-                                {'token': self.metadata['token'],
-                                 'subscribed_types': [],
-                                 'socket': self})
-
-    def closed(self, *args, **kwargs):
-        _ = args, kwargs
-        if not hasattr(self, 'metadata'):
-            return
-        client_id = self.metadata['client_id']
-        cherrypy.engine.publish('remove-events-receiver', client_id)
-
-    def received_message(self, message):
-        if not hasattr(self, 'metadata'):
-            return
-        allowed_types = [Event.Types.OUTPUT_CHANGE,
-                         Event.Types.THERMOSTAT_CHANGE,
-                         Event.Types.THERMOSTAT_GROUP_CHANGE,
-                         Event.Types.SHUTTER_CHANGE,
-                         Event.Types.INPUT_CHANGE]
-        try:
-            data = msgpack.loads(message.data)
-            event = Event.deserialize(data)
-            if event.type == Event.Types.ACTION:
-                if event.data['action'] == 'set_subscription':
-                    subscribed_types = [stype for stype in event.data['types'] if stype in allowed_types]
-                    cherrypy.engine.publish('update-events-receiver',
-                                            self.metadata['client_id'],
-                                            {'subscribed_types': subscribed_types})
-            elif event.type == Event.Types.PING:
-                self.send(msgpack.dumps(Event(event_type=Event.Types.PONG,
-                                              data=None).serialize()), binary=True)
-        except Exception as ex:
-            logger.exception('Error receiving message: %s', ex)
-            # pass  # Ignore malformed data processing; in that case there's nothing that will happen
-
-
+@Injectable.named('web_interface')
+@Singleton
 class WebInterface(object):
     """ This class defines the web interface served by cherrypy. """
 
-    @provides('web_interface')
-    @scope(SingletonScope)
-    @inject(user_controller='user_controller', gateway_api='gateway_api', maintenance_service='maintenance_service',
-            message_client='message_client', config_controller='config_controller',
-            scheduling_controller='scheduling_controller')
-    def __init__(self, user_controller, gateway_api, maintenance_service,
-                 message_client, config_controller, scheduling_controller):
+    @Inject
+    def __init__(self,
+                 user_controller=INJECTED, gateway_api=INJECTED, maintenance_controller=INJECTED,
+                 message_client=INJECTED, configuration_controller=INJECTED, scheduling_controller=INJECTED):
         """
         Constructor for the WebInterface.
 
-        :param user_controller: used to create and authenticate users.
         :type user_controller: gateway.users.UserController
-        :param gateway_api: used to communicate with the master.
         :type gateway_api: gateway.gateway_api.GatewayApi
-        :param maintenance_service: used when opening maintenance mode.
-        :type maintenance_service: master.maintenance.MaintenanceService
-        :param message_client: an OM bus message client
+        :type maintenance_controller: gateway.hal.maintenance_controller.MaintenanceController
         :type message_client: bus.om_bus_client.MessageClient
-        :param config_controller: Configuration controller
-        :type config_controller: gateway.config.ConfigController
-        :param scheduling_controller: Scheduling Controller
+        :type configuration_controller: gateway.config.ConfigController
         :type scheduling_controller: gateway.scheduling.SchedulingController
         """
         self._user_controller = user_controller
-        self._config_controller = config_controller
+        self._config_controller = configuration_controller
         self._scheduling_controller = scheduling_controller
         self._plugin_controller = None
 
         self._gateway_api = gateway_api
-        self._maintenance_service = maintenance_service
+        self._maintenance_controller = maintenance_controller
         self._message_client = message_client
         self._plugin_controller = None
         self._metrics_collector = None
@@ -602,8 +424,7 @@ class WebInterface(object):
         :returns: 'port': Port on which the maintenance ssl socket is listening (Integer between 6000 and 7000).
         :rtype: dict
         """
-        port = random.randint(6000, 7000)
-        self._maintenance_service.start_in_thread(port)
+        port = self._maintenance_controller.open_maintenace_socket()
         return {'port': port}
 
     @openmotics_api(auth=True)
@@ -689,6 +510,7 @@ class WebInterface(object):
             'scheduling',  # Gateway backed scheduling
             'factory_reset',  # The gateway can be complete reset to factory standard
             'isolated_plugins',  # Plugins run in a separate process, so allow fine-graded control
+            'websocket_maintenance',  # Maintenance over websockets
         ]
 
         master_version = self._gateway_api.get_master_version()
@@ -795,7 +617,9 @@ class WebInterface(object):
         :returns: 'inputs': list of tuples (input, output).
         :rtype: dict
         """
-        return {'inputs': self._gateway_api.get_last_inputs()}
+        # for backwards compatibility reasons a list of input, output tuples is returned
+        inputs = [(changed_input, None) for changed_input in self._gateway_api.get_last_inputs()]
+        return {'inputs': inputs}
 
     @openmotics_api(auth=True)
     def get_shutter_status(self):
@@ -2239,7 +2063,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.13.1'}
+                'gateway': '2.14.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):
@@ -2543,18 +2367,26 @@ class WebInterface(object):
                                                 'client_id': uuid.uuid4().hex,
                                                 'interface': self}
 
+    @cherrypy.expose
+    @cherrypy.tools.cors()
+    @cherrypy.tools.authenticated(pass_token=True)
+    def ws_maintenance(self, token):
+        cherrypy.request.ws_handler.metadata = {'token': token,
+                                                'client_id': uuid.uuid4().hex,
+                                                'interface': self}
 
+
+@Injectable.named('web_service')
+@Singleton
 class WebService(object):
     """ The web service serves the gateway api over http. """
 
     name = 'web'
 
-    @provides('web_service')
-    @scope(SingletonScope)
-    @inject(webinterface='web_interface', config_controller='config_controller')
-    def __init__(self, webinterface, config_controller, verbose=False):
-        self._webinterface = webinterface
-        self._config_controller = config_controller
+    @Inject
+    def __init__(self, web_interface=INJECTED, configuration_controller=INJECTED, verbose=False):
+        self._webinterface = web_interface
+        self._config_controller = configuration_controller
         self._https_server = None
         self._http_server = None
         self._running = False
@@ -2576,6 +2408,8 @@ class WebService(object):
                                       'tools.websocket.handler_cls': MetricsSocket},
                       '/ws_events': {'tools.websocket.on': True,
                                      'tools.websocket.handler_cls': EventsSocket},
+                      '/ws_maintenance': {'tools.websocket.on': True,
+                                          'tools.websocket.handler_cls': MaintenanceSocket},
                       '/': {'tools.timestamp_filter.on': True,
                             'tools.cors.on': self._config_controller.get_setting('cors_enabled', False),
                             'tools.sessions.on': False}}
@@ -2604,6 +2438,8 @@ class WebService(object):
             cherrypy.engine.autoreload_on = False
 
             cherrypy.engine.start()
+            self._https_server.httpserver.error_log = WebService._http_server_logger
+            self._http_server.httpserver.error_log = WebService._http_server_logger
             self._running = True
             logger.info('Starting webserver... Done')
             cherrypy.engine.block()
@@ -2612,6 +2448,17 @@ class WebService(object):
         except Exception:
             logger.exception("Could not start webservice. Dying...")
             sys.exit(1)
+
+    @staticmethod
+    def _http_server_logger(msg='', level=20, traceback=False):
+        """
+        This workaround is to lower some CherryPy "TICK"-SSL errors' severity that are incorrectly
+        logged in our version of CherryPy. It is already resolved in a newer version, but we
+        still need to upgrade
+        """
+        # TODO upgrade cherrypy
+        _ = level, traceback
+        logger.debug(msg)
 
     def start(self):
         """ Start the web service in a new thread. """
@@ -2640,3 +2487,5 @@ class WebService(object):
             cherrypy.tree.mount(**mount)
         self._http_server.start()
         self._https_server.start()
+        self._https_server.httpserver.error_log = WebService._http_server_logger
+        self._http_server.httpserver.error_log = WebService._http_server_logger
