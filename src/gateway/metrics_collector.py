@@ -204,7 +204,7 @@ class MetricsCollector(object):
             output = self._environment['outputs'].get(output_id)
             if output is not None:
                 output.update({'status': 1 if event.data['status']['on'] else 0,
-                               'dimmer': event.data['status'].get('value', 0)})
+                               'dimmer': int(event.data['status'].get('value', 0))})
                 self._process_outputs([output_id], 'output')
         # TODO: Replace `on_input` by this event handler
 
@@ -270,17 +270,17 @@ class MetricsCollector(object):
                     service_uptime = 0
                 self._last_service_uptime = service_uptime
 
-                values['service_uptime'] = service_uptime
-                values['system_uptime'] = system_uptime
+                values['service_uptime'] = float(service_uptime)
+                values['system_uptime'] = float(system_uptime)
 
                 try:
-                    values['cpu_percent'] = psutil.cpu_percent()
+                    values['cpu_percent'] = float(psutil.cpu_percent())
                     cpu_load = [x / psutil.cpu_count() * 100 for x in psutil.getloadavg()]
-                    values['cpu_load_1'] = cpu_load[0]
-                    values['cpu_load_5'] = cpu_load[1]
-                    values['cpu_load_15'] = cpu_load[2]
+                    values['cpu_load_1'] = float(cpu_load[0])
+                    values['cpu_load_5'] = float(cpu_load[1])
+                    values['cpu_load_15'] = float(cpu_load[2])
                 except Exception as ex:
-                    logger.error('error loading cpu metrics {0}'.format(ex))
+                    logger.error('Error loading cpu metrics: {0}'.format(ex))
 
                 try:
                     memory = dict(psutil.virtual_memory()._asdict())
@@ -288,11 +288,11 @@ class MetricsCollector(object):
                         try:
                             key = 'memory_{0}'.format(reading)
                             value = memory[reading]
-                            values[key] = value
+                            values[key] = int(value) if reading != 'percent' else float(value)
                         except Exception as ex:
-                            logger.error('error loading memory metric {0}'.format(ex))
+                            logger.error('error loading memory metric: {0}'.format(ex))
                 except Exception as ex:
-                    logger.error('error loading memory metrics {0}'.format(ex))
+                    logger.error('Error loading memory metrics: {0}'.format(ex))
 
                 try:
                     disk = dict(psutil.disk_usage('/')._asdict())
@@ -300,20 +300,20 @@ class MetricsCollector(object):
                         try:
                             key = 'disk_{0}'.format(reading)
                             value = disk[reading]
-                            values[key] = value
+                            values[key] = int(value) if reading != 'percent' else float(value)
                         except Exception as ex:
-                            logger.error('error loading disk metric {0}'.format(ex))
+                            logger.error('Error loading disk metric: {0}'.format(ex))
 
                     disk_io = dict(psutil.disk_io_counters()._asdict())
                     for reading in ['read_count', 'write_count', 'read_bytes', 'write_bytes']:
                         try:
                             key = 'disk_{0}'.format(reading)
                             value = disk_io[reading]
-                            values[key] = value
+                            values[key] = int(value)
                         except Exception as ex:
-                            logger.error('error loading disk io metric {0}'.format(ex))
+                            logger.error('Error loading disk io metric: {0}'.format(ex))
                 except Exception as ex:
-                    logger.error('error loading disk metrics {0}'.format(ex))
+                    logger.error('Error loading disk metrics: {0}'.format(ex))
 
                 try:
                     network = dict(psutil.net_io_counters()._asdict())
@@ -321,11 +321,11 @@ class MetricsCollector(object):
                         try:
                             key = 'net_{0}'.format(reading)
                             value = network[reading]
-                            values[key] = value
+                            values[key] = int(value)
                         except Exception as ex:
-                            logger.error('error loading network metric {0}'.format(ex))
+                            logger.error('Error loading network metric: {0}'.format(ex))
                 except Exception as ex:
-                    logger.error('error loading network metrics {0}'.format(ex))
+                    logger.error('Error loading network metrics: {0}'.format(ex))
 
                 self._enqueue_metrics(metric_type=metric_type,
                                       values=values,
