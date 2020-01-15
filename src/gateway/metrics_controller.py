@@ -497,10 +497,8 @@ class MetricsController(object):
             try:
                 metrics = []
                 try:
-                    while True:
+                    while len(metrics) < 250:
                         metrics.append(self.metrics_queue_plugins.pop())
-                        if len(metrics) == 250:
-                            raise IndexError()
                 except IndexError:
                     pass
                 if metrics:
