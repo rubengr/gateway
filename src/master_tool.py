@@ -24,14 +24,11 @@ import argparse
 import sys
 import time
 from ConfigParser import ConfigParser
-
+from ioc import Injectable
 from serial import Serial
-
 import constants
-
 import master.master_api as master_api
 from master.master_communicator import MasterCommunicator
-
 from serial_utils import CommunicationTimedOutException
 
 
@@ -81,7 +78,10 @@ def main():
 
     elif args.sync or args.version or args.reset or args.wipe:
         master_serial = Serial(port, 115200)
-        master_communicator = MasterCommunicator(master_serial)
+
+        Injectable.value(controller_serial=master_serial)
+
+        master_communicator = MasterCommunicator()
         master_communicator.start()
 
         if args.sync:
