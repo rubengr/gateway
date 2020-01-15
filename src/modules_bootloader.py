@@ -29,6 +29,7 @@ import traceback
 import intelhex
 import constants
 import master.master_api as master_api
+from ioc import Injectable, Inject, INJECTED
 from ConfigParser import ConfigParser
 from serial import Serial
 from master.master_communicator import MasterCommunicator
@@ -89,17 +90,15 @@ def check_bl_crc(command, command_output):
     return command_output['crc0'] == (crc / 256) and command_output['crc1'] == (crc % 256)
 
 
-def get_module_addresses(master_communicator, module_type):
+def get_module_addresses(module_type):
     """
     Get the addresses for the modules of the given type.
 
-    :param master_communicator: used to read the addresses from the master eeprom.
-    :type master_communicator: MasterCommunicator
     :param module_type: the type of the module (O, R, D, I, T, C)
     :param module_type: chr
     :returns: A list containing the addresses of the modules (strings of length 4).
     """
-    eeprom_file = EepromFile(master_communicator)
+    eeprom_file = EepromFile()
     base_address = EepromAddress(0, 1, 2)
     no_modules = eeprom_file.read([base_address])
     modules = []
@@ -298,7 +297,8 @@ def bootload(master_communicator, address, ihex, crc, blocks, logger):
     master_communicator.do_command(master_api.clear_error_list())
 
 
-def bootload_modules(module_type, filename, verbose, logger):
+@Inject
+def bootload_modules(module_type, filename, logger, master_communicator=INJECTED):
     """
     Bootload all modules of the given type with the firmware in the given filename.
 
@@ -306,20 +306,13 @@ def bootload_modules(module_type, filename, verbose, logger):
     :type module_type: str
     :param filename: The filename for the hex file to load
     :type filename: str
-    :param verbose: If true the serial communication is printed.
-    :param verbose: bool
     :param logger: Logger
+    :param master_communicator: used to read the addresses from the master eeprom.
+    :type master_communicator: MasterCommunicator
     """
-    config = ConfigParser()
-    config.read(constants.get_config_file())
 
-    port = config.get('OpenMotics', 'controller_serial')
-
-    master_serial = Serial(port, 115200)
-    master_communicator = MasterCommunicator(master_serial, verbose=verbose)
     master_communicator.start()
-
-    addresses = get_module_addresses(master_communicator, module_type)
+    addresses = get_module_addresses(module_type)
 
     blocks = 922 if module_type == 'C' else 410
     ihex = intelhex.IntelHex(filename)
@@ -352,6 +345,14 @@ def main():
 
     args = parser.parse_args()
 
+    config = ConfigParser()
+    config.read(constants.get_config_file())
+
+    port = config.get('OpenMotics', 'controller_serial')
+
+    master_serial = Serial(port, 115200)
+    Injectable.value(controller_serial=master_serial)
+
     log_file = None
     try:
         if args.log is not None:
@@ -374,7 +375,7 @@ def main():
         # The type argument is lowercase for backwards compatibility reasons. However, all subsequent calls need the correct type
         module_type = args.type.upper()
 
-        update_success = bootload_modules(module_type, args.file, args.verbose, logger)
+        update_success = bootload_modules(module_type, args.file, logger)
     finally:
         if log_file is not None:
             log_file.close()
