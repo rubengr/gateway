@@ -718,6 +718,8 @@ class MetricsCollector(object):
                                     4: 'pump',
                                     5: 'hvac',
                                     6: 'generic',
+                                    7: 'motor',
+                                    8: 'ventilation',
                                     255: 'light'}
                     self._environment['outputs'][output_id] = {'name': config['name'],
                                                                'module_type': {'o': 'output',
