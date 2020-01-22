@@ -265,7 +265,7 @@ class MasterClassicController(MasterController):
 
     def get_sensors_temperature(self):
         output = []
-        sensor_list = self.__master_communicator.do_command(master_api.sensor_temperature_list())
+        sensor_list = self._master_communicator.do_command(master_api.sensor_temperature_list())
         for i in range(32):
             output.append(sensor_list['tmp%d' % i].get_temperature())
         return output
@@ -277,7 +277,7 @@ class MasterClassicController(MasterController):
 
     def get_sensors_humidity(self):
         output = []
-        sensor_list = self.__master_communicator.do_command(master_api.sensor_humidity_list())
+        sensor_list = self._master_communicator.do_command(master_api.sensor_humidity_list())
         for i in range(32):
             output.append(sensor_list['hum%d' % i].get_humidity())
         return output
@@ -289,7 +289,7 @@ class MasterClassicController(MasterController):
 
     def get_sensors_brightness(self):
         output = []
-        sensor_list = self.__master_communicator.do_command(master_api.sensor_brightness_list())
+        sensor_list = self._master_communicator.do_command(master_api.sensor_brightness_list())
         for i in range(32):
             output.append(sensor_list['bri%d' % i].get_brightness())
         return output
@@ -298,7 +298,7 @@ class MasterClassicController(MasterController):
         if 0 > sensor_id > 31:
             raise ValueError('sensor_id not in [0, 31]: %d' % sensor_id)
 
-        self.__master_communicator.do_command(master_api.set_virtual_sensor(),
+        self._master_communicator.do_command(master_api.set_virtual_sensor(),
                                               {'sensor': sensor_id,
                                                'tmp': master_api.Svt.temp(temperature),
                                                'hum': master_api.Svt.humidity(humidity),
@@ -314,7 +314,7 @@ class MasterClassicController(MasterController):
         :type fields: List of strings
         :returns: sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
         """
-        return self.__eeprom_controller.read(SensorConfiguration, sensor_id, fields).serialize()
+        return self._eeprom_controller.read(SensorConfiguration, sensor_id, fields).serialize()
 
     def get_sensors_configuration(self, fields=None):
         """
@@ -324,7 +324,7 @@ class MasterClassicController(MasterController):
         :type fields: List of strings
         :returns: list of sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(SensorConfiguration, fields)]
+        return [o.serialize() for o in self._eeprom_controller.read_all(SensorConfiguration, fields)]
 
     def set_sensor_configuration(self, config):
         """
@@ -333,7 +333,7 @@ class MasterClassicController(MasterController):
         :param config: The sensor_configuration to set
         :type config: sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
         """
-        self.__eeprom_controller.write(SensorConfiguration.deserialize(config))
+        self._eeprom_controller.write(SensorConfiguration.deserialize(config))
 
     def set_sensors_configuration(self, config):
         """
@@ -342,4 +342,4 @@ class MasterClassicController(MasterController):
         :param config: The list of sensor_configurations to set
         :type config: list of sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
         """
-        self.__eeprom_controller.write_batch([SensorConfiguration.deserialize(o) for o in config])
+        self._eeprom_controller.write_batch([SensorConfiguration.deserialize(o) for o in config])
