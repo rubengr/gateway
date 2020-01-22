@@ -19,7 +19,7 @@ thermostats to the cloud, to keep the status information in the cloud in sync.
 """
 
 from platform_utils import System
-System.import_eggs()
+System.import_libs()
 
 import logging
 import os

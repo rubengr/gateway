@@ -224,6 +224,8 @@ class PluginController(object):
 
             def parse_version(version_string):
                 """ Parse the version from a string "x.y.z" to a tuple(x, y, z). """
+                if version_string is None:
+                    return 0, 0, 0  # A stopped plugin doesn't announce it's version, so make sure we can update stopped plugins
                 return tuple([int(x) for x in version_string.split('.')])
 
             # Check if a newer version of the package is already installed

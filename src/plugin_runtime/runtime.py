@@ -7,7 +7,7 @@ from threading import Thread
 sys.path.insert(0, '/opt/openmotics/python')
 
 from platform_utils import System
-System.import_eggs()
+System.import_libs()
 
 from toolbox import PluginIPCStream
 from gateway.observer import Event

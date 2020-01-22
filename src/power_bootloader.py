@@ -16,7 +16,7 @@
 Tool to bootload the power modules from the command line.
 """
 from platform_utils import System
-System.import_eggs()
+System.import_libs()
 
 import intelhex
 import constants
