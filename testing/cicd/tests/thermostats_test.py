@@ -17,7 +17,7 @@ The thermostats_test.py file contains thermostat configuration test.
 """
 import time
 import logging
-import simplejson as json
+import ujson as json
 from toolbox import exception_handler, OMTestCase
 
 logger = logging.getLogger('openmotics')

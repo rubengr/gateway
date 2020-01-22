@@ -17,7 +17,7 @@
 Plugin to forward all master events to a socket.
 """
 
-import simplejson as json
+import ujson as json
 import time
 from multiprocessing.connection import Listener
 

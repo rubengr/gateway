@@ -16,7 +16,7 @@
 The main module for the OpenMotics
 """
 from platform_utils import System, Platform
-System.import_eggs()
+System.import_libs()
 
 import logging
 import time
