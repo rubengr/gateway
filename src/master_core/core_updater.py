@@ -98,6 +98,8 @@ class CoreUpdater(object):
                 maintenance_communicator.start()
                 # core_communicator.start()  # TODO: Make sure it can start again
 
+            # TODO: Also verify CoreCommunicator / API
+
             logger.info('Update completed')
             return True
         except Exception as ex:
