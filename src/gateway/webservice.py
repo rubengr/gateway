@@ -858,7 +858,7 @@ class WebInterface(object):
         :returns: 'status': List of 32 bytes, 1 for each sensor.
         :rtype: dict
         """
-        return {'status': self._gateway_api.get_sensor_humidity_status()}
+        return {'status': self._gateway_api.get_sensors_humidity_status()}
 
     @openmotics_api(auth=True)
     def get_sensor_brightness_status(self):
@@ -868,7 +868,7 @@ class WebInterface(object):
         :returns: 'status': List of 32 bytes, 1 for each sensor.
         :rtype: dict
         """
-        return {'status': self._gateway_api.get_sensor_brightness_status()}
+        return {'status': self._gateway_api.get_sensors_brightness_status()}
 
     @openmotics_api(auth=True, check=types(sensor_id=int, temperature=float, humidity=float, brightness=int))
     def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):

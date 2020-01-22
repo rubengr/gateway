@@ -234,3 +234,40 @@ class MasterCoreController(MasterController):
         self._master_communicator.do_command(CoreAPI.basic_action(), {'type': 10, 'action': 0,
                                                                       'device_nr': shutter_id,
                                                                       'extra_parameter': 0})
+
+    # Sensors
+
+    def get_sensor_configuration(self, sensor_id, fields=None):
+        raise NotImplementedError()
+
+    def set_sensor_configuration(self, config):
+        raise NotImplementedError()
+
+    def get_sensors_configuration(self, fields=None):
+        raise NotImplementedError()
+
+    def set_sensors_configuration(self, config):
+        raise NotImplementedError()
+
+    def get_sensor_temperature(self, sensor_id):
+        raise NotImplementedError()
+
+    def get_sensors_temperature(self):
+        raise NotImplementedError()
+
+    def get_sensor_humidity(self, sensor_id):
+        raise NotImplementedError()
+
+    def get_sensors_humidity(self):
+        raise NotImplementedError()
+
+    def get_sensor_brightness(self, sensor_id):
+        raise NotImplementedError()
+
+    def get_sensors_brightness(self):
+        raise NotImplementedError()
+
+    def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
+        raise NotImplementedError()
+
+

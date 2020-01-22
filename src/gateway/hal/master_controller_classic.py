@@ -22,6 +22,7 @@ from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api, eeprom_models
+from master.eeprom_models import SensorConfiguration
 from master.outputs import OutputStatus
 from master.master_communicator import BackgroundConsumer
 from serial_utils import CommunicationTimedOutException
@@ -254,3 +255,91 @@ class MasterClassicController(MasterController):
 
     def shutter_stop(self, shutter_id):
         self._master_communicator.do_basic_action(master_api.BA_SHUTTER_STOP, shutter_id)
+
+    # Sensors
+
+    def get_sensor_temperature(self, sensor_id):
+        if sensor_id is None or sensor_id == 255:
+            return None
+        return self.get_sensors_temperature()[sensor_id]
+
+    def get_sensors_temperature(self):
+        output = []
+        sensor_list = self.__master_communicator.do_command(master_api.sensor_temperature_list())
+        for i in range(32):
+            output.append(sensor_list['tmp%d' % i].get_temperature())
+        return output
+
+    def get_sensor_humidity(self, sensor_id):
+        if sensor_id is None or sensor_id == 255:
+            return None
+        return self.get_sensors_humidity()[sensor_id]
+
+    def get_sensors_humidity(self):
+        output = []
+        sensor_list = self.__master_communicator.do_command(master_api.sensor_humidity_list())
+        for i in range(32):
+            output.append(sensor_list['hum%d' % i].get_humidity())
+        return output
+
+    def get_sensor_brightness(self, sensor_id):
+        if sensor_id is None or sensor_id == 255:
+            return None
+        return self.get_sensors_brightness()[sensor_id]
+
+    def get_sensors_brightness(self):
+        output = []
+        sensor_list = self.__master_communicator.do_command(master_api.sensor_brightness_list())
+        for i in range(32):
+            output.append(sensor_list['bri%d' % i].get_brightness())
+        return output
+
+    def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
+        if 0 > sensor_id > 31:
+            raise ValueError('sensor_id not in [0, 31]: %d' % sensor_id)
+
+        self.__master_communicator.do_command(master_api.set_virtual_sensor(),
+                                              {'sensor': sensor_id,
+                                               'tmp': master_api.Svt.temp(temperature),
+                                               'hum': master_api.Svt.humidity(humidity),
+                                               'bri': master_api.Svt.brightness(brightness)})
+
+    def get_sensor_configuration(self, sensor_id, fields=None):
+        """
+        Get a specific sensor_configuration defined by its id.
+
+        :param sensor_id: The id of the sensor_configuration
+        :type sensor_id: Id
+        :param fields: The field of the sensor_configuration to get. (None gets all fields)
+        :type fields: List of strings
+        :returns: sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
+        """
+        return self.__eeprom_controller.read(SensorConfiguration, sensor_id, fields).serialize()
+
+    def get_sensors_configuration(self, fields=None):
+        """
+        Get all sensor_configurations.
+
+        :param fields: The field of the sensor_configuration to get. (None gets all fields)
+        :type fields: List of strings
+        :returns: list of sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
+        """
+        return [o.serialize() for o in self.__eeprom_controller.read_all(SensorConfiguration, fields)]
+
+    def set_sensor_configuration(self, config):
+        """
+        Set one sensor_configuration.
+
+        :param config: The sensor_configuration to set
+        :type config: sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
+        """
+        self.__eeprom_controller.write(SensorConfiguration.deserialize(config))
+
+    def set_sensors_configuration(self, config):
+        """
+        Set multiple sensor_configurations.
+
+        :param config: The list of sensor_configurations to set
+        :type config: list of sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
+        """
+        self.__eeprom_controller.write_batch([SensorConfiguration.deserialize(o) for o in config])
