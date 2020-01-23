@@ -2069,7 +2069,7 @@ class WebInterface(object):
         :returns: 'version': String (a.b.c).
         :rtype: dict
         """
-        return {'version': self._gateway_api.get_main_version(),
+        return {'version': self._gateway_api.get_gateway_version(),
                 'gateway': '2.13.1'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
@@ -2108,7 +2108,7 @@ class WebInterface(object):
         """
         with open(constants.get_update_output_file(), "r") as output_file:
             output = output_file.read()
-        version = self._gateway_api.get_main_version()
+        version = self._gateway_api.get_gateway_version()
 
         return {'output': output,
                 'version': version}

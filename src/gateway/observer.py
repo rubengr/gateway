@@ -251,9 +251,11 @@ class Observer(object):
 
     def get_outputs(self):
         """ Returns a list of Outputs with their status """
+        # TODO: also include other outputs (e.g. from plugins)
         return self._master_controller.get_output_statuses()
 
     def get_output(self, output_id):
+        # TODO: also address other outputs (e.g. from plugins)
         return self._master_controller.get_output_status(output_id)
 
     # Inputs

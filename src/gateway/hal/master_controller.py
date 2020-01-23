@@ -142,6 +142,12 @@ class MasterController(object):
     def shutter_stop(self, shutter_id):
         raise NotImplementedError()
 
+    def shutter_group_down(self, group_id):
+        raise NotImplementedError()
+
+    def shutter_group_up(self, group_id):
+        raise NotImplementedError()
+
     # Sensors
 
     def get_sensor_temperature(self, sensor_id):
@@ -175,4 +181,77 @@ class MasterController(object):
         raise NotImplementedError()
 
     def set_sensors_configuration(self, config):
+        raise NotImplementedError()
+
+    # Virtual modules
+
+    def add_virtual_output_module(self):
+        raise NotImplementedError()
+
+    def add_virtual_dim_module(self):
+        raise NotImplementedError()
+
+    def add_virtual_input_module(self):
+        raise NotImplementedError()
+
+    # Generic
+
+    def get_status(self):
+        raise NotImplementedError()
+
+    def get_version(self):
+        raise NotImplementedError()
+
+    def reset(self):
+        raise NotImplementedError()
+
+    def get_modules(self):
+        raise NotImplementedError()
+
+    def get_modules_information(self):
+        raise NotImplementedError()
+
+    def flash_leds(self, led_type, led_id):
+        raise NotImplementedError()
+
+    def get_backup(self):
+        raise NotImplementedError()
+
+    def restore(self, data):
+        raise NotImplementedError()
+
+    def factory_reset(self):
+        raise NotImplementedError()
+
+    # Error functions
+
+    def error_list(self):
+        raise NotImplementedError()
+
+    def last_success(self):
+        raise NotImplementedError()
+
+    def clear_error_list(self):
+        raise NotImplementedError()
+
+    def set_status_leds(self, status):
+        raise NotImplementedError()
+
+    # Actions
+
+    def do_basic_action(self, action_type, action_number):
+        raise NotImplementedError()
+
+    def do_group_action(self, group_action_id):
+        raise NotImplementedError()
+
+    # All lights off
+
+    def set_all_lights_off(self):
+        raise NotImplementedError()
+
+    def set_all_lights_floor_off(self):
+        raise NotImplementedError()
+
+    def set_all_lights_floor_on(self):
         raise NotImplementedError()
