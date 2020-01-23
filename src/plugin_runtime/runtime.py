@@ -278,12 +278,11 @@ class IO(object):
     @staticmethod
     def _wait_and_read_command():
         stream = PluginIPCStream()
-        line = ''
-        while line == '':
-            line = sys.stdin.readline().strip()
         try:
-            response = stream.feed(line)
-            if response is not None:
+            while True:
+                response = stream.feed(sys.stdin.read(1))
+                if response is None:
+                    continue
                 return response
         except Exception as ex:
             IO._log('Exception in _wait_and_read_command: Could not decode stdin: {0}'.format(ex))

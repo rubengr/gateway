@@ -71,32 +71,12 @@ class PluginIPCStream(object):
         self._buffer = ''
 
     def feed(self, stream):
-        return json.loads(stream.strip())
-
-        # Netstring format for binary data
-        # self._buffer += stream
-        # if ':' not in self._buffer or not self._buffer.endswith(',\n'):
-        #     return
-        # length, encoded_data = self._buffer.split(':', 1)
-        # try:
-        #     length = int(length)
-        # except ValueError:
-        #     self._buffer = ''
-        #     raise
-        # if len(encoded_data) < length + 2:
-        #     return
-        # try:
-        #     data = cPickle.loads(encoded_data.replace(',\n', ''))
-        #     self._buffer = ''
-        #     return data
-        # except ValueError:
-        #     self._buffer = ''
-        #     raise
+        self._buffer += stream
+        if '\n' in self._buffer:
+            response, self._buffer = self._buffer.split('\n', 1)
+            return json.loads(response)
+        return
 
     @staticmethod
     def encode(data):
         return '{0}\n'.format(json.dumps(data))
-
-        # Netstring format for binary data:
-        # encoded_data = cPickle.dumps(data)
-        # return '{0}:{1},\n'.format(len(encoded_data), encoded_data)

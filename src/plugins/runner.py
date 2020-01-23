@@ -55,7 +55,7 @@ class PluginRunner:
 
         self._proc = subprocess.Popen([python_executable, "runtime.py", "start", self.plugin_path],
                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=None,
-                                      cwd=self.runtime_path, universal_newlines=True, bufsize=1)
+                                      cwd=self.runtime_path)
         self._process_running = True
 
         self._commands_executed = 0
@@ -215,12 +215,8 @@ class PluginRunner:
                 self._process_running = False
                 break
 
-            line = ''
-            while line == '':
-                line = self._proc.stdout.readline().strip()
-
             try:
-                response = stream.feed(line)
+                response = stream.feed(self._proc.stdout.read(1))
                 if response is None:
                     continue
             except Exception as ex:
