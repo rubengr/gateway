@@ -16,12 +16,12 @@
 The main module for the OpenMotics
 """
 from platform_utils import System, Platform
-System.import_eggs()
+System.import_libs()
 
 import logging
 import time
 import constants
-from ioc import Injectable, Inject, INJECTED, DumpInjectionStack
+from ioc import Injectable, Inject, INJECTED
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
 from serial import Serial

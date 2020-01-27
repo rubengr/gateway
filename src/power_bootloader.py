@@ -16,7 +16,7 @@
 Tool to bootload the power modules from the command line.
 """
 from platform_utils import System
-System.import_eggs()
+System.import_libs()
 
 import intelhex
 import constants
@@ -24,6 +24,7 @@ import sys
 import argparse
 import logging
 import time
+from ioc import Injectable
 from ConfigParser import ConfigParser
 from serial import Serial
 from serial_utils import RS485, CommunicationTimedOutException
@@ -266,7 +267,12 @@ def main():
 
     port = config.get('OpenMotics', 'power_serial')
     power_serial = RS485(Serial(port, 115200))
-    power_communicator = PowerCommunicator(power_serial, None, time_keeper_period=0, verbose=args.verbose)
+
+    Injectable.value(power_serial=power_serial)
+    Injectable.value(power_db=constants.get_power_database_file())
+
+    power_controller = PowerController()
+    power_communicator = PowerCommunicator(time_keeper_period=0, verbose=args.verbose)
     power_communicator.start()
 
     version = power_api.ENERGY_MODULE
@@ -289,7 +295,6 @@ def main():
             logger.exception('E{0} - Unexpected exception during bootload. Skipping...'.format(address))
 
     if args.address or args.all:
-        power_controller = PowerController(constants.get_power_database_file())
         power_modules = power_controller.get_power_modules()
         if args.all:
             for module_id in power_modules:

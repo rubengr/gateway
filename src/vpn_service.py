@@ -19,7 +19,7 @@ thermostats to the cloud, to keep the status information in the cloud in sync.
 """
 
 from platform_utils import System
-System.import_eggs()
+System.import_libs()
 
 import logging
 import os
@@ -511,10 +511,9 @@ class VPNService(object):
                     self._clean_debug_dumps()
 
                 if self._iterations > 20 and self._cloud.get_last_connect() < time.time() - REBOOT_TIMEOUT:
-                    # The cloud is not responding for a while.
-                    if not VPNService.ping('cloud.openmotics.com') and not VPNService.ping('8.8.8.8') and not VPNService.ping(VPNService._get_gateway()):
-                        # Perhaps the BeagleBone network stack is hanging, reboot the gateway
-                        # to reset the BeagleBone.
+                    # We can't connect for over `REBOOT_TIMEOUT` seconds and we tried for at least 20 times.
+                    # Try to figure out whether the network stack works as expected
+                    if not VPNService.has_connectivity():
                         reboot_gateway()
                 self._iterations += 1
                 # Open or close the VPN

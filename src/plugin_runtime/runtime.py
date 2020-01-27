@@ -7,7 +7,7 @@ from threading import Thread
 sys.path.insert(0, '/opt/openmotics/python')
 
 from platform_utils import System
-System.import_eggs()
+System.import_libs()
 
 from toolbox import PluginIPCStream
 from gateway.observer import Event
@@ -149,8 +149,8 @@ class PluginRuntime:
                     ret = self._handle_get_metric_definitions()
                 elif action == 'collect_metrics':
                     ret = self._handle_collect_metrics(command['name'])
-                elif action == 'distribute_metric':
-                    ret = self._handle_distribute_metric(command['name'], command['metric'])
+                elif action == 'distribute_metrics':
+                    ret = self._handle_distribute_metrics(command['name'], command['metrics'])
                 elif action == 'request':
                     ret = self._handle_request(command['method'], command['args'], command['kwargs'])
                 elif action == 'remove_callback':
@@ -238,9 +238,10 @@ class PluginRuntime:
             IO._log_exception('collect metrics', exception)
         return {'metrics': metrics}
 
-    def _handle_distribute_metric(self, name, metric):
+    def _handle_distribute_metrics(self, name, metrics):
         receive = getattr(self._plugin, name)
-        IO._with_catch('distribute metric', receive, [metric])
+        for metric in metrics:
+            IO._with_catch('distribute metric', receive, [metric])
 
     def _handle_request(self, method, args, kwargs):
         func = getattr(self._plugin, method)
@@ -277,19 +278,15 @@ class IO(object):
     @staticmethod
     def _wait_and_read_command():
         stream = PluginIPCStream()
-        while True:
-            try:
-                line = sys.stdin.readline()
-                if line is None:
-                    line = ''
-            except Exception:
-                continue
-            try:
-                response = stream.feed(line)
-                if response is not None:
-                    return response
-            except Exception as ex:
-                IO._log('Exception in _wait_and_read_command: Could not decode stdin: {0}'.format(ex))
+        line = ''
+        while line == '':
+            line = sys.stdin.readline().strip()
+        try:
+            response = stream.feed(line)
+            if response is not None:
+                return response
+        except Exception as ex:
+            IO._log('Exception in _wait_and_read_command: Could not decode stdin: {0}'.format(ex))
 
     @staticmethod
     def _write(msg):

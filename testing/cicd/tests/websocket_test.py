@@ -20,7 +20,7 @@ import base64
 import logging
 import time
 import msgpack
-import simplejson as json
+import ujson as json
 from ws4py.client.threadedclient import WebSocketClient
 from toolbox import exception_handler, OMTestCase
 

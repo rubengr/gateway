@@ -19,7 +19,7 @@ import os
 import unittest
 import requests
 import copy
-import json
+import ujson as json
 import fakesleep
 import xmlrunner
 import time

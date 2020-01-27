@@ -17,7 +17,7 @@ The rooms_test.py file contains room configuration test methods and other privat
 """
 import logging
 from random import randint
-import simplejson as json
+import ujson as json
 from toolbox import exception_handler, OMTestCase
 
 

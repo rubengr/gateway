@@ -18,7 +18,7 @@ The io_test.py file contains tests related to input and output configurations.
 import unittest
 import time
 import datetime
-import simplejson as json
+import ujson as json
 import logging
 import toolbox
 from pytz import timezone

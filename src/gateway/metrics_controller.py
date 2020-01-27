@@ -18,7 +18,6 @@ The metrics module collects and re-distributes metric data
 
 import re
 import time
-import copy
 import logging
 import requests
 import ujson as json
@@ -496,16 +495,22 @@ class MetricsController(object):
     def _distribute_plugins(self):
         while not self._stopped:
             try:
-                metric = self.metrics_queue_plugins.pop()
-                delivery_count = self._plugin_controller.distribute_metric(metric)
-                if delivery_count > 0:
-                    rate_key = '{0}.{1}'.format(metric['source'].lower(), metric['type'].lower())
-                    if rate_key not in self.outbound_rates:
-                        self.outbound_rates[rate_key] = 0
-                    self.outbound_rates[rate_key] += delivery_count
-                    self.outbound_rates['total'] += delivery_count
-            except IndexError:
-                time.sleep(0.1)
+                metrics = []
+                try:
+                    while len(metrics) < 250:
+                        metrics.append(self.metrics_queue_plugins.pop())
+                except IndexError:
+                    pass
+                if metrics:
+                    rates = self._plugin_controller.distribute_metrics(metrics)
+                    for key, rate in rates.iteritems():
+                        if key not in self.outbound_rates:
+                            self.outbound_rates[key] = 0
+                        self.outbound_rates[key] += rate
+                else:
+                    time.sleep(0.1)
+            except Exception as ex:
+                logger.exception('Error distributing metrics to plugins: {0}'.format(ex))
 
     def _distribute_openmotics(self):
         while not self._stopped:
