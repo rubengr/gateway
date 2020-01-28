@@ -34,6 +34,7 @@ from decorator import decorator
 from bus.om_bus_events import OMBusEvents
 from gateway.shutters import ShutterController
 from gateway.maintenance_communicator import InMaintenanceModeException
+from power.power_communicator import InAddressModeException
 from platform_utils import System
 from serial_utils import CommunicationTimedOutException
 from gateway.websockets import OMPlugin, OMSocketTool, MetricsSocket, EventsSocket, MaintenanceSocket
@@ -187,7 +188,7 @@ def _openmotics_api(f, *args, **kwargs):
     except cherrypy.HTTPError as ex:
         status = ex.status
         data = {'success': False, 'msg': ex._message}
-    except InMaintenanceModeException:
+    except (InMaintenanceModeException, InAddressModeException):
         status = 503  # Service Unavailable
         data = {'success': False, 'msg': 'maintenance_mode'}
     except CommunicationTimedOutException:

@@ -104,7 +104,7 @@ class PowerCommand(object):
 
         command = self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
         command += chr(len(data)) + str(data)
-        return "STR" + command + chr(self._crc(command)) + "\r\n"
+        return 'STR{0}{1}\r\n'.format(command, chr(self._crc(command)))
 
     def create_output(self, address, cid, *data):
         """
@@ -118,23 +118,23 @@ class PowerCommand(object):
         data = struct.pack(self.output_format, *data)
         command = self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
         command += chr(len(data)) + str(data)
-        return "RTR" + command + chr(self._crc(command)) + "\r\n"
+        return 'RTR{0}{1}\r\n'.format(command, chr(self._crc(command)))
 
     def check_header(self, header, address, cid):
         """
         Check if the response header matches the command,
         when an address and cid are provided. """
-        return header[:-1] == self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
+        return header[:-1] == '{0}{1}{2}{3}{4}'.format(self.module_type, chr(address), chr(cid), self.mode, self.type)
 
     def is_nack(self, header, address, cid):
         """
         Check if the response header is a nack to the command, when an address and cid are
         provided. """
-        return header[:-1] == self.module_type + chr(address) + chr(cid) + "N" + str(self.type)
+        return header[:-1] == '{0}{1}{2}N{3}'.format(self.module_type, chr(address), chr(cid), self.type)
 
     def check_header_partial(self, header):
         """ Check if the header matches the command, does not check address and cid. """
-        return header[3:-1] == self.mode + self.type
+        return header[0] == self.module_type and header[3:-1] == '{0}{1}'.format(self.mode, self.type)
 
     def read_output(self, data):
         """

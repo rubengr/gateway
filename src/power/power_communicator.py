@@ -240,10 +240,11 @@ class PowerCommunicator(object):
                     else:
                         self.__power_controller.register_power_module(new_address, version)
 
-                    # Send new address to power module
+                    # Send new address to module
                     if version == power_api.P1_CONCENTRATOR:
                         address_data = set_address_p1c.create_input(old_address, ord(cid), new_address)
                     else:
+                        # Both power- and energy module share the same API
                         address_data = set_address.create_input(old_address, ord(cid), new_address)
                     self.__write_to_serial(address_data)
 

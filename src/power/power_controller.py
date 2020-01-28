@@ -20,7 +20,7 @@ power modules and their address.
 import sqlite3
 from threading import Lock
 from ioc import Injectable, Inject, INJECTED, Singleton
-from power_api import POWER_MODULE, ENERGY_MODULE, P1_CONCENTRATOR, NUM_PORTS
+from power_api import POWER_MODULE, ENERGY_MODULE, P1_CONCENTRATOR, NUM_PORTS, LARGEST_MODULE_TYPE
 
 
 @Injectable.named('power_controller')
@@ -100,7 +100,7 @@ class PowerController(object):
             amount = NUM_PORTS[version]
             fields[version] = ['id', 'name', 'address', 'version'] + PowerController._power_setting_fields(amount)
         with self.__lock:
-            for row in self.__cursor.execute('SELECT {0} FROM power_modules;'.format(', '.join(fields[ENERGY_MODULE]))):
+            for row in self.__cursor.execute('SELECT {0} FROM power_modules;'.format(', '.join(fields[LARGEST_MODULE_TYPE]))):
                 version = row[3]
                 if version not in [POWER_MODULE, ENERGY_MODULE, P1_CONCENTRATOR]:
                     raise ValueError('Unknown power api version')
