@@ -192,6 +192,7 @@ class PowerCommunicator(object):
         if self.__power_controller is None:
             self.__address_mode = False
             self.__address_thread = None
+            return
 
         expire = time.time() + self.__address_mode_timeout
         address_mode = power_api.set_addressmode(power_api.ENERGY_MODULE)
@@ -251,8 +252,7 @@ class PowerCommunicator(object):
             except CommunicationTimedOutException:
                 pass  # Didn't receive a command, no problem.
             except Exception as exception:
-                traceback.print_exc()
-                logger.warning("Got exception in address mode: %s", exception)
+                logger.exception("Got exception in address mode: %s", exception)
 
         # AGT stop
         data = address_mode.create_input(power_api.BROADCAST_ADDRESS,
@@ -265,7 +265,6 @@ class PowerCommunicator(object):
         self.__write_to_serial(data)
 
         self.__address_mode = False
-        self.__address_thread = None
 
     def stop_address_mode(self):
         """ Stop address mode. """
@@ -274,6 +273,7 @@ class PowerCommunicator(object):
 
         self.__address_mode_stop = True
         self.__address_thread.join()
+        self.__address_thread = None
 
     def in_address_mode(self):
         """ Returns whether the PowerCommunicator is in address mode. """
@@ -340,7 +340,7 @@ class PowerCommunicator(object):
                         phase = 8
                     else:
                         raise Exception("Unexpected character")
-            if crc7(header + data) != crc and crc8(data) != crc:
+            if (header[0] == 'E' and crc7(header + data) != crc) or (header[0] != 'E' and crc8(data) != crc):
                 raise Exception("CRC doesn't match")
         except Empty:
             raise CommunicationTimedOutException('Communication timed out')
