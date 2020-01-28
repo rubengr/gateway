@@ -23,7 +23,7 @@ import xmlrunner
 import os
 from ioc import SetTestMode, SetUpTestInjections
 from power.power_controller import PowerController
-from power.power_api import POWER_API_8_PORTS
+from power.power_api import POWER_MODULE
 
 
 class PowerControllerTest(unittest.TestCase):
@@ -56,7 +56,7 @@ class PowerControllerTest(unittest.TestCase):
         self.assertEquals({}, power_controller.get_power_modules())
         self.assertEquals(1, power_controller.get_free_address())
 
-        power_controller.register_power_module(1, POWER_API_8_PORTS)
+        power_controller.register_power_module(1, POWER_MODULE)
 
         self.assertEquals({1: {'id': 1, 'address': 1, 'name': u'', 'version': 8,
                                'input0': u'', 'input1': u'', 'input2': u'', 'input3': u'',
@@ -71,7 +71,7 @@ class PowerControllerTest(unittest.TestCase):
 
         self.assertEquals(2, power_controller.get_free_address())
 
-        power_controller.register_power_module(5, POWER_API_8_PORTS)
+        power_controller.register_power_module(5, POWER_MODULE)
         self.assertEquals({1: {'id': 1, 'address': 1, 'name': u'', 'version': 8,
                                'input0': u'', 'input1': u'', 'input2': u'', 'input3': u'',
                                'input4': u'', 'input5': u'', 'input6': u'', 'input7': u'',
@@ -99,7 +99,7 @@ class PowerControllerTest(unittest.TestCase):
         power_controller = self.__get_controller()
         self.assertEquals({}, power_controller.get_power_modules())
 
-        power_controller.register_power_module(1, POWER_API_8_PORTS)
+        power_controller.register_power_module(1, POWER_MODULE)
 
         self.assertEquals({1: {'id': 1, 'address': 1, 'name': u'', 'version': 8,
                                'input0': u'', 'input1': u'', 'input2': u'', 'input3': u'',
@@ -142,7 +142,7 @@ class PowerControllerTest(unittest.TestCase):
 
         self.assertFalse(power_controller.module_exists(1))
 
-        power_controller.register_power_module(1, POWER_API_8_PORTS)
+        power_controller.register_power_module(1, POWER_MODULE)
 
         self.assertTrue(power_controller.module_exists(1))
         self.assertFalse(power_controller.module_exists(2))
@@ -150,7 +150,7 @@ class PowerControllerTest(unittest.TestCase):
     def test_readdress_power_module(self):
         """ Test for readdress_power_module. """
         power_controller = self.__get_controller()
-        power_controller.register_power_module(1, POWER_API_8_PORTS)
+        power_controller.register_power_module(1, POWER_MODULE)
 
         power_controller.readdress_power_module(1, 2)
 
@@ -173,7 +173,7 @@ class PowerControllerTest(unittest.TestCase):
         power_controller = self.__get_controller()
         self.assertEquals({}, power_controller.get_power_modules())
 
-        power_controller.register_power_module(1, POWER_API_8_PORTS)
+        power_controller.register_power_module(1, POWER_MODULE)
         power_controller.readdress_power_module(1, 3)
 
         self.assertEquals(3, power_controller.get_address(1))

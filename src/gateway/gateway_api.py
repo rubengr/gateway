@@ -583,6 +583,15 @@ class GatewayApi(object):
             except CommunicationTimedOutException:
                 return formatted_address, None, None
 
+        def get_energy_module_type(version):
+            if version == power_api.ENERGY_MODULE:
+                return 'E'
+            if version == power_api.POWER_MODULE:
+                return 'P'
+            if version == power_api.P1_CONCENTRATOR:
+                return 'C'
+            return 'U'
+
         information = {'master': {}, 'energy': {}}
 
         # Master slave modules
@@ -619,10 +628,11 @@ class GatewayApi(object):
             modules = self.__power_controller.get_power_modules().values()
             for module in modules:
                 module_address = module['address']
-                raw_version = self.__power_communicator.do_command(module_address, power_api.get_version())[0]
+                module_version = module['version']
+                raw_version = self.__power_communicator.do_command(module_address, power_api.get_version(module_version))[0]
                 version_info = raw_version.split('\x00', 1)[0].split('_')
                 firmware_version = '{0}.{1}.{2}'.format(version_info[1], version_info[2], version_info[3])
-                information['energy'][module_address] = {'type': 'P' if module['version'] == 8 else 'E',
+                information['energy'][module_address] = {'type': get_energy_module_type(module['version']),
                                                          'firmware': firmware_version,
                                                          'address': module_address}
 
@@ -2212,7 +2222,7 @@ class GatewayApi(object):
 
             version = self.__power_controller.get_version(mod['id'])
             addr = self.__power_controller.get_address(mod['id'])
-            if version == power_api.POWER_API_8_PORTS:
+            if version == power_api.POWER_MODULE:
                 def _check_sid(key):
                     # 2 = 25A, 3 = 50A
                     if mod[key] in [2, 3]:
@@ -2222,7 +2232,7 @@ class GatewayApi(object):
                     addr, power_api.set_sensor_types(version),
                     *[_check_sid('sensor{0}'.format(i)) for i in xrange(power_api.NUM_PORTS[version])]
                 )
-            elif version == power_api.POWER_API_12_PORTS:
+            elif version == power_api.ENERGY_MODULE:
                 def _convert_ccf(key):
                     try:
                         if mod[key] == 2:  # 12.5 A
@@ -2268,7 +2278,7 @@ class GatewayApi(object):
                 version = modules[module_id]['version']
                 num_ports = power_api.NUM_PORTS[version]
 
-                if version == power_api.POWER_API_8_PORTS:
+                if version == power_api.POWER_MODULE:
                     raw_volt = self.__power_communicator.do_command(addr,
                                                                     power_api.get_voltage(version))
                     raw_freq = self.__power_communicator.do_command(addr,
@@ -2277,7 +2287,7 @@ class GatewayApi(object):
                     volt = [raw_volt[0] for _ in range(num_ports)]
                     freq = [raw_freq[0] for _ in range(num_ports)]
 
-                elif version == power_api.POWER_API_12_PORTS:
+                elif version == power_api.ENERGY_MODULE:
                     volt = self.__power_communicator.do_command(addr,
                                                                 power_api.get_voltage(version))
                     freq = self.__power_communicator.do_command(addr,
@@ -2375,7 +2385,7 @@ class GatewayApi(object):
 
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
-        if version != power_api.POWER_API_12_PORTS:
+        if version != power_api.ENERGY_MODULE:
             raise ValueError('Unknown power api version')
         self.__power_communicator.do_command(addr, power_api.set_voltage(), voltage)
         return dict()
@@ -2390,7 +2400,7 @@ class GatewayApi(object):
 
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
-        if version != power_api.POWER_API_12_PORTS:
+        if version != power_api.ENERGY_MODULE:
             raise ValueError('Unknown power api version')
         if input_id is None:
             input_ids = range(12)
@@ -2425,7 +2435,7 @@ class GatewayApi(object):
 
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
-        if version != power_api.POWER_API_12_PORTS:
+        if version != power_api.ENERGY_MODULE:
             raise ValueError('Unknown power api version')
         if input_id is None:
             input_ids = range(12)
