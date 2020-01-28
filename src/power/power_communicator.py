@@ -340,8 +340,9 @@ class PowerCommunicator(object):
                         phase = 8
                     else:
                         raise Exception("Unexpected character")
-            if (header[0] == 'E' and crc7(header + data) != crc) or (header[0] != 'E' and crc8(data) != crc):
-                raise Exception("CRC doesn't match")
+            crc_match = (crc7(header + data) == crc) if header[0] == 'E' else (crc8(data) == crc)
+            if not crc_match:
+                raise Exception('CRC{0} doesn\'t match'.format('7' if header[0] == 'E' else '8'))
         except Empty:
             raise CommunicationTimedOutException('Communication timed out')
         finally:

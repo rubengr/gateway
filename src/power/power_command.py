@@ -60,7 +60,6 @@ def crc8(to_send):
             else:
                 crc = (crc << 1)
             data = data << 1
-        print hex(crc & 0xFF)
         return crc & 0xFF
 
     ret = 0
@@ -90,7 +89,6 @@ class PowerCommand(object):
         self.input_format = input_format
         self.output_format = output_format
         self.module_type = module_type
-        self._crc = crc7 if module_type == 'E' else crc8
 
     def create_input(self, address, cid, *data):
         """
@@ -101,10 +99,13 @@ class PowerCommand(object):
         :rtype: string
         """
         data = struct.pack(self.input_format, *data)
-
-        command = self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
-        command += chr(len(data)) + str(data)
-        return 'STR{0}{1}\r\n'.format(command, chr(self._crc(command)))
+        header = self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
+        payload = chr(len(data)) + str(data)
+        if self.module_type == 'E':
+            crc = crc7(header + payload)
+        else:
+            crc = crc8(payload)
+        return 'STR{0}{1}{2}\r\n'.format(header, payload, chr(crc))
 
     def create_output(self, address, cid, *data):
         """
@@ -116,9 +117,13 @@ class PowerCommand(object):
         :rtype: string
         """
         data = struct.pack(self.output_format, *data)
-        command = self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
-        command += chr(len(data)) + str(data)
-        return 'RTR{0}{1}\r\n'.format(command, chr(self._crc(command)))
+        header = self.module_type + chr(address) + chr(cid) + str(self.mode) + str(self.type)
+        payload = chr(len(data)) + str(data)
+        if self.module_type == 'E':
+            crc = crc7(header + payload)
+        else:
+            crc = crc8(payload)
+        return 'RTR{0}{1}{2}\r\n'.format(header, payload, chr(crc))
 
     def check_header(self, header, address, cid):
         """
