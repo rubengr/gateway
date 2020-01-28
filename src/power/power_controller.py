@@ -39,7 +39,7 @@ class PowerController(object):
         self._power_schema = {'name': 'TEXT default \'\'',
                               'address': 'INTEGER',
                               'version': 'INTEGER'}
-        for i in xrange(max(NUM_PORTS[POWER_MODULE], NUM_PORTS[ENERGY_MODULE], NUM_PORTS[P1_CONCENTRATOR])):
+        for i in xrange(NUM_PORTS[LARGEST_MODULE_TYPE]):
             self._power_schema.update({'input{0}'.format(i): 'TEXT default \'\'',
                                        'sensor{0}'.format(i): 'INT default 0',
                                        'times{0}'.format(i): 'TEXT',
@@ -163,7 +163,7 @@ class PowerController(object):
         with self.__lock:
             for row in self.__cursor.execute('SELECT address FROM power_modules;'):
                 max_address = max(max_address, row[0])
-        return max_address + 1 if max_address < 255 else 1
+            return max_address + 1 if max_address < 255 else 1
 
     def close(self):
         """ Close the database connection. """

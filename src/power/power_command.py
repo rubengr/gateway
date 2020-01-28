@@ -49,7 +49,7 @@ def crc7(to_send):
 
 def crc8(to_send):
     """
-    Calculate the crc7 checksum of a string.
+    Calculate the crc8 checksum of a string.
     :param to_send: input string
     :rtype: integer
     """
