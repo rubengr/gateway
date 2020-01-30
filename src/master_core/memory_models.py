@@ -42,6 +42,7 @@ class OutputModuleConfiguration(MemoryModelDefinition):
 
 
 class OutputConfiguration(MemoryModelDefinition):
+    module = MemoryRelation(OutputModuleConfiguration, id_spec=lambda id: id / 8)
     timer_value = MemoryWordField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 7 + id % 8))
     timer_type = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 23 + id % 8))
     output_type = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 31 + id % 8))
@@ -49,7 +50,6 @@ class OutputConfiguration(MemoryModelDefinition):
     max_output_level = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 47 + id % 8))
     output_groupaction_follow = MemoryWordField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 55 + (id % 8) * 2))
     name = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (1 + id / 8, 128 + (id % 8) * 16), length=16)
-    module = MemoryRelation(OutputModuleConfiguration, id_spec=lambda id: id / 8)
 
 
 class InputModuleConfiguration(MemoryModelDefinition):
@@ -59,6 +59,22 @@ class InputModuleConfiguration(MemoryModelDefinition):
 
 
 class InputConfiguration(MemoryModelDefinition):
+    module = MemoryRelation(InputModuleConfiguration, id_spec=lambda id: id / 8)
     input_config = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 7 + id))
     name = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (81 + id * 2, 128 + id * 16), length=16)
-    module = MemoryRelation(InputModuleConfiguration, id_spec=lambda id: id / 8)
+
+
+class SensorModuleConfiguration(MemoryModelDefinition):
+    device_type = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (239 + id, 0), length=1)
+    address = MemoryAddressField(MemoryTypes.EEPROM, address_spec=lambda id: (239 + id, 0))
+    firmware_version = MemoryVersionField(MemoryTypes.EEPROM, address_spec=lambda id: (239 + id, 4))
+
+
+class SensorConfiguration(MemoryModelDefinition):
+    module = MemoryRelation(SensorModuleConfiguration, id_spec=lambda id: id / 8)
+    temperature_groupaction_follow = MemoryWordField(MemoryTypes.EEPROM, address_spec=lambda id: (239 + id / 8, 8 + (id % 8) * 2))
+    humidity_groupaction_follow = MemoryWordField(MemoryTypes.EEPROM, address_spec=lambda id: (239 + id / 8, 24 + (id % 8) * 2))
+    brightness_groupaction_follow = MemoryWordField(MemoryTypes.EEPROM, address_spec=lambda id: (239 + id / 8, 40 + (id % 8) * 2))
+    aqi_groupaction_follow = MemoryWordField(MemoryTypes.EEPROM, address_spec=lambda id: (239 + id / 8, 56 + (id % 8) * 2))
+    dali_sensor_id = MemoryByteField(MemoryTypes.EEPROM, address_spec=lambda id: (239 + id / 8, 72 + (id % 8)))
+    name = MemoryStringField(MemoryTypes.EEPROM, address_spec=lambda id: (239 + id / 8, 128 + id * 16), length=16)

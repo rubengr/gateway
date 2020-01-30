@@ -17,7 +17,7 @@ UCANCommandSpec defines payload handling; (de)serialization
 """
 import logging
 import math
-from master_core.fields import PaddingField, Int32Field, StringField
+from master_core.fields import PaddingField, UInt32Field, StringField
 from serial_utils import printable
 
 
@@ -232,7 +232,7 @@ class UCANPalletCommandSpec(UCANCommandSpec):
         payload = source_address + destination_address + [self._pallet_type]
         for field in self._request_fields:
             payload += field.encode_bytes(fields.get(field.name))
-        payload += Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload))
+        payload += UInt32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload))
         segments = int(math.ceil(len(payload) / 7.0))
         first = True
         while len(payload) > 0:

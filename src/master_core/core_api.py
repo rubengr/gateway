@@ -17,7 +17,8 @@ Contains the definition of the Core API
 """
 
 from master_core.core_command import CoreCommandSpec
-from master_core.fields import ByteField, WordField, ByteArrayField, WordArrayField, LiteralBytesField, AddressField, CharField, PaddingField, VersionField
+from master_core.fields import (ByteField, WordField, ByteArrayField, WordArrayField, LiteralBytesField,
+                                AddressField, CharField, PaddingField, VersionField, TemperatureArrayField)
 
 
 class CoreAPI(object):
@@ -97,6 +98,50 @@ class CoreAPI(object):
                                                 ByteField('timer_type'), ByteField('timer_type_standard'),
                                                 WordField('timer'), WordField('timer_standard'),
                                                 WordField('group_action'), ByteField('dali_output')])
+
+    @staticmethod
+    def sensor_temperature_values():
+        """ Receive sensor temperature values """
+        return CoreAPI._sensor_byte_values(0, TemperatureArrayField('temperatures', length=8))
+
+    @staticmethod
+    def sensor_humidity_values():
+        """ Receive sensor humidity values """
+        return CoreAPI._sensor_byte_values(1, 'humidity')
+
+    @staticmethod
+    def _sensor_byte_values(instruction, field):
+        """ Receive sensor byte values """
+        return CoreCommandSpec(instruction='SI',
+                               request_fields=[ByteField('module_nr'), LiteralBytesField(instruction)],
+                               response_fields=[ByteField('module_nr'), PaddingField(0), field])
+
+    @staticmethod
+    def sensor_brightness_values():
+        """ Receive sensor brightness values """
+        return CoreAPI._sensor_word_values(2, 'brightness')
+
+    @staticmethod
+    def sensor_co2_values():
+        """ Receive sensor CO2 values """
+        return CoreAPI._sensor_word_values(3, 'co2')
+
+    @staticmethod
+    def sensor_voc_values():
+        """ Receive sensor VOC values """
+        return CoreAPI._sensor_word_values(4, 'voc')
+
+    @staticmethod
+    def sensor_extra_values():
+        """ Receive sensor extra values """
+        return CoreAPI._sensor_word_values(5, 'extra')
+
+    @staticmethod
+    def _sensor_word_values(instruction, field):
+        """ Receive sensor word values """
+        return CoreCommandSpec(instruction='SI',
+                               request_fields=[ByteField('module_nr'), LiteralBytesField(instruction)],
+                               response_fields=[ByteField('module_nr'), PaddingField(0), WordArrayField(field, length=8)])
 
     # Memory (EEPROM/FRAM) actions
 

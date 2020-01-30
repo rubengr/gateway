@@ -17,7 +17,7 @@ Module to work update a Core
 """
 
 from platform_utils import System
-System.import_eggs()
+System.import_libs()
 
 import sys
 import logging

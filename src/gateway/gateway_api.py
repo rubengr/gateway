@@ -1039,67 +1039,20 @@ class GatewayApi(object):
     # Sensor status
 
     def get_sensor_temperature_status(self):
-        """ Get the current temperature of all sensors.
-
-        :returns: list with 32 temperatures, 1 for each sensor. None/null if not connected
-        """
-        output = []
-
-        sensor_list = self.__master_communicator.do_command(master_api.sensor_temperature_list())
-        for i in range(32):
-            output.append(sensor_list['tmp%d' % i].get_temperature())
-
-        return output
+        """ Get the current temperature of all sensors. """
+        return self.__master_controller.get_sensors_temperature()
 
     def get_sensor_humidity_status(self):
-        """ Get the current humidity of all sensors.
-
-        :returns: list with 32 percentages, 1 for each sensor. None/null if not connected
-        """
-        output = []
-
-        sensor_list = self.__master_communicator.do_command(master_api.sensor_humidity_list())
-        for i in range(32):
-            output.append(sensor_list['hum%d' % i].get_humidity())
-
-        return output
+        """ Get the current humidity of all sensors. """
+        return self.__master_controller.get_sensors_humidity()
 
     def get_sensor_brightness_status(self):
-        """ Get the current brightness of all sensors.
-
-        :returns: list with 32 percentages, 1 for each sensor. None/null if not connected
-        """
-        output = []
-
-        sensor_list = self.__master_communicator.do_command(master_api.sensor_brightness_list())
-        for i in range(32):
-            output.append(sensor_list['bri%d' % i].get_brightness())
-
-        return output
+        """ Get the current brightness of all sensors. """
+        return self.__master_controller.get_sensors_brightness()
 
     def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
-        """ Set the temperature, humidity and brightness value of a virtual sensor.
-
-        :param sensor_id: The id of the sensor.
-        :type sensor_id: Integer [0, 31]
-        :param temperature: The temperature to set in degrees Celcius
-        :type temperature: float
-        :param humidity: The humidity to set in percentage
-        :type humidity: float
-        :param brightness: The brightness to set in percentage
-        :type brightness: float
-        :returns: dict with 'status'.
-        """
-        if 0 > sensor_id > 31:
-            raise ValueError('sensor_id not in [0, 31]: %d' % sensor_id)
-
-        self.__master_communicator.do_command(master_api.set_virtual_sensor(),
-                                              {'sensor': sensor_id,
-                                               'tmp': master_api.Svt.temp(temperature),
-                                               'hum': master_api.Svt.humidity(humidity),
-                                               'bri': master_api.Svt.brightness(brightness)})
-
-        return {'status': 'OK'}
+        """ Set the temperature, humidity and brightness value of a virtual sensor. """
+        return self.__master_controller.set_virtual_sensor(sensor_id, temperature, humidity, brightness)
 
     def add_virtual_output_module(self):
         """ Adds a virtual output module.
@@ -1689,44 +1642,20 @@ class GatewayApi(object):
         self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def get_sensor_configuration(self, sensor_id, fields=None):
-        """
-        Get a specific sensor_configuration defined by its id.
-
-        :param sensor_id: The id of the sensor_configuration
-        :type sensor_id: Id
-        :param fields: The field of the sensor_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
-        """
-        return self.__eeprom_controller.read(SensorConfiguration, sensor_id, fields).serialize()
+        """ Get a specific sensor_configuration defined by its id. """
+        return self.__master_controller.load_sensor(sensor_id, fields)
 
     def get_sensor_configurations(self, fields=None):
-        """
-        Get all sensor_configurations.
-
-        :param fields: The field of the sensor_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(SensorConfiguration, fields)]
+        """ Get all sensor_configurations. """
+        return self.__master_controller.load_sensors(fields)
 
     def set_sensor_configuration(self, config):
-        """
-        Set one sensor_configuration.
-
-        :param config: The sensor_configuration to set
-        :type config: sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
-        """
-        self.__eeprom_controller.write(SensorConfiguration.deserialize(config))
+        """ Set one sensor_configuration. """
+        return self.__master_controller.save_sensors([config])
 
     def set_sensor_configurations(self, config):
-        """
-        Set multiple sensor_configurations.
-
-        :param config: The list of sensor_configurations to set
-        :type config: list of sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
-        """
-        self.__eeprom_controller.write_batch([SensorConfiguration.deserialize(o) for o in config])
+        """ Set multiple sensor_configurations. """
+        return self.__master_controller.save_sensors(config)
 
     def get_pump_group_configuration(self, pump_group_id, fields=None):
         """

@@ -24,7 +24,7 @@ from master_core.core_communicator import CoreCommunicator
 from master_core.exceptions import BootloadingException
 from master_core.ucan_communicator import UCANCommunicator, SID
 from master_core.ucan_command import UCANCommandSpec, UCANPalletCommandSpec, PalletType, Instruction
-from master_core.fields import AddressField, ByteArrayField, ByteField, Int32Field, StringField
+from master_core.fields import AddressField, ByteArrayField, ByteField, UInt32Field, StringField
 
 
 class UCANCommunicatorTest(unittest.TestCase):
@@ -83,7 +83,7 @@ class UCANCommunicatorTest(unittest.TestCase):
             consumer = ucan_communicator._consumers[cc_address][0]
             fixed_payload = [0, 0, 0, 0, 0, 0, pallet_type]
             variable_payload = range(7, 7 + length)  # [7] or [7, 8, 9]
-            crc_payload = Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(fixed_payload + variable_payload))
+            crc_payload = UInt32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(fixed_payload + variable_payload))
             ucan_communicator._process_transport_message({'cc_address': cc_address,
                                                           'nr_can_bytes': 8,
                                                           'sid': 1,
@@ -112,7 +112,7 @@ class UCANCommunicatorTest(unittest.TestCase):
         # Build and validate fake reply from Core
         payload_segment_1 = [0, 0, 0, 0, 0, 0, PalletType.MCU_ID_REPLY]
         payload_segment_2 = [ord(x) for x in '{0}\x00'.format(foo)]
-        crc_payload = Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload_segment_1 + payload_segment_2))
+        crc_payload = UInt32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload_segment_1 + payload_segment_2))
         payload_segment_2 += crc_payload
         ucan_communicator._process_transport_message({'cc_address': cc_address,
                                                       'nr_can_bytes': 8,
@@ -163,12 +163,12 @@ class UCANCommunicatorTest(unittest.TestCase):
 
     def test_crc(self):
         payload = [10, 50, 250]
-        total_payload = payload + Int32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload))
+        total_payload = payload + UInt32Field.encode_bytes(UCANPalletCommandSpec.calculate_crc(payload))
         self.assertEqual(0, UCANPalletCommandSpec.calculate_crc(total_payload))
         crc = 0
         for part in payload:
             crc = UCANPalletCommandSpec.calculate_crc([part], crc)
-        total_payload = payload + Int32Field.encode_bytes(crc)
+        total_payload = payload + UInt32Field.encode_bytes(crc)
         self.assertEqual(0, UCANPalletCommandSpec.calculate_crc(total_payload))
 
 

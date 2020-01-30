@@ -29,6 +29,12 @@ class Event(object):
         SENSOR = 'SENSOR'
         UNKNOWN = 'UNKNOWN'
 
+    class SensorType(object):
+        TEMPERATURE = 'TEMPERATURE'
+        HUMIDITY = 'HUMIDITY'
+        BRIGHTNESS = 'BRIGHTNESS'
+        UNKNOWN = 'UNKNOWN'
+
     def __init__(self, data):
         self._type = data['type']
         self._action = data['action']
@@ -66,16 +72,16 @@ class Event(object):
             return {'input': self._device_nr,
                     'status': self._action == 1}
         if self.type == Event.Types.SENSOR:
-            sensor_type = 'UNKNOWN'
+            sensor_type = Event.SensorType.UNKNOWN
             sensor_value = None
             if self._action == 0:
-                sensor_type = 'TEMPERATURE'
+                sensor_type = Event.SensorType.TEMPERATURE
                 sensor_value = self._data[1]
             elif self._action == 1:
-                sensor_type = 'HUMIDITY'
+                sensor_type = Event.SensorType.HUMIDITY
                 sensor_value = self._data[1]
             elif self._action == 2:
-                sensor_type = 'BRIGHTNESS'
+                sensor_type = Event.SensorType.BRIGHTNESS
                 sensor_value = Event._word_decode(self._data[0:2])
             return {'sensor': self._device_nr,
                     'type': sensor_type,
