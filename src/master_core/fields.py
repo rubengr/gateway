@@ -113,6 +113,24 @@ class TemperatureField(Field):
         return float(data[0]) / 2 - 32
 
 
+class HumidityField(Field):
+    def __init__(self, name):
+        super(HumidityField, self).__init__(name, 1)
+
+    def encode_bytes(self, value):
+        if value is not None and not (0 <= value <= 100):
+            raise ValueError('Value `{0}` out of limits: 0 <= value <= 100'.format(value))
+        if value is None:
+            return [255]
+        value = int(float(value) * 2)
+        return [value]
+
+    def decode_bytes(self, data):
+        if data[0] == 255:
+            return None
+        return float(data[0]) / 2
+
+
 class WordField(Field):
     def __init__(self, name):
         super(WordField, self).__init__(name, 2)
@@ -166,38 +184,33 @@ class UInt32Field(Field):
 class ByteArrayField(Field):
     def __init__(self, name, length):
         super(ByteArrayField, self).__init__(name, length)
-        self._byte_field = ByteField(name)
+        self._field = ByteField(name)
 
     def encode_bytes(self, value):
         if len(value) != self.length:
             raise ValueError('Value `{0}` should be an array of {1} items with 0 <= item <= 255'.format(value, self.length))
         data = []
         for item in value:
-            data += self._byte_field.encode_bytes(item)
-        return data
-
-    def decode_bytes(self, data):
-        return data
-
-
-class TemperatureArrayField(Field):
-    def __init__(self, name, length):
-        super(TemperatureArrayField, self).__init__(name, length)
-        self._temperature_field = TemperatureField(name)
-
-    def encode_bytes(self, value):
-        if len(value) != self.length:
-            raise ValueError('Value `{0}` should be an array of {1} items with 0 <= item <= 255'.format(value, self.length))
-        data = []
-        for item in value:
-            data += self._temperature_field.encode_bytes(item)
+            data += self._field.encode_bytes(item)
         return data
 
     def decode_bytes(self, data):
         result = []
         for i in xrange(len(data)):
-            result.append(self._temperature_field.decode_bytes([data[i]]))
+            result.append(self._field.decode_bytes([data[i]]))
         return result
+
+
+class TemperatureArrayField(ByteArrayField):
+    def __init__(self, name, length):
+        super(TemperatureArrayField, self).__init__(name, length)
+        self._field = TemperatureField(name)
+
+
+class HumidityArrayField(ByteArrayField):
+    def __init__(self, name, length):
+        super(HumidityArrayField, self).__init__(name, length)
+        self._field = HumidityField(name)
 
 
 class WordArrayField(Field):

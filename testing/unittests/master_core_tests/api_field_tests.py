@@ -61,6 +61,15 @@ class APIFieldsTest(unittest.TestCase):
                                                  [95.5, ValueError],
                                                  [None, [255]]])
 
+    def test_humidity_field(self):
+        self._test_field(HumidityField('x'), [[-1, ValueError],
+                                              [0, [0]],
+                                              [0.1, [0], 0],
+                                              [0.5, [1]],
+                                              [100, [200]],
+                                              [101, ValueError],
+                                              [None, [255]]])
+
     def test_word_field(self):
         self._test_field(WordField('x'), [[-1, ValueError],
                                           [0, [0, 0]],
@@ -88,6 +97,12 @@ class APIFieldsTest(unittest.TestCase):
                                                          [[0, 0, 0.5], [64, 64, 65]],
                                                          [[95, None, 1], [254, 255, 66]],
                                                          [[0, 0], ValueError]])
+
+    def test_humidityarray_field(self):
+        self._test_field(HumidityArrayField('x', 3), [[[-1, 0, 0], ValueError],
+                                                      [[0, 0, 0.5], [0, 0, 1]],
+                                                      [[99, None, 1], [198, 255, 2]],
+                                                      [[0, 0], ValueError]])
 
     def test_wordarray_field(self):
         self._test_field(WordArrayField('x', 3), [[[-1, 0, 0], ValueError],
