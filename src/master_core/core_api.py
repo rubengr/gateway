@@ -103,46 +103,39 @@ class CoreAPI(object):
     @staticmethod
     def sensor_temperature_values():
         """ Receive sensor temperature values """
-        return CoreAPI._sensor_byte_values(0, TemperatureArrayField('values', length=8))
+        return CoreAPI._sensor_values(0, TemperatureArrayField('values', length=8))
 
     @staticmethod
     def sensor_humidity_values():
         """ Receive sensor humidity values """
-        return CoreAPI._sensor_byte_values(1, HumidityArrayField('values', length=8))
-
-    @staticmethod
-    def _sensor_byte_values(instruction, field):
-        """ Receive sensor byte values """
-        return CoreCommandSpec(instruction='SI',
-                               request_fields=[ByteField('module_nr'), LiteralBytesField(instruction)],
-                               response_fields=[ByteField('module_nr'), PaddingField(1), field])
+        return CoreAPI._sensor_values(1, HumidityArrayField('values', length=8))
 
     @staticmethod
     def sensor_brightness_values():
         """ Receive sensor brightness values """
-        return CoreAPI._sensor_word_values(2, 'values')
+        return CoreAPI._sensor_values(2, WordArrayField('values', length=8))
 
     @staticmethod
     def sensor_co2_values():
         """ Receive sensor CO2 values """
-        return CoreAPI._sensor_word_values(3, 'values')
+        return CoreAPI._sensor_values(3, WordArrayField('values', length=8))
 
     @staticmethod
     def sensor_voc_values():
         """ Receive sensor VOC values """
-        return CoreAPI._sensor_word_values(4, 'values')
+        return CoreAPI._sensor_values(4, WordArrayField('values', length=8))
 
     @staticmethod
     def sensor_extra_values():
         """ Receive sensor extra values """
-        return CoreAPI._sensor_word_values(5, 'values')
+        return CoreAPI._sensor_values(5, WordArrayField('values', length=8))
 
     @staticmethod
-    def _sensor_word_values(instruction, field):
-        """ Receive sensor word values """
+    def _sensor_values(instruction, field):
+        """ Receive sensor byte values """
         return CoreCommandSpec(instruction='SI',
                                request_fields=[ByteField('module_nr'), LiteralBytesField(instruction)],
-                               response_fields=[ByteField('module_nr'), PaddingField(1), WordArrayField(field, length=8)])
+                               response_fields=[ByteField('module_nr'), PaddingField(1), field])
 
     # Memory (EEPROM/FRAM) actions
 
