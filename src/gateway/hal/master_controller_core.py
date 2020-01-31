@@ -266,6 +266,8 @@ class MasterCoreController(MasterController):
     def get_sensor_brightness(self, sensor_id):
         # TODO: This is a lux value and must somehow be converted to legacy percentage
         brightness = self._sensor_states.get(sensor_id, {}).get('BRIGHTNESS')
+        if brightness in [None, 65535]:
+            return None
         return int(float(brightness) / 65535.0 * 100)
 
     def get_sensors_brightness(self):
@@ -305,9 +307,9 @@ class MasterCoreController(MasterController):
     def _refresh_sensor_states(self):
         amount_sensor_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['sensor']
         for module_nr in xrange(amount_sensor_modules):
-            temperature_values = self._master_communicator.do_command(CoreAPI.sensor_temperature_values(), {'module_nr': module_nr})['temperatures']
-            brightness_values = self._master_communicator.do_command(CoreAPI.sensor_brightness_values(), {'module_nr': module_nr})['brightnesses']
-            humidity_values = self._master_communicator.do_command(CoreAPI.sensor_humidity_values(), {'module_nr': module_nr})['humidities']
+            temperature_values = self._master_communicator.do_command(CoreAPI.sensor_temperature_values(), {'module_nr': module_nr})['values']
+            brightness_values = self._master_communicator.do_command(CoreAPI.sensor_brightness_values(), {'module_nr': module_nr})['values']
+            humidity_values = self._master_communicator.do_command(CoreAPI.sensor_humidity_values(), {'module_nr': module_nr})['values']
             for i in xrange(8):
                 sensor_id = module_nr * 8 + i
                 self._sensor_states[sensor_id] = {'TEMPERATURE': temperature_values[i],

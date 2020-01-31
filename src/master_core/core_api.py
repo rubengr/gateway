@@ -103,12 +103,12 @@ class CoreAPI(object):
     @staticmethod
     def sensor_temperature_values():
         """ Receive sensor temperature values """
-        return CoreAPI._sensor_byte_values(0, TemperatureArrayField('temperatures', length=8))
+        return CoreAPI._sensor_byte_values(0, TemperatureArrayField('values', length=8))
 
     @staticmethod
     def sensor_humidity_values():
         """ Receive sensor humidity values """
-        return CoreAPI._sensor_byte_values(1, HumidityArrayField('humidities', length=8))
+        return CoreAPI._sensor_byte_values(1, HumidityArrayField('values', length=8))
 
     @staticmethod
     def _sensor_byte_values(instruction, field):
@@ -120,22 +120,22 @@ class CoreAPI(object):
     @staticmethod
     def sensor_brightness_values():
         """ Receive sensor brightness values """
-        return CoreAPI._sensor_word_values(2, 'brightnesses')
+        return CoreAPI._sensor_word_values(2, 'values')
 
     @staticmethod
     def sensor_co2_values():
         """ Receive sensor CO2 values """
-        return CoreAPI._sensor_word_values(3, 'co2s')
+        return CoreAPI._sensor_word_values(3, 'values')
 
     @staticmethod
     def sensor_voc_values():
         """ Receive sensor VOC values """
-        return CoreAPI._sensor_word_values(4, 'vocs')
+        return CoreAPI._sensor_word_values(4, 'values')
 
     @staticmethod
     def sensor_extra_values():
         """ Receive sensor extra values """
-        return CoreAPI._sensor_word_values(5, 'extras')
+        return CoreAPI._sensor_word_values(5, 'values')
 
     @staticmethod
     def _sensor_word_values(instruction, field):

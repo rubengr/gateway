@@ -44,7 +44,7 @@ class CoreCommunicator(object):
     END_OF_REPLY = '\r\n'
 
     @Inject
-    def __init__(self, controller_serial=INJECTED, verbose=True):
+    def __init__(self, controller_serial=INJECTED, verbose=False):
         """
         :param controller_serial: Serial port to communicate with
         :type controller_serial: serial.Serial
