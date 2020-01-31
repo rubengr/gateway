@@ -19,7 +19,7 @@ gateway is in authorized mode.
 """
 
 from platform_utils import System, Platform
-System.import_eggs()
+System.import_libs()
 
 import fcntl
 import time

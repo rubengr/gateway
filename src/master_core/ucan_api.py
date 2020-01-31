@@ -17,7 +17,7 @@ Contains the definition of the Core API
 """
 
 from master_core.ucan_command import UCANCommandSpec, UCANPalletCommandSpec, SID, PalletType, Instruction
-from master_core.fields import AddressField, ByteField, WordField, VersionField, StringField, Int32Field, ByteArrayField
+from master_core.fields import AddressField, ByteField, WordField, VersionField, StringField, UInt32Field, ByteArrayField
 
 
 class UCANAPI(object):
@@ -120,7 +120,7 @@ class UCANAPI(object):
         """
         return UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
                                      pallet_type=PalletType.FLASH_WRITE_REQUEST,
-                                     request_fields=[Int32Field('start_address'), ByteArrayField('data', data_length)])
+                                     request_fields=[UInt32Field('start_address'), ByteArrayField('data', data_length)])
 
     @staticmethod
     def read_flash(data_length):
@@ -130,7 +130,7 @@ class UCANAPI(object):
         """
         return UCANPalletCommandSpec(identifier=AddressField('ucan_address', 3),
                                      pallet_type=PalletType.FLASH_READ_REQUEST,
-                                     request_fields=[Int32Field('start_address'), ByteField('data_length')],
+                                     request_fields=[UInt32Field('start_address'), ByteField('data_length')],
                                      response_fields=[ByteArrayField('data', data_length)])
 
     @staticmethod

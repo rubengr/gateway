@@ -493,15 +493,25 @@ class GatewayApi(object):
     def get_energy_modules_information(self):
         information = {}
 
+        def get_energy_module_type(version):
+            if version == power_api.ENERGY_MODULE:
+                return 'E'
+            if version == power_api.POWER_MODULE:
+                return 'P'
+            if version == power_api.P1_CONCENTRATOR:
+                return 'C'
+            return 'U'
+
         # Energy/power modules
         if self.__power_communicator is not None and self.__power_controller is not None:
             modules = self.__power_controller.get_power_modules().values()
             for module in modules:
                 module_address = module['address']
-                raw_version = self.__power_communicator.do_command(module_address, power_api.get_version())[0]
+                module_version = module['version']
+                raw_version = self.__power_communicator.do_command(module_address, power_api.get_version(module_version))[0]
                 version_info = raw_version.split('\x00', 1)[0].split('_')
                 firmware_version = '{0}.{1}.{2}'.format(version_info[1], version_info[2], version_info[3])
-                information[module_address] = {'type': 'P' if module['version'] == 8 else 'E',
+                information[module_address] = {'type': get_energy_module_type(module['version']),
                                                'firmware': firmware_version,
                                                'address': module_address}
         return information
@@ -767,50 +777,38 @@ class GatewayApi(object):
         # TODO: add other sensors too (e.g. from database <-- plugins)
         return self.__master_controller.get_sensors_temperature()
 
-    def get_sensor_temperature_status(self, sensor_id):
-        """ Get the current temperature of 1 sensor.
-
-        :returns: temperature for sensor id. None/null if not connected
-        """
+    def get_sensor_temperature_status(self):
+        """ Get the current temperature of all sensors. """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
-        return self.__master_controller.get_sensor_temperature(sensor_id)
+        values = self.__master_controller.get_sensors_temperature()[:32]
+        if len(values) < 32:
+            values += [None] * (32 - len(values))
+        return values
 
-    def get_sensors_humidity_status(self):
-        """ Get the current humidity of all sensors.
-
-        :returns: list with 32 percentages, 1 for each sensor. None/null if not connected
-        """
+    def get_sensor_humidity_status(self):
+        """ Get the current humidity of all sensors. """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
-        return self.__master_controller.get_sensors_humidity()
+        values = self.__master_controller.get_sensors_humidity()[:32]
+        if len(values) < 32:
+            values += [None] * (32 - len(values))
+        return values
 
-    def get_sensors_brightness_status(self):
-        """ Get the current brightness of all sensors.
-
-        :returns: list with 32 percentages, 1 for each sensor. None/null if not connected
-        """
+    def get_sensor_brightness_status(self):
+        """ Get the current brightness of all sensors. """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
-        return self.__master_controller.get_sensors_brightness()
+        values = self.__master_controller.get_sensors_brightness()[:32]
+        if len(values) < 32:
+            values += [None] * (32 - len(values))
+        return values
 
     def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
-        """ Set the temperature, humidity and brightness value of a virtual sensor.
-
-        :param sensor_id: The id of the sensor.
-        :type sensor_id: Integer [0, 31]
-        :param temperature: The temperature to set in degrees Celcius
-        :type temperature: float
-        :param humidity: The humidity to set in percentage
-        :type humidity: float
-        :param brightness: The brightness to set in percentage
-        :type brightness: float
-        :returns: dict with 'status'.
-        """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
-        self.__master_controller.set_virtual_sensor(sensor_id, temperature, humidity, brightness)
-        return {'status': 'OK'}
+        """ Set the temperature, humidity and brightness value of a virtual sensor. """
+        return self.__master_controller.set_virtual_sensor(sensor_id, temperature, humidity, brightness)
 
     def add_virtual_output_module(self):
         # TODO: work with output controller
@@ -1500,7 +1498,7 @@ class GatewayApi(object):
 
             version = self.__power_controller.get_version(mod['id'])
             addr = self.__power_controller.get_address(mod['id'])
-            if version == power_api.POWER_API_8_PORTS:
+            if version == power_api.POWER_MODULE:
                 def _check_sid(key):
                     # 2 = 25A, 3 = 50A
                     if mod[key] in [2, 3]:
@@ -1510,7 +1508,7 @@ class GatewayApi(object):
                     addr, power_api.set_sensor_types(version),
                     *[_check_sid('sensor{0}'.format(i)) for i in xrange(power_api.NUM_PORTS[version])]
                 )
-            elif version == power_api.POWER_API_12_PORTS:
+            elif version == power_api.ENERGY_MODULE:
                 def _convert_ccf(key):
                     try:
                         if mod[key] == 2:  # 12.5 A
@@ -1556,7 +1554,7 @@ class GatewayApi(object):
                 version = modules[module_id]['version']
                 num_ports = power_api.NUM_PORTS[version]
 
-                if version == power_api.POWER_API_8_PORTS:
+                if version == power_api.POWER_MODULE:
                     raw_volt = self.__power_communicator.do_command(addr,
                                                                     power_api.get_voltage(version))
                     raw_freq = self.__power_communicator.do_command(addr,
@@ -1565,7 +1563,7 @@ class GatewayApi(object):
                     volt = [raw_volt[0] for _ in range(num_ports)]
                     freq = [raw_freq[0] for _ in range(num_ports)]
 
-                elif version == power_api.POWER_API_12_PORTS:
+                elif version == power_api.ENERGY_MODULE:
                     volt = self.__power_communicator.do_command(addr,
                                                                 power_api.get_voltage(version))
                     freq = self.__power_communicator.do_command(addr,
@@ -1663,7 +1661,7 @@ class GatewayApi(object):
 
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
-        if version != power_api.POWER_API_12_PORTS:
+        if version != power_api.ENERGY_MODULE:
             raise ValueError('Unknown power api version')
         self.__power_communicator.do_command(addr, power_api.set_voltage(), voltage)
         return dict()
@@ -1678,7 +1676,7 @@ class GatewayApi(object):
 
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
-        if version != power_api.POWER_API_12_PORTS:
+        if version != power_api.ENERGY_MODULE:
             raise ValueError('Unknown power api version')
         if input_id is None:
             input_ids = range(12)
@@ -1713,7 +1711,7 @@ class GatewayApi(object):
 
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
-        if version != power_api.POWER_API_12_PORTS:
+        if version != power_api.ENERGY_MODULE:
             raise ValueError('Unknown power api version')
         if input_id is None:
             input_ids = range(12)

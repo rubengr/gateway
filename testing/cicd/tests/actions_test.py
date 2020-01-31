@@ -19,7 +19,7 @@ that the tests will use.
 import time
 import logging
 from random import randint
-import simplejson as json
+import ujson as json
 from toolbox import exception_handler, OMTestCase
 
 logger = logging.getLogger('openmotics')

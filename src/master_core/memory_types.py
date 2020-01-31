@@ -16,7 +16,7 @@
 Contains memory (field) types
 """
 import inspect
-import json
+import ujson as json
 import logging
 import types
 from threading import Lock

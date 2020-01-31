@@ -15,7 +15,6 @@
 """"
 The hardware_utils module contains various classes helping with Hardware and System abstraction
 """
-import glob
 import os
 import sys
 import subprocess
@@ -208,16 +207,10 @@ class System(object):
         raise exception
 
     @staticmethod
-    def import_eggs():
+    def import_libs():
         operating_system = System._get_operating_system()['ID']
         current_file_path = os.path.dirname(os.path.abspath(__file__))
-        os.environ['PYTHON_EGG_CACHE'] = '/tmp/.eggs-cache/'
-
-        eggs = (glob.glob('{0}/eggs/*.egg'.format(current_file_path)) +
-                glob.glob('{0}/eggs/{1}/*.egg'.format(current_file_path, operating_system)))
-        for egg in eggs:
-            logger.info('Loading egg... {}'.format(egg))
-            sys.path.insert(0, egg)
+        sys.path.insert(0, '{0}/../dist-packages/'.format(current_file_path))
 
         # Patching where/if required
         if operating_system == System.OS.ANGSTROM:

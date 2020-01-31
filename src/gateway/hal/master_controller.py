@@ -171,16 +171,13 @@ class MasterController(object):
     def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
         raise NotImplementedError()
 
-    def get_sensor_configuration(self, sensor_id, fields=None):
+    def load_sensor(self, sensor_id, fields=None):
         raise NotImplementedError()
 
-    def set_sensor_configuration(self, config):
+    def load_sensors(self, fields=None):
         raise NotImplementedError()
 
-    def get_sensors_configuration(self, fields=None):
-        raise NotImplementedError()
-
-    def set_sensors_configuration(self, config):
+    def save_sensors(self, config):
         raise NotImplementedError()
 
     # Virtual modules
@@ -255,3 +252,4 @@ class MasterController(object):
 
     def set_all_lights_floor_on(self):
         raise NotImplementedError()
+
