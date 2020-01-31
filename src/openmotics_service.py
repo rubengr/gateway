@@ -22,7 +22,7 @@ import logging
 import time
 import constants
 from models import Database
-from ioc import Injectable, Inject, INJECTED
+from ioc import Injectable, Inject, INJECTED, DumpInjectionStack
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
 from serial import Serial
@@ -79,16 +79,14 @@ class OpenmoticsService(object):
              maintenance_controller, base, events, power_communicator, comm_led_controller, users,
              power_controller, pulses, config_controller, metrics_caching)
         if Platform.get_platform() == Platform.Type.CORE_PLUS:
-            from gateway.thermostat.gateway import thermostat_controller_gateway
             from gateway.hal import master_controller_core
             from master_core import maintenance, core_communicator, ucan_communicator
             from master import eeprom_extension  # TODO: Obsolete, need to be removed
-            _ = master_controller_core, maintenance, core_communicator, ucan_communicator, thermostat_controller_gateway
+            _ = master_controller_core, maintenance, core_communicator, ucan_communicator
         else:
-            from gateway.thermostat.master import thermostat_controller_master
             from gateway.hal import master_controller_classic
             from master import maintenance, master_communicator, eeprom_extension
-            _ = master_controller_classic, maintenance, master_communicator, eeprom_extension, thermostat_controller_master
+            _ = master_controller_classic, maintenance, master_communicator, eeprom_extension
 
         # IPC
         Injectable.value(message_client=MessageClient('openmotics_service'))
@@ -164,6 +162,7 @@ class OpenmoticsService(object):
     def fix_dependencies(metrics_controller=INJECTED, message_client=INJECTED, web_interface=INJECTED, scheduling_controller=INJECTED,
                          observer=INJECTED, gateway_api=INJECTED, metrics_collector=INJECTED, plugin_controller=INJECTED,
                          web_service=INJECTED, event_sender=INJECTED, maintenance_controller=INJECTED, thermostat_controller=INJECTED):
+
         # TODO: Fix circular dependencies
 
         thermostat_controller.subscribe_events(web_interface.send_event_websocket)

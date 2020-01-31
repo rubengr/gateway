@@ -352,12 +352,13 @@ class P2(OMPluginBase):
             controller.install_plugin(p2_md5, p2_data)
             controller.start_plugin('P2')
 
-            delivery_count = controller.distribute_metric({'timestamp': 0,
-                                                           'source': 'test',
-                                                           'type': 'test',
-                                                           'tags': {},
-                                                           'values': {}})
-            self.assertEqual(2, delivery_count)
+            delivery_rate = controller.distribute_metrics([{'timestamp': 0,
+                                                            'source': 'test',
+                                                            'type': 'test',
+                                                            'tags': {},
+                                                            'values': {}}])
+            self.assertEqual({'total': 2,
+                              'test.test': 2}, delivery_rate)
 
             start = time.time()
             p1_metric = {'metric': None}

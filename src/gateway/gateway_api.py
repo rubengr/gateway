@@ -30,7 +30,7 @@ import shutil
 import subprocess
 import tempfile
 import ConfigParser
-import json
+import ujson as json
 from ioc import Injectable, Inject, INJECTED, Singleton
 from subprocess import check_output
 from threading import Timer, Thread
@@ -57,6 +57,15 @@ def convert_nan(number):
     return 0.0 if math.isnan(number) else number
 
 
+<<<<<<< HEAD
+=======
+def check_basic_action(ret_dict):
+    """ Checks if the response is 'OK', throws a ValueError otherwise. """
+    if ret_dict['resp'] != 'OK':
+        raise ValueError('Basic action did not return OK.')
+
+
+>>>>>>> develop
 @Injectable.named('gateway_api')
 @Singleton
 class GatewayApi(object):

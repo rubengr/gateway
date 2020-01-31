@@ -27,7 +27,7 @@ from threading import Thread
 from ioc import Injectable, Inject, INJECTED, Singleton
 from platform_utils import Platform
 from gateway.webservice import params_parser
-import json
+import ujson as json
 
 if Platform.get_platform() == Platform.Type.CLASSIC:
     from master.master_communicator import CommunicationTimedOutException
