@@ -1040,15 +1040,24 @@ class GatewayApi(object):
 
     def get_sensor_temperature_status(self):
         """ Get the current temperature of all sensors. """
-        return self.__master_controller.get_sensors_temperature()
+        values = self.__master_controller.get_sensors_temperature()[:32]
+        if len(values) < 32:
+            values += [None] * (32 - len(values))
+        return values
 
     def get_sensor_humidity_status(self):
         """ Get the current humidity of all sensors. """
-        return self.__master_controller.get_sensors_humidity()
+        values = self.__master_controller.get_sensors_humidity()[:32]
+        if len(values) < 32:
+            values += [None] * (32 - len(values))
+        return values
 
     def get_sensor_brightness_status(self):
         """ Get the current brightness of all sensors. """
-        return self.__master_controller.get_sensors_brightness()
+        values = self.__master_controller.get_sensors_brightness()[:32]
+        if len(values) < 32:
+            values += [None] * (32 - len(values))
+        return values
 
     def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
         """ Set the temperature, humidity and brightness value of a virtual sensor. """

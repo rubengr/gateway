@@ -249,8 +249,9 @@ class MasterCoreController(MasterController):
         return self._sensor_states.get(sensor_id, {}).get('TEMPERATURE')
 
     def get_sensors_temperature(self):
+        amount_sensor_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['sensor']
         temperatures = []
-        for sensor_id in xrange(32):
+        for sensor_id in xrange(amount_sensor_modules * 8):
             temperatures.append(self.get_sensor_temperature(sensor_id))
         return temperatures
 
@@ -258,8 +259,9 @@ class MasterCoreController(MasterController):
         return self._sensor_states.get(sensor_id, {}).get('HUMIDITY')
 
     def get_sensors_humidity(self):
+        amount_sensor_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['sensor']
         humidities = []
-        for sensor_id in xrange(32):
+        for sensor_id in xrange(amount_sensor_modules * 8):
             humidities.append(self.get_sensor_humidity(sensor_id))
         return humidities
 
@@ -271,8 +273,9 @@ class MasterCoreController(MasterController):
         return int(float(brightness) / 65535.0 * 100)
 
     def get_sensors_brightness(self):
+        amount_sensor_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['sensor']
         brightnesses = []
-        for sensor_id in xrange(32):
+        for sensor_id in xrange(amount_sensor_modules * 8):
             brightnesses.append(self.get_sensor_brightness(sensor_id))
         return brightnesses
 
