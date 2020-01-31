@@ -251,7 +251,7 @@ class SchedulingController(object):
             else:
                 logger.warning('Did not process schedule {0}'.format(schedule.name))
 
-            # Cleanup or prepare for next start
+            # Cleanup or prepare for next run
             schedule.last_executed = time.time()
             if schedule.has_ended:
                 self._update_schedule_status(schedule.id, 'COMPLETED')

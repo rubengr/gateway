@@ -20,7 +20,7 @@ import re
 import time
 import logging
 import requests
-import json
+import ujson as json
 from threading import Thread
 from collections import deque
 from ioc import Injectable, Inject, INJECTED, Singleton

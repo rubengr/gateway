@@ -29,7 +29,7 @@ import time
 import subprocess
 import traceback
 import constants
-import json
+import ujson as json
 from threading import Thread, Lock
 from collections import deque
 from ConfigParser import ConfigParser

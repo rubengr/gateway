@@ -19,7 +19,7 @@ Metrics caching/buffer controller
 import time
 import sqlite3
 import logging
-import json
+import ujson as json
 from random import randint
 from ioc import Injectable, Inject, INJECTED, Singleton
 

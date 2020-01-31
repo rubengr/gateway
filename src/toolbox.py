@@ -17,8 +17,14 @@ A few helper classes
 """
 
 import time
-import json
 from collections import deque
+
+
+try:
+    import ujson as json
+except ImportError:
+    # This is the case when the plugin runtime is unittested
+    import json
 
 
 class Full(Exception):
