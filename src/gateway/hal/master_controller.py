@@ -138,3 +138,35 @@ class MasterController(object):
 
     def shutter_stop(self, shutter_id):
         raise NotImplementedError()
+
+    # Sensors
+
+    def get_sensor_temperature(self, sensor_id):
+        raise NotImplementedError()
+
+    def get_sensors_temperature(self):
+        raise NotImplementedError()
+
+    def get_sensor_humidity(self, sensor_id):
+        raise NotImplementedError()
+
+    def get_sensors_humidity(self):
+        raise NotImplementedError()
+
+    def get_sensor_brightness(self, sensor_id):
+        raise NotImplementedError()
+
+    def get_sensors_brightness(self):
+        raise NotImplementedError()
+
+    def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
+        raise NotImplementedError()
+
+    def load_sensor(self, sensor_id, fields=None):
+        raise NotImplementedError()
+
+    def load_sensors(self, fields=None):
+        raise NotImplementedError()
+
+    def save_sensors(self, config):
+        raise NotImplementedError()

@@ -23,7 +23,7 @@ import time
 from intelhex import IntelHex
 from master_core.ucan_api import UCANAPI
 from master_core.ucan_command import UCANPalletCommandSpec, SID
-from master_core.fields import Int32Field
+from master_core.fields import UInt32Field
 
 logger = logging.getLogger('openmotics')
 
@@ -102,7 +102,7 @@ class UCANUpdater(object):
                 if start_address == address_blocks[-1]:
                     crc = UCANPalletCommandSpec.calculate_crc(reset_vector, crc)
                     payload += reset_vector
-                    payload += Int32Field.encode_bytes(crc)
+                    payload += UInt32Field.encode_bytes(crc)
 
                 little_start_address = struct.unpack('<I', struct.pack('>I', start_address))[0]  # TODO: Handle endianness in API definition using Field endianness
 
