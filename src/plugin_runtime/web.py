@@ -2,7 +2,7 @@ import re
 import requests
 
 try:
-    import json
+    import ujson as json
 except ImportError:
     # This is the case when the plugin runtime is unittested
     import json

@@ -2,7 +2,7 @@ import logging
 import os
 
 try:
-    import json
+    import ujson as json
 except ImportError:
     # This is the case when the plugin runtime is unittested
     import json

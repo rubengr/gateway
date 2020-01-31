@@ -26,7 +26,7 @@ class OutputStatusTest(unittest.TestCase):
     """ Tests for OutputStatus. """
 
     def test_update(self):
-        """ Test for partial_update and v0_full_update"""
+        """ Test for partial_update and full_update"""
         outputs = [{'id': 1, 'name': 'light1', 'floor_level': 1, 'light': 1,
                     'type': 'D', 'controller_out': 1, 'timer': 200, 'ctimer': 200,
                     'max_power': 1, 'status': 1, 'dimmer': 10},
