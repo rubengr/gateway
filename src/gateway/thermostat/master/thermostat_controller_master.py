@@ -44,13 +44,13 @@ class ThermostatControllerMaster(ThermostatController):
     ################################
     @staticmethod
     def get_current_preset(thermostat_number):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def set_current_preset(self, thermostat_number, preset_name):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def set_current_setpoint(self, thermostat_number, heating_temperature, cooling_temperature):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     ################################
     # v0 compatible APIs

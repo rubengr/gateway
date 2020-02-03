@@ -347,6 +347,9 @@ class MasterCoreController(MasterController):
     def reset(self):
         raise NotImplementedError()
 
+    def cold_reset(self):
+        raise NotImplementedError()
+
     def get_modules(self):
         raise NotImplementedError()
 

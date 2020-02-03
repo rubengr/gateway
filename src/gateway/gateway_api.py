@@ -77,7 +77,7 @@ class GatewayApi(object):
         :param master_communicator: Master communicator
         :type master_communicator: master.master_communicator.MasterCommunicator
         :param master_controller: Master controller
-        :type master_controller: gateway.master_controller.MasterController
+        :type master_controller: gateway.hal.master_controller.MasterController
         :param power_communicator: Power communicator
         :type power_communicator: power.power_communicator.PowerCommunicator
         :param power_controller: Power controller
@@ -376,12 +376,15 @@ class GatewayApi(object):
         os.symlink(timezone_file_path, constants.get_timezone_file())
 
     def get_timezone(self):
-        path = os.path.realpath(constants.get_timezone_file())
-        if not path.startswith('/usr/share/zoneinfo/'):
-            # Reset timezone to default setting
-            self.set_timezone('UTC')
+        try:
+            path = os.path.realpath(constants.get_timezone_file())
+            if not path.startswith('/usr/share/zoneinfo/'):
+                # Reset timezone to default setting
+                self.set_timezone('UTC')
+                return 'UTC'
+            return path[20:]
+        except Exception:
             return 'UTC'
-        return path[20:]
 
     def __event_triggered(self, ev_output):
         """ Handle an event triggered by the master. """
@@ -732,7 +735,7 @@ class GatewayApi(object):
         """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
-        return self.__master_controller.get_sensor_configuration(sensor_id, fields=None)
+        return self.__master_controller.load_sensor(sensor_id, fields=fields)
 
     def get_sensor_configurations(self, fields=None):
         """
@@ -744,7 +747,7 @@ class GatewayApi(object):
         """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
-        return self.__master_controller.get_sensors_configuration(fields=None)
+        return self.__master_controller.load_sensors(fields=fields)
 
     def set_sensor_configuration(self, config):
         """
@@ -755,7 +758,7 @@ class GatewayApi(object):
         """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
-        return self.__master_controller.set_sensor_configuration(config)
+        return self.__master_controller.save_sensor([config])
 
     def set_sensor_configurations(self, config):
         """
@@ -766,7 +769,7 @@ class GatewayApi(object):
         """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
-        return self.__master_controller.set_sensors_configuration(config)
+        return self.__master_controller.save_sensors(config)
 
     def get_sensors_temperature_status(self):
         """ Get the current temperature of all sensors.
@@ -775,18 +778,18 @@ class GatewayApi(object):
         """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
-        return self.__master_controller.get_sensors_temperature()
-
-    def get_sensor_temperature_status(self):
-        """ Get the current temperature of all sensors. """
-        # TODO: work with sensor controller
-        # TODO: add other sensors too (e.g. from database <-- plugins)
         values = self.__master_controller.get_sensors_temperature()[:32]
         if len(values) < 32:
             values += [None] * (32 - len(values))
         return values
 
-    def get_sensor_humidity_status(self):
+    def get_sensor_temperature_status(self, sensor_id):
+        """ Get the current temperature of all sensors. """
+        # TODO: work with sensor controller
+        # TODO: add other sensors too (e.g. from database <-- plugins)
+        return self.__master_controller.get_sensor_temperature(sensor_id)
+
+    def get_sensors_humidity_status(self):
         """ Get the current humidity of all sensors. """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)
@@ -795,7 +798,7 @@ class GatewayApi(object):
             values += [None] * (32 - len(values))
         return values
 
-    def get_sensor_brightness_status(self):
+    def get_sensors_brightness_status(self):
         """ Get the current brightness of all sensors. """
         # TODO: work with sensor controller
         # TODO: add other sensors too (e.g. from database <-- plugins)

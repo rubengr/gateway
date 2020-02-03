@@ -1,6 +1,4 @@
 import logging
-import time
-from threading import Thread
 
 logger = logging.getLogger('openmotics')
 
@@ -23,14 +21,14 @@ class PumpDriver(object):
         output_number = self._pump.output.number
         dimmer = 100 if active else 0
         self._gateway_api.set_output_status(output_number, active, dimmer=dimmer)
+        self._state = active
 
     def turn_on(self):
         logger.info('turning on pump {}'.format(self._pump.number))
         try:
             self._set_state(True)
-            self._state = True
             self._error = False
-        except Exception as e:
+        except Exception:
             logger.error('There was a problem turning on pump {}'.format(self._pump.number))
             self._error = True
             raise
@@ -39,9 +37,8 @@ class PumpDriver(object):
         logger.info('turning off pump {}'.format(self._pump.number))
         try:
             self._set_state(False)
-            self._state = False
             self._error = False
-        except Exception as e:
+        except Exception:
             logger.error('There was a problem turning off pump {}'.format(self._pump.number))
             self._error = True
             raise

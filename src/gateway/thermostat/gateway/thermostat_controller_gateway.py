@@ -37,10 +37,8 @@ class ThermostatControllerGateway(ThermostatController):
         self._periodic_sync_thread = None
         self.thermostat_pids = {}
         self._pump_valve_controller = PumpValveController(self._gateway_api)
-        try:
-            timezone = gateway_api.get_timezone()
-        except Exception:
-            timezone = 'UTC'
+
+        timezone = gateway_api.get_timezone()
 
         # we could also use an in-memory store, but this allows us to detect 'missed' transitions
         # e.g. in case when gateway was rebooting during a scheduled transition
@@ -174,6 +172,7 @@ class ThermostatControllerGateway(ThermostatController):
         # 2. sensor < 32 or 240
         # 3. timing check e.g. '42:30' is not valid time (255)
         # 4. valid PID params
+
         def is_valid(config):
             if config.get('output0', 255) <= 240:
                 return False
@@ -224,7 +223,6 @@ class ThermostatControllerGateway(ThermostatController):
         except Exception:
             logger.exception('Error migrating master thermostats')
             return False
-
 
     ################################
     # v1 APIs
@@ -431,8 +429,9 @@ class ThermostatControllerGateway(ThermostatController):
         cooling_outputs = global_thermostat_group.v0_switch_to_cooling_outputs
         n = len(cooling_outputs)
         for i in xrange(n):
-            config['switch_to_cooling_output_{}'.format(i)] = cooling_outputs[0]
-            config['switch_to_cooling_value_{}'.format(i)] = cooling_outputs[1]
+            cooling_output = cooling_outputs[n]
+            config['switch_to_cooling_output_{}'.format(i)] = cooling_output[0]
+            config['switch_to_cooling_value_{}'.format(i)] = cooling_output[1]
         for i in xrange(n, 4-n):
             config['switch_to_cooling_output_{}'.format(i)] = 255
             config['switch_to_cooling_value_{}'.format(i)] = 255
@@ -440,8 +439,9 @@ class ThermostatControllerGateway(ThermostatController):
         heating_outputs = global_thermostat_group.v0_switch_to_heating_outputs
         n = len(heating_outputs)
         for i in xrange(n):
-            config['switch_to_heating_output_{}'.format(i)] = cooling_outputs[0]
-            config['switch_to_heating_value_{}'.format(i)] = cooling_outputs[1]
+            heating_output = heating_outputs[n]
+            config['switch_to_heating_output_{}'.format(i)] = heating_output[0]
+            config['switch_to_heating_value_{}'.format(i)] = heating_output[1]
         for i in xrange(n, 4-n):
             config['switch_to_heating_output_{}'.format(i)] = 255
             config['switch_to_heating_value_{}'.format(i)] = 255
@@ -490,8 +490,8 @@ class ThermostatControllerGateway(ThermostatController):
     def v0_set_pump_group_configurations(self, config):
         raise NotImplementedError
 
-    def v0_get_cooling_pump_group_configuration(self, id, fields=None):
-        pump = Pump.get(number=id)
+    def v0_get_cooling_pump_group_configuration(self, pump_number, fields=None):
+        pump = Pump.get(number=pump_number)
         pump_config = {'id': pump.number,
                        'outputs': ','.join([valve.output.number for valve in pump.cooling_valves]),
                        'output': pump.output.number,
@@ -509,40 +509,40 @@ class ThermostatControllerGateway(ThermostatController):
         return pump_config_list
 
     def v0_set_cooling_pump_group_configuration(self, config):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_cooling_pump_group_configurations(self, config):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_rtd10_heating_configuration(self, heating_id, fields=None):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_rtd10_heating_configurations(self, fields=None):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_rtd10_heating_configuration(self, config):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_rtd10_heating_configurations(self, config):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_rtd10_cooling_configuration(self, cooling_id, fields=None):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_rtd10_cooling_configurations(self, fields=None):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_rtd10_cooling_configuration(self, config):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_rtd10_cooling_configurations(self, config):
         raise NotImplementedError
 
     def v0_set_airco_status(self, thermostat_id, airco_on):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_airco_status(self):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     @staticmethod
     def create_or_update_thermostat_from_v0_api(thermostat_number, config, mode='heating'):
