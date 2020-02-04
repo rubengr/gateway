@@ -287,12 +287,13 @@ class ShutterController(object):
             direction = ShutterController.STATE_DIRECTION_MAP[current_state]
             if steps is None:
                 # Time based state calculation
-                threshold = 0.95 * shutter['timer_{0}'.format(direction.lower())]  # Allow 5% difference
-                if time.time() >= current_state_timestamp + threshold:  # The shutter was going up/down for the whole `timer`. So it's now up/down
+                threshold = 0.90 * shutter['timer_{0}'.format(direction.lower())]  # Allow 10% difference
+                elapsed_time = time.time() - current_state_timestamp
+                if elapsed_time >= threshold:  # The shutter was going up/down for the whole `timer`. So it's now up/down
                     self._log('Shutter {0} going {1} passed time threshold. New state {2}'.format(shutter_id, direction, ShutterController.DIRECTION_END_STATE_MAP[direction]))
                     new_state = ShutterController.DIRECTION_END_STATE_MAP[direction]
                 else:
-                    self._log('Shutter {0} going {1} did not pass time threshold. New state {2}'.format(shutter_id, direction, ShutterController.State.STOPPED))
+                    self._log('Shutter {0} going {1} did not pass time threshold ({2:.2f}s vs {3:.2f}s). New state {4}'.format(shutter_id, direction, elapsed_time, threshold, ShutterController.State.STOPPED))
                     new_state = ShutterController.State.STOPPED
             else:
                 # Supports position, so state will be calculated on position
