@@ -2222,7 +2222,7 @@ class GatewayApi(object):
                 version = modules[module_id]['version']
                 num_ports = power_api.NUM_PORTS[version]
 
-                volt = [0.0] * num_ports
+                volt = [0.0] * num_ports  # TODO: Initialse to None is supported upstream
                 freq = [0.0] * num_ports
                 current = [0.0] * num_ports
                 power = [0.0] * num_ports
@@ -2290,7 +2290,7 @@ class GatewayApi(object):
                 version = modules[module_id]['version']
                 num_ports = power_api.NUM_PORTS[version]
 
-                day = [0] * num_ports
+                day = [0] * num_ports  # TODO: Initialse to None is supported upstream
                 night = [0] * num_ports
                 if version in [power_api.ENERGY_MODULE, power_api.POWER_MODULE]:
                     day = self.__power_communicator.do_command(addr, power_api.get_day_energy(version))
