@@ -21,7 +21,7 @@ System.import_libs()
 import logging
 import time
 import constants
-from models import Database
+from models import Database, Feature
 from ioc import Injectable, Inject, INJECTED
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
@@ -87,6 +87,14 @@ class OpenmoticsService(object):
             from gateway.hal import master_controller_classic
             from master import maintenance, master_communicator, eeprom_extension
             _ = master_controller_classic, maintenance, master_communicator, eeprom_extension
+
+        thermostats_gateway = Feature.get_or_none(name='thermostats_gateway')
+        if thermostats_gateway is not None and thermostats_gateway.enabled:
+            from gateway.thermostat.gateway import thermostat_controller_gateway
+            _ = thermostat_controller_gateway
+        else:
+            from gateway.thermostat.master import thermostat_controller_master
+            _ = thermostat_controller_master
 
         # IPC
         Injectable.value(message_client=MessageClient('openmotics_service'))

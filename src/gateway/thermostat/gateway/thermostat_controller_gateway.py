@@ -450,7 +450,7 @@ class ThermostatControllerGateway(ThermostatController):
 
     def v0_set_global_thermostat_configuration(self, config):
         # update thermostat group configuration
-        thermostat_group = ThermostatGroup.get_or_create(number=0)
+        thermostat_group = ThermostatGroup.get(number=0)
         thermostat_group.sensor = int(config['outside_sensor'])
         thermostat_group.threshold_temp = float(config['threshold_temp'])
         thermostat_group.save()
