@@ -2165,7 +2165,7 @@ class GatewayApi(object):
             version = self.__power_controller.get_version(mod['id'])
             addr = self.__power_controller.get_address(mod['id'])
             if version == power_api.P1_CONCENTRATOR:
-                continue
+                continue  # TODO: Should raise an exception once the frontends know about the P1C
             elif version == power_api.POWER_MODULE:
                 def _check_sid(key):
                     # 2 = 25A, 3 = 50A
@@ -2241,10 +2241,10 @@ class GatewayApi(object):
                     power = self.__power_communicator.do_command(addr, power_api.get_power(version))
                 elif version == power_api.P1_CONCENTRATOR:
                     status = self.__power_communicator.do_command(addr, power_api.get_status_p1(version))[0]
-                    raw_volt = self.__power_communicator.do_command(addr, power_api.get_voltage_p1(version, phase=1))[0]
-                    raw_current_ph1 = self.__power_communicator.do_command(addr, power_api.get_current_p1(version, phase=1))[0]
-                    raw_current_ph2 = self.__power_communicator.do_command(addr, power_api.get_current_p1(version, phase=2))[0]
-                    raw_current_ph3 = self.__power_communicator.do_command(addr, power_api.get_current_p1(version, phase=3))[0]
+                    raw_volt = self.__power_communicator.do_command(addr, power_api.get_voltage(version, phase=1))[0]  # TODO: Average?
+                    raw_current_ph1 = self.__power_communicator.do_command(addr, power_api.get_current(version, phase=1))[0]
+                    raw_current_ph2 = self.__power_communicator.do_command(addr, power_api.get_current(version, phase=2))[0]
+                    raw_current_ph3 = self.__power_communicator.do_command(addr, power_api.get_current(version, phase=3))[0]
                     delivered_power = self.__power_communicator.do_command(addr, power_api.get_delivered_power(version))[0]
                     received_power = self.__power_communicator.do_command(addr, power_api.get_received_power(version))[0]
                     for port in xrange(num_ports):

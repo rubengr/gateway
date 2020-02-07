@@ -94,22 +94,22 @@ def get_status_p1(version):
         raise ValueError("Unknown power api version")
 
 
-def get_voltage(version):
+def get_voltage(version, phase=None):
     """
     Get the voltage of a power module (in V)
     :param version: power api version (POWER_API_8_PORTS or POWER_API_12_PORTS).
+    :param phase: Phase to read
     """
-    if version == POWER_MODULE:
-        return PowerCommand('G', 'VOL', '', 'f')
-    elif version == ENERGY_MODULE:
-        return PowerCommand('G', 'VOL', '', '12f')
-    else:
-        raise ValueError("Unknown power api version")
-
-
-def get_voltage_p1(version, phase):
-    """ Gets the voltage from a P1 concentrator """
+    if version in [POWER_MODULE, ENERGY_MODULE]:
+        if phase is not None:
+            raise ValueError('A phase is not supported')
+        if version == POWER_MODULE:
+            return PowerCommand('G', 'VOL', '', 'f')
+        else:
+            return PowerCommand('G', 'VOL', '', '12f')
     if version == P1_CONCENTRATOR:
+        if phase is None:
+            raise ValueError('A phase is required')
         return PowerCommand('G', 'V{0}\x00'.format(phase), '', '56s', module_type='C')
     else:
         raise ValueError("Unknown power api version")
@@ -128,22 +128,22 @@ def get_frequency(version):
         raise ValueError("Unknown power api version")
 
 
-def get_current(version):
+def get_current(version, phase=None):
     """
     Get the current of a power module (12x in A)
     :param version: power api version (POWER_API_8_PORTS or POWER_API_12_PORTS).
+    :param phase: Phase to read
     """
-    if version == POWER_MODULE:
-        return PowerCommand('G', 'CUR', '', '8f')
-    elif version == ENERGY_MODULE:
-        return PowerCommand('G', 'CUR', '', '12f')
-    else:
-        raise ValueError("Unknown power api version")
-
-
-def get_current_p1(version, phase):
-    """ Gets the current from a P1 concentrator """
+    if version in [POWER_MODULE, ENERGY_MODULE]:
+        if phase is not None:
+            raise ValueError('A phase is not supported')
+        if version == POWER_MODULE:
+            return PowerCommand('G', 'CUR', '', '8f')
+        else:
+            return PowerCommand('G', 'CUR', '', '12f')
     if version == P1_CONCENTRATOR:
+        if phase is None:
+            raise ValueError('A phase is required')
         return PowerCommand('G', 'C{0}\x00'.format(phase), '', '40s', module_type='C')
     else:
         raise ValueError("Unknown power api version")
