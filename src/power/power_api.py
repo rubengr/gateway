@@ -86,6 +86,14 @@ def get_feed_counter(version):
         raise ValueError("Unknown power api version")
 
 
+def get_status_p1(version):
+    """ Gets the status from a P1 concentrator """
+    if version == P1_CONCENTRATOR:
+        return PowerCommand('G', 'SP\x00', '', 'B', module_type='C')
+    else:
+        raise ValueError("Unknown power api version")
+
+
 def get_voltage(version):
     """
     Get the voltage of a power module (in V)
@@ -95,6 +103,14 @@ def get_voltage(version):
         return PowerCommand('G', 'VOL', '', 'f')
     elif version == ENERGY_MODULE:
         return PowerCommand('G', 'VOL', '', '12f')
+    else:
+        raise ValueError("Unknown power api version")
+
+
+def get_voltage_p1(version, phase):
+    """ Gets the voltage from a P1 concentrator """
+    if version == P1_CONCENTRATOR:
+        return PowerCommand('G', 'V{0}\x00'.format(phase), '', '56s', module_type='C')
     else:
         raise ValueError("Unknown power api version")
 
@@ -125,6 +141,14 @@ def get_current(version):
         raise ValueError("Unknown power api version")
 
 
+def get_current_p1(version, phase):
+    """ Gets the current from a P1 concentrator """
+    if version == P1_CONCENTRATOR:
+        return PowerCommand('G', 'C{0}\x00'.format(phase), '', '40s', module_type='C')
+    else:
+        raise ValueError("Unknown power api version")
+
+
 def get_power(version):
     """
     Get the power of a power module (12x in W)
@@ -134,6 +158,22 @@ def get_power(version):
         return PowerCommand('G', 'POW', '', '8f')
     elif version == ENERGY_MODULE:
         return PowerCommand('G', 'POW', '', '12f')
+    else:
+        raise ValueError("Unknown power api version")
+
+
+def get_delivered_power(version):
+    """ Gets the delivered power of a P1 concentrator """
+    if version == P1_CONCENTRATOR:
+        return PowerCommand('G', 'PD\x00', '', '72s', module_type='C')
+    else:
+        raise ValueError("Unknown power api version")
+
+
+def get_received_power(version):
+    """ Gets the reveived power of a P1 concentrator """
+    if version == P1_CONCENTRATOR:
+        return PowerCommand('G', 'PR\x00', '', '72s', module_type='C')
     else:
         raise ValueError("Unknown power api version")
 
@@ -158,6 +198,8 @@ def get_day_energy(version):
         return PowerCommand('G', 'EDA', '', '8L')
     elif version == ENERGY_MODULE:
         return PowerCommand('G', 'EDA', '', '12L')
+    elif version == P1_CONCENTRATOR:
+        return PowerCommand('G', 'c1\x00', '', '112s', module_type='C')
     else:
         raise ValueError("Unknown power api version")
 
@@ -171,6 +213,8 @@ def get_night_energy(version):
         return PowerCommand('G', 'ENI', '', '8L')
     elif version == ENERGY_MODULE:
         return PowerCommand('G', 'ENI', '', '12L')
+    elif version == P1_CONCENTRATOR:
+        return PowerCommand('G', 'c2\x00', '', '112s', module_type='C')
     else:
         raise ValueError("Unknown power api version")
 
