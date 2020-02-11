@@ -74,6 +74,8 @@ class TimeKeeper(object):
         date = datetime.now()
         for module in self.__power_controller.get_power_modules().values():
             version = module['version']
+            if version == power_api.P1_CONCENTRATOR:
+                continue
             daynight = []
             for i in range(power_api.NUM_PORTS[version]):
                 if self.is_day_time(module['times%d' % i], date):

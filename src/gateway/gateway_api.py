@@ -2135,7 +2135,11 @@ class GatewayApi(object):
 
         def translate_address(_module):
             """ Translate the address from an integer to the external address format (eg. E1). """
-            _module['address'] = 'E' + str(_module['address'])
+            if _module['version'] == power_api.P1_CONCENTRATOR:
+                module_type = 'C'
+            else:
+                module_type = 'E'
+            _module['address'] = '{0}{1}'.format(module_type, _module['address'])
             return _module
 
         return [translate_address(mod) for mod in modules]
@@ -2160,7 +2164,9 @@ class GatewayApi(object):
 
             version = self.__power_controller.get_version(mod['id'])
             addr = self.__power_controller.get_address(mod['id'])
-            if version == power_api.POWER_MODULE:
+            if version == power_api.P1_CONCENTRATOR:
+                continue  # TODO: Should raise an exception once the frontends know about the P1C
+            elif version == power_api.POWER_MODULE:
                 def _check_sid(key):
                     # 2 = 25A, 3 = 50A
                     if mod[key] in [2, 3]:
@@ -2216,27 +2222,44 @@ class GatewayApi(object):
                 version = modules[module_id]['version']
                 num_ports = power_api.NUM_PORTS[version]
 
-                if version == power_api.POWER_MODULE:
-                    raw_volt = self.__power_communicator.do_command(addr,
-                                                                    power_api.get_voltage(version))
-                    raw_freq = self.__power_communicator.do_command(addr,
-                                                                    power_api.get_frequency(version))
+                volt = [0.0] * num_ports  # TODO: Initialse to None is supported upstream
+                freq = [0.0] * num_ports
+                current = [0.0] * num_ports
+                power = [0.0] * num_ports
+                if version in [power_api.POWER_MODULE, power_api.ENERGY_MODULE]:
+                    if version == power_api.POWER_MODULE:
+                        raw_volt = self.__power_communicator.do_command(addr, power_api.get_voltage(version))
+                        raw_freq = self.__power_communicator.do_command(addr, power_api.get_frequency(version))
 
-                    volt = [raw_volt[0] for _ in range(num_ports)]
-                    freq = [raw_freq[0] for _ in range(num_ports)]
+                        volt = [raw_volt[0]] * num_ports
+                        freq = [raw_freq[0]] * num_ports
+                    else:
+                        volt = self.__power_communicator.do_command(addr, power_api.get_voltage(version))
+                        freq = self.__power_communicator.do_command(addr, power_api.get_frequency(version))
 
-                elif version == power_api.ENERGY_MODULE:
-                    volt = self.__power_communicator.do_command(addr,
-                                                                power_api.get_voltage(version))
-                    freq = self.__power_communicator.do_command(addr,
-                                                                power_api.get_frequency(version))
+                    current = self.__power_communicator.do_command(addr, power_api.get_current(version))
+                    power = self.__power_communicator.do_command(addr, power_api.get_power(version))
+                elif version == power_api.P1_CONCENTRATOR:
+                    status = self.__power_communicator.do_command(addr, power_api.get_status_p1(version))[0]
+                    raw_volt = self.__power_communicator.do_command(addr, power_api.get_voltage(version, phase=1))[0]  # TODO: Average?
+                    raw_current_ph1 = self.__power_communicator.do_command(addr, power_api.get_current(version, phase=1))[0]
+                    raw_current_ph2 = self.__power_communicator.do_command(addr, power_api.get_current(version, phase=2))[0]
+                    raw_current_ph3 = self.__power_communicator.do_command(addr, power_api.get_current(version, phase=3))[0]
+                    delivered_power = self.__power_communicator.do_command(addr, power_api.get_delivered_power(version))[0]
+                    received_power = self.__power_communicator.do_command(addr, power_api.get_received_power(version))[0]
+                    for port in xrange(num_ports):
+                        try:
+                            if status & 1 << port:
+                                volt[port] = float(raw_volt[port * 7:(port + 1) * 7][:5])
+                                current[port] = (float(raw_current_ph1[port * 5:(port + 1) * 6][:3]) +
+                                                 float(raw_current_ph2[port * 5:(port + 1) * 6][:3]) +
+                                                 float(raw_current_ph3[port * 5:(port + 1) * 6][:3]))
+                                power[port] = (float(delivered_power[port * 9:(port + 1) * 9][:6]) -
+                                               float(received_power[port * 9:(port + 1) * 9][:6])) * 1000
+                        except ValueError:
+                            pass
                 else:
                     raise ValueError('Unknown power api version')
-
-                current = self.__power_communicator.do_command(addr,
-                                                               power_api.get_current(version))
-                power = self.__power_communicator.do_command(addr,
-                                                             power_api.get_power(version))
 
                 out = []
                 for i in range(num_ports):
@@ -2265,14 +2288,29 @@ class GatewayApi(object):
             try:
                 addr = modules[module_id]['address']
                 version = modules[module_id]['version']
+                num_ports = power_api.NUM_PORTS[version]
 
-                day = self.__power_communicator.do_command(addr,
-                                                           power_api.get_day_energy(version))
-                night = self.__power_communicator.do_command(addr,
-                                                             power_api.get_night_energy(version))
+                day = [0] * num_ports  # TODO: Initialse to None is supported upstream
+                night = [0] * num_ports
+                if version in [power_api.ENERGY_MODULE, power_api.POWER_MODULE]:
+                    day = self.__power_communicator.do_command(addr, power_api.get_day_energy(version))
+                    night = self.__power_communicator.do_command(addr, power_api.get_night_energy(version))
+                elif version == power_api.P1_CONCENTRATOR:
+                    status = self.__power_communicator.do_command(addr, power_api.get_status_p1(version))[0]
+                    raw_day = self.__power_communicator.do_command(addr, power_api.get_day_energy(version))[0]
+                    raw_night = self.__power_communicator.do_command(addr, power_api.get_night_energy(version))[0]
+                    for port in xrange(num_ports):
+                        try:
+                            if status & 1 << port:
+                                day[port] = int(float(raw_day[port * 14:(port + 1) * 14][:10]) * 1000)
+                                night[port] = int(float(raw_night[port * 14:(port + 1) * 14][:10]) * 1000)
+                        except ValueError:
+                            pass
+                else:
+                    raise ValueError('Unknown power api version')
 
                 out = []
-                for i in range(power_api.NUM_PORTS[version]):
+                for i in range(num_ports):
                     out.append([convert_nan(day[i]), convert_nan(night[i])])
 
                 output[str(module_id)] = out
