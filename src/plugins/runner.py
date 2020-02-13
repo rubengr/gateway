@@ -5,7 +5,8 @@ import sys
 import time
 import traceback
 from threading import Thread, Lock
-from toolbox import Queue, Empty, Full, PluginIPCStream
+from Queue import Queue, Empty, Full
+from toolbox import PluginIPCStream
 
 logger = logging.getLogger("openmotics")
 

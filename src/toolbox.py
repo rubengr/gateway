@@ -16,57 +16,9 @@
 A few helper classes
 """
 
-import time
-from collections import deque
+import msgpack
+from Queue import Queue
 from threading import Thread
-
-
-try:
-    import ujson as json
-except ImportError:
-    # This is the case when the plugin runtime is unittested
-    import json
-
-
-class Full(Exception):
-    pass
-
-
-class Empty(Exception):
-    pass
-
-
-class Queue(object):
-    def __init__(self, size=None):
-        self._queue = deque()
-        self._size = size  # Not used
-
-    def put(self, value, block=False):
-        _ = block
-        self._queue.appendleft(value)
-
-    def get(self, block=True, timeout=None):
-        if not block:
-            try:
-                return self._queue.pop()
-            except IndexError:
-                raise Empty()
-        start = time.time()
-        while timeout is None or time.time() - start < timeout:
-            try:
-                return self._queue.pop()
-            except IndexError:
-                sleep = 0.025
-                if timeout is None or timeout > 1:
-                    sleep = 0.1
-                time.sleep(sleep)
-        raise Empty()
-
-    def qsize(self):
-        return len(self._queue)
-
-    def clear(self):
-        return self._queue.clear()
 
 
 class PluginIPCStream(object):
@@ -103,7 +55,7 @@ class PluginIPCStream(object):
                     wait_for_length = int(length) - len(self._buffer) + 2
                     continue
                 if self._buffer.endswith(',\n'):
-                    self._command_queue.put(json.loads(self._buffer[:-2]))
+                    self._command_queue.put(msgpack.loads(self._buffer[:-2]))
                 self._buffer = ''
                 wait_for_length = None
             except Exception as ex:
@@ -115,5 +67,5 @@ class PluginIPCStream(object):
     @staticmethod
     def encode(data):
         """ Uses Netstring encoding """
-        data = json.dumps(data)
+        data = msgpack.dumps(data)
         return '{0}:{1},\n'.format(len(data), data)
