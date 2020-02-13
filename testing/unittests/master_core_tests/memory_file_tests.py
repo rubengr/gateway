@@ -20,6 +20,7 @@ import unittest
 import xmlrunner
 import logging
 from mock import Mock
+from ioc import SetTestMode, SetUpTestInjections
 from master_core.memory_file import MemoryTypes, MemoryFile
 from master_core.memory_types import MemoryAddress
 
@@ -29,6 +30,7 @@ class MemoryFileTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        SetTestMode()
         logger = logging.getLogger('openmotics')
         logger.setLevel(logging.DEBUG)
         logger.propagate = False
@@ -55,8 +57,9 @@ class MemoryFileTest(unittest.TestCase):
 
         master_communicator = Mock()
         master_communicator.do_command = _do_command
+        SetUpTestInjections(master_communicator=master_communicator)
 
-        memory_file = MemoryFile(MemoryTypes.EEPROM, master_communicator)
+        memory_file = MemoryFile(MemoryTypes.EEPROM)
 
         memory[5] = [255] * 256
         memory[5][10] = 1

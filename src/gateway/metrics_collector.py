@@ -25,6 +25,7 @@ from ioc import Injectable, Inject, INJECTED, Singleton
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Event as ObserverEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
+from power import power_api
 
 logger = logging.getLogger("openmotics")
 
@@ -558,9 +559,8 @@ class MetricsCollector(object):
                 for power_module in result:
                     device_id = '{0}.{{0}}'.format(power_module['address'])
                     mapping[str(power_module['id'])] = device_id
-                    if power_module['version'] in [8, 12]:
-                        for i in xrange(power_module['version']):
-                            power_data[device_id.format(i)] = {'name': power_module['input{0}'.format(i)]}
+                    for i in xrange(power_api.NUM_PORTS[power_module['version']]):
+                        power_data[device_id.format(i)] = {'name': power_module['input{0}'.format(i)]}
             except CommunicationTimedOutException:
                 logger.error('Error getting power modules: CommunicationTimedOutException')
             except InMaintenanceModeException:
@@ -630,7 +630,7 @@ class MetricsCollector(object):
                 result = self._gateway_api.get_power_modules()
                 for power_module in result:
                     device_id = '{0}.{{0}}'.format(power_module['address'])
-                    if power_module['version'] != 12:
+                    if power_module['version'] != power_api.ENERGY_MODULE:
                         continue
                     result = self._gateway_api.get_energy_time(power_module['id'])
                     abort = False

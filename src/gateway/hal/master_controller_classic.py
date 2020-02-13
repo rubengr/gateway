@@ -138,7 +138,7 @@ class MasterClassicController(MasterController):
     # Outputs
 
     def set_output(self, output_id, state, dimmer=None, timer=None):
-        if output_id < 0 or output_id > 240:
+        if output_id is None or output_id < 0 or output_id > 240:
             raise ValueError('Output ID {0} not in range 0 <= id <= 240'.format(output_id))
         if dimmer is not None and dimmer < 0 or dimmer > 100:
             raise ValueError('Dimmer value {0} not in [0, 100]'.format(dimmer))
@@ -186,8 +186,8 @@ class MasterClassicController(MasterController):
             )
 
     def toggle_output(self, output_id):
-        if output_id < 0 or output_id > 240:
-            raise ValueError('Output ID not in range 0 <= id <= 240: %d' % output_id)
+        if output_id is None or output_id < 0 or output_id > 240:
+            raise ValueError('Output ID {0} not in range 0 <= id <= 240'.format(output_id))
 
         self._master_communicator.do_command(
             master_api.basic_action(),
@@ -251,3 +251,62 @@ class MasterClassicController(MasterController):
 
     def shutter_stop(self, shutter_id):
         self._master_communicator.do_basic_action(master_api.BA_SHUTTER_STOP, shutter_id)
+
+    # Sensors
+
+    def get_sensor_temperature(self, sensor_id):
+        if sensor_id is None or sensor_id < 0 or sensor_id > 31:
+            raise ValueError('Sensor ID {0} not in range 0 <= id <= 31'.format(sensor_id))
+        return self.get_sensors_temperature()[sensor_id]
+
+    def get_sensors_temperature(self):
+        temperatures = []
+        sensor_list = self._master_communicator.do_command(master_api.sensor_temperature_list())
+        for i in xrange(32):
+            temperatures.append(sensor_list['tmp{0}'.format(i)].get_temperature())
+        return temperatures
+
+    def get_sensor_humidity(self, sensor_id):
+        if sensor_id is None or sensor_id < 0 or sensor_id > 31:
+            raise ValueError('Sensor ID {0} not in range 0 <= id <= 31'.format(sensor_id))
+        return self.get_sensors_humidity()[sensor_id]
+
+    def get_sensors_humidity(self):
+        humidities = []
+        sensor_list = self._master_communicator.do_command(master_api.sensor_humidity_list())
+        for i in xrange(32):
+            humidities.append(sensor_list['hum{0}'.format(i)].get_humidity())
+        return humidities
+
+    def get_sensor_brightness(self, sensor_id):
+        if sensor_id is None or sensor_id < 0 or sensor_id > 31:
+            raise ValueError('Sensor ID {0} not in range 0 <= id <= 31'.format(sensor_id))
+        return self.get_sensors_brightness()[sensor_id]
+
+    def get_sensors_brightness(self):
+        brightnesses = []
+        sensor_list = self._master_communicator.do_command(master_api.sensor_brightness_list())
+        for i in xrange(32):
+            brightnesses.append(sensor_list['bri{0}'.format(i)].get_brightness())
+        return brightnesses
+
+    def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
+        if sensor_id is None or sensor_id < 0 or sensor_id > 31:
+            raise ValueError('Sensor ID {0} not in range 0 <= id <= 31'.format(sensor_id))
+
+        self._master_communicator.do_command(
+            master_api.set_virtual_sensor(),
+            {'sensor': sensor_id,
+             'tmp': master_api.Svt.temp(temperature),
+             'hum': master_api.Svt.humidity(humidity),
+             'bri': master_api.Svt.brightness(brightness)}
+        )
+
+    def load_sensor(self, sensor_id, fields=None):
+        return self._eeprom_controller.read(eeprom_models.SensorConfiguration, sensor_id, fields).serialize()
+
+    def load_sensors(self, fields=None):
+        return [o.serialize() for o in self._eeprom_controller.read_all(eeprom_models.SensorConfiguration, fields)]
+
+    def save_sensors(self, config):
+        self._eeprom_controller.write_batch([eeprom_models.SensorConfiguration.deserialize(o) for o in config])

@@ -14,8 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 Module to communicate with the power modules.
-
-@author: fryckbos
 """
 
 import logging
@@ -26,7 +24,7 @@ from ioc import Injectable, Inject, INJECTED, Singleton
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
 from power import power_api
-from power.power_command import crc7
+from power.power_command import crc7, crc8
 from power.time_keeper import TimeKeeper
 
 logger = logging.getLogger("openmotics")
@@ -45,7 +43,7 @@ class PowerCommunicator(object):
         :param power_serial: Serial port to communicate with
         :type power_serial: Instance of :class`RS485`
         :param verbose: Print all serial communication to stdout.
-        :type verbose: boolean.
+        :type verbose: bool
         """
         self.__serial = power_serial
         self.__serial_lock = RLock()
@@ -194,17 +192,25 @@ class PowerCommunicator(object):
         if self.__power_controller is None:
             self.__address_mode = False
             self.__address_thread = None
+            return
 
         expire = time.time() + self.__address_mode_timeout
-        address_mode = power_api.set_addressmode()
-        want_an_address_8 = power_api.want_an_address(power_api.POWER_API_8_PORTS)
-        want_an_address_12 = power_api.want_an_address(power_api.POWER_API_12_PORTS)
-        set_address = power_api.set_address()
+        address_mode = power_api.set_addressmode(power_api.ENERGY_MODULE)
+        address_mode_p1c = power_api.set_addressmode(power_api.P1_CONCENTRATOR)
+        want_an_address_8 = power_api.want_an_address(power_api.POWER_MODULE)
+        want_an_address_12 = power_api.want_an_address(power_api.ENERGY_MODULE)
+        want_an_address_p1c = power_api.want_an_address(power_api.P1_CONCENTRATOR)
+        set_address = power_api.set_address(power_api.ENERGY_MODULE)
+        set_address_p1c = power_api.set_address(power_api.P1_CONCENTRATOR)
 
         # AGT start
         data = address_mode.create_input(power_api.BROADCAST_ADDRESS,
                                          self.__get_cid(),
                                          power_api.ADDRESS_MODE)
+        self.__write_to_serial(data)
+        data = address_mode_p1c.create_input(power_api.BROADCAST_ADDRESS,
+                                             self.__get_cid(),
+                                             power_api.ADDRESS_MODE)
         self.__write_to_serial(data)
 
         # Wait for WAA and answer.
@@ -212,11 +218,19 @@ class PowerCommunicator(object):
             try:
                 header, data = self.__read_from_serial()
 
-                waa_8 = want_an_address_8.check_header_partial(header)
-                waa_12 = want_an_address_12.check_header_partial(header)
+                if set_address.check_header_partial(header) or set_address_p1c.check_header_partial(header):
+                    continue
 
-                if not waa_8 and not waa_12:
-                    logger.warning("Received non WAA/WAD message in address mode")
+                version = None
+                if want_an_address_8.check_header_partial(header):
+                    version = power_api.POWER_MODULE
+                elif want_an_address_12.check_header_partial(header):
+                    version = power_api.ENERGY_MODULE
+                elif want_an_address_p1c.check_header_partial(header):
+                    version = power_api.P1_CONCENTRATOR
+
+                if version is None:
+                    logger.warning("Received unexpected message in address mode")
                 else:
                     (old_address, cid) = (ord(header[:2][1]), header[2:3])
                     # Ask power_controller for new address, and register it.
@@ -225,28 +239,32 @@ class PowerCommunicator(object):
                     if self.__power_controller.module_exists(old_address):
                         self.__power_controller.readdress_power_module(old_address, new_address)
                     else:
-                        version = power_api.POWER_API_8_PORTS if waa_8 else power_api.POWER_API_12_PORTS
-
                         self.__power_controller.register_power_module(new_address, version)
 
-                    # Send new address to power module
-                    address_data = set_address.create_input(old_address, ord(cid), new_address)
+                    # Send new address to module
+                    if version == power_api.P1_CONCENTRATOR:
+                        address_data = set_address_p1c.create_input(old_address, ord(cid), new_address)
+                    else:
+                        # Both power- and energy module share the same API
+                        address_data = set_address.create_input(old_address, ord(cid), new_address)
                     self.__write_to_serial(address_data)
 
             except CommunicationTimedOutException:
                 pass  # Didn't receive a command, no problem.
             except Exception as exception:
-                traceback.print_exc()
-                logger.warning("Got exception in address mode: %s", exception)
+                logger.exception("Got exception in address mode: %s", exception)
 
         # AGT stop
         data = address_mode.create_input(power_api.BROADCAST_ADDRESS,
                                          self.__get_cid(),
                                          power_api.NORMAL_MODE)
         self.__write_to_serial(data)
+        data = address_mode_p1c.create_input(power_api.BROADCAST_ADDRESS,
+                                             self.__get_cid(),
+                                             power_api.NORMAL_MODE)
+        self.__write_to_serial(data)
 
         self.__address_mode = False
-        self.__address_thread = None
 
     def stop_address_mode(self):
         """ Stop address mode. """
@@ -255,6 +273,7 @@ class PowerCommunicator(object):
 
         self.__address_mode_stop = True
         self.__address_thread.join()
+        self.__address_thread = None
 
     def in_address_mode(self):
         """ Returns whether the PowerCommunicator is in address mode. """
@@ -321,8 +340,9 @@ class PowerCommunicator(object):
                         phase = 8
                     else:
                         raise Exception("Unexpected character")
-            if crc7(header + data) != crc:
-                raise Exception("CRC doesn't match")
+            crc_match = (crc7(header + data) == crc) if header[0] == 'E' else (crc8(data) == crc)
+            if not crc_match:
+                raise Exception('CRC{0} doesn\'t match'.format('7' if header[0] == 'E' else '8'))
         except Empty:
             raise CommunicationTimedOutException('Communication timed out')
         finally:

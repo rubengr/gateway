@@ -25,8 +25,8 @@ from master_core.core_api import CoreAPI
 from master_core.core_communicator import BackgroundConsumer
 from master_core.events import Event as MasterCoreEvent
 from master_core.errors import Error
-from master_core.memory_file import MemoryFile, MemoryTypes
-from master_core.memory_models import OutputConfiguration
+from master_core.memory_file import MemoryTypes
+from master_core.memory_models import OutputConfiguration, SensorConfiguration
 from serial_utils import CommunicationTimedOutException
 
 logger = logging.getLogger("openmotics")
@@ -51,6 +51,9 @@ class MasterCoreController(MasterController):
         self._output_interval = 600
         self._output_last_updated = 0
         self._output_states = {}
+        self._sensor_interval = 300
+        self._sensor_last_updated = 0
+        self._sensor_states = {}
 
         self._master_communicator.register_consumer(
             BackgroundConsumer(CoreAPI.event_information(), 0, self._handle_event)
@@ -83,6 +86,11 @@ class MasterCoreController(MasterController):
                                       'location': {'room_id': 255}})  # TODO: Missing room
             for callback in self._event_callbacks:
                 callback(event)
+        elif core_event.type == MasterCoreEvent.Types.SENSOR:
+            sensor_id = core_event.data['sensor']
+            if sensor_id not in self._sensor_states:
+                return
+            self._sensor_states[sensor_id][core_event.data['type']] = core_event.data['value']
 
     def _synchronize(self):
         while True:
@@ -90,6 +98,9 @@ class MasterCoreController(MasterController):
                 # Refresh if required
                 if self._output_last_updated + self._output_interval < time.time():
                     self._refresh_output_states()
+                    self._set_master_state(True)
+                if self._sensor_last_updated + self._sensor_interval < time.time():
+                    self._refresh_sensor_states()
                     self._set_master_state(True)
                 time.sleep(1)
             except CommunicationTimedOutException:
@@ -231,3 +242,80 @@ class MasterCoreController(MasterController):
         self._master_communicator.do_command(CoreAPI.basic_action(), {'type': 10, 'action': 0,
                                                                       'device_nr': shutter_id,
                                                                       'extra_parameter': 0})
+
+    # Sensors
+
+    def get_sensor_temperature(self, sensor_id):
+        return self._sensor_states.get(sensor_id, {}).get('TEMPERATURE')
+
+    def get_sensors_temperature(self):
+        amount_sensor_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['sensor']
+        temperatures = []
+        for sensor_id in xrange(amount_sensor_modules * 8):
+            temperatures.append(self.get_sensor_temperature(sensor_id))
+        return temperatures
+
+    def get_sensor_humidity(self, sensor_id):
+        return self._sensor_states.get(sensor_id, {}).get('HUMIDITY')
+
+    def get_sensors_humidity(self):
+        amount_sensor_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['sensor']
+        humidities = []
+        for sensor_id in xrange(amount_sensor_modules * 8):
+            humidities.append(self.get_sensor_humidity(sensor_id))
+        return humidities
+
+    def get_sensor_brightness(self, sensor_id):
+        # TODO: This is a lux value and must somehow be converted to legacy percentage
+        brightness = self._sensor_states.get(sensor_id, {}).get('BRIGHTNESS')
+        if brightness in [None, 65535]:
+            return None
+        return int(float(brightness) / 65535.0 * 100)
+
+    def get_sensors_brightness(self):
+        amount_sensor_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['sensor']
+        brightnesses = []
+        for sensor_id in xrange(amount_sensor_modules * 8):
+            brightnesses.append(self.get_sensor_brightness(sensor_id))
+        return brightnesses
+
+    def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
+        raise NotImplementedError()
+
+    def load_sensor(self, sensor_id, fields=None):
+        sensor = SensorConfiguration(sensor_id)
+        data = {'id': sensor.id,
+                'name': sensor.name,
+                'offset': 0,
+                'virtual': False,
+                'room': 255}
+        if fields is None:
+            return data
+        return {field: data[field] for field in fields}
+
+    def load_sensors(self, fields=None):
+        amount_sensor_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['sensor']
+        sensors = []
+        for i in xrange(amount_sensor_modules * 8):
+            sensors.append(self.load_sensor(i, fields))
+        return sensors
+
+    def save_sensors(self, sensors):
+        for sensor_data in sensors:
+            new_data = {'id': sensor_data['id'],
+                        'name': sensor_data['name']}  # TODO: Rest of the mapping
+            sensor = SensorConfiguration.deserialize(new_data)
+            sensor.save()  # TODO: Batch saving - postpone eeprom activate if relevant for the Core
+
+    def _refresh_sensor_states(self):
+        amount_sensor_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['sensor']
+        for module_nr in xrange(amount_sensor_modules):
+            temperature_values = self._master_communicator.do_command(CoreAPI.sensor_temperature_values(), {'module_nr': module_nr})['values']
+            brightness_values = self._master_communicator.do_command(CoreAPI.sensor_brightness_values(), {'module_nr': module_nr})['values']
+            humidity_values = self._master_communicator.do_command(CoreAPI.sensor_humidity_values(), {'module_nr': module_nr})['values']
+            for i in xrange(8):
+                sensor_id = module_nr * 8 + i
+                self._sensor_states[sensor_id] = {'TEMPERATURE': temperature_values[i],
+                                                  'BRIGHTNESS': brightness_values[i],
+                                                  'HUMIDITY': humidity_values[i]}
+        self._sensor_last_updated = time.time()

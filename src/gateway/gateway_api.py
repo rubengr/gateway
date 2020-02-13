@@ -583,6 +583,15 @@ class GatewayApi(object):
             except CommunicationTimedOutException:
                 return formatted_address, None, None
 
+        def get_energy_module_type(version):
+            if version == power_api.ENERGY_MODULE:
+                return 'E'
+            if version == power_api.POWER_MODULE:
+                return 'P'
+            if version == power_api.P1_CONCENTRATOR:
+                return 'C'
+            return 'U'
+
         information = {'master': {}, 'energy': {}}
 
         # Master slave modules
@@ -619,10 +628,11 @@ class GatewayApi(object):
             modules = self.__power_controller.get_power_modules().values()
             for module in modules:
                 module_address = module['address']
-                raw_version = self.__power_communicator.do_command(module_address, power_api.get_version())[0]
+                module_version = module['version']
+                raw_version = self.__power_communicator.do_command(module_address, power_api.get_version(module_version))[0]
                 version_info = raw_version.split('\x00', 1)[0].split('_')
                 firmware_version = '{0}.{1}.{2}'.format(version_info[1], version_info[2], version_info[3])
-                information['energy'][module_address] = {'type': 'P' if module['version'] == 8 else 'E',
+                information['energy'][module_address] = {'type': get_energy_module_type(module['version']),
                                                          'firmware': firmware_version,
                                                          'address': module_address}
 
@@ -1029,67 +1039,29 @@ class GatewayApi(object):
     # Sensor status
 
     def get_sensor_temperature_status(self):
-        """ Get the current temperature of all sensors.
-
-        :returns: list with 32 temperatures, 1 for each sensor. None/null if not connected
-        """
-        output = []
-
-        sensor_list = self.__master_communicator.do_command(master_api.sensor_temperature_list())
-        for i in range(32):
-            output.append(sensor_list['tmp%d' % i].get_temperature())
-
-        return output
+        """ Get the current temperature of all sensors. """
+        values = self.__master_controller.get_sensors_temperature()[:32]
+        if len(values) < 32:
+            values += [None] * (32 - len(values))
+        return values
 
     def get_sensor_humidity_status(self):
-        """ Get the current humidity of all sensors.
-
-        :returns: list with 32 percentages, 1 for each sensor. None/null if not connected
-        """
-        output = []
-
-        sensor_list = self.__master_communicator.do_command(master_api.sensor_humidity_list())
-        for i in range(32):
-            output.append(sensor_list['hum%d' % i].get_humidity())
-
-        return output
+        """ Get the current humidity of all sensors. """
+        values = self.__master_controller.get_sensors_humidity()[:32]
+        if len(values) < 32:
+            values += [None] * (32 - len(values))
+        return values
 
     def get_sensor_brightness_status(self):
-        """ Get the current brightness of all sensors.
-
-        :returns: list with 32 percentages, 1 for each sensor. None/null if not connected
-        """
-        output = []
-
-        sensor_list = self.__master_communicator.do_command(master_api.sensor_brightness_list())
-        for i in range(32):
-            output.append(sensor_list['bri%d' % i].get_brightness())
-
-        return output
+        """ Get the current brightness of all sensors. """
+        values = self.__master_controller.get_sensors_brightness()[:32]
+        if len(values) < 32:
+            values += [None] * (32 - len(values))
+        return values
 
     def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
-        """ Set the temperature, humidity and brightness value of a virtual sensor.
-
-        :param sensor_id: The id of the sensor.
-        :type sensor_id: Integer [0, 31]
-        :param temperature: The temperature to set in degrees Celcius
-        :type temperature: float
-        :param humidity: The humidity to set in percentage
-        :type humidity: float
-        :param brightness: The brightness to set in percentage
-        :type brightness: float
-        :returns: dict with 'status'.
-        """
-        if 0 > sensor_id > 31:
-            raise ValueError('sensor_id not in [0, 31]: %d' % sensor_id)
-
-        self.__master_communicator.do_command(master_api.set_virtual_sensor(),
-                                              {'sensor': sensor_id,
-                                               'tmp': master_api.Svt.temp(temperature),
-                                               'hum': master_api.Svt.humidity(humidity),
-                                               'bri': master_api.Svt.brightness(brightness)})
-
-        return {'status': 'OK'}
+        """ Set the temperature, humidity and brightness value of a virtual sensor. """
+        return self.__master_controller.set_virtual_sensor(sensor_id, temperature, humidity, brightness)
 
     def add_virtual_output_module(self):
         """ Adds a virtual output module.
@@ -1679,44 +1651,20 @@ class GatewayApi(object):
         self.__observer.invalidate_cache(Observer.Types.THERMOSTATS)
 
     def get_sensor_configuration(self, sensor_id, fields=None):
-        """
-        Get a specific sensor_configuration defined by its id.
-
-        :param sensor_id: The id of the sensor_configuration
-        :type sensor_id: Id
-        :param fields: The field of the sensor_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
-        """
-        return self.__eeprom_controller.read(SensorConfiguration, sensor_id, fields).serialize()
+        """ Get a specific sensor_configuration defined by its id. """
+        return self.__master_controller.load_sensor(sensor_id, fields)
 
     def get_sensor_configurations(self, fields=None):
-        """
-        Get all sensor_configurations.
-
-        :param fields: The field of the sensor_configuration to get. (None gets all fields)
-        :type fields: List of strings
-        :returns: list of sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
-        """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(SensorConfiguration, fields)]
+        """ Get all sensor_configurations. """
+        return self.__master_controller.load_sensors(fields)
 
     def set_sensor_configuration(self, config):
-        """
-        Set one sensor_configuration.
-
-        :param config: The sensor_configuration to set
-        :type config: sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
-        """
-        self.__eeprom_controller.write(SensorConfiguration.deserialize(config))
+        """ Set one sensor_configuration. """
+        return self.__master_controller.save_sensors([config])
 
     def set_sensor_configurations(self, config):
-        """
-        Set multiple sensor_configurations.
-
-        :param config: The list of sensor_configurations to set
-        :type config: list of sensor_configuration dict: contains 'id' (Id), 'name' (String[16]), 'offset' (SignedTemp(-7.5 to 7.5 degrees)), 'room' (Byte), 'virtual' (Boolean)
-        """
-        self.__eeprom_controller.write_batch([SensorConfiguration.deserialize(o) for o in config])
+        """ Set multiple sensor_configurations. """
+        return self.__master_controller.save_sensors(config)
 
     def get_pump_group_configuration(self, pump_group_id, fields=None):
         """
@@ -2187,7 +2135,11 @@ class GatewayApi(object):
 
         def translate_address(_module):
             """ Translate the address from an integer to the external address format (eg. E1). """
-            _module['address'] = 'E' + str(_module['address'])
+            if _module['version'] == power_api.P1_CONCENTRATOR:
+                module_type = 'C'
+            else:
+                module_type = 'E'
+            _module['address'] = '{0}{1}'.format(module_type, _module['address'])
             return _module
 
         return [translate_address(mod) for mod in modules]
@@ -2212,7 +2164,9 @@ class GatewayApi(object):
 
             version = self.__power_controller.get_version(mod['id'])
             addr = self.__power_controller.get_address(mod['id'])
-            if version == power_api.POWER_API_8_PORTS:
+            if version == power_api.P1_CONCENTRATOR:
+                continue  # TODO: Should raise an exception once the frontends know about the P1C
+            elif version == power_api.POWER_MODULE:
                 def _check_sid(key):
                     # 2 = 25A, 3 = 50A
                     if mod[key] in [2, 3]:
@@ -2222,7 +2176,7 @@ class GatewayApi(object):
                     addr, power_api.set_sensor_types(version),
                     *[_check_sid('sensor{0}'.format(i)) for i in xrange(power_api.NUM_PORTS[version])]
                 )
-            elif version == power_api.POWER_API_12_PORTS:
+            elif version == power_api.ENERGY_MODULE:
                 def _convert_ccf(key):
                     try:
                         if mod[key] == 2:  # 12.5 A
@@ -2268,27 +2222,44 @@ class GatewayApi(object):
                 version = modules[module_id]['version']
                 num_ports = power_api.NUM_PORTS[version]
 
-                if version == power_api.POWER_API_8_PORTS:
-                    raw_volt = self.__power_communicator.do_command(addr,
-                                                                    power_api.get_voltage(version))
-                    raw_freq = self.__power_communicator.do_command(addr,
-                                                                    power_api.get_frequency(version))
+                volt = [0.0] * num_ports  # TODO: Initialse to None is supported upstream
+                freq = [0.0] * num_ports
+                current = [0.0] * num_ports
+                power = [0.0] * num_ports
+                if version in [power_api.POWER_MODULE, power_api.ENERGY_MODULE]:
+                    if version == power_api.POWER_MODULE:
+                        raw_volt = self.__power_communicator.do_command(addr, power_api.get_voltage(version))
+                        raw_freq = self.__power_communicator.do_command(addr, power_api.get_frequency(version))
 
-                    volt = [raw_volt[0] for _ in range(num_ports)]
-                    freq = [raw_freq[0] for _ in range(num_ports)]
+                        volt = [raw_volt[0]] * num_ports
+                        freq = [raw_freq[0]] * num_ports
+                    else:
+                        volt = self.__power_communicator.do_command(addr, power_api.get_voltage(version))
+                        freq = self.__power_communicator.do_command(addr, power_api.get_frequency(version))
 
-                elif version == power_api.POWER_API_12_PORTS:
-                    volt = self.__power_communicator.do_command(addr,
-                                                                power_api.get_voltage(version))
-                    freq = self.__power_communicator.do_command(addr,
-                                                                power_api.get_frequency(version))
+                    current = self.__power_communicator.do_command(addr, power_api.get_current(version))
+                    power = self.__power_communicator.do_command(addr, power_api.get_power(version))
+                elif version == power_api.P1_CONCENTRATOR:
+                    status = self.__power_communicator.do_command(addr, power_api.get_status_p1(version))[0]
+                    raw_volt = self.__power_communicator.do_command(addr, power_api.get_voltage(version, phase=1))[0]  # TODO: Average?
+                    raw_current_ph1 = self.__power_communicator.do_command(addr, power_api.get_current(version, phase=1))[0]
+                    raw_current_ph2 = self.__power_communicator.do_command(addr, power_api.get_current(version, phase=2))[0]
+                    raw_current_ph3 = self.__power_communicator.do_command(addr, power_api.get_current(version, phase=3))[0]
+                    delivered_power = self.__power_communicator.do_command(addr, power_api.get_delivered_power(version))[0]
+                    received_power = self.__power_communicator.do_command(addr, power_api.get_received_power(version))[0]
+                    for port in xrange(num_ports):
+                        try:
+                            if status & 1 << port:
+                                volt[port] = float(raw_volt[port * 7:(port + 1) * 7][:5])
+                                current[port] = (float(raw_current_ph1[port * 5:(port + 1) * 6][:3]) +
+                                                 float(raw_current_ph2[port * 5:(port + 1) * 6][:3]) +
+                                                 float(raw_current_ph3[port * 5:(port + 1) * 6][:3]))
+                                power[port] = (float(delivered_power[port * 9:(port + 1) * 9][:6]) -
+                                               float(received_power[port * 9:(port + 1) * 9][:6])) * 1000
+                        except ValueError:
+                            pass
                 else:
                     raise ValueError('Unknown power api version')
-
-                current = self.__power_communicator.do_command(addr,
-                                                               power_api.get_current(version))
-                power = self.__power_communicator.do_command(addr,
-                                                             power_api.get_power(version))
 
                 out = []
                 for i in range(num_ports):
@@ -2317,14 +2288,29 @@ class GatewayApi(object):
             try:
                 addr = modules[module_id]['address']
                 version = modules[module_id]['version']
+                num_ports = power_api.NUM_PORTS[version]
 
-                day = self.__power_communicator.do_command(addr,
-                                                           power_api.get_day_energy(version))
-                night = self.__power_communicator.do_command(addr,
-                                                             power_api.get_night_energy(version))
+                day = [0] * num_ports  # TODO: Initialse to None is supported upstream
+                night = [0] * num_ports
+                if version in [power_api.ENERGY_MODULE, power_api.POWER_MODULE]:
+                    day = self.__power_communicator.do_command(addr, power_api.get_day_energy(version))
+                    night = self.__power_communicator.do_command(addr, power_api.get_night_energy(version))
+                elif version == power_api.P1_CONCENTRATOR:
+                    status = self.__power_communicator.do_command(addr, power_api.get_status_p1(version))[0]
+                    raw_day = self.__power_communicator.do_command(addr, power_api.get_day_energy(version))[0]
+                    raw_night = self.__power_communicator.do_command(addr, power_api.get_night_energy(version))[0]
+                    for port in xrange(num_ports):
+                        try:
+                            if status & 1 << port:
+                                day[port] = int(float(raw_day[port * 14:(port + 1) * 14][:10]) * 1000)
+                                night[port] = int(float(raw_night[port * 14:(port + 1) * 14][:10]) * 1000)
+                        except ValueError:
+                            pass
+                else:
+                    raise ValueError('Unknown power api version')
 
                 out = []
-                for i in range(power_api.NUM_PORTS[version]):
+                for i in range(num_ports):
                     out.append([convert_nan(day[i]), convert_nan(night[i])])
 
                 output[str(module_id)] = out
@@ -2375,7 +2361,7 @@ class GatewayApi(object):
 
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
-        if version != power_api.POWER_API_12_PORTS:
+        if version != power_api.ENERGY_MODULE:
             raise ValueError('Unknown power api version')
         self.__power_communicator.do_command(addr, power_api.set_voltage(), voltage)
         return dict()
@@ -2390,7 +2376,7 @@ class GatewayApi(object):
 
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
-        if version != power_api.POWER_API_12_PORTS:
+        if version != power_api.ENERGY_MODULE:
             raise ValueError('Unknown power api version')
         if input_id is None:
             input_ids = range(12)
@@ -2425,7 +2411,7 @@ class GatewayApi(object):
 
         addr = self.__power_controller.get_address(module_id)
         version = self.__power_controller.get_version(module_id)
-        if version != power_api.POWER_API_12_PORTS:
+        if version != power_api.ENERGY_MODULE:
             raise ValueError('Unknown power api version')
         if input_id is None:
             input_ids = range(12)
