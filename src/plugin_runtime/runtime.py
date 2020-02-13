@@ -38,6 +38,7 @@ class PluginRuntime:
         self._metric_receivers = []
 
         self._plugin = None
+        self._stream = PluginIPCStream(sys.stdin, IO._log_exception)
 
         self._webinterface = WebInterfaceDispatcher(IO._log)
 
@@ -124,8 +125,9 @@ class PluginRuntime:
                 time.sleep(30)
 
     def process_stdin(self):
+        self._stream.start()
         while not self._stopped:
-            command = IO._wait_and_read_command()
+            command = self._stream.get(block=True)
             if command is None:
                 continue
 
@@ -274,18 +276,6 @@ class IO(object):
             return target(*args)
         except Exception as exception:
             IO._log_exception(name, exception)
-
-    @staticmethod
-    def _wait_and_read_command():
-        stream = PluginIPCStream()
-        try:
-            while True:
-                response = stream.feed(sys.stdin.read(1))
-                if response is None:
-                    continue
-                return response
-        except Exception as ex:
-            IO._log('Exception in _wait_and_read_command: Could not decode stdin: {0}'.format(ex))
 
     @staticmethod
     def _write(msg):

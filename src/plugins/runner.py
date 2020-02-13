@@ -25,6 +25,7 @@ class PluginRunner:
         self._out_thread = None
         self._command_lock = Lock()
         self._response_queue = None
+        self._stream = None
 
         self.name = name
         self.version = None
@@ -60,6 +61,10 @@ class PluginRunner:
 
         self._commands_executed = 0
         self._commands_failed = 0
+
+        self._stream = PluginIPCStream(stream=self._proc.stdout,
+                                       logger=lambda message, ex: self.logger('{0}: {1}'.format(message, ex)))
+        self._stream.start()
 
         self._response_queue = Queue()
         self._out_thread = Thread(target=self._read_out,
@@ -207,7 +212,6 @@ class PluginRunner:
         self._do_command('remove_callback')
 
     def _read_out(self):
-        stream = PluginIPCStream()
         while self._process_running:
             exit_code = self._proc.poll()
             if exit_code is not None:
@@ -216,11 +220,11 @@ class PluginRunner:
                 break
 
             try:
-                response = stream.feed(self._proc.stdout.read(1))
-                if response is None:
-                    continue
+                response = self._stream.get(block=True, timeout=60)
+            except Empty:
+                continue
             except Exception as ex:
-                self.logger('[Runner] Exception while parsing output: {0}'.format(ex))
+                self.logger('[Runner] Exception while waiting for output: {0}'.format(ex))
                 continue
 
             if response['cid'] == 0:
@@ -280,7 +284,7 @@ class PluginRunner:
                     raise RuntimeError(exception)
                 return response
             except Empty:
-                self.logger('[Runner] No response within {0}s (action={1}, fields={2})'.format(timeout, action, fields))
+                self.logger('[Runner] No response within {0}s ({1})'.format(timeout, action))
                 self._commands_failed += 1
                 raise Exception('Plugin did not respond')
 

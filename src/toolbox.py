@@ -18,6 +18,7 @@ A few helper classes
 
 import time
 from collections import deque
+from threading import Thread
 
 
 try:
@@ -55,7 +56,10 @@ class Queue(object):
             try:
                 return self._queue.pop()
             except IndexError:
-                time.sleep(0.025 if timeout < 1 else 0.1)
+                sleep = 0.025
+                if timeout is None or timeout > 1:
+                    sleep = 0.1
+                time.sleep(sleep)
         raise Empty()
 
     def qsize(self):
@@ -67,16 +71,49 @@ class Queue(object):
 
 class PluginIPCStream(object):
 
-    def __init__(self):
+    def __init__(self, stream, logger):
         self._buffer = ''
+        self._command_queue = Queue()
+        self._stream = stream
+        self._read_thread = None
+        self._logger = logger
+        self._running = False
 
-    def feed(self, stream):
-        self._buffer += stream
-        if '\n' in self._buffer:
-            response, self._buffer = self._buffer.split('\n', 1)
-            return json.loads(response)
-        return
+    def start(self):
+        self._running = True
+        self._read_thread = Thread(target=self._read)
+        self._read_thread.daemon = True
+        self._read_thread.start()
+
+    def stop(self):
+        self._running = False
+        if self._read_thread is not None:
+            self._read_thread.join()
+
+    def _read(self):
+        """ Uses Netstring encoding """
+        wait_for_length = None
+        while self._running:
+            try:
+                self._buffer += self._stream.read(1 if wait_for_length is None else wait_for_length)
+                if wait_for_length is None:
+                    if ':' not in self._buffer:
+                        continue
+                    length, self._buffer = self._buffer.split(':')
+                    wait_for_length = int(length) - len(self._buffer) + 2
+                    continue
+                if self._buffer.endswith(',\n'):
+                    self._command_queue.put(json.loads(self._buffer[:-2]))
+                self._buffer = ''
+                wait_for_length = None
+            except Exception as ex:
+                self._logger('Unexpected read exception', ex)
+
+    def get(self, block=True, timeout=None):
+        return self._command_queue.get(block, timeout)
 
     @staticmethod
     def encode(data):
-        return '{0}\n'.format(json.dumps(data))
+        """ Uses Netstring encoding """
+        data = json.dumps(data)
+        return '{0}:{1},\n'.format(len(data), data)
