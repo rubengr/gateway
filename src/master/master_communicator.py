@@ -19,7 +19,7 @@ Module to communicate with the master.
 import logging
 import time
 from threading import Thread, Lock, Event
-from Queue import Queue, Empty
+from toolbox import Queue, Empty
 from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api

@@ -16,9 +16,51 @@
 A few helper classes
 """
 
+import time
 import msgpack
-from Queue import Queue
+from collections import deque
 from threading import Thread
+
+
+class Full(Exception):
+    pass
+
+
+class Empty(Exception):
+    pass
+
+
+class Queue(object):
+    def __init__(self, size=None):
+        self._queue = deque()
+        self._size = size  # Not used
+
+    def put(self, value, block=False):
+        _ = block
+        self._queue.appendleft(value)
+
+    def get(self, block=True, timeout=None):
+        if not block:
+            try:
+                return self._queue.pop()
+            except IndexError:
+                raise Empty()
+        start = time.time()
+        while timeout is None or time.time() - start < timeout:
+            try:
+                return self._queue.pop()
+            except IndexError:
+                sleep = 0.025
+                if timeout is None or timeout > 1:
+                    sleep = 0.1
+                time.sleep(sleep)
+        raise Empty()
+
+    def qsize(self):
+        return len(self._queue)
+
+    def clear(self):
+        return self._queue.clear()
 
 
 class PluginIPCStream(object):
