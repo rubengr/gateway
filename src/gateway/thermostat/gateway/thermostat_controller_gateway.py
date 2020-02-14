@@ -34,7 +34,7 @@ class ThermostatControllerGateway(ThermostatController):
         self._update_pumps_thread = None
         self._periodic_sync_thread = None
         self.thermostat_pids = {}
-        self._pump_valve_controller = PumpValveController(self._gateway_api)
+        self._pump_valve_controller = PumpValveController()
 
         timezone = gateway_api.get_timezone()
 
@@ -93,7 +93,7 @@ class ThermostatControllerGateway(ThermostatController):
         for thermostat in Thermostat.select():
             thermostat_pid = self.thermostat_pids.get(thermostat.number)
             if thermostat_pid is None:
-                thermostat_pid = ThermostatPid(thermostat, self._pump_valve_controller, self._gateway_api)
+                thermostat_pid = ThermostatPid(thermostat, self._pump_valve_controller)
                 thermostat_pid.subscribe_state_changes(self.v0_event_thermostat_changed)
                 self.thermostat_pids[thermostat.number] = thermostat_pid
             thermostat_pid.update_thermostat(thermostat)
@@ -668,7 +668,7 @@ class ThermostatControllerGateway(ThermostatController):
         if thermostat_pid is not None:
             thermostat_pid.update_thermostat(thermostat)
         else:
-            thermostat_pid = ThermostatPid(thermostat, self._pump_valve_controller, self._gateway_api)
+            thermostat_pid = ThermostatPid(thermostat, self._pump_valve_controller)
             self.thermostat_pids[thermostat_number] = thermostat_pid
         self._sync_scheduler()
         thermostat_pid.tick()

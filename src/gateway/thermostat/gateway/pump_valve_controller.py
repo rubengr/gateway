@@ -27,7 +27,7 @@ class PumpValveController(object):
                 if valve.number in existing_driver_numbers:
                     self._valve_drivers[valve.number].update_valve(valve)
                 else:
-                    self._valve_drivers[valve.number] = ValveDriver(valve, self._gateway_api)
+                    self._valve_drivers[valve.number] = ValveDriver(valve)
                 new_driver_numbers.add(valve.number)
 
             drivers_to_be_deleted = existing_driver_numbers.difference(new_driver_numbers)
@@ -113,6 +113,6 @@ class PumpValveController(object):
         valve_driver = self._valve_drivers.get(valve_number)
         if valve_driver is None:
             valve = Valve.get(number=valve_number)
-            valve_driver = ValveDriver(valve, self._gateway_api)
+            valve_driver = ValveDriver(valve)
             self._valve_drivers[valve.number] = valve_driver
         return valve_driver
