@@ -68,13 +68,12 @@ class PluginIPCStream(object):
     """
     This class handles IPC communications.
 
-    It uses a netstring-inspired protocol: <data_length>:<encoding_protocol>:<encoded_data>,\n
-    Where:
-    * data_length: The length of the encoded_data
-    * encoding_protocol: A one-character reference to the used encoding protocol
-      * 1 = msgpack
-    * encoded_data: The encoded data
-    * literal ,\n as an end sequence
+    It uses netstring: <data_length>:<data>,\n
+    * data_length: The length of `data`
+    * data: The actual payload, using the format <encoding_type>:<encoded_data>
+      * encoding_type: A one-character reference to the used encoding protocol
+        * 1 = msgpack
+      * encoded_data: The encoded data
     """
 
     def __init__(self, stream, logger, command_receiver=None):
@@ -116,7 +115,7 @@ class PluginIPCStream(object):
                         continue
                     length, self._buffer = self._buffer.split(':', 1)
                     # The length defines the encoded data length. We to add 4 because of the `<encoding_protocol>:` and `,\n`
-                    wait_for_length = int(length) - len(self._buffer) + 4
+                    wait_for_length = int(length) - len(self._buffer) + 2
                     if wait_for_length > 0:
                         continue
                 if self._buffer.endswith(',\n'):
@@ -143,7 +142,7 @@ class PluginIPCStream(object):
     def write(data):
         encode_type = '1'
         data = PluginIPCStream._encode(encode_type, data)
-        return '{0}:{1}:{2},\n'.format(len(data), encode_type, data)
+        return '{0}:{1}:{2},\n'.format(len(data) + 2, encode_type, data)
 
     @staticmethod
     def _encode(encode_type, data):
