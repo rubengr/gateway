@@ -18,6 +18,7 @@ A few helper classes
 
 import time
 import msgpack
+from select import select
 from collections import deque
 from threading import Thread
 
@@ -64,14 +65,26 @@ class Queue(object):
 
 
 class PluginIPCStream(object):
+    """
+    This class handles IPC communications.
 
-    def __init__(self, stream, logger):
+    It uses a netstring-inspired protocol: <data_length>:<encoding_protocol>:<encoded_data>,\n
+    Where:
+    * data_length: The length of the encoded_data
+    * encoding_protocol: A one-character reference to the used encoding protocol
+      * 1 = msgpack
+    * encoded_data: The encoded data
+    * literal ,\n as an end sequence
+    """
+
+    def __init__(self, stream, logger, command_receiver=None):
         self._buffer = ''
         self._command_queue = Queue()
         self._stream = stream
         self._read_thread = None
         self._logger = logger
         self._running = False
+        self._command_receiver = command_receiver
 
     def start(self):
         self._running = True
@@ -85,19 +98,39 @@ class PluginIPCStream(object):
             self._read_thread.join()
 
     def _read(self):
-        """ Uses Netstring encoding """
         wait_for_length = None
         while self._running:
             try:
-                self._buffer += self._stream.read(1 if wait_for_length is None else wait_for_length)
+                if wait_for_length is None:
+                    # Waiting for a new command to start. Let's do 1 second polls to make sure we're not blocking forever
+                    # in case no new data will come
+                    read_available, _, _ = select([self._stream], [], [], 1.0)
+                    if not read_available:
+                        continue
+                # Minimum dataset: 0:x:,\n = 6 characters, so we always read at least 6 chars
+                self._buffer += self._stream.read(6 if wait_for_length is None else wait_for_length)
                 if wait_for_length is None:
                     if ':' not in self._buffer:
+                        # This is unexpected, discard data
+                        self._buffer = ''
                         continue
-                    length, self._buffer = self._buffer.split(':')
-                    wait_for_length = int(length) - len(self._buffer) + 2
-                    continue
+                    length, self._buffer = self._buffer.split(':', 1)
+                    # The length defines the encoded data length. We to add 4 because of the `<encoding_protocol>:` and `,\n`
+                    wait_for_length = int(length) - len(self._buffer) + 4
+                    if wait_for_length > 0:
+                        continue
                 if self._buffer.endswith(',\n'):
-                    self._command_queue.put(msgpack.loads(self._buffer[:-2]))
+                    protocol, self._buffer = self._buffer.split(':', 1)
+                    command = PluginIPCStream._decode(protocol, self._buffer[:-2])
+                    if command is None:
+                        # Unexpected protocol
+                        self._buffer = ''
+                        wait_for_length = None
+                        continue
+                    if self._command_receiver is not None:
+                        self._command_receiver(command)
+                    else:
+                        self._command_queue.put(command)
                 self._buffer = ''
                 wait_for_length = None
             except Exception as ex:
@@ -107,7 +140,21 @@ class PluginIPCStream(object):
         return self._command_queue.get(block, timeout)
 
     @staticmethod
-    def encode(data):
-        """ Uses Netstring encoding """
-        data = msgpack.dumps(data)
-        return '{0}:{1},\n'.format(len(data), data)
+    def write(data):
+        encode_type = '1'
+        data = PluginIPCStream._encode(encode_type, data)
+        return '{0}:{1}:{2},\n'.format(len(data), encode_type, data)
+
+    @staticmethod
+    def _encode(encode_type, data):
+        if encode_type == '1':
+            return msgpack.dumps(data)
+        return ''
+
+    @staticmethod
+    def _decode(encode_type, data):
+        if data == '':
+            return None
+        if encode_type == '1':
+            return msgpack.loads(data)
+        return None

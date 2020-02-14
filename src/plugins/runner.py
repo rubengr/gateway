@@ -4,6 +4,7 @@ import subprocess
 import sys
 import time
 import traceback
+import ujson as json
 from threading import Thread, Lock
 from Queue import Queue, Empty, Full
 from toolbox import PluginIPCStream
@@ -23,9 +24,8 @@ class PluginRunner:
         self._proc = None
         self._running = False
         self._process_running = False
-        self._out_thread = None
         self._command_lock = Lock()
-        self._response_queue = None
+        self._response_queue = Queue()
         self._stream = None
 
         self.name = name
@@ -64,14 +64,9 @@ class PluginRunner:
         self._commands_failed = 0
 
         self._stream = PluginIPCStream(stream=self._proc.stdout,
-                                       logger=lambda message, ex: self.logger('{0}: {1}'.format(message, ex)))
+                                       logger=lambda message, ex: self.logger('{0}: {1}'.format(message, ex)),
+                                       command_receiver=self._process_command)
         self._stream.start()
-
-        self._response_queue = Queue()
-        self._out_thread = Thread(target=self._read_out,
-                                  name='PluginRunner {0} stdout reader'.format(self.plugin_path))
-        self._out_thread.daemon = True
-        self._out_thread.start()
 
         start_out = self._do_command('start', timeout=180)
         self.name = start_out['name']
@@ -121,7 +116,12 @@ class PluginRunner:
 
             @cherrypy.expose
             def index(self, method, *args, **kwargs):
-                return self.runner.request(method, args=args, kwargs=kwargs)
+                try:
+                    return self.runner.request(method, args=args, kwargs=kwargs)
+                except Exception as ex:
+                    cherrypy.response.headers["Content-Type"] = "application/json"
+                    cherrypy.response.status = 500
+                    return json.dumps({"success": False, "msg": str(ex)})
 
         return Service(self)
 
@@ -139,6 +139,7 @@ class PluginRunner:
                 self.logger('[Runner] Exception during stopping plugin: {0}'.format(exception))
             time.sleep(0.1)
 
+            self._stream.stop()
             self._process_running = False
 
             if self._proc.poll() is None:
@@ -212,28 +213,21 @@ class PluginRunner:
     def remove_callback(self):
         self._do_command('remove_callback')
 
-    def _read_out(self):
-        while self._process_running:
-            exit_code = self._proc.poll()
-            if exit_code is not None:
-                self.logger('[Runner] Stopped with exit code {0}'.format(exit_code))
-                self._process_running = False
-                break
+    def _process_command(self, response):
+        if not self._process_running:
+            return
+        exit_code = self._proc.poll()
+        if exit_code is not None:
+            self.logger('[Runner] Stopped with exit code {0}'.format(exit_code))
+            self._process_running = False
+            return
 
-            try:
-                response = self._stream.get(block=True, timeout=60)
-            except Empty:
-                continue
-            except Exception as ex:
-                self.logger('[Runner] Exception while waiting for output: {0}'.format(ex))
-                continue
-
-            if response['cid'] == 0:
-                self._handle_async_response(response)
-            elif response['cid'] == self._cid:
-                self._response_queue.put(response)
-            else:
-                self.logger('[Runner] Received message with unknown cid: {0}'.format(response))
+        if response['cid'] == 0:
+            self._handle_async_response(response)
+        elif response['cid'] == self._cid:
+            self._response_queue.put(response)
+        else:
+            self.logger('[Runner] Received message with unknown cid: {0}'.format(response))
 
     def _handle_async_response(self, response):
         if response['action'] == 'logs':
@@ -273,7 +267,7 @@ class PluginRunner:
 
         with self._command_lock:
             command = self._create_command(action, fields)
-            self._proc.stdin.write(PluginIPCStream.encode(command))
+            self._proc.stdin.write(PluginIPCStream.write(command))
             self._proc.stdin.flush()
 
             try:

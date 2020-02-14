@@ -192,6 +192,7 @@ class PluginRuntime:
         stop_thread.daemon = True
         stop_thread.start()
 
+        self._stream.stop()
         self._stopped = True
 
     def _handle_input_status(self, event_json):
@@ -279,7 +280,7 @@ class IO(object):
 
     @staticmethod
     def _write(msg):
-        sys.stdout.write(PluginIPCStream.encode(msg))
+        sys.stdout.write(PluginIPCStream.write(msg))
         sys.stdout.flush()
 
 
