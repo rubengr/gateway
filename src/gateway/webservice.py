@@ -825,7 +825,7 @@ class WebInterface(object):
         :returns: dict with ASB0-ASB31.
         :rtype: dict
         """
-        return self._thermostat_controller.get_airco_status()
+        return self._thermostat_controller.v0_get_airco_status()
 
     @openmotics_api(auth=True, check=types(thermostat_id=int, airco_on=bool))
     def set_airco_status(self, thermostat_id, airco_on):
@@ -839,7 +839,7 @@ class WebInterface(object):
         :returns: dict with 'status'
         :rtype: dict
         """
-        return self._thermostat_controller.set_airco_status(thermostat_id, airco_on)
+        return self._thermostat_controller.v0_set_airco_status(thermostat_id, airco_on)
 
     @openmotics_api(auth=True)
     def get_sensor_temperature_status(self):
@@ -2070,7 +2070,7 @@ class WebInterface(object):
         :returns: 'version': String (a.b.c).
         :rtype: dict
         """
-        return {'version': self._gateway_api.get_main_version(),
+        return {'version': self._gateway_api.get_master_version(),
                 'gateway': '2.14.0'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
@@ -2109,7 +2109,7 @@ class WebInterface(object):
         """
         with open(constants.get_update_output_file(), "r") as output_file:
             output = output_file.read()
-        version = self._gateway_api.get_gateway_version()
+        version = self._gateway_api.get_main_version()
 
         return {'output': output,
                 'version': version}

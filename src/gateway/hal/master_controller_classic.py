@@ -348,11 +348,6 @@ class MasterClassicController(MasterController):
                 'version': '%d.%d.%d' % (out_dict['f1'], out_dict['f2'], out_dict['f3']),
                 'hw_version': out_dict['h']}
 
-    def get_version(self):
-        """ Returns the master firmware version as tuple """
-        master_version = self.get_status()['version']
-        return tuple([int(x) for x in master_version.split('.')])
-
     def get_modules(self):
         """ Get a list of all modules attached and registered with the master.
 

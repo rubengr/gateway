@@ -1,15 +1,16 @@
 import logging
 from threading import Lock
-
+from ioc import INJECTED, Inject
 from models import Valve
 from gateway.thermostat.gateway.valve_driver import ValveDriver
 
 logger = logging.getLogger('openmotics')
 
 
+@Inject
 class PumpValveController(object):
 
-    def __init__(self, gateway_api):
+    def __init__(self, gateway_api=INJECTED):
         """ Create a ValveController object
         :param gateway_api: Gateway API Controller
         :type gateway_api: gateway.gateway_api.GatewayApi
@@ -59,11 +60,6 @@ class PumpValveController(object):
         if len(valve_numbers) > 0:
             self.prepare_valves_for_transition(percentage, valve_numbers, mode=mode)
 
-    def steer(self):
-        self.prepare_pumps_for_transition()
-        self.steer_valves()
-        self.steer_pumps()
-
     def prepare_valves_for_transition(self, percentage, valve_numbers, mode='cascade'):
         if len(valve_numbers) > 0:
             valve_drivers = [self.get_valve_driver(valve_number) for valve_number in valve_numbers]
@@ -71,6 +67,11 @@ class PumpValveController(object):
                 self._open_valves_cascade(percentage, valve_drivers)
             else:
                 self._open_valves_equal(percentage, valve_drivers)
+
+    def steer(self):
+        self.prepare_pumps_for_transition()
+        self.steer_valves()
+        self.steer_pumps()
 
     def prepare_pumps_for_transition(self):
         active_pump_drivers = set()

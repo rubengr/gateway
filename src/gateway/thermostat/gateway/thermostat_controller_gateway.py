@@ -26,8 +26,6 @@ class ThermostatControllerGateway(ThermostatController):
     PUMP_UPDATE_INTERVAL = 30
     SYNC_CONFIG_INTERVAL = 900
 
-    __instance = None
-
     @Inject
     def __init__(self, gateway_api=INJECTED, message_client=INJECTED, observer=INJECTED):
         super(ThermostatControllerGateway, self).__init__(gateway_api, message_client, observer)
@@ -45,14 +43,6 @@ class ThermostatControllerGateway(ThermostatController):
         db_filename = constants.get_thermostats_scheduler_database_file()
         jobstores = {'default': SQLAlchemyJobStore(url='sqlite:///{})'.format(db_filename))}
         self._scheduler = BackgroundScheduler(jobstores=jobstores, timezone=timezone)
-
-        ThermostatControllerGateway.__instance = self
-
-    @staticmethod
-    def get_instance():
-        if ThermostatControllerGateway.__instance is None:
-            ThermostatControllerGateway()
-        return ThermostatControllerGateway.__instance
 
     def start(self):
         logger.info('Starting gateway thermostatcontroller...')
@@ -173,15 +163,15 @@ class ThermostatControllerGateway(ThermostatController):
         # 3. timing check e.g. '42:30' is not valid time (255)
         # 4. valid PID params
 
-        def is_valid(config):
-            if config.get('output0', 255) <= 240:
+        def is_valid(config_):
+            if config_.get('output0', 255) <= 240:
                 return False
-            if config.get('pid_p', 255) == 255:
+            if config_.get('pid_p', 255) == 255:
                 return False
-            sensor = config.get('sensor', 255)
+            sensor = config_.get('sensor', 255)
             if not (sensor < 32 or sensor == 240):
                 return False
-            for key, value in config.iteritems():
+            for key, value in config_.iteritems():
                 if key.startswith('auto_') and ('42:30' in value or 255 in value):
                     return False
             return True
@@ -264,14 +254,14 @@ class ThermostatControllerGateway(ThermostatController):
         thermostat_pid.tick()
 
     @classmethod
-    def set_setpoint_from_scheduler(cls, thermostat_number, heating_temperature=None, cooling_temperature=None):
+    @Inject
+    def set_setpoint_from_scheduler(cls, thermostat_number, heating_temperature=None, cooling_temperature=None, thermostat_controller=INJECTED):
         logger.info('Setting setpoint from scheduler for thermostat {}: H{} C{}'.format(thermostat_number, heating_temperature, cooling_temperature))
-        thermostat_controller = cls.get_instance()
         thermostat = Thermostat.get(number=thermostat_number)
         active_preset = thermostat.active_preset
 
         # only update when not in preset mode like away, party, ...
-        if active_preset.name in ['SCHEDULE', 'MANUAL']:
+        if active_preset.name == 'SCHEDULE':
             thermostat_controller.set_current_setpoint(thermostat_number, heating_temperature, cooling_temperature)
         else:
             logger.info('Thermostat is currently in preset mode, skipping update setpoint from scheduler.')
@@ -326,17 +316,14 @@ class ThermostatControllerGateway(ThermostatController):
                 else:
                     csetp = active_preset.heating_setpoint if active_preset is not None else 14.0
 
-                try:
-                    v0_setpoint = Preset.get(thermostat=thermostat, active=True).get_v0_setpoint_id()
-                except (ValueError, DoesNotExist):
-                    v0_setpoint = 0
+                v0_setpoint = active_preset.get_v0_setpoint_id()
 
                 data = {'id': thermostat.number,
                         'act': self._gateway_api.get_sensor_temperature_status(thermostat.sensor),
                         'csetp': csetp,
                         'outside': self._gateway_api.get_sensor_temperature_status(global_thermostat.sensor),
                         'mode': 0,  # TODO: !!!check if still used!!
-                        'automatic': active_preset.name == 'SCHEDULE' if active_preset is not None else False,
+                        'automatic': active_preset.name == 'SCHEDULE',
                         'setpoint': v0_setpoint,  # ---> 'AWAY': 3, 'VACATION': 4, ...
                         'name': thermostat.mode,
                         'sensor_nr': thermostat.sensor,
@@ -474,6 +461,14 @@ class ThermostatControllerGateway(ThermostatController):
                 valve.delay = valve_delay
                 valve.save()
 
+    def v0_get_pump_group_configuration(self, pump_number, fields=None):
+        pump = Pump.get(number=pump_number)
+        pump_config = {'id': pump.number,
+                       'outputs': ','.join([valve.output.number for valve in pump.heating_valves]),
+                       'output': pump.output.number,
+                       'room': 255}
+        return pump_config
+
     def v0_get_pump_group_configurations(self, fields=None):
         pump_config_list = []
         for pump in Pump.select():
@@ -514,6 +509,12 @@ class ThermostatControllerGateway(ThermostatController):
     def v0_set_cooling_pump_group_configurations(self, config):
         raise NotImplementedError()
 
+    def v0_get_global_rtd10_configuration(self, fields=None):
+        raise NotImplementedError()
+
+    def v0_set_global_rtd10_configuration(self, config):
+        raise NotImplementedError()
+
     def v0_get_rtd10_heating_configuration(self, heating_id, fields=None):
         raise NotImplementedError()
 
@@ -551,6 +552,8 @@ class ThermostatControllerGateway(ThermostatController):
         :type thermostat_number: int
         :param config: the v0 config dict e.g. {'auto_wed': [17, '06:30', '08:30', 20, '17:00', '23:30', 21], 'auto_mon': [17, '06:30', '08:30', 20, '17:00', '23:30', 21], 'output0': 0, 'output1': 3, 'room': 255, 'id': 2, 'auto_sat': [17, '06:30', '08:30', 20, '17:00', '23:30', 21], 'sensor': 0, 'auto_sun': [17, '06:30', '08:30', 20, '17:00', '23:30', 21], 'auto_th': [17, '06:30', '08:30', 20, '17:00', '23:30', 21], 'pid_int': 0, 'auto_tue': [17, '06:30', '08:30', 20, '17:00', '23:30', 21], 'setp0': 20, 'setp5': 18, 'setp4': 18, 'pid_p': 120, 'setp1': 17, 'name': 'H - Thermostat 2', 'setp3': 18, 'setp2': 21, 'auto_fri': [17, '06:30', '08:30', 20, '17:00', '23:30', 21], 'pid_d': 0, 'pid_i': 0}
         :type config: dict
+        :param mode: heating or cooling
+        :type mode: str
         :returns the thermostat
         """
         logger.info('config {}'.format(config))
@@ -561,41 +564,41 @@ class ThermostatControllerGateway(ThermostatController):
 
         # update/save thermostat configuration
         try:
-            thermo = Thermostat.get(number=thermostat_number)
+            thermostat = Thermostat.get(number=thermostat_number)
         except DoesNotExist:
-            thermo = Thermostat(number=thermostat_number)
+            thermostat = Thermostat(number=thermostat_number)
         if config.get('name') is not None:
-            thermo.name = config['name']
+            thermostat.name = config['name']
         if config.get('sensor') is not None:
-            thermo.sensor = int(config['sensor'])
+            thermostat.sensor = int(config['sensor'])
         if config.get('room') is not None:
-            thermo.room = int(config['room'])
+            thermostat.room = int(config['room'])
         if config.get('pid_p') is not None:
             if mode == 'heating':
-                thermo.pid_heating_p = float(config['pid_p'])
+                thermostat.pid_heating_p = float(config['pid_p'])
             else:
-                thermo.pid_cooling_p = float(config['pid_p'])
+                thermostat.pid_cooling_p = float(config['pid_p'])
         if config.get('pid_i') is not None:
             if mode == 'heating':
-                thermo.pid_heating_i = float(config['pid_i'])
+                thermostat.pid_heating_i = float(config['pid_i'])
             else:
-                thermo.pid_cooling_i = float(config['pid_i'])
+                thermostat.pid_cooling_i = float(config['pid_i'])
         if config.get('pid_d') is not None:
             if mode == 'heating':
-                thermo.pid_heating_d = float(config['pid_d'])
+                thermostat.pid_heating_d = float(config['pid_d'])
             else:
-                thermo.pid_cooling_d = float(config['pid_d'])
-        thermo.start = last_monday_night
-        thermo.save()
+                thermostat.pid_cooling_d = float(config['pid_d'])
+        thermostat.start = last_monday_night
+        thermostat.save()
 
         # update/save output configuration
         output_config_present = config.get('output0') is not None or config.get('output1') is not None
         if output_config_present:
             # unlink all previously linked valve_numbers, we are resetting this with the new outputs we got from the API
-            deleted = ValveToThermostat.delete().where(ValveToThermostat.thermostat == thermo)\
+            deleted = ValveToThermostat.delete().where(ValveToThermostat.thermostat == thermostat)\
                                                 .where(ValveToThermostat.mode == mode)\
                                                 .execute()
-            logger.info('unlinked {} valve_numbers from thermostat {}'.format(deleted, thermo.name))
+            logger.info('unlinked {} valve_numbers from thermostat {}'.format(deleted, thermostat.name))
 
             for field in ['output0', 'output1']:
                 if config.get(field) is not None:
@@ -616,9 +619,9 @@ class ThermostatControllerGateway(ThermostatController):
 
                     # 3. link the valve to the thermostat, set properties
                     try:
-                        valve_to_thermostat = ValveToThermostat.get(valve=valve, thermostat=thermo, mode=mode)
+                        valve_to_thermostat = ValveToThermostat.get(valve=valve, thermostat=thermostat, mode=mode)
                     except DoesNotExist:
-                        valve_to_thermostat = ValveToThermostat(valve=valve, thermostat=thermo, mode=mode)
+                        valve_to_thermostat = ValveToThermostat(valve=valve, thermostat=thermostat, mode=mode)
                     # TODO: decide if this is a cooling thermostat or heating thermostat
                     valve_to_thermostat.priority = 0 if field == 'output0' else 1
                     valve_to_thermostat.save()
@@ -634,10 +637,10 @@ class ThermostatControllerGateway(ThermostatController):
             if config.get(key) is not None:
                 v0_schedule = config[key]
                 try:
-                    day_schedule = DaySchedule.get(thermostat=thermo, index=day_index, mode=mode)
+                    day_schedule = DaySchedule.get(thermostat=thermostat, index=day_index, mode=mode)
                     day_schedule.update_schedule_from_v0(v0_schedule)
                 except DoesNotExist:
-                    day_schedule = DaySchedule.from_v0_dict(thermostat=thermo, index=day_index, mode=mode, v0_schedule=v0_schedule)
+                    day_schedule = DaySchedule.from_v0_dict(thermostat=thermostat, index=day_index, mode=mode, v0_schedule=v0_schedule)
                 day_schedule.save()
 
         for (field, preset_name) in [('setp3', 'AWAY'),
@@ -645,9 +648,9 @@ class ThermostatControllerGateway(ThermostatController):
                                      ('setp5', 'PARTY')]:
             if config.get(field) is not None:
                 try:
-                    preset = Preset.get(name=preset_name, thermostat=thermo)
+                    preset = Preset.get(name=preset_name, thermostat=thermostat)
                 except DoesNotExist:
-                    preset = Preset(name=preset_name, thermostat=thermo)
+                    preset = Preset(name=preset_name, thermostat=thermostat)
                 if mode == 'cooling':
                     preset.cooling_setpoint = float(config[field])
                 else:
@@ -655,7 +658,7 @@ class ThermostatControllerGateway(ThermostatController):
                 preset.active = False
                 preset.save()
 
-        return thermo
+        return thermostat
 
     def v0_set_configuration(self, config, mode):
         # TODO: implement the new v1 config format
@@ -674,6 +677,11 @@ class ThermostatControllerGateway(ThermostatController):
     def v0_event_thermostat_changed(self, thermostat_number, active_preset, current_setpoint, actual_temperature, percentages, room):
         """
         :type thermostat_number: int
+        :type active_preset: str
+        :type current_setpoint: float
+        :type actual_temperature: float
+        :type percentages: list
+        :type room: int
         """
         logger.debug('v0_event_thermostat_changed: {}'.format(thermostat_number))
         self._message_client.send_event(OMBusEvents.THERMOSTAT_CHANGE, {'id': thermostat_number})
@@ -703,6 +711,8 @@ class ThermostatControllerGateway(ThermostatController):
 
 
 @post_save(sender=ThermostatGroup)
-def on_thermostat_group_change_handler(model_class, instance, created):
+@Inject
+def on_thermostat_group_change_handler(model_class, instance, created, thermostat_controller=INJECTED):
+    _ = model_class
     if not created:
-        ThermostatControllerGateway.get_instance().v0_event_thermostat_group_changed(instance)
+        thermostat_controller.v0_event_thermostat_group_changed(instance)

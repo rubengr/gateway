@@ -1,15 +1,17 @@
 import time
 import logging
 from threading import Lock
+from ioc import INJECTED, Inject
 from models import Valve
 from gateway.thermostat.gateway.pump_driver import PumpDriver
 
 logger = logging.getLogger('openmotics')
 
 
+@Inject
 class ValveDriver(object):
 
-    def __init__(self, valve, gateway_api):
+    def __init__(self, valve, gateway_api=INJECTED):
         """ Create a valve object
         :param valve: The database valve object
         :type valve: gateway.thermostat.gateway.models.Valve

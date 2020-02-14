@@ -1,7 +1,9 @@
 import datetime
 import json
+import sys
 import logging
 import time
+import inspect
 from playhouse.signals import post_save, Model
 
 import constants
@@ -12,12 +14,38 @@ logger = logging.getLogger('openmotics')
 
 
 class Database(object):
+
     filename = constants.get_gateway_database_file()
     _db = SqliteDatabase(filename, pragmas={'foreign_keys': 1})
+
+    # used to store database metrics (e.g. number of saves)
+    _metrics = {}
 
     @classmethod
     def get_db(cls):
         return cls._db
+
+    @classmethod
+    def incr_metrics(cls, sender):
+        cls._metrics.setdefault(sender, 0)
+        cls._metrics[sender] += 1
+
+    @classmethod
+    def get_models(cls):
+        models = set()
+        for (class_name, class_member) in inspect.getmembers(sys.modules[__name__], inspect.isclass):
+            if issubclass(class_member, BaseModel):
+                models.add(class_member.__name__)
+        return models
+
+    @classmethod
+    def get_metrics(cls):
+        return cls._metrics
+
+
+@post_save()
+def db_metrics_handler(sender, instance, created):
+    Database.incr_metrics(sender.__name__)
 
 
 class BaseModel(Model):
@@ -433,6 +461,7 @@ class DaySchedule(BaseModel):
 
 @post_save(sender=Thermostat)
 def on_thermostat_save_handler(model_class, instance, created):
+    _ = model_class
     if created:
         for preset_name in ['MANUAL', 'SCHEDULE', 'AWAY', 'VACATION', 'PARTY']:
             try:

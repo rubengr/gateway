@@ -196,9 +196,6 @@ class MasterController(object):
     def get_status(self):
         raise NotImplementedError()
 
-    def get_version(self):
-        raise NotImplementedError()
-
     def reset(self):
         raise NotImplementedError()
 
@@ -250,9 +247,9 @@ class MasterController(object):
     def set_all_lights_off(self):
         raise NotImplementedError()
 
-    def set_all_lights_floor_off(self):
+    def set_all_lights_floor_off(self, floor):
         raise NotImplementedError()
 
-    def set_all_lights_floor_on(self):
+    def set_all_lights_floor_on(self, floor):
         raise NotImplementedError()
 

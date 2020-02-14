@@ -1,11 +1,13 @@
 import logging
+from ioc import INJECTED, Inject
 
 logger = logging.getLogger('openmotics')
 
 
+@Inject
 class PumpDriver(object):
 
-    def __init__(self, pump, gateway_api):
+    def __init__(self, pump, gateway_api=INJECTED):
         """ Create a pump object
         :param pump: the pump object
         :type pump: gateway.thermostat.gateway.models.Pump

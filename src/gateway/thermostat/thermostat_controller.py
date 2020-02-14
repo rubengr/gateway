@@ -110,6 +110,18 @@ class ThermostatController(object):
         """
         raise NotImplementedError
 
+    def v0_get_pump_group_configuration(self, pump_group_id, fields=None):
+        """
+        Get a specific pump_group_configuration defined by its id.
+
+        :param pump_group_id: The id of the pump_group_configuration
+        :type pump_group_id: Id
+        :param fields: The field of the pump_group_configuration to get. (None gets all fields)
+        :type fields: List of strings
+        :returns: pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
+        """
+        raise NotImplementedError
+
     def v0_get_pump_group_configurations(self, fields=None):
         """
         Get all pump_group_configurations.
@@ -244,7 +256,7 @@ class ThermostatController(object):
         :param config: The cooling_pump_group_configuration to set: cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         :type config: dict
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_cooling_pump_group_configurations(self, config):
         """
@@ -253,7 +265,28 @@ class ThermostatController(object):
         :param config: The list of cooling_pump_group_configurations to set: list of cooling_pump_group_configuration dict: contains 'id' (Id), 'outputs' (CSV[32]), 'room' (Byte)
         :type config: list
         """
-        raise NotImplementedError
+        raise NotImplementedError()
+
+        return {'config': self._thermostat_controller.v0_get_global_rtd10_configuration(fields)}
+
+    def v0_get_global_rtd10_configuration(self, fields=None):
+        """
+        Get the global_rtd10_configuration.
+
+        :param fields: The field of the global_rtd10_configuration to get. (None gets all fields)
+        :type fields: List of strings
+        :returns: global_rtd10_configuration dict: contains 'output_value_cooling_16' (Byte), 'output_value_cooling_16_5' (Byte), 'output_value_cooling_17' (Byte), 'output_value_cooling_17_5' (Byte), 'output_value_cooling_18' (Byte), 'output_value_cooling_18_5' (Byte), 'output_value_cooling_19' (Byte), 'output_value_cooling_19_5' (Byte), 'output_value_cooling_20' (Byte), 'output_value_cooling_20_5' (Byte), 'output_value_cooling_21' (Byte), 'output_value_cooling_21_5' (Byte), 'output_value_cooling_22' (Byte), 'output_value_cooling_22_5' (Byte), 'output_value_cooling_23' (Byte), 'output_value_cooling_23_5' (Byte), 'output_value_cooling_24' (Byte), 'output_value_heating_16' (Byte), 'output_value_heating_16_5' (Byte), 'output_value_heating_17' (Byte), 'output_value_heating_17_5' (Byte), 'output_value_heating_18' (Byte), 'output_value_heating_18_5' (Byte), 'output_value_heating_19' (Byte), 'output_value_heating_19_5' (Byte), 'output_value_heating_20' (Byte), 'output_value_heating_20_5' (Byte), 'output_value_heating_21' (Byte), 'output_value_heating_21_5' (Byte), 'output_value_heating_22' (Byte), 'output_value_heating_22_5' (Byte), 'output_value_heating_23' (Byte), 'output_value_heating_23_5' (Byte), 'output_value_heating_24' (Byte)
+        """
+        raise NotImplementedError()
+
+    def v0_set_global_rtd10_configuration(self, config):
+        """
+        Set the global_rtd10_configuration.
+
+        :param config: The global_rtd10_configuration to set: global_rtd10_configuration dict: contains 'output_value_cooling_16' (Byte), 'output_value_cooling_16_5' (Byte), 'output_value_cooling_17' (Byte), 'output_value_cooling_17_5' (Byte), 'output_value_cooling_18' (Byte), 'output_value_cooling_18_5' (Byte), 'output_value_cooling_19' (Byte), 'output_value_cooling_19_5' (Byte), 'output_value_cooling_20' (Byte), 'output_value_cooling_20_5' (Byte), 'output_value_cooling_21' (Byte), 'output_value_cooling_21_5' (Byte), 'output_value_cooling_22' (Byte), 'output_value_cooling_22_5' (Byte), 'output_value_cooling_23' (Byte), 'output_value_cooling_23_5' (Byte), 'output_value_cooling_24' (Byte), 'output_value_heating_16' (Byte), 'output_value_heating_16_5' (Byte), 'output_value_heating_17' (Byte), 'output_value_heating_17_5' (Byte), 'output_value_heating_18' (Byte), 'output_value_heating_18_5' (Byte), 'output_value_heating_19' (Byte), 'output_value_heating_19_5' (Byte), 'output_value_heating_20' (Byte), 'output_value_heating_20_5' (Byte), 'output_value_heating_21' (Byte), 'output_value_heating_21_5' (Byte), 'output_value_heating_22' (Byte), 'output_value_heating_22_5' (Byte), 'output_value_heating_23' (Byte), 'output_value_heating_23_5' (Byte), 'output_value_heating_24' (Byte)
+        :type config: dict
+        """
+        raise NotImplementedError()
 
     def v0_get_rtd10_heating_configuration(self, heating_id, fields=None):
         """
@@ -265,7 +298,7 @@ class ThermostatController(object):
         :type fields: List of strings
         :returns: rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_rtd10_heating_configurations(self, fields=None):
         """
@@ -275,7 +308,7 @@ class ThermostatController(object):
         :type fields: List of strings
         :returns: list of rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_rtd10_heating_configuration(self, config):
         """
@@ -284,7 +317,7 @@ class ThermostatController(object):
         :param config: The rtd10_heating_configuration to set
         :type config: rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_rtd10_heating_configurations(self, config):
         """
@@ -293,7 +326,7 @@ class ThermostatController(object):
         :param config: The list of rtd10_heating_configurations to set
         :type config: list of rtd10_heating_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_rtd10_cooling_configuration(self, cooling_id, fields=None):
         """
@@ -305,7 +338,7 @@ class ThermostatController(object):
         :type fields: List of strings
         :returns: rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_rtd10_cooling_configurations(self, fields=None):
         """
@@ -315,7 +348,7 @@ class ThermostatController(object):
         :type fields: List of strings
         :returns: list of rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_rtd10_cooling_configuration(self, config):
         """
@@ -324,7 +357,7 @@ class ThermostatController(object):
         :param config: The rtd10_cooling_configuration to set
         :type config: rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_rtd10_cooling_configurations(self, config):
         """
@@ -333,7 +366,7 @@ class ThermostatController(object):
         :param config: The list of rtd10_cooling_configurations to set
         :type config: list of rtd10_cooling_configuration dict: contains 'id' (Id), 'mode_output' (Byte), 'mode_value' (Byte), 'on_off_output' (Byte), 'poke_angle_output' (Byte), 'poke_angle_value' (Byte), 'room' (Byte), 'temp_setpoint_output' (Byte), 'ventilation_speed_output' (Byte), 'ventilation_speed_value' (Byte)
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_airco_status(self, thermostat_id, airco_on):
         """ Set the mode of the airco attached to a given thermostat.
@@ -343,10 +376,10 @@ class ThermostatController(object):
         :type airco_on: boolean.
         :returns: dict with 'status'.
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_airco_status(self):
         """ Get the mode of the airco attached to a all thermostats.
         :returns: dict with ASB0-ASB31.
         """
-        raise NotImplementedError
+        raise NotImplementedError()

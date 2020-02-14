@@ -1,18 +1,20 @@
 import logging
 from threading import Lock
 from simple_pid import PID
+from ioc import Inject, INJECTED
 from serial_utils import CommunicationTimedOutException
 
 logger = logging.getLogger('openmotics')
 
 
+@Inject
 class ThermostatPid(object):
 
     DEFAULT_KP = 5.0
     DEFAULT_KI = 0.0
     DEFAULT_KD = 2.0
 
-    def __init__(self, thermostat, pump_valve_controller, gateway_api):
+    def __init__(self, thermostat, pump_valve_controller, gateway_api=INJECTED):
         self._gateway_api = gateway_api
         self._pump_valve_controller = pump_valve_controller
         self._thermostat_change_lock = Lock()
@@ -99,13 +101,16 @@ class ThermostatPid(object):
         self._report_state_callbacks.append(callback)
 
     def report_state_change(self):
+        # TODO: only invoke callback if change occurred
         for callback in self._report_state_callbacks:
             callback(self.number, self._active_preset.name, self.setpoint, self.current_temperature,
                      self.get_active_valves_percentage(), self.thermostat.room)
 
     def tick(self):
         logger.info('_pid_tick - thermostat {} is {} enabled in {} mode'.format(self.thermostat.number, '' if self.enabled else 'not', self._mode))
-        if self.enabled:
+        if not self.enabled:
+            self.switch_off()
+        else:
             logger.info('_pid_tick - thermostat {}: preset {} with setpoint {}'.format(self.thermostat.number,
                                                                                        self._active_preset.name,
                                                                                        self._pid.setpoint))
@@ -138,8 +143,6 @@ class ThermostatPid(object):
             except CommunicationTimedOutException as ex:
                 logger.error('Error in PID tick for thermostat {}: {}'.format(self.thermostat.number, str(ex)))
                 self._errors += 1
-        else:
-            self.switch_off()
 
     def get_active_valves_percentage(self):
         return [self._pump_valve_controller.get_valve_driver(valve.number).percentage for valve in self.thermostat.active_valves]
@@ -180,25 +183,25 @@ class ThermostatPid(object):
         self.steer(0)
 
     @property
-    def Kp(self):
-        return self._pid.Kp
+    def kp(self):
+        return self._pid.kp
 
-    @Kp.setter
-    def Kp(self, Kp):
-        self._pid.Kp = Kp
-
-    @property
-    def Ki(self):
-        return self._pid.Ki
-
-    @Ki.setter
-    def Ki(self, Ki):
-        self._pid.Ki = Ki
+    @kp.setter
+    def kp(self, kp):
+        self._pid.kp = kp
 
     @property
-    def Kd(self):
-        return self._pid.Kd
+    def ki(self):
+        return self._pid.ki
 
-    @Kd.setter
-    def Kd(self, Kd):
-        self._pid.Kd = Kd
+    @ki.setter
+    def ki(self, ki):
+        self._pid.ki = ki
+
+    @property
+    def kd(self):
+        return self._pid.kd
+
+    @kd.setter
+    def kd(self, kd):
+        self._pid.kd = kd

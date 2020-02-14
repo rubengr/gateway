@@ -22,6 +22,7 @@ import psutil
 from threading import Thread, Event
 from collections import deque
 from ioc import Injectable, Inject, INJECTED, Singleton
+from models import Database
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Event as ObserverEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
@@ -329,6 +330,17 @@ class MetricsCollector(object):
                             logger.error('Error loading network metric: {0}'.format(ex))
                 except Exception as ex:
                     logger.error('Error loading network metrics: {0}'.format(ex))
+
+                # get database metrics
+                try:
+                    for model, counter in Database.get_metrics().iteritems():
+                        try:
+                            key = 'db_{0}'.format(model)
+                            values[key] = int(counter)
+                        except Exception as ex:
+                            logger.error('Error loading database metric: {0}'.format(ex))
+                except Exception as ex:
+                    logger.error('Error loading database metrics: {0}'.format(ex))
 
                 self._enqueue_metrics(metric_type=metric_type,
                                       values=values,
@@ -788,6 +800,10 @@ class MetricsCollector(object):
         >                                    "unit": "kWh"}]}
         """
         pulse_persistence = self._pulse_controller.get_persistence()
+        db_definitions = [{'name': database_model,
+                           'description': database_model,
+                           'type': 'counter',
+                           'unit': ''} for database_model in Database.get_models()]
         return [
             # system
             {'type': 'system',
@@ -927,7 +943,7 @@ class MetricsCollector(object):
                          {'name': 'cloud_time_ago_try',
                           'description': 'Time passed since the last try sending metrics to the Cloud',
                           'type': 'gauge',
-                          'unit': 'seconds'}]},
+                          'unit': 'seconds'}] + db_definitions},
             # inputs / events
             {'type': 'event',
              'tags': ['type', 'id', 'name'],

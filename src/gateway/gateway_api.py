@@ -405,9 +405,9 @@ class GatewayApi(object):
         return self.__master_controller.get_status()
 
     def get_master_version(self):
-        return self.__master_controller.get_version()
+        return self.__master_controller.get_firmware_version()
 
-    def get_gateway_version(self):
+    def get_main_version(self):
         """ Gets reported main version """
         _ = self
         config = ConfigParser.ConfigParser()
@@ -1034,7 +1034,7 @@ class GatewayApi(object):
         return self.__master_controller.last_success()
 
     def master_clear_error_list(self):
-        return self.__master_controller.master_clear_error_list()
+        return self.__master_controller.clear_error_list()
 
     def power_last_success(self):
         """ Get the number of seconds since the last successful communication with the power
