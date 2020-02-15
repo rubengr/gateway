@@ -2070,8 +2070,8 @@ class WebInterface(object):
         :returns: 'version': String (a.b.c).
         :rtype: dict
         """
-        return {'version': self._gateway_api.get_master_version(),
-                'gateway': '2.14.0'}
+        return {'version': self._gateway_api.get_main_version(),
+                'gateway': '2.14.1'}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):

@@ -245,7 +245,7 @@ class Gateway(object):
         """ Get the shutters status. """
         data = self.do_call("get_shutter_status?token=None")
         if data is not None and data['success']:
-            return [(shutter["id"], shutter["status"]) for shutter in data['status']]
+            return [(int(shutter_id), details["state"].upper()) for shutter_id, details in data['detail'].iteritems()]
         return
 
     def get_thermostats(self):
