@@ -26,9 +26,9 @@ class Database(object):
         return cls._db
 
     @classmethod
-    def incr_metrics(cls, sender):
+    def incr_metrics(cls, sender, incr=1):
         cls._metrics.setdefault(sender, 0)
-        cls._metrics[sender] += 1
+        cls._metrics[sender] += incr
 
     @classmethod
     def get_models(cls):
