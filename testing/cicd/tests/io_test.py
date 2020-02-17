@@ -153,7 +153,7 @@ class IoTest(OMTestCase):
         self.assertEqual(response_dict, 'invalid_token')
 
         params = {'id': 3, 'is_on': True}
-        response_dict = self.tools.api_testee(api='set_output', params=params, token='some_token', expected_failure=True)
+        response_dict = self.tools.api_testee(api='set_output_status', params=params, token='some_token', expected_failure=True)
         self.assertEqual(response_dict, 'invalid_token')
 
     @exception_handler
@@ -265,17 +265,17 @@ class IoTest(OMTestCase):
         # if it's already off, turn on. Else, turn off and back on.
 
         if status_list[self.TESTEE_POWER].get('status') == 0:
-            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
+            self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=True)
         else:
-            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
+            self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=False)
             time.sleep(0.5)
-            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
+            self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=True)
 
         response_dict = self.tools.api_testee(api='health_check')
 
         if response_dict is None:
             self.tools.healthy_status = False
-            self.fail('Failed to report health check. Service openmotics might have crashed. Please run \'supervisorctl restart openmotics\' or see logs for more details.')
+            self.fail('Failed to report health check. Service openmotics might have crashed. Please start \'supervisorctl restart openmotics\' or see logs for more details.')
 
         self.assertIsNotNone(response_dict, 'Should not be none and should have the response back from the API call. Got: {0}'.format(response_dict))
         self.assertTrue(response_dict.get('health_version') > 0, 'Should have a health_version int to indicate the health check API version.')

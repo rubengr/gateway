@@ -22,6 +22,7 @@ import psutil
 from threading import Thread, Event
 from collections import deque
 from ioc import Injectable, Inject, INJECTED, Singleton
+from models import Database
 from serial_utils import CommunicationTimedOutException
 from gateway.observer import Event as ObserverEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
@@ -38,12 +39,14 @@ class MetricsCollector(object):
     """
 
     @Inject
-    def __init__(self, gateway_api=INJECTED, pulse_controller=INJECTED):
+    def __init__(self, gateway_api=INJECTED, pulse_controller=INJECTED, thermostat_controller=INJECTED):
         """
         :param gateway_api: Gateway API
         :type gateway_api: gateway.gateway_api.GatewayApi
         :param pulse_controller: Pulse Controller
         :type pulse_controller: gateway.pulses.PulseCounterController
+        :param thermostat_controller: Thermostat Controller
+        :type thermostat_controller: gateway.thermostat.thermostat_controller.ThermostatController
         """
         self._start = time.time()
         self._last_service_uptime = 0
@@ -71,6 +74,7 @@ class MetricsCollector(object):
                                         'end': 0} for metric_type in self._min_intervals}
 
         self._gateway_api = gateway_api
+        self._thermostat_controller = thermostat_controller
         self._pulse_controller = pulse_controller
         self._metrics_queue = deque()
 
@@ -328,6 +332,17 @@ class MetricsCollector(object):
                 except Exception as ex:
                     logger.error('Error loading network metrics: {0}'.format(ex))
 
+                # get database metrics
+                try:
+                    for model, counter in Database.get_metrics().iteritems():
+                        try:
+                            key = 'db_{0}'.format(model)
+                            values[key] = int(counter)
+                        except Exception as ex:
+                            logger.error('Error loading database metric: {0}'.format(ex))
+                except Exception as ex:
+                    logger.error('Error loading database metrics: {0}'.format(ex))
+
                 self._enqueue_metrics(metric_type=metric_type,
                                       values=values,
                                       tags={'name': 'gateway',
@@ -384,7 +399,7 @@ class MetricsCollector(object):
         while not self._stopped:
             start = time.time()
             try:
-                result = self._gateway_api.get_output_status()
+                result = self._gateway_api.get_outputs_status()
                 for output in result:
                     output_id = output['id']
                     if output_id not in self._environment['outputs']:
@@ -407,9 +422,9 @@ class MetricsCollector(object):
             start = time.time()
             try:
                 now = time.time()
-                temperatures = self._gateway_api.get_sensor_temperature_status()
-                humidities = self._gateway_api.get_sensor_humidity_status()
-                brightnesses = self._gateway_api.get_sensor_brightness_status()
+                temperatures = self._gateway_api.get_sensors_temperature_status()
+                humidities = self._gateway_api.get_sensors_humidity_status()
+                brightnesses = self._gateway_api.get_sensors_brightness_status()
                 for sensor_id, sensor in self._environment['sensors'].iteritems():
                     name = sensor['name']
                     if name == '' or name == 'NOT_IN_USE':
@@ -444,7 +459,7 @@ class MetricsCollector(object):
             start = time.time()
             try:
                 now = time.time()
-                thermostats = self._gateway_api.get_thermostat_status()
+                thermostats = self._thermostat_controller.v0_get_thermostat_status()
                 self._enqueue_metrics(metric_type=metric_type,
                                       values={'on': thermostats['thermostats_on'],
                                               'cooling': thermostats['cooling']},
@@ -785,6 +800,10 @@ class MetricsCollector(object):
         >                                    "unit": "kWh"}]}
         """
         pulse_persistence = self._pulse_controller.get_persistence()
+        db_definitions = [{'name': database_model,
+                           'description': database_model,
+                           'type': 'counter',
+                           'unit': ''} for database_model in Database.get_models()]
         return [
             # system
             {'type': 'system',
@@ -924,7 +943,7 @@ class MetricsCollector(object):
                          {'name': 'cloud_time_ago_try',
                           'description': 'Time passed since the last try sending metrics to the Cloud',
                           'type': 'gauge',
-                          'unit': 'seconds'}]},
+                          'unit': 'seconds'}] + db_definitions},
             # inputs / events
             {'type': 'event',
              'tags': ['type', 'id', 'name'],

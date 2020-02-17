@@ -73,7 +73,7 @@ class MasterCommunicator(object):
 
         self.__last_success = 0
 
-        self.__stop = False
+        self.__running = False
 
         self.__read_thread = Thread(target=self.__read, name="MasterCommunicator read thread")
         self.__read_thread.daemon = True
@@ -107,8 +107,9 @@ class MasterCommunicator(object):
             flush_serial_input()
             self.__serial.timeout = None
 
-        self.__stop = False
-        self.__read_thread.start()
+        if not self.__running:
+            self.__read_thread.start()
+        self.__running = True
 
     def stop(self):
         pass  # Not supported/used
@@ -408,7 +409,7 @@ class MasterCommunicator(object):
         read_state = ReadState()
         data = ""
 
-        while not self.__stop:
+        while self.__running:
             data += self.__serial.read(1)
             num_bytes = self.__serial.inWaiting()
             if num_bytes > 0:

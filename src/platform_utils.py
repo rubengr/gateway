@@ -18,8 +18,11 @@ The hardware_utils module contains various classes helping with Hardware and Sys
 import os
 import sys
 import subprocess
+import logging
 import constants
 from ConfigParser import ConfigParser
+
+logger = logging.getLogger('openmotics')
 
 
 class Hardware(object):

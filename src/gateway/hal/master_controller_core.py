@@ -213,6 +213,9 @@ class MasterCoreController(MasterController):
             output = OutputConfiguration.deserialize(new_data)
             output.save()  # TODO: Batch saving - postpone eeprom activate if relevant for the Core
 
+    def get_output_status(self, output_id):
+        return self._output_states.get(output_id)
+
     def get_output_statuses(self):
         return self._output_states.values()
 
@@ -279,9 +282,6 @@ class MasterCoreController(MasterController):
             brightnesses.append(self.get_sensor_brightness(sensor_id))
         return brightnesses
 
-    def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
-        raise NotImplementedError()
-
     def load_sensor(self, sensor_id, fields=None):
         sensor = SensorConfiguration(sensor_id)
         data = {'id': sensor.id,
@@ -319,3 +319,75 @@ class MasterCoreController(MasterController):
                                                   'BRIGHTNESS': brightness_values[i],
                                                   'HUMIDITY': humidity_values[i]}
         self._sensor_last_updated = time.time()
+
+    def set_virtual_sensor(self, sensor_id, temperature, humidity, brightness):
+        raise NotImplementedError()
+
+    def shutter_group_down(self, group_id):
+        raise NotImplementedError()
+
+    def shutter_group_up(self, group_id):
+        raise NotImplementedError()
+
+    def add_virtual_output_module(self):
+        raise NotImplementedError()
+
+    def add_virtual_dim_module(self):
+        raise NotImplementedError()
+
+    def add_virtual_input_module(self):
+        raise NotImplementedError()
+
+    def get_status(self):
+        raise NotImplementedError()
+
+    def reset(self):
+        raise NotImplementedError()
+
+    def cold_reset(self):
+        raise NotImplementedError()
+
+    def get_modules(self):
+        raise NotImplementedError()
+
+    def get_modules_information(self):
+        raise NotImplementedError()
+
+    def flash_leds(self, led_type, led_id):
+        raise NotImplementedError()
+
+    def get_backup(self):
+        raise NotImplementedError()
+
+    def restore(self, data):
+        raise NotImplementedError()
+
+    def factory_reset(self):
+        raise NotImplementedError()
+
+    def error_list(self):
+        raise NotImplementedError()
+
+    def last_success(self):
+        raise NotImplementedError()
+
+    def clear_error_list(self):
+        raise NotImplementedError()
+
+    def set_status_leds(self, status):
+        raise NotImplementedError()
+
+    def do_basic_action(self, action_type, action_number):
+        raise NotImplementedError()
+
+    def do_group_action(self, group_action_id):
+        raise NotImplementedError()
+
+    def set_all_lights_off(self):
+        raise NotImplementedError()
+
+    def set_all_lights_floor_off(self, floor):
+        raise NotImplementedError()
+
+    def set_all_lights_floor_on(self, floor):
+        raise NotImplementedError()

@@ -21,6 +21,7 @@ System.import_libs()
 import logging
 import time
 import constants
+from models import Database, Feature
 from ioc import Injectable, Inject, INJECTED
 from bus.om_bus_service import MessageService
 from bus.om_bus_client import MessageClient
@@ -31,6 +32,7 @@ from threading import Lock
 from serial_utils import RS485
 from gateway.observer import Observer
 from urlparse import urlparse
+from peewee_migrate import Router
 
 logger = logging.getLogger("openmotics")
 
@@ -85,6 +87,14 @@ class OpenmoticsService(object):
             from gateway.hal import master_controller_classic
             from master import maintenance, master_communicator, eeprom_extension
             _ = master_controller_classic, maintenance, master_communicator, eeprom_extension
+
+        thermostats_gateway = Feature.get_or_none(name='thermostats_gateway')
+        if thermostats_gateway is not None and thermostats_gateway.enabled:
+            from gateway.thermostat.gateway import thermostat_controller_gateway
+            _ = thermostat_controller_gateway
+        else:
+            from gateway.thermostat.master import thermostat_controller_master
+            _ = thermostat_controller_master
 
         # IPC
         Injectable.value(message_client=MessageClient('openmotics_service'))
@@ -159,9 +169,13 @@ class OpenmoticsService(object):
     @Inject
     def fix_dependencies(metrics_controller=INJECTED, message_client=INJECTED, web_interface=INJECTED, scheduling_controller=INJECTED,
                          observer=INJECTED, gateway_api=INJECTED, metrics_collector=INJECTED, plugin_controller=INJECTED,
-                         web_service=INJECTED, event_sender=INJECTED, maintenance_controller=INJECTED):
+                         web_service=INJECTED, event_sender=INJECTED, maintenance_controller=INJECTED, thermostat_controller=INJECTED):
+
         # TODO: Fix circular dependencies
 
+        thermostat_controller.subscribe_events(web_interface.send_event_websocket)
+        thermostat_controller.subscribe_events(event_sender.enqueue_event)
+        thermostat_controller.subscribe_events(plugin_controller.process_observer_event)
         message_client.add_event_handler(metrics_controller.event_receiver)
         web_interface.set_plugin_controller(plugin_controller)
         web_interface.set_metrics_collector(metrics_collector)
@@ -191,7 +205,7 @@ class OpenmoticsService(object):
     def start(master_controller=INJECTED, maintenance_controller=INJECTED,
               observer=INJECTED, power_communicator=INJECTED, metrics_controller=INJECTED, passthrough_service=INJECTED,
               scheduling_controller=INJECTED, metrics_collector=INJECTED, web_service=INJECTED, gateway_api=INJECTED, plugin_controller=INJECTED,
-              communication_led_controller=INJECTED, event_sender=INJECTED):
+              communication_led_controller=INJECTED, event_sender=INJECTED, thermostat_controller=INJECTED):
         """ Main function. """
         logger.info('Starting OM core service...')
 
@@ -203,6 +217,7 @@ class OpenmoticsService(object):
         if passthrough_service:
             passthrough_service.start()
         scheduling_controller.start()
+        thermostat_controller.start()
         metrics_collector.start()
         web_service.start()
         gateway_api.start()
@@ -221,6 +236,7 @@ class OpenmoticsService(object):
             web_service.stop()
             metrics_collector.stop()
             metrics_controller.stop()
+            thermostat_controller.stop()
             plugin_controller.stop()
             event_sender.stop()
             logger.info('Stopping OM core service... Done')
@@ -234,8 +250,14 @@ class OpenmoticsService(object):
 
 if __name__ == "__main__":
     setup_logger()
-    logger.info("Starting OpenMotics service")
 
+    logger.info("Applying migrations")
+    # Run all unapplied migrations
+    db = Database.get_db()
+    router = Router(db, migrate_dir='/opt/openmotics/python/migrations')
+    router.run()
+
+    logger.info("Starting OpenMotics service")
     # TODO: move message service to separate process
     message_service = MessageService()
     message_service.start()

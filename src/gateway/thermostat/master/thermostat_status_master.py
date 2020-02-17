@@ -20,7 +20,7 @@ the master.
 from threading import Lock
 
 
-class ThermostatStatus(object):
+class ThermostatStatusMaster(object):
     """ Contains a cached version of the current thermostats of the controller. """
 
     def __init__(self, on_thermostat_change=None, on_thermostat_group_change=None):
@@ -92,7 +92,7 @@ class ThermostatStatus(object):
 
     def _report_change(self, thermostat_id, status):
         if self._on_thermostat_change is not None and status is not None:
-            self._on_thermostat_change(thermostat_id, {'preset': ThermostatStatus._serialize_preset(status['setpoint']),
+            self._on_thermostat_change(thermostat_id, {'preset': ThermostatStatusMaster._serialize_preset(status['setpoint']),
                                                        'current_setpoint': status['csetp'],
                                                        'actual_temperature': status['act'],
                                                        'output_0': status['output0'],

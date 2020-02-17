@@ -142,6 +142,15 @@ class ShutterController(object):
 
     # Control shutters
 
+    def shutter_group_down(self, group_id):
+        self._master_controller.shutter_group_down(group_id)
+
+    def shutter_group_up(self, group_id):
+        self._master_controller.shutter_group_up(group_id)
+
+    def shutter_group_stop(self, group_id):
+        self._master_controller.shutter_group_stop(group_id)
+
     def shutter_up(self, shutter_id, desired_position=None):
         return self._shutter_goto_direction(shutter_id, ShutterController.Direction.UP, desired_position)
 

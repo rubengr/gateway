@@ -139,11 +139,11 @@ class ActionsTest(OMTestCase):
         status_list = response_dict.get('status', [])
         self.assertTrue(self.tools.is_not_empty(status_list), 'Should contain the list of output statuses. Got: {0}'.format(status_list))
         if status_list[8].get('status') == 0:
-            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
+            self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=True)
         else:
-            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=False)
+            self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=False)
             time.sleep(0.5)
-            self.webinterface.set_output(id=self.TESTEE_POWER, is_on=True)
+            self.webinterface.set_output_status(id=self.TESTEE_POWER, is_on=True)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=1), 'Should execute startup action and turn output 0 on, Tester\'s input will see a press')
 
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=self.GROUP_ACTION_TARGET_ID, value=0), 'Should execute startup action and turn output 0 off, Tester\'s input will see a press')
@@ -190,9 +190,9 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('MotionS', input_number, 195)
 
-        self.webinterface.set_output(id=input_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_number, is_on=False)  # Sensor stops detecting movement
 
         time.sleep(0.3)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=1), 'Should turn on an input on the Tester that act as a motion sensor.')
@@ -232,10 +232,10 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         token = self.tools.get_new_token(self.tools.username, self.tools.password)
         self.tools.api_testee(api='set_input_configuration', params=params, token=token)
-        self.webinterface.set_output(id=input_number, is_on=True)
+        self.webinterface.set_output_status(id=input_number, is_on=True)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=0, value=1), 'Should execute a group action to toggle on output 0.')
 
-        self.webinterface.set_output(id=input_number, is_on=False)
+        self.webinterface.set_output_status(id=input_number, is_on=False)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=0, value=0), 'Should execute a group action to toggle off output 0 after a while.')
 
     @exception_handler
@@ -247,21 +247,21 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('togglINP', output_to_toggle, 162)
 
-        self.webinterface.set_output(id=output_to_toggle,
-                                     is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
+        self.webinterface.set_output_status(id=output_to_toggle,
+                                            is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_to_toggle, value=1),
                         'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
-        self.webinterface.set_output(id=output_to_toggle, is_on=False)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=False)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_to_toggle, value=1),
                         'The Tester\'s input module should keep seeing a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
-        self.webinterface.set_output(id=output_to_toggle,
-                                     is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
+        self.webinterface.set_output_status(id=output_to_toggle,
+                                            is_on=True)  # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_to_toggle, value=0),
                         'The Tester\'s input module should see a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
-        self.webinterface.set_output(id=output_to_toggle, is_on=False)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=False)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_to_toggle, value=0),
                         'The Tester\'s input module should keep seeing a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
@@ -274,22 +274,22 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('onoffINP', output_to_toggle, 161)
 
-        self.webinterface.set_output(id=output_to_toggle, is_on=True)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=True)
         # Toggling the Tester's output, The Testee's input will see a press that executes an action that toggles an output, to confirm the output toggling, we can check the Tester's input module (all modules are cross configured).
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_to_toggle, value=1),
                         'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
-        self.webinterface.set_output(id=output_to_toggle, is_on=False)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=False)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_to_toggle, value=1),
                         'Even if the Tester\'s output is off, the Testee\'s input should keep seeing a press. Got: {0}'.format(self.tools.input_status))
 
         self._set_input_advanced_configuration('onoffINP', output_to_toggle, 160)
 
-        self.webinterface.set_output(id=output_to_toggle, is_on=True)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=True)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_to_toggle, value=0),
                         'The Tester\'s input module should see a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
-        self.webinterface.set_output(id=output_to_toggle, is_on=False)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=False)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=output_to_toggle, value=0),
                         'The Tester\'s input module should keep seeing a release after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
@@ -310,24 +310,24 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=configured_input_number, is_on=True)
+        self.webinterface.set_output_status(id=configured_input_number, is_on=True)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=1),
                             'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
-        self.webinterface.set_output(id=configured_input_number, is_on=False)
+        self.webinterface.set_output_status(id=configured_input_number, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=1),
                             'The Tester\'s input module should keep seeing a press since its a toggle action toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         time.sleep(0.3)
-        self.webinterface.set_output(id=configured_input_number, is_on=True)
+        self.webinterface.set_output_status(id=configured_input_number, is_on=True)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=0),
                             'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
         time.sleep(0.3)
-        self.webinterface.set_output(id=configured_input_number, is_on=False)
+        self.webinterface.set_output_status(id=configured_input_number, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=0),
                             'The Tester\'s input module should keep see seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -348,12 +348,12 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=output_to_toggle, is_on=True)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=True)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=1),
                             'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
-        self.webinterface.set_output(id=output_to_toggle, is_on=False)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=1),
                             'The Tester\'s input module should keep seeing a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -369,12 +369,12 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=output_to_toggle, is_on=True)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=True)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=0),
                             'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
-        self.webinterface.set_output(id=output_to_toggle, is_on=False)
+        self.webinterface.set_output_status(id=output_to_toggle, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=0),
                             'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -398,25 +398,25 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=input_number, is_on=True)
+        self.webinterface.set_output_status(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=1),
                             'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
-        self.webinterface.set_output(id=input_number, is_on=False)
+        self.webinterface.set_output_status(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=1),
                             'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
-        self.webinterface.set_output(id=input_number, is_on=True)
+        self.webinterface.set_output_status(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=0),
                             'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
-        self.webinterface.set_output(id=input_number, is_on=False)
+        self.webinterface.set_output_status(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=0),
                             'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -440,14 +440,14 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=configured_input_number, is_on=True)
+        self.webinterface.set_output_status(id=configured_input_number, is_on=True)
         time.sleep(0.5)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=1),
                             'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
-        self.webinterface.set_output(id=configured_input_number, is_on=False)
+        self.webinterface.set_output_status(id=configured_input_number, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=1),
                             'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -463,14 +463,14 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=configured_input_number, is_on=True)
+        self.webinterface.set_output_status(id=configured_input_number, is_on=True)
         time.sleep(0.5)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=0),
                             'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
         time.sleep(0.3)
 
-        self.webinterface.set_output(id=configured_input_number, is_on=False)
+        self.webinterface.set_output_status(id=configured_input_number, is_on=False)
         for input_number in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_number, value=0),
                             'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -493,14 +493,14 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=input_number, is_on=True)
+        self.webinterface.set_output_status(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=1),
                             'The Tester\'s input module should see presses after toggling the Testee\'s output. Got: {0}'.format(
                                 self.tools.input_status))
         time.sleep(0.3)
 
-        self.webinterface.set_output(id=input_number, is_on=False)
+        self.webinterface.set_output_status(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=1),
                             'The Tester\'s input module should keep seeing presses after toggling the Testee\'s output. Got: {0}'.format(
@@ -517,14 +517,14 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=input_number, is_on=True)
+        self.webinterface.set_output_status(id=input_number, is_on=True)
         for i in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=0),
                             'The Tester\'s input module should see releases after toggling the Testee\'s output. Got: {0}'.format(
                                 self.tools.input_status))
         time.sleep(0.3)
 
-        self.webinterface.set_output(id=input_number, is_on=False)
+        self.webinterface.set_output_status(id=input_number, is_on=False)
         for i in xrange(self.INPUT_COUNT):
             self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=i, value=0),
                             'The Tester\'s input module should keep seeing releases after toggling the Testee\'s output. Got: {0}'.format(
@@ -567,7 +567,7 @@ class ActionsTest(OMTestCase):
         params = {'config': json.dumps(config)}
         self.tools.api_testee(api='set_input_configuration', params=params, token=self.token)
 
-        self.webinterface.set_output(id=self.GROUP_ACTION_TARGET_ID, is_on=True)
+        self.webinterface.set_output_status(id=self.GROUP_ACTION_TARGET_ID, is_on=True)
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=1, value=1),
                         'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
@@ -583,7 +583,7 @@ class ActionsTest(OMTestCase):
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=5, value=1),
                         'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
 
-        self.webinterface.set_output(id=self.GROUP_ACTION_TARGET_ID, is_on=False)
+        self.webinterface.set_output_status(id=self.GROUP_ACTION_TARGET_ID, is_on=False)
 
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=1, value=0),
                         'The Tester\'s input module should see a press after toggling the Testee\'s output. Got: {0}'.format(self.tools.input_status))
@@ -607,9 +607,9 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('timed196', input_output_number, 196)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1),
                         'Should turn on an input on the Tester that act as a motion sensor.')
@@ -631,9 +631,9 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('timed197', input_output_number, 197)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1),
                         'Should turn on an input on the Tester that act as a motion sensor.')
@@ -655,9 +655,9 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('timed198', input_output_number, 198)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1),
                         'Should turn on an input on the Tester that act as a motion sensor.')
@@ -678,9 +678,9 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('timed199', input_output_number, 199)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1),
                         'Should turn on an input on the Tester that act as a motion sensor.')
@@ -701,9 +701,9 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('timed200', input_output_number, 200)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
@@ -728,20 +728,20 @@ class ActionsTest(OMTestCase):
 
         self._set_output_advanced_config(input_output_number)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1),
                         'Should turn on an input on the Tester that act as a motion sensor.')
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         result = self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=0)
 
@@ -760,9 +760,9 @@ class ActionsTest(OMTestCase):
 
         self._set_output_advanced_config(input_output_number)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         start = time.time()
 
@@ -771,13 +771,13 @@ class ActionsTest(OMTestCase):
 
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1), 'Should turn on an input on the Tester that act as a motion sensor.')
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         result = self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=0)
 
@@ -796,9 +796,9 @@ class ActionsTest(OMTestCase):
 
         self._set_output_advanced_config(input_output_number)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         start = time.time()
 
@@ -807,13 +807,13 @@ class ActionsTest(OMTestCase):
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1),
                         'Should turn on an input on the Tester that act as a motion sensor.')
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         result = self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=0)
 
@@ -832,9 +832,9 @@ class ActionsTest(OMTestCase):
 
         self._set_output_advanced_config(input_output_number)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         start = time.time()
 
@@ -843,13 +843,13 @@ class ActionsTest(OMTestCase):
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1),
                         'Should turn on an input on the Tester that act as a motion sensor.')
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         result = self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=0)
 
@@ -868,9 +868,9 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('timed205', input_output_number, 205)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         start = time.time()
 
@@ -879,13 +879,13 @@ class ActionsTest(OMTestCase):
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1),
                         'Should turn on an input on the Tester that act as a motion sensor.')
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         result = self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=0)
 
@@ -904,9 +904,9 @@ class ActionsTest(OMTestCase):
 
         self._set_input_advanced_configuration('timed206', input_output_number, 206)
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         start = time.time()
 
@@ -915,13 +915,13 @@ class ActionsTest(OMTestCase):
         self.assertTrue(self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=1),
                         'Should turn on an input on the Tester that act as a motion sensor.')
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
-        self.webinterface.set_output(id=input_output_number, is_on=True)  # Sensor detects movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=True)  # Sensor detects movement
         time.sleep(0.2)
-        self.webinterface.set_output(id=input_output_number, is_on=False)  # Sensor stops detecting movement
+        self.webinterface.set_output_status(id=input_output_number, is_on=False)  # Sensor stops detecting movement
 
         result = self.tools.check_if_event_is_captured(toggled_output=input_output_number, value=0)
 

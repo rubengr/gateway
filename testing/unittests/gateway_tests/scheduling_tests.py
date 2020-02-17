@@ -72,7 +72,8 @@ class SchedulingControllerTest(unittest.TestCase):
                             user_controller=None,
                             maintenance_controller=None,
                             message_client=None,
-                            configuration_controller=None)
+                            configuration_controller=None,
+                            thermostat_controller=None)
         controller = SchedulingController()
         SetUpTestInjections(scheduling_controller=controller)
         controller.set_webinterface(WebInterface())

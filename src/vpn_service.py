@@ -30,7 +30,6 @@ import subprocess
 import traceback
 import constants
 import ujson as json
-
 from threading import Thread, Lock
 from collections import deque
 from ConfigParser import ConfigParser
@@ -243,7 +242,7 @@ class Gateway(object):
         return
 
     def get_shutters_status(self):
-        """ Get the inputs status. """
+        """ Get the shutters status. """
         data = self.do_call("get_shutter_status?token=None")
         if data is not None and data['success']:
             return [(int(shutter_id), details["state"].upper()) for shutter_id, details in data['detail'].iteritems()]

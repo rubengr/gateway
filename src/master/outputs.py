@@ -66,6 +66,10 @@ class OutputStatus(object):
         """ Return the list of Outputs. """
         return self._outputs.values()
 
+    def get_output(self, output_id):
+        """ Return the list of Outputs. """
+        return self._outputs.get(output_id)
+
     def _update_maybe_report_change(self, output, new_output):
         report = False
         status = new_output['status']  # Something boolean-ish
