@@ -480,10 +480,10 @@ class ThermostatControllerGateway(ThermostatController):
         return pump_config_list
 
     def v0_set_pump_group_configuration(self, config):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_pump_group_configurations(self, config):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_get_cooling_pump_group_configuration(self, pump_number, fields=None):
         pump = Pump.get(number=pump_number)
@@ -537,7 +537,7 @@ class ThermostatControllerGateway(ThermostatController):
         raise NotImplementedError()
 
     def v0_set_rtd10_cooling_configurations(self, config):
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def v0_set_airco_status(self, thermostat_id, airco_on):
         raise NotImplementedError()

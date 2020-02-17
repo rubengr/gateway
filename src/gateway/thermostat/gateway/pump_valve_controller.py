@@ -10,12 +10,11 @@ logger = logging.getLogger('openmotics')
 @Inject
 class PumpValveController(object):
 
-    def __init__(self, gateway_api=INJECTED):
+    def __init__(self):
         """ Create a ValveController object
         :param gateway_api: Gateway API Controller
         :type gateway_api: gateway.gateway_api.GatewayApi
         """
-        self._gateway_api = gateway_api
         self._valve_drivers = {}
         self._config_change_lock = Lock()
 
