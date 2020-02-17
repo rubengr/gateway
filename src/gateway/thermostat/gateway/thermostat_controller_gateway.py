@@ -312,9 +312,9 @@ class ThermostatControllerGateway(ThermostatController):
                 output_numbers = thermostat.v0_get_output_numbers()
                 active_preset = thermostat.active_preset
                 if global_thermostat.mode == 'cooling':
-                    csetp = active_preset.cooling_setpoint if active_preset is not None else 30.0
+                    csetp = active_preset.cooling_setpoint
                 else:
-                    csetp = active_preset.heating_setpoint if active_preset is not None else 14.0
+                    csetp = active_preset.heating_setpoint
 
                 v0_setpoint = active_preset.get_v0_setpoint_id()
 
