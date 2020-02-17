@@ -19,9 +19,8 @@ Module to communicate with the power modules.
 """
 
 import logging
-import traceback
 import time
-from toolbox import Empty
+from Queue import Empty
 from ioc import Injectable, Inject, INJECTED, Singleton
 from threading import Thread, RLock
 from serial_utils import printable, CommunicationTimedOutException
