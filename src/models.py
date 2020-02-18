@@ -45,12 +45,37 @@ class Database(object):
 
 @post_save()
 def db_metrics_handler(sender, instance, created):
-    Database.incr_metrics(sender.__name__)
+    _, _ = instance, created
+    Database.incr_metrics(sender.__name__.lower())
 
 
 class BaseModel(Model):
     class Meta:
         database = Database.get_db()
+
+
+class Plugin(BaseModel):
+    id = PrimaryKeyField()
+    name = CharField()
+    uri = CharField(unique=True)
+
+
+class Light(BaseModel):
+    TYPES = (
+        (0, 'OnOff'),
+        (1, 'Dimmable'),
+        (2, 'RGB'),
+    )
+
+    id = PrimaryKeyField()
+    name = CharField()
+    type = IntegerField(choices=TYPES)
+    plugin = ForeignKeyField(Plugin, on_delete='CASCADE', null=True)
+    external_id = CharField(null=True, unique=True)
+
+    @property
+    def uri(self):
+        return '{}/{}'.format(self.plugin.uri, self.external_id)
 
 
 class Feature(BaseModel):
