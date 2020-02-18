@@ -3,7 +3,8 @@ import unittest
 import xmlrunner
 from ioc import Scope, SetTestMode, SetUpTestInjections
 import gateway.hal.master_controller_core
-from gateway.hal.master_controller_core import MasterCoreController
+from master import eeprom_models
+from master.eeprom_controller import EepromController
 from master_core.memory_models import InputConfiguration
 from master_core.ucan_communicator import UCANCommunicator
 
@@ -81,8 +82,26 @@ class MasterCoreControllerTest(unittest.TestCase):
             save.assert_called_with()
 
 
+class MasterCoreControllerCompatibilityTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        SetTestMode()
+
+    def test_load_input(self):
+        SetUpTestInjections(memory_files={})
+        core = get_core_controller_dummy()
+        with mock.patch.object(gateway.hal.master_controller_core, 'InputConfiguration',
+                               return_value=get_input_dummy(1)):
+            core_data = core.load_input(1)
+        input_module = eeprom_models.InputConfiguration.deserialize(core_data)
+        classic = get_classic_controller_dummy([input_module])
+        classic_data = classic.load_input(1)
+        self.assertEqual(classic_data, core_data)
+
+
 @Scope
 def get_core_controller_dummy(command_data=None):
+    from gateway.hal.master_controller_core import MasterCoreController
     from master.master_communicator import MasterCommunicator
     communicator_mock = mock.Mock(MasterCommunicator)
     communicator_mock.do_command.return_value = command_data or {}
@@ -90,6 +109,18 @@ def get_core_controller_dummy(command_data=None):
     ucan_mock = UCANCommunicator()
     SetUpTestInjections(ucan_communicator=ucan_mock)
     return MasterCoreController()
+
+
+@Scope
+def get_classic_controller_dummy(inputs):
+    from master.master_communicator import MasterCommunicator
+    from gateway.hal.master_controller_classic import MasterClassicController
+    master_mock = mock.Mock(MasterCommunicator)
+    eeprom_mock = mock.Mock(EepromController)
+    eeprom_mock.read.return_value = inputs[0]
+    eeprom_mock.read_all.return_value = inputs
+    SetUpTestInjections(master_communicator=master_mock, eeprom_controller=eeprom_mock)
+    return MasterClassicController()
 
 
 def get_input_dummy(i, module_type='I'):

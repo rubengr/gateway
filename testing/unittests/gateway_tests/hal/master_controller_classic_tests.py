@@ -2,11 +2,9 @@ import mock
 import os
 import unittest
 import xmlrunner
-from ioc import SetTestMode, SetUpTestInjections
-from gateway.hal.master_controller_classic import MasterClassicController
+from ioc import Scope, SetTestMode, SetUpTestInjections
 from master.eeprom_controller import EepromController
 from master.eeprom_models import InputConfiguration
-from master.master_communicator import MasterCommunicator
 
 
 class MasterClassicControllerTest(unittest.TestCase):
@@ -60,7 +58,10 @@ class MasterClassicControllerTest(unittest.TestCase):
         self.assertEquals([x['id'] for x in inputs], [1])
 
 
+@Scope
 def get_classic_controller_dummy(inputs):
+    from gateway.hal.master_controller_classic import MasterClassicController
+    from master.master_communicator import MasterCommunicator
     master_mock = mock.Mock(MasterCommunicator)
     eeprom_mock = mock.Mock(EepromController)
     eeprom_mock.read.return_value = inputs[0]
