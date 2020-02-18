@@ -58,5 +58,8 @@ python2 master_core_tests/memory_file_tests.py
 echo "Running Core api field tests"
 python2 master_core_tests/api_field_tests.py
 
+echo "running Core communicator tests"
+python2 master_core_tests/core_communicator_tests.py
+
 echo "Running metrics tests"
 python2 gateway_tests/metrics_tests.py
