@@ -126,6 +126,11 @@ class MasterCoreController(MasterController):
             data['module_type'] = input_module.module.device_type
         return data
 
+    def _enumerate_io_modules(self, module_type):
+        cmd = CoreAPI.general_configuration_number_of_modules()
+        module_count = self._master_communicator.do_command(cmd, {})[module_type]
+        return xrange(module_count * 8)
+
     #######################
     # Internal management #
     #######################
@@ -166,9 +171,8 @@ class MasterCoreController(MasterController):
         return self._serialize_input(input_module, fields=fields)
 
     def load_inputs(self, fields=None):
-        amount_input_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['input']
         inputs = []
-        for i in xrange(amount_input_modules * 8):
+        for i in self._enumerate_io_modules('input'):
             input_module = InputConfiguration(i)
             module_type = input_module.module.device_type
             if module_type in ['i', 'I']:
@@ -225,9 +229,8 @@ class MasterCoreController(MasterController):
         return {field: data[field] for field in fields}
 
     def load_outputs(self, fields=None):
-        amount_output_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['output']
         outputs = []
-        for i in xrange(amount_output_modules * 8):
+        for i in self._enumerate_io_modules('output'):
             outputs.append(self.load_output(i, fields))
         return outputs
 
