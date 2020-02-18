@@ -389,14 +389,14 @@ class EepromModel(object):
     @classmethod
     def deserialize(cls, data_dict):
         instance = cls(data_dict.get('id'))
-        if 'id' in data_dict:
-            del data_dict['id']
         instance._deserialize(data_dict)
         return instance
 
     def _deserialize(self, data_dict):
         self._loaded_fields = []
         for field_name, value in data_dict.iteritems():
+            if field_name == 'id':
+                continue
             self._loaded_fields.append(field_name)
             if not hasattr(self, '_{0}'.format(field_name)):
                 raise TypeError('Field `{0}` is not available'.format(field_name))
