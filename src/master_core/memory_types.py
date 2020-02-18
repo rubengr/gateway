@@ -316,14 +316,14 @@ class MemoryByteArrayField(MemoryField):
 
 
 class MemoryAddressField(MemoryField):
-    def __init__(self, memory_type, address_spec):
-        super(MemoryAddressField, self).__init__(memory_type, address_spec, 4)
+    def __init__(self, memory_type, address_spec, length=4):
+        super(MemoryAddressField, self).__init__(memory_type, address_spec, length)
 
     def encode(self, value):
         example = '.'.join(['ID{0}'.format(i) for i in xrange(self._length - 1, -1, -1)])
         error_message = 'Value should be a string in the format of {0}, where 0 <= IDx <= 255'.format(example)
         parts = str(value).split('.')
-        if len(parts) != 4:
+        if len(parts) != self._length:
             raise ValueError(error_message)
         data = []
         for part in parts:
@@ -342,7 +342,7 @@ class MemoryAddressField(MemoryField):
 
 class MemoryVersionField(MemoryAddressField):
     def __init__(self, memory_type, address_spec):
-        super(MemoryAddressField, self).__init__(memory_type, address_spec, 3)
+        super(MemoryVersionField, self).__init__(memory_type, address_spec, length=3)
 
     def decode(self, data):
         return '.'.join(str(item) for item in data)
