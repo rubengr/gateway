@@ -49,6 +49,12 @@ python2 plugins_tests/interfaces_tests.py
 echo "Running pulse counter controller tests"
 python2 gateway_tests/pulses_tests.py
 
+echo "Running classic controller tests"
+python2 gateway/hal/master_controller_classic_test.py
+
+echo "Running core controller tests"
+python2 gateway/hal/master_controller_core_test.py
+
 echo "Running Core uCAN tests"
 python2 master_core_tests/ucan_communicator_tests.py
 
