@@ -75,7 +75,7 @@ class MasterCoreControllerTest(unittest.TestCase):
                 {'id': 2, 'name': 'bar', 'module_type': 'I'}]
         input_mock = mock.Mock(InputConfiguration)
         with mock.patch.object(InputConfiguration, 'deserialize', return_value=input_mock) as deserialize, \
-             mock.patch.object(input_mock, 'save', return_value=None) as save:
+                mock.patch.object(input_mock, 'save', return_value=None) as save:
             controller.save_inputs(data)
             self.assertIn(mock.call({'id': 1, 'name': 'foo'}), deserialize.call_args_list)
             self.assertIn(mock.call({'id': 2, 'name': 'bar'}), deserialize.call_args_list)
@@ -127,7 +127,7 @@ def get_input_dummy(i, module_type='I'):
     return InputConfiguration.deserialize({
         'id': i,
         'name': 'foo',
-        'input_config': 3,
+        'input_config': {'normal_open': True},
         'module': {'id': 20 + i,
                    'device_type': module_type,
                    'address': '0.0.0.0',

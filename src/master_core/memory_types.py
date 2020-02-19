@@ -21,7 +21,6 @@ import logging
 import types
 from threading import Lock
 from ioc import Inject, INJECTED
-from master_core.basic_action import BasicAction
 
 logger = logging.getLogger("openmotics")
 
@@ -60,7 +59,7 @@ class MemoryModelDefinition(object):
             self._relations.append(field_name)
         for field_name, composition in self.__class__._get_composite_fields().iteritems():
             setattr(self, '_{0}'.format(field_name), CompositionContainer(composition,
-                                                                          composition._field.length * 8,
+                                                                          composition._field._length * 8,
                                                                           MemoryFieldContainer(composition._field,
                                                                                                composition._field.get_address(self.id),
                                                                                                self._memory_files)))
@@ -76,6 +75,8 @@ class MemoryModelDefinition(object):
             data['id'] = self.id
         for field_name in self._fields:
             data[field_name] = getattr(self, field_name)
+        for field_name in self._compositions:
+            data[field_name] = getattr(self, field_name).serialize()
         return data
 
     def _add_property(self, field_name):
@@ -125,8 +126,11 @@ class MemoryModelDefinition(object):
             elif field_name in instance._relations:
                 relation = getattr(instance, '_{0}'.format(field_name))
                 instance._relations_cache[field_name] = relation.instance_type.deserialize(value)
+            elif field_name in instance._compositions:
+                composition = getattr(instance, '_{0}'.format(field_name))
+                composition._load(value)
             else:
-                raise ValueError('unknown field: {}', field_name)
+                raise ValueError('Unknown field: {0}', field_name)
         return instance
 
     @classmethod
@@ -349,11 +353,15 @@ class MemoryBasicActionField(MemoryByteArrayField):
         super(MemoryBasicActionField, self).__init__(memory_type, address_spec, 6)
 
     def encode(self, value):
+        from master_core.basic_action import BasicAction  # Prevent circular import
+
         if not isinstance(value, BasicAction):
             raise ValueError('Value should be a BasicAction')
         return value.encode()
 
     def decode(self, data):
+        from master_core.basic_action import BasicAction  # Prevent circular import
+
         return BasicAction.decode(data)
 
 
@@ -393,7 +401,7 @@ class MemoryVersionField(MemoryAddressField):
 class MemoryRelation(object):
     def __init__(self, instance_type, id_spec):
         """
-        :type relation_type: type
+        :type instance_type: type
         """
         self.instance_type = instance_type
         self._id_spec = id_spec
@@ -501,8 +509,10 @@ class CompositionContainer(object):
         self._composite_definition = composite_definition
         self._composition_width = composition_width
         self._field_container = field_container
+        self._fields = []
         for field_name in self._composite_definition.__class__._get_field_names():
             self._add_property(field_name)
+            self._fields.append(field_name)
 
     def _add_property(self, field_name):
         setattr(self, field_name, property(lambda s: s._get_property(field_name),
@@ -516,6 +526,21 @@ class CompositionContainer(object):
         field = getattr(self._composite_definition, field_name)
         current_composition = self._field_container.decode()
         self._field_container.encode(field.compose(current_composition, value, self._composition_width))
+
+    def _load(self, data):
+        for field_name, value in data.iteritems():
+            if field_name == 'id':
+                pass
+            elif field_name in self._fields:
+                setattr(self, field_name, value)
+            else:
+                raise ValueError('Unknown field: {0}', field_name)
+
+    def serialize(self):
+        data = {}
+        for field_name in self._fields:
+            data[field_name] = getattr(self, field_name)
+        return data
 
     def save(self):
         self._field_container.save()
