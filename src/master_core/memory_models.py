@@ -15,8 +15,8 @@
 """
 Memory models
 """
-from master_core.memory_types import MemoryModelDefinition, GlobalMemoryModelDefinition, MemoryRelation, MemoryByteField, MemoryWordField, MemoryAddressField, MemoryStringField, MemoryVersionField
 from master_core.memory_file import MemoryTypes
+from master_core.memory_types import MemoryModelDefinition, GlobalMemoryModelDefinition, MemoryRelation, MemoryByteField, MemoryWordField, MemoryAddressField, MemoryStringField, MemoryVersionField
 
 
 class GlobalConfiguration(GlobalMemoryModelDefinition):
