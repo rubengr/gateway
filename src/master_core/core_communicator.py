@@ -155,6 +155,13 @@ class CoreCommunicator(object):
         """
         self._consumers.setdefault(consumer.get_header(), []).append(consumer)
 
+    def discard_cid(self, cid):
+        """
+        Discards a Command ID.
+        """
+        with self._cid_lock:
+            self._cids_in_use.discard(cid)
+
     def unregister_consumer(self, consumer):
         """
         Unregister a consumer
@@ -164,8 +171,7 @@ class CoreCommunicator(object):
         consumers = self._consumers.get(consumer.get_header(), [])
         if consumer in consumers:
             consumers.remove(consumer)
-        with self._cid_lock:
-            self._cids_in_use.discard(consumer.cid)
+        self.discard_cid(consumer.cid)
 
     def do_basic_action(self, action_type, action, device_nr, extra_parameter=0):
         """
@@ -208,8 +214,12 @@ class CoreCommunicator(object):
         consumer = Consumer(command, cid)
         command = consumer.command
 
-        self._consumers.setdefault(consumer.get_header(), []).append(consumer)
-        self._send_command(cid, command, fields)
+        try:
+            self._consumers.setdefault(consumer.get_header(), []).append(consumer)
+            self._send_command(cid, command, fields)
+        except Exception:
+            self.discard_cid(cid)
+            raise
 
         try:
             result = None
@@ -356,6 +366,8 @@ class CoreCommunicator(object):
                     consumer.consume(payload)
                     if isinstance(consumer, Consumer):
                         self.unregister_consumer(consumer)
+
+                self.discard_cid(header_fields['cid'])
 
                 # Message processed, cleaning up
                 wait_for_length = None
