@@ -45,6 +45,7 @@ class MemoryModelDefinition(object):
         self._fields = []
         self._loaded_fields = set()
         self._relations = []
+        self._relations_cache = {}
         self._compositions = []
         address_cache = self.__class__._get_address_cache(self.id)
         for field_name, field_type in self.__class__._get_field_dict().iteritems():
@@ -95,8 +96,10 @@ class MemoryModelDefinition(object):
         setattr(self.__class__, field_name, property(lambda s: s._get_relation(field_name)))
 
     def _get_relation(self, field_name):
-        relation = getattr(self, '_{0}'.format(field_name))
-        return relation.yield_instance(self.id)
+        if field_name not in self._relations_cache:
+            relation = getattr(self, '_{0}'.format(field_name))
+            self._relations_cache[field_name] = relation.yield_instance(self.id)
+        return self._relations_cache[field_name]
 
     def _add_composition(self, field_name):
         setattr(self.__class__, field_name, property(lambda s: s._get_composition(field_name)))
@@ -115,8 +118,15 @@ class MemoryModelDefinition(object):
         instance_id = data['id']
         instance = cls(instance_id)
         for field_name, value in data.iteritems():
-            if field_name != 'id' and field_name in instance._fields:
+            if field_name == 'id':
+                pass
+            elif field_name in instance._fields:
                 setattr(instance, field_name, value)
+            elif field_name in instance._relations:
+                relation = getattr(instance, '_{0}'.format(field_name))
+                instance._relations_cache[field_name] = relation.instance_type.deserialize(value)
+            else:
+                raise ValueError('unknown field: {}', field_name)
         return instance
 
     @classmethod
@@ -348,14 +358,14 @@ class MemoryBasicActionField(MemoryByteArrayField):
 
 
 class MemoryAddressField(MemoryField):
-    def __init__(self, memory_type, address_spec):
-        super(MemoryAddressField, self).__init__(memory_type, address_spec, 4)
+    def __init__(self, memory_type, address_spec, length=4):
+        super(MemoryAddressField, self).__init__(memory_type, address_spec, length)
 
     def encode(self, value):
         example = '.'.join(['ID{0}'.format(i) for i in xrange(self._length - 1, -1, -1)])
         error_message = 'Value should be a string in the format of {0}, where 0 <= IDx <= 255'.format(example)
         parts = str(value).split('.')
-        if len(parts) != 4:
+        if len(parts) != self._length:
             raise ValueError(error_message)
         data = []
         for part in parts:
@@ -374,22 +384,22 @@ class MemoryAddressField(MemoryField):
 
 class MemoryVersionField(MemoryAddressField):
     def __init__(self, memory_type, address_spec):
-        super(MemoryAddressField, self).__init__(memory_type, address_spec, 3)
+        super(MemoryVersionField, self).__init__(memory_type, address_spec, length=3)
 
     def decode(self, data):
         return '.'.join(str(item) for item in data)
 
 
 class MemoryRelation(object):
-    def __init__(self, relation_type, id_spec):
+    def __init__(self, instance_type, id_spec):
         """
         :type relation_type: type
         """
-        self._relation_type = relation_type
+        self.instance_type = instance_type
         self._id_spec = id_spec
 
     def yield_instance(self, own_id):
-        return self._relation_type(self._id_spec(own_id))
+        return self.instance_type(self._id_spec(own_id))
 
 
 class MemoryAddress(object):

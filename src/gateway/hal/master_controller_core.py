@@ -26,7 +26,7 @@ from master_core.core_communicator import BackgroundConsumer
 from master_core.events import Event as MasterCoreEvent
 from master_core.errors import Error
 from master_core.memory_file import MemoryTypes
-from master_core.memory_models import OutputConfiguration, SensorConfiguration
+from master_core.memory_models import InputConfiguration, OutputConfiguration, SensorConfiguration
 from serial_utils import CommunicationTimedOutException
 
 logger = logging.getLogger("openmotics")
@@ -118,6 +118,19 @@ class MasterCoreController(MasterController):
         if online != self._master_online:
             self._master_online = online
 
+    def _serialize_input(self, input_module, fields=None):
+        data = {'id': input_module.id}
+        if fields is None or 'name' in fields:
+            data['name'] = input_module.name
+        if fields is None or 'module_type' in fields:
+            data['module_type'] = input_module.module.device_type
+        return data
+
+    def _enumerate_io_modules(self, module_type):
+        cmd = CoreAPI.general_configuration_number_of_modules()
+        module_count = self._master_communicator.do_command(cmd, {})[module_type]
+        return xrange(module_count * 8)
+
     #######################
     # Internal management #
     #######################
@@ -147,16 +160,32 @@ class MasterCoreController(MasterController):
     # Input
 
     def get_input_module_type(self, input_module_id):
-        return 'i'  # TODO
+        input_module = InputConfiguration(input_module_id)
+        return input_module.module.device_type
 
-    def load_input(self, input_id, fields=None):
-        return {}  # TODO
+    def load_input(self, input_module_id, fields=None):
+        input_module = InputConfiguration(input_module_id)
+        module_type = input_module.module.device_type
+        if module_type not in ['i', 'I']:
+            raise TypeError('The given id {0} is not an input, but {1}'.format(input_module_id, module_type))
+        return self._serialize_input(input_module, fields=fields)
 
     def load_inputs(self, fields=None):
-        return []  # TODO
+        inputs = []
+        for i in self._enumerate_io_modules('input'):
+            input_module = InputConfiguration(i)
+            module_type = input_module.module.device_type
+            if module_type in ['i', 'I']:
+                input_data = self._serialize_input(input_module, fields=fields)
+                inputs.append(input_data)
+        return inputs
 
-    def save_inputs(self, inputs, fields=None):
-        raise NotImplementedError()  # TODO
+    def save_inputs(self, data, fields=None):
+        for input_data in data:
+            new_data = {'id': input_data['id'],
+                        'name': input_data['name']}
+            input_module = InputConfiguration.deserialize(new_data)
+            input_module.save()
 
     # Outputs
 
@@ -200,9 +229,8 @@ class MasterCoreController(MasterController):
         return {field: data[field] for field in fields}
 
     def load_outputs(self, fields=None):
-        amount_output_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['output']
         outputs = []
-        for i in xrange(amount_output_modules * 8):
+        for i in self._enumerate_io_modules('output'):
             outputs.append(self.load_output(i, fields))
         return outputs
 
