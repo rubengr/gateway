@@ -161,6 +161,10 @@ class MasterCommandSpec(object):
 
         return False
 
+    def __repr__(self):
+        # type: () ->  str
+        return '<MasterCommandSpec {} {}>'.format(self.action, self.output_action)
+
     def __eq__(self, other):
         """ Only used for testing, equals by name. """
         return self.action == other.action and self.output_action == other.output_action

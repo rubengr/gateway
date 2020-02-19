@@ -18,6 +18,9 @@ Module for communicating with the Master
 import ujson as json
 from exceptions import NotImplementedError
 
+if False:  # MYPY
+    from typing import Any, Dict, List
+
 
 class MasterEvent(object):
     """
@@ -32,6 +35,7 @@ class MasterEvent(object):
     """
 
     class Types(object):
+        INPUT_CHANGE = 'INPUT_CHANGE'
         OUTPUT_CHANGE = 'OUTPUT_CHANGE'
 
     def __init__(self, event_type, data):
@@ -41,6 +45,15 @@ class MasterEvent(object):
     def serialize(self):
         return {'type': self.type,
                 'data': self.data}
+
+    def __eq__(self, other):
+        # type: (Any) -> bool
+        return self.type == other.type \
+            and self.data == other.data
+
+    def __repr__(self):
+        # type: () -> str
+        return '<MasterEvent {} {}>'.format(self.type, self.data)
 
     def __str__(self):
         return json.dumps(self.serialize())
@@ -106,6 +119,14 @@ class MasterController(object):
         raise NotImplementedError()
 
     def save_inputs(self, inputs, fields=None):
+        raise NotImplementedError()
+
+    def get_inputs_with_status(self):
+        # type: () -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def get_recent_inputs(self):
+        # type: () -> List[Dict[str,Any]]
         raise NotImplementedError()
 
     # Outputs
