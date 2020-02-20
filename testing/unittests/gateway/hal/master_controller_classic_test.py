@@ -1,5 +1,4 @@
 import mock
-import os
 import unittest
 import xmlrunner
 from ioc import Scope, SetTestMode, SetUpTestInjections
