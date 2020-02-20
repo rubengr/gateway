@@ -283,6 +283,7 @@ class MasterCoreController(MasterController):
         amount_output_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['output']
         for i in xrange(amount_output_modules * 8):
             state = self._master_communicator.do_command(CoreAPI.output_detail(), {'device_nr': i})
+            # TODO: also trigger callback when status changed without an event.
             self._output_states[i] = {'id': i,
                                       'status': state['status'],  # 1 or 0
                                       'ctimer': state['timer'],
