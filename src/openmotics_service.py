@@ -88,8 +88,9 @@ class OpenmoticsService(object):
             from master import maintenance, master_communicator, eeprom_extension
             _ = master_controller_classic, maintenance, master_communicator, eeprom_extension
 
-        thermostats_gateway = Feature.get_or_none(name='thermostats_gateway')
-        if thermostats_gateway is not None and thermostats_gateway.enabled:
+        thermostats_gateway_feature = Feature.get_or_none(name='thermostats_gateway')
+        thermostats_gateway_enabled = thermostats_gateway_feature is not None and thermostats_gateway_feature.enabled
+        if Platform.get_platform() == Platform.Type.CORE_PLUS or thermostats_gateway_enabled:
             from gateway.thermostat.gateway import thermostat_controller_gateway
             _ = thermostat_controller_gateway
         else:
