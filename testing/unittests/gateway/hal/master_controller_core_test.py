@@ -127,7 +127,6 @@ def get_input_dummy(i, module_type='I'):
     return InputConfiguration.deserialize({
         'id': i,
         'name': 'foo',
-        'input_config': {'normal_open': True},
         'module': {'id': 20 + i,
                    'device_type': module_type,
                    'address': '0.0.0.0',
