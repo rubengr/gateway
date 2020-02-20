@@ -290,6 +290,8 @@ class MemoryStringField(MemoryField):
         super(MemoryStringField, self).__init__(memory_type, address_spec, length)
 
     def encode(self, value):
+        if len(value) > self._length:
+            raise ValueError('Value {0} should be a string of {1} characters'.format(value, self._length))
         data = []
         for char in value:
             data.append(ord(char))
@@ -309,7 +311,7 @@ class MemoryByteField(MemoryField):
     @classmethod
     def encode(cls, value):
         if not (0 <= value <= 255):
-            raise ValueError('Value out of limits: 0 <= value <= 255')
+            raise ValueError('Value {0} out of limits: 0 <= value <= 255'.format(value))
         return [value]
 
     @classmethod
@@ -324,7 +326,7 @@ class MemoryWordField(MemoryField):
     @classmethod
     def encode(cls, value):
         if not (0 <= value <= 65535):
-            raise ValueError('Value out of limits: 0 <= value <= 65535')
+            raise ValueError('Value {0} out of limits: 0 <= value <= 65535'.format(value))
         return [value / 256, value % 256]
 
     @classmethod
@@ -338,10 +340,10 @@ class MemoryByteArrayField(MemoryField):
 
     def encode(self, value):
         if len(value) != self._length:
-            raise ValueError('Value should be an array of {0} items with 0 <= item <= 255'.format(self._length))
+            raise ValueError('Value {0} should be an array of {1} items with 0 <= item <= 255'.format(value, self._length))
         for item in value:
             if not (0 <= item <= 255):
-                raise ValueError('One of the items in value is out of limits: 0 <= item <= 255')
+                raise ValueError('One of the items {0} in value is out of limits: 0 <= item <= 255'.format(value))
         return value
 
     def decode(self, data):
@@ -409,6 +411,12 @@ class MemoryRelation(object):
     def yield_instance(self, own_id):
         return self.instance_type(self._id_spec(own_id))
 
+    def serialize(self):
+        raise NotImplementedError()
+
+    def save(self):
+        raise NotImplementedError()
+
 
 class MemoryAddress(object):
     """ Represents an address in the EEPROM/FRAM. Has a memory type, page, offset and length """
@@ -424,6 +432,11 @@ class MemoryAddress(object):
 
     def __str__(self):
         return 'Address({0}{1}, {2}, {3})'.format(self.memory_type, self.page, self.offset, self.length)
+
+    def __eq__(self, other):
+        if not isinstance(other, MemoryAddress):
+            return False
+        return hash(self) == hash(other)
 
 
 class CompositeField(object):
@@ -448,14 +461,20 @@ class CompositeNumberField(CompositeField):
         self._value_offset = value_offset
 
     def decompose(self, value):
+        return self._decompose(value)
+
+    def _decompose(self, value):
         value = ((value & self._mask) >> self._start_bit) - self._value_offset
         if self._max_value is None or 0 <= value <= self._max_value:
             return value
         return None
 
     def compose(self, current_composition, value, composition_width):
-        current_value = self.decompose(current_composition)
-        if value != current_value:
+        return self._compose(current_composition, value, composition_width)
+
+    def _compose(self, current_composition, value, composition_width):
+        current_value = self._decompose(current_composition)
+        if value == current_value:
             return current_composition
         if self._max_value is not None and not (0 <= value <= self._max_value):
             raise ValueError('Value out of limits: 0 <= value <= {0}'.format(self._max_value))
@@ -474,7 +493,7 @@ class CompositeBitField(CompositeNumberField):
 
     def compose(self, current_composition, value, composition_width):
         value = 1 if value else 0
-        super(CompositeBitField, self).compose(current_composition, value, composition_width)
+        return super(CompositeBitField, self)._compose(current_composition, value, composition_width)
 
 
 class CompositeMemoryModelDefinition(object):
@@ -515,8 +534,8 @@ class CompositionContainer(object):
             self._fields.append(field_name)
 
     def _add_property(self, field_name):
-        setattr(self, field_name, property(lambda s: s._get_property(field_name),
-                                           lambda s, v: s._set_property(field_name, v)))
+        setattr(self.__class__, field_name, property(lambda s: s._get_property(field_name),
+                                                     lambda s, v: s._set_property(field_name, v)))
 
     def _get_property(self, field_name):
         field = getattr(self._composite_definition, field_name)
@@ -532,14 +551,14 @@ class CompositionContainer(object):
             if field_name == 'id':
                 pass
             elif field_name in self._fields:
-                setattr(self, field_name, value)
+                self._set_property(field_name, value)
             else:
                 raise ValueError('Unknown field: {0}', field_name)
 
     def serialize(self):
         data = {}
         for field_name in self._fields:
-            data[field_name] = getattr(self, field_name)
+            data[field_name] = self._get_property(field_name)
         return data
 
     def save(self):

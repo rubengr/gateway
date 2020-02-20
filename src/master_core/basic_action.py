@@ -52,3 +52,8 @@ class BasicAction(object):
         basic_action._device_nr = data[2:4]
         basic_action._extra_parameter = data[4:6]
         return basic_action
+
+    def __eq__(self, other):
+        if not isinstance(other, BasicAction):
+            return False
+        return self.encode() == other.encode()
