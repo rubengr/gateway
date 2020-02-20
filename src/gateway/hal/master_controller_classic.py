@@ -793,4 +793,3 @@ class MasterClassicController(MasterController):
 
     def save_sensors(self, config):
         self._eeprom_controller.write_batch([eeprom_models.SensorConfiguration.deserialize(o) for o in config])
-

@@ -88,3 +88,11 @@ class CoreCommandSpec(object):
             logger.warning('Payload for instruction {0} could not be consumed completely: {1}'.format(self.instruction, printable(payload)))
         return result
 
+    def __eq__(self, other):
+        return self.instruction == other.instruction \
+            and self.response_instruction == other.response_instruction
+
+    def __repr__(self):
+        # type: () -> str
+        return '<CoreCommandSpec {}>'.format(self.instruction)
+

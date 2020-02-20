@@ -1,10 +1,15 @@
-import mock
 import unittest
-import xmlrunner
-from ioc import Scope, SetTestMode, SetUpTestInjections
+from Queue import Queue
+
 import gateway.hal.master_controller_core
+import mock
+import xmlrunner
+from gateway.hal.master_controller import MasterEvent
+from ioc import Scope, SetTestMode, SetUpTestInjections
 from master import eeprom_models
 from master.eeprom_controller import EepromController
+from master_core.core_api import CoreAPI
+from master_core.core_communicator import BackgroundConsumer
 from master_core.memory_models import InputConfiguration
 from master_core.ucan_communicator import UCANCommunicator
 
@@ -15,9 +20,9 @@ class MasterCoreControllerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         SetTestMode()
+        SetUpTestInjections(memory_files={})
 
     def test_input_module_type(self):
-        SetUpTestInjections(memory_files={})
         with mock.patch.object(gateway.hal.master_controller_core, 'InputConfiguration',
                                return_value=get_input_dummy(1)):
             controller = get_core_controller_dummy()
@@ -25,7 +30,6 @@ class MasterCoreControllerTest(unittest.TestCase):
             self.assertEquals('I', data)
 
     def test_load_input(self):
-        SetUpTestInjections(memory_files={})
         controller = get_core_controller_dummy()
         with mock.patch.object(gateway.hal.master_controller_core, 'InputConfiguration',
                                return_value=get_input_dummy(1)):
@@ -33,7 +37,6 @@ class MasterCoreControllerTest(unittest.TestCase):
             self.assertEquals(data['id'], 1)
 
     def test_load_input_with_fields(self):
-        SetUpTestInjections(memory_files={})
         controller = get_core_controller_dummy()
         with mock.patch.object(gateway.hal.master_controller_core, 'InputConfiguration',
                                return_value=get_input_dummy(1)):
@@ -43,14 +46,12 @@ class MasterCoreControllerTest(unittest.TestCase):
             self.assertNotIn('name', data)
 
     def test_load_input_with_invalid_type(self):
-        SetUpTestInjections(memory_files={})
         controller = get_core_controller_dummy()
         with mock.patch.object(gateway.hal.master_controller_core, 'InputConfiguration',
                                return_value=get_input_dummy(1, module_type='O')):
             self.assertRaises(TypeError, controller.load_input, 1)
 
     def test_load_inputs(self):
-        SetUpTestInjections(memory_files={})
         input_modules = map(get_input_dummy, xrange(1, 17))
         controller = get_core_controller_dummy({'output': 0, 'input': 2})
         with mock.patch.object(gateway.hal.master_controller_core, 'InputConfiguration',
@@ -59,7 +60,6 @@ class MasterCoreControllerTest(unittest.TestCase):
             self.assertEqual([x['id'] for x in inputs], range(1, 17))
 
     def test_load_inputs_skips_invalid_type(self):
-        SetUpTestInjections(memory_files={})
         input_modules = map(get_input_dummy, xrange(1, 9))
         input_modules += map(lambda i: get_input_dummy(i, module_type='O'), xrange(9, 17))
         controller = get_core_controller_dummy({'output': 0, 'input': 2})
@@ -69,7 +69,6 @@ class MasterCoreControllerTest(unittest.TestCase):
             self.assertNotIn(10, [x['id'] for x in inputs])
 
     def test_save_inputs(self):
-        SetUpTestInjections(memory_files={})
         controller = get_core_controller_dummy()
         data = [{'id': 1, 'name': 'foo', 'module_type': 'I'},
                 {'id': 2, 'name': 'bar', 'module_type': 'I'}]
@@ -80,6 +79,37 @@ class MasterCoreControllerTest(unittest.TestCase):
             self.assertIn(mock.call({'id': 1, 'name': 'foo'}), deserialize.call_args_list)
             self.assertIn(mock.call({'id': 2, 'name': 'bar'}), deserialize.call_args_list)
             save.assert_called_with()
+
+    def test_event_consumer(self):
+        with mock.patch.object(gateway.hal.master_controller_core, 'BackgroundConsumer',
+                               return_value=None) as new_consumer:
+            get_core_controller_dummy()
+            expected_call = mock.call(CoreAPI.event_information(), 0, mock.ANY)
+            self.assertIn(expected_call, new_consumer.call_args_list)
+
+    def test_subscribe_input_events(self):
+        consumer_list = []
+
+        def new_consumer(*args):
+            consumer = BackgroundConsumer(*args)
+            consumer_list.append(consumer)
+            return consumer
+
+        subscriber = mock.Mock()
+        with mock.patch.object(gateway.hal.master_controller_core, 'BackgroundConsumer',
+                               side_effect=new_consumer) as new_consumer:
+            controller = get_core_controller_dummy()
+        controller.subscribe_event(subscriber.callback)
+        new_consumer.assert_called()
+        event_data = {'type': 1, 'action': 1, 'device_nr': 2,
+                      'data': {}}
+        with mock.patch.object(Queue, 'get', return_value=event_data):
+            consumer_list[0].deliver()
+        expected_event = MasterEvent.deserialize({'type': 'INPUT_CHANGE',
+                                                  'data': {'id': 2,
+                                                           'status': True,
+                                                           'location': {'room_id': 255}}})
+        subscriber.callback.assert_called_with(expected_event)
 
 
 class MasterCoreControllerCompatibilityTest(unittest.TestCase):
