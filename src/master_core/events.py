@@ -27,12 +27,24 @@ class Event(object):
         OUTPUT = 'OUTPUT'
         INPUT = 'INPUT'
         SENSOR = 'SENSOR'
+        THERMOSTAT = 'THERMOSTAT'
+        SYSTEM = 'SYSTEM'
         UNKNOWN = 'UNKNOWN'
 
     class SensorType(object):
         TEMPERATURE = 'TEMPERATURE'
         HUMIDITY = 'HUMIDITY'
         BRIGHTNESS = 'BRIGHTNESS'
+        UNKNOWN = 'UNKNOWN'
+
+    class SystemEventTypes(object):
+        EEPROM_ACTIVATE = 'EEPROM_ACTIVATE'
+        ONBOARD_TEMP_CHANGED = 'ONBOARD_TEMP_CHANGED'
+        UNKNOWN = 'UNKNOWN'
+
+    class ThermostatOrigins(object):
+        SLAVE = 'SLAVE'
+        MASTER = 'MASTER'
         UNKNOWN = 'UNKNOWN'
 
     def __init__(self, data):
@@ -45,7 +57,9 @@ class Event(object):
     def type(self):
         type_map = {0: Event.Types.OUTPUT,
                     1: Event.Types.INPUT,
-                    2: Event.Types.SENSOR}
+                    2: Event.Types.SENSOR,
+                    20: Event.Types.THERMOSTAT,
+                    254: Event.Types.SYSTEM}
         return type_map.get(self._type, Event.Types.UNKNOWN)
 
     @property
@@ -86,6 +100,21 @@ class Event(object):
             return {'sensor': self._device_nr,
                     'type': sensor_type,
                     'value': sensor_value}
+        if self.type == Event.Types.THERMOSTAT:
+            origin_map = {0: Event.ThermostatOrigins.SLAVE,
+                          1: Event.ThermostatOrigins.MASTER}
+            return {'origin': origin_map.get(self._action, Event.ThermostatOrigins.UNKNOWN),
+                    'thermostat': self._device_nr,
+                    'mode': self._data[0],
+                    'setpoint': self._data[1]}
+        if self.type == Event.Types.SYSTEM:
+            type_map = {0: Event.SystemEventTypes.EEPROM_ACTIVATE,
+                        1: Event.SystemEventTypes.ONBOARD_TEMP_CHANGED}
+            event_type = type_map.get(self._action, Event.SystemEventTypes.UNKNOWN)
+            event_data = {'type': event_type}
+            if event_type == Event.SystemEventTypes.ONBOARD_TEMP_CHANGED:
+                event_data['temperature'] = self._data[0]
+            return event_data
         return None
 
     @staticmethod

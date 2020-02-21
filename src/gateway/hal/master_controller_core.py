@@ -26,7 +26,7 @@ from master_core.core_communicator import BackgroundConsumer
 from master_core.events import Event as MasterCoreEvent
 from master_core.errors import Error
 from master_core.memory_file import MemoryTypes
-from master_core.memory_models import InputConfiguration, OutputConfiguration, SensorConfiguration
+from master_core.memory_models import GlobalConfiguration, InputConfiguration, OutputConfiguration, SensorConfiguration
 from serial_utils import CommunicationTimedOutException
 
 logger = logging.getLogger("openmotics")
@@ -138,6 +138,38 @@ class MasterCoreController(MasterController):
     def start(self):
         super(MasterCoreController, self).start()
         self._synchronization_thread.start()
+        self._log_stats()
+
+    def _log_stats(self):
+        def _default_if_255(value, default):
+            return value if value != 255 else default
+
+        max_specs = self._master_communicator.do_command(CoreAPI.general_configuration_max_specs(), {})
+        general_configuration = GlobalConfiguration()
+        logger.info('General core information:')
+        logger.info('* Modules:')
+        logger.info('  * Output: {0}/{1}'.format(_default_if_255(general_configuration.number_of_output_modules, 0),
+                                                 max_specs['output']))
+        logger.info('  * Input: {0}/{1}'.format(_default_if_255(general_configuration.number_of_input_modules, 0),
+                                                max_specs['input']))
+        logger.info('  * Sensor: {0}/{1}'.format(_default_if_255(general_configuration.number_of_sensor_modules, 0),
+                                                 max_specs['sensor']))
+        logger.info('  * uCAN: {0}/{1}'.format(_default_if_255(general_configuration.number_of_ucan_modules, 0),
+                                               max_specs['ucan']))
+        logger.info('  * CAN Control: {0}'.format(_default_if_255(general_configuration.number_of_can_control_modules, 0)))
+        logger.info('* CAN:')
+        logger.info('  * Inputs: {0}'.format(general_configuration.number_of_can_inputs))
+        logger.info('  * Sensors: {0}'.format(general_configuration.number_of_can_sensors))
+        logger.info('* Scan times:')
+        logger.info('  * General bus: {0}ms'.format(_default_if_255(general_configuration.scan_time_rs485_bus, 8)))
+        logger.info('  * Sensor modules: {0}ms'.format(_default_if_255(general_configuration.scan_time_rs485_sensor_modules, 50) * 100))
+        logger.info('  * CAN Control modules: {0}ms'.format(_default_if_255(general_configuration.scan_time_rs485_can_control_modules, 50) * 100))
+        logger.info('* Runtime stats:')
+        logger.info('  * Uptime: {0}d {1}h'.format(general_configuration.uptime_hours / 24,
+                                                   general_configuration.uptime_hours % 24))
+        # noinspection PyStringFormat
+        logger.info('  * Started at 20{0}/{1}/{2} {3}:{4}:{5}'.format(*(list(reversed(general_configuration.startup_date)) +
+                                                                        general_configuration.startup_time)))
 
     ##############
     # Public API #

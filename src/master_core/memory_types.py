@@ -195,7 +195,7 @@ class GlobalMemoryModelDefinition(MemoryModelDefinition):
     """
 
     def __init__(self):
-        super(MemoryModelDefinition).__init__(id=None)
+        super(GlobalMemoryModelDefinition, self).__init__(None)
 
 
 class MemoryFieldContainer(object):
@@ -325,13 +325,32 @@ class MemoryWordField(MemoryField):
 
     @classmethod
     def encode(cls, value):
-        if not (0 <= value <= 65535):
-            raise ValueError('Value {0} out of limits: 0 <= value <= 65535'.format(value))
+        max_value = 2 ** 16 -1
+        if not (0 <= value <= max_value):
+            raise ValueError('Value {0} out of limits: 0 <= value <= {1}'.format(value, max_value))
         return [value / 256, value % 256]
 
     @classmethod
     def decode(cls, data):
         return (data[0] * 256) + data[1]
+
+
+class Memory3BytesField(MemoryField):
+    def __init__(self, memory_type, address_spec):
+        super(Memory3BytesField, self).__init__(memory_type, address_spec, 3)
+
+    @classmethod
+    def encode(cls, value):
+        max_value = 2 ** 24 - 1
+        if not (0 <= value < max_value):
+            raise ValueError('Value {0} out of limits: 0 <= value <= {1}'.format(value, max_value))
+        ms_byte = value / (256 * 256)
+        rest = value % (256 * 256)
+        return [ms_byte, rest / 256, rest % 256]
+
+    @classmethod
+    def decode(cls, data):
+        return (data[0] * 256 * 266) + (data[1] * 256) + data[2]
 
 
 class MemoryByteArrayField(MemoryField):
