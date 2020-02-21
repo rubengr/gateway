@@ -22,17 +22,19 @@ import ujson as json
 from ioc import Injectable, Inject, INJECTED, Singleton
 from threading import Thread
 from platform_utils import Platform
-from gateway.hal.master_controller import MasterEvent
+from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
-from master.inputs import InputStatus
 from master import master_api
 from bus.om_bus_events import OMBusEvents
+
+if False:  # MYPY
+    from typing import Any, Dict, List
 
 if Platform.get_platform() == Platform.Type.CLASSIC:
     from master.master_communicator import CommunicationTimedOutException
 else:
     # TODO: Replace for the Core+
-    class CommunicationTimedOutException(Exception):
+    class CommunicationTimedOutException(Exception):  # type: ignore
         pass
 
 logger = logging.getLogger("openmotics")
@@ -81,7 +83,6 @@ class Observer(object):
     # TODO: Needs to be removed and replace by MasterEvents from the MasterController
     class LegacyMasterEvents(object):
         ON_SHUTTER_UPDATE = 'ON_SHUTTER_UPDATE'
-        ON_INPUT_CHANGE = 'INPUT_CHANGE'
         ONLINE = 'ONLINE'
 
     class Types(object):
@@ -101,24 +102,19 @@ class Observer(object):
         :type shutter_controller: gateway.shutters.ShutterController
         """
         self._master_communicator = master_communicator
-        self._master_controller = master_controller
+        self._master_controller = master_controller  # type: MasterController
         self._message_client = message_client
         self._gateway_api = None
 
         self._master_subscriptions = {Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE: [],
-                                      Observer.LegacyMasterEvents.ON_INPUT_CHANGE: [],
                                       Observer.LegacyMasterEvents.ONLINE: []}
         self._event_subscriptions = []
 
-        self._input_status = InputStatus(on_input_change=self._input_changed)
         self._shutter_controller = shutter_controller
         self._shutter_controller.set_shutter_changed_callback(self._shutter_changed)
 
         self._master_controller.subscribe_event(self._master_event)
 
-        self._input_interval = 300
-        self._input_last_updated = 0
-        self._input_config = {}
         self._shutters_interval = 600
         self._shutters_last_updated = 0
         self._master_online = False
@@ -167,6 +163,7 @@ class Observer(object):
         self._master_controller.invalidate_caches()
 
     def _monitor(self):
+        # type: () -> None
         """ Monitors certain system states to detect changes without events """
         while True:
             try:
@@ -174,9 +171,6 @@ class Observer(object):
                 # Refresh if required
                 if self._shutters_last_updated + self._shutters_interval < time.time():
                     self._refresh_shutters()
-                    self._set_master_state(True)
-                if self._input_last_updated + self._input_interval < time.time():
-                    self._refresh_inputs()
                     self._set_master_state(True)
                 self._register_background_consumers()
                 time.sleep(1)
@@ -214,19 +208,8 @@ class Observer(object):
             if Platform.get_platform() == Platform.Type.CLASSIC:
                 # This import/code will eventually be migrated away to MasterControllers
                 from master.master_communicator import BackgroundConsumer
-                self._master_communicator.register_consumer(BackgroundConsumer(master_api.input_list(self._master_version), 0, self._on_input))
                 self._master_communicator.register_consumer(BackgroundConsumer(master_api.shutter_status(self._master_version), 0, self._on_shutter_update))
                 self._background_consumers_registered = True
-
-    # Handle master "events"
-
-    def _on_input(self, data):
-        """ Triggers when the master informs us of an Input state change """
-        # Update status tracker
-        self._input_status.set_input(data)
-        # Notify subscribers
-        for callback in self._master_subscriptions[Observer.LegacyMasterEvents.ON_INPUT_CHANGE]:
-            callback(data)
 
     def _on_shutter_update(self, data):
         """ Triggers when the master informs us of an Shutter state change """
@@ -241,6 +224,10 @@ class Observer(object):
         Triggers when the MasterController generates events
         :type master_event: gateway.hal.master_controller.MasterEvent
         """
+        if master_event.type == MasterEvent.Types.INPUT_CHANGE:
+            for callback in self._event_subscriptions:
+                callback(Event(event_type=Event.Types.INPUT_CHANGE,
+                               data=master_event.data))
         if master_event.type == MasterEvent.Types.OUTPUT_CHANGE:
             self._message_client.send_event(OMBusEvents.OUTPUT_CHANGE, {'id': master_event.data['id']})
             for callback in self._event_subscriptions:
@@ -261,48 +248,14 @@ class Observer(object):
     # Inputs
 
     def get_inputs(self):
+        # type: () -> List[Dict[str,Any]]
         """ Returns a list of Inputs with their status """
-        self._ensure_gateway_api()
-        return self._input_status.get_inputs()
+        return self._master_controller.get_inputs_with_status()
 
     def get_recent(self):
+        # type: () -> List[int]
         """ Returns a list of recently changed inputs """
-        self._ensure_gateway_api()
-        return self._input_status.get_recent()
-
-    def _input_changed(self, input_id, status):
-        """ Executed by the Input Status tracker when an input changed state """
-        for callback in self._event_subscriptions:
-            resp_data = {'id': input_id,
-                         'status': status,
-                         'location': {'room_id': self._input_config[input_id].get('room', 255)}}
-            callback(Event(event_type=Event.Types.INPUT_CHANGE, data=resp_data))
-
-    def _refresh_inputs(self):
-        """ Refreshes the Input Status tracker """
-        # 1. refresh input configuration
-        self._input_config = {input_configuration['id']: input_configuration for input_configuration in self._gateway_api.get_input_configurations()}
-        # 2. poll for latest input status
-        try:
-            number_of_input_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['in']
-            inputs = []
-            for i in xrange(number_of_input_modules):
-                # we could be dealing with e.g. a temperature module, skip those
-                module_type = self._gateway_api.get_input_module_type(input_module_id=i)
-                if module_type not in ['i', 'I']:
-                    continue
-                result = self._master_communicator.do_command(master_api.read_input_module(self._master_version), {'input_module_nr': i})
-                module_status = result['input_status']
-                # module_status byte contains bits for each individual input, use mask and bitshift to get status
-                for n in xrange(8):
-                    input_nr = i * 8 + n
-                    input_status = module_status & (1 << n) != 0
-                    data = {'input': input_nr, 'status': input_status}
-                    inputs.append(data)
-            self._input_status.full_update(inputs)
-        except NotImplementedError as e:
-            logger.error('Cannot refresh inputs: {}'.format(e))
-        self._input_last_updated = time.time()
+        return self._master_controller.get_recent_inputs()
 
     # Shutters
 

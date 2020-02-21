@@ -438,9 +438,17 @@ class BackgroundConsumer(object):
         self._callback = callback
         self._queue = Queue()
 
-        self._callback_thread = Thread(target=self.deliver, name='CoreCommunicator BackgroundConsumer delivery thread')
+        self._callback_thread = Thread(target=self._consumer, name='CoreCommunicator BackgroundConsumer delivery thread')
         self._callback_thread.setDaemon(True)
         self._callback_thread.start()
+
+    def _consumer(self):
+        while True:
+            try:
+                self.deliver()
+            except Exception:
+                logger.exception('Unexpected exception delivering background consumer data')
+                time.sleep(1)
 
     def get_header(self):
         """ Get the prefix of the answer from the Core. """
@@ -453,9 +461,4 @@ class BackgroundConsumer(object):
 
     def deliver(self):
         """ Deliver data to the callback functions. """
-        while True:
-            try:
-                self._callback(self._queue.get())
-            except Exception:
-                logger.exception('Unexpected exception delivering background consumer data')
-                time.sleep(1)
+        self._callback(self._queue.get())

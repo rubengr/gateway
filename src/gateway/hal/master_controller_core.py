@@ -29,6 +29,9 @@ from master_core.memory_file import MemoryTypes
 from master_core.memory_models import GlobalConfiguration, InputConfiguration, OutputConfiguration, SensorConfiguration
 from serial_utils import CommunicationTimedOutException
 
+if False:  # MYPY
+    from typing import Any, Dict, List
+
 logger = logging.getLogger("openmotics")
 
 
@@ -48,6 +51,7 @@ class MasterCoreController(MasterController):
         self._memory_files = memory_files
         self._synchronization_thread = Thread(target=self._synchronize, name='CoreMasterSynchronization')
         self._master_online = False
+        self._input_state = MasterInputState()
         self._output_interval = 600
         self._output_last_updated = 0
         self._output_states = {}
@@ -70,20 +74,26 @@ class MasterCoreController(MasterController):
     #################
 
     def _handle_event(self, data):
+        # type: (Dict[str,Any]) -> None
         core_event = MasterCoreEvent(data)
         logger.info('Got master event: {0}'.format(core_event))
         if core_event.type == MasterCoreEvent.Types.OUTPUT:
             # Update internal state cache
-            self._output_states[core_event.data['output']] = {'id': core_event.data['output'],
-                                                              'status': 1 if core_event.data['status'] else 0,
-                                                              'ctimer': core_event.data['timer_value'],
-                                                              'dimmer': core_event.data['dimmer_value']}
+            output_id = core_event.data['output']
+            self._output_states[output_id] = {'id': output_id,
+                                              'status': 1 if core_event.data['status'] else 0,
+                                              'ctimer': core_event.data['timer_value'],
+                                              'dimmer': core_event.data['dimmer_value']}
             # Generate generic event
             event = MasterEvent(event_type=MasterEvent.Types.OUTPUT_CHANGE,
                                 data={'id': core_event.data['output'],
                                       'status': {'on': core_event.data['status'],
                                                  'value': core_event.data['dimmer_value']},
                                       'location': {'room_id': 255}})  # TODO: Missing room
+            for callback in self._event_callbacks:
+                callback(event)
+        elif core_event.type == MasterCoreEvent.Types.INPUT:
+            event = self._input_state.handle_event(core_event)
             for callback in self._event_callbacks:
                 callback(event)
         elif core_event.type == MasterCoreEvent.Types.SENSOR:
@@ -93,9 +103,12 @@ class MasterCoreController(MasterController):
             self._sensor_states[sensor_id][core_event.data['type']] = core_event.data['value']
 
     def _synchronize(self):
+        # type: () -> None
         while True:
             try:
                 # Refresh if required
+                if self._refresh_input_states():
+                    self._set_master_state(True)
                 if self._output_last_updated + self._output_interval < time.time():
                     self._refresh_output_states()
                     self._set_master_state(True)
@@ -176,6 +189,8 @@ class MasterCoreController(MasterController):
     ##############
 
     def invalidate_caches(self):
+        # type: () -> None
+        self._input_last_updated = 0
         self._output_last_updated = 0
 
     def get_firmware_version(self):
@@ -194,6 +209,14 @@ class MasterCoreController(MasterController):
     def get_input_module_type(self, input_module_id):
         input_module = InputConfiguration(input_module_id)
         return input_module.module.device_type
+
+    def get_inputs_with_status(self):
+        # type: () -> List[Dict[str,Any]]
+        return self._input_state.get_inputs()
+
+    def get_recent_inputs(self):
+        # type: () -> List[int]
+        return self._input_state.get_recent()
 
     def load_input(self, input_module_id, fields=None):
         input_module = InputConfiguration(input_module_id)
@@ -218,6 +241,17 @@ class MasterCoreController(MasterController):
                         'name': input_data['name']}
             input_module = InputConfiguration.deserialize(new_data)
             input_module.save()
+
+    def _refresh_input_states(self):
+        # type: () -> bool
+        refresh = self._input_state.should_refresh()
+        if refresh:
+            cmd = CoreAPI.device_information_list_inputs()
+            data = self._master_communicator.do_command(cmd, {})
+            for event in self._input_state.refresh(data['information']):
+                for callback in self._event_callbacks:
+                    callback(event)
+        return refresh
 
     # Outputs
 
@@ -283,6 +317,7 @@ class MasterCoreController(MasterController):
         amount_output_modules = self._master_communicator.do_command(CoreAPI.general_configuration_number_of_modules(), {})['output']
         for i in xrange(amount_output_modules * 8):
             state = self._master_communicator.do_command(CoreAPI.output_detail(), {'device_nr': i})
+            # TODO: also trigger callback when status changed without an event.
             self._output_states[i] = {'id': i,
                                       'status': state['status'],  # 1 or 0
                                       'ctimer': state['timer'],
@@ -451,3 +486,91 @@ class MasterCoreController(MasterController):
 
     def set_all_lights_floor_on(self, floor):
         raise NotImplementedError()
+
+
+class MasterInputState(object):
+    def __init__(self, interval=300):
+        # type: (int) -> None
+        self._interval = interval
+        self._last_updated = 0  # type: float
+        self._values = {}  # type: Dict[int,MasterInputValue]
+
+    def get_inputs(self):
+        # type: () -> List[Dict[str,Any]]
+        return [x.serialize() for x in self._values.values()]
+
+    def get_recent(self):
+        # type: () -> List[int]
+        sorted_inputs = sorted(self._values.values(), key=lambda x: x.changed_at)
+        recent_events = [x.input_id for x in sorted_inputs
+                         if x.changed_at > time.time() - 10]
+        return recent_events[-5:]
+
+    def handle_event(self, core_event):
+        # type: (MasterCoreEvent) -> MasterEvent
+        value = MasterInputValue.from_core_event(core_event)
+        if value.input_id not in self._values:
+            self._values[value.input_id] = value
+        self._values[value.input_id].update(value)
+        return value.master_event()
+
+    def should_refresh(self):
+        # type: () -> bool
+        return self._last_updated + self._interval < time.time()
+
+    def refresh(self, info):
+        # type: (List[int]) -> List[MasterEvent]
+        events = []
+        for i, byte in enumerate(info):
+            for j in xrange(0, 8):
+                current_status = byte >> j & 0x1
+                input_id = (i * 8) + j
+                if input_id not in self._values:
+                    self._values[input_id] = MasterInputValue(input_id, current_status)
+                state = self._values[input_id]
+                if state.update_status(current_status):
+                    events.append(state.master_event())
+        self._last_updated = time.time()
+        return events
+
+
+class MasterInputValue(object):
+    def __init__(self, input_id, status, changed_at=0):
+        # type: (int, int, float) -> None
+        self.input_id = input_id
+        self.status = status
+        self.changed_at = changed_at
+
+    @classmethod
+    def from_core_event(cls, event):
+        # type: (MasterCoreEvent) -> MasterInputValue
+        status = 1 if event.data['status'] else 0
+        changed_at = time.time()
+        return cls(event.data['input'], status, changed_at=changed_at)
+
+    def serialize(self):
+        # type: () -> Dict[str,Any]
+        return {'id': self.input_id, 'status': self.status}  # TODO: output?
+
+    def update(self, other_value):
+        # type: (MasterInputValue) -> None
+        self.update_status(other_value.status)
+
+    def update_status(self, current_status):
+        # type: (int) -> bool
+        is_changed = self.status != current_status
+        if is_changed:
+            self.status = current_status
+            self.changed_at = time.time()
+        return is_changed
+
+    def master_event(self):
+        # type: () -> MasterEvent
+        return MasterEvent(event_type=MasterEvent.Types.INPUT_CHANGE,
+                           data={'id': self.input_id,
+                                 'status': bool(self.status),
+                                 'location': {'room_id': 255}})  # TODO: missing room
+
+    def __repr__(self):
+        # type: () -> str
+        return '<MasterInputValue {} {} {}>'.format(self.input_id, self.status, self.changed_at)

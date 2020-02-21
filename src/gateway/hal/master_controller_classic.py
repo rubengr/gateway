@@ -24,9 +24,13 @@ from gateway.maintenance_communicator import InMaintenanceModeException
 from master import master_api, eeprom_models
 from master.eeprom_controller import EepromAddress
 from master.eeprom_models import SensorConfiguration
+from master.inputs import InputStatus
 from master.outputs import OutputStatus
 from master.master_communicator import BackgroundConsumer
 from serial_utils import CommunicationTimedOutException
+
+if False:  # MYPY
+    from typing import Any, Dict, List
 
 logger = logging.getLogger("openmotics")
 
@@ -44,14 +48,22 @@ class MasterClassicController(MasterController):
         super(MasterClassicController, self).__init__(master_communicator)
         self._eeprom_controller = eeprom_controller
 
+        self._input_status = InputStatus(on_input_change=self._input_changed)
         self._output_status = OutputStatus(on_output_change=self._output_changed)
         self._synchronization_thread = Thread(target=self._synchronize, name='ClassicMasterSynchronization')
         self._master_version = None
         self._master_online = False
+        self._input_interval = 300
+        self._input_last_updated = 0
+        self._input_config = {}
         self._output_interval = 600
         self._output_last_updated = 0
         self._output_config = {}
 
+        self._master_communicator.register_consumer(
+            BackgroundConsumer(master_api.input_list(self._master_version), 0,
+                               self._on_master_input_change)
+        )
         self._master_communicator.register_consumer(
             BackgroundConsumer(master_api.output_list(), 0, self._on_master_output_change, True)
         )
@@ -61,12 +73,16 @@ class MasterClassicController(MasterController):
     #################
 
     def _synchronize(self):
+        # type: () -> None
         while True:
             try:
                 self._get_master_version()
                 # Refresh if required
                 if self._output_last_updated + self._output_interval < time.time():
                     self._refresh_outputs()
+                    self._set_master_state(True)
+                if self._input_last_updated + self._input_interval < time.time():
+                    self._refresh_inputs()
                     self._set_master_state(True)
                 time.sleep(1)
             except CommunicationTimedOutException:
@@ -79,6 +95,7 @@ class MasterClassicController(MasterController):
             except Exception as ex:
                 logger.exception('Unexpected error during synchronization: {0}'.format(ex))
                 time.sleep(10)
+
 
     def _get_master_version(self):
         if self._master_version is None:
@@ -123,6 +140,14 @@ class MasterClassicController(MasterController):
         o = self._eeprom_controller.read(eeprom_models.InputConfiguration, input_module_id * 8, ['module_type'])
         return o.module_type
 
+    def get_inputs_with_status(self):
+        # type: () -> List[Dict[str,Any]]
+        return self._input_status.get_inputs()
+
+    def get_recent_inputs(self):
+        # type: () -> List[int]
+        return self._input_status.get_recent()
+
     def load_input(self, input_id, fields=None):
         o = self._eeprom_controller.read(eeprom_models.InputConfiguration, input_id, fields)
         if o.module_type not in ['i', 'I']:  # Only return 'real' inputs
@@ -136,6 +161,39 @@ class MasterClassicController(MasterController):
     def save_inputs(self, inputs, fields=None):
         self._eeprom_controller.write_batch([eeprom_models.InputConfiguration.deserialize(input_)
                                              for input_ in inputs])
+
+    def _refresh_inputs(self):
+        # type: () -> None
+        # 1. refresh input configuration
+        self._input_config = {input_configuration['id']: input_configuration
+                              for input_configuration in self.load_inputs()}
+        # 2. poll for latest input status
+        try:
+            number_of_input_modules = self._master_communicator.do_command(master_api.number_of_io_modules())['in']
+            inputs = []
+            for i in xrange(number_of_input_modules):
+                # we could be dealing with e.g. a temperature module, skip those
+                module_type = self.get_input_module_type(i)
+                if module_type not in ['i', 'I']:
+                    continue
+                result = self._master_communicator.do_command(master_api.read_input_module(self._master_version), {'input_module_nr': i})
+                module_status = result['input_status']
+                # module_status byte contains bits for each individual input, use mask and bitshift to get status
+                for n in xrange(8):
+                    input_nr = i * 8 + n
+                    input_status = module_status & (1 << n) != 0
+                    data = {'input': input_nr, 'status': input_status}
+                    inputs.append(data)
+            self._input_status.full_update(inputs)
+        except NotImplementedError as e:
+            logger.error('Cannot refresh inputs: {}'.format(e))
+        self._input_last_updated = time.time()
+
+    def _on_master_input_change(self, data):
+        # type: (Dict[str,Any]) -> None
+        """ Triggers when the master informs us of an Input state change """
+        # Update status tracker
+        self._input_status.set_input(data)
 
     # Outputs
 
@@ -219,6 +277,15 @@ class MasterClassicController(MasterController):
 
     def get_output_status(self, output_id):
         return self._output_status.get_output(output_id)
+
+    def _input_changed(self, input_id, status):
+        # type: (int, str) -> None
+        """ Executed by the Input Status tracker when an input changed state """
+        for callback in self._event_callbacks:
+            event_data = {'id': input_id,
+                          'status': status,
+                          'location': {'room_id': self._input_config[input_id].get('room', 255)}}
+            callback(MasterEvent(event_type=MasterEvent.Types.INPUT_CHANGE, data=event_data))
 
     def _refresh_outputs(self):
         self._output_config = self.load_outputs()
@@ -726,4 +793,3 @@ class MasterClassicController(MasterController):
 
     def save_sensors(self, config):
         self._eeprom_controller.write_batch([eeprom_models.SensorConfiguration.deserialize(o) for o in config])
-

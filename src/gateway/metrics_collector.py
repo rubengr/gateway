@@ -204,6 +204,7 @@ class MetricsCollector(object):
             time.sleep(sleep)
 
     def process_observer_event(self, event):
+        # type: (ObserverEvent) -> None
         if event.type == ObserverEvent.Types.OUTPUT_CHANGE:
             output_id = event.data['id']
             output = self._environment['outputs'].get(output_id)
@@ -211,7 +212,9 @@ class MetricsCollector(object):
                 output.update({'status': 1 if event.data['status']['on'] else 0,
                                'dimmer': int(event.data['status'].get('value', 0))})
                 self._process_outputs([output_id], 'output')
-        # TODO: Replace `on_input` by this event handler
+        if event.type == ObserverEvent.Types.INPUT_CHANGE:
+            event_id = event.data['id']
+            self._process_input(event_id, event.data.get('status'))
 
     def _process_outputs(self, output_ids, metric_type):
         try:
@@ -239,9 +242,6 @@ class MetricsCollector(object):
                                           timestamp=now)
         except Exception as ex:
             logger.exception('Error processing outputs {0}: {1}'.format(output_ids, ex))
-
-    def on_input(self, data):
-        self._process_input(data['input'], data.get('status'))
 
     def _process_input(self, input_id, status):
         try:

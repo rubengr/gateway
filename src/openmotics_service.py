@@ -196,7 +196,6 @@ class OpenmoticsService(object):
         observer.subscribe_events(event_sender.enqueue_event)
 
         # TODO: make sure all subscribers only subscribe to the observer, not master directly
-        observer.subscribe_master(Observer.LegacyMasterEvents.ON_INPUT_CHANGE, metrics_collector.on_input)
         observer.subscribe_master(Observer.LegacyMasterEvents.ON_SHUTTER_UPDATE, plugin_controller.process_shutter_status)
 
         maintenance_controller.subscribe_maintenance_stopped(gateway_api.maintenance_mode_stopped)
