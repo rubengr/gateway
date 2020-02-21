@@ -5,7 +5,7 @@ try:
     import ujson as json
 except ImportError:
     # This is the case when the plugin runtime is unittested
-    import json
+    import json  # type: ignore
 
 
 def _load_webinterface():
