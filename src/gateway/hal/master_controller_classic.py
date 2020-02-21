@@ -145,7 +145,7 @@ class MasterClassicController(MasterController):
         return self._input_status.get_inputs()
 
     def get_recent_inputs(self):
-        # type: () -> List[Dict[str,Any]]
+        # type: () -> List[int]
         return self._input_status.get_recent()
 
     def load_input(self, input_id, fields=None):

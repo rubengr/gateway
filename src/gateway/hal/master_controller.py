@@ -19,7 +19,7 @@ import ujson as json
 from exceptions import NotImplementedError
 
 if False:  # MYPY
-    from typing import Any, Dict, List
+    from typing import Any, Callable, Dict, List
 
 
 class MasterEvent(object):
@@ -68,7 +68,7 @@ class MasterController(object):
 
     def __init__(self, master_communicator):
         self._master_communicator = master_communicator
-        self._event_callbacks = []
+        self._event_callbacks = []  # type: List[Callable[[MasterEvent],None]]
 
     #######################
     # Internal management #
@@ -126,7 +126,7 @@ class MasterController(object):
         raise NotImplementedError()
 
     def get_recent_inputs(self):
-        # type: () -> List[Dict[str,Any]]
+        # type: () -> List[int]
         raise NotImplementedError()
 
     # Outputs

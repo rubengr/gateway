@@ -1,3 +1,4 @@
+import time
 import unittest
 from Queue import Queue
 
@@ -79,6 +80,25 @@ class MasterCoreControllerTest(unittest.TestCase):
             self.assertIn(mock.call({'id': 1, 'name': 'foo'}), deserialize.call_args_list)
             self.assertIn(mock.call({'id': 2, 'name': 'bar'}), deserialize.call_args_list)
             save.assert_called_with()
+
+    def test_inputs_with_status(self):
+        controller = get_core_controller_dummy()
+        from gateway.hal.master_controller_core import MasterInputState
+        controller._input_states = {1: MasterInputState(1, 0),
+                                    2: MasterInputState(2, 1)}
+        states = controller.get_inputs_with_status()
+        self.assertIn({'id': 1, 'status': 0}, states)
+        self.assertIn({'id': 2, 'status': 1}, states)
+
+    def test_recent_inputs(self):
+        controller = get_core_controller_dummy()
+        from gateway.hal.master_controller_core import MasterInputState
+        controller._input_states = {1: MasterInputState(1, 0, changed_at=10),  # old
+                                    2: MasterInputState(2, 1, changed_at=30)}
+        with mock.patch.object(time, 'time', return_value=30):
+            states = controller.get_recent_inputs()
+            self.assertIn(2, states)
+            self.assertNotIn(1, states)
 
     def test_event_consumer(self):
         with mock.patch.object(gateway.hal.master_controller_core, 'BackgroundConsumer',

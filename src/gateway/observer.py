@@ -253,7 +253,7 @@ class Observer(object):
         return self._master_controller.get_inputs_with_status()
 
     def get_recent(self):
-        # type: () -> List[Dict[str,Any]]
+        # type: () -> List[int]
         """ Returns a list of recently changed inputs """
         return self._master_controller.get_recent_inputs()
 
