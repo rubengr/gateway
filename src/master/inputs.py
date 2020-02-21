@@ -20,6 +20,9 @@ import time
 import logging
 from threading import Lock
 
+if False:  # MYPY
+    from typing import Any, Dict, List
+
 logger = logging.getLogger("openmotics")
 
 
@@ -37,11 +40,16 @@ class InputStatus(object):
         self._state_change_lock = Lock()
         self._on_input_change = on_input_change
 
+    def _sorted_inputs(self):
+        return sorted(self._inputs_status.itervalues(),
+                      key=lambda x: x.get('last_status_change'))
+
     def get_recent(self):
+        # type: () -> List[int]
         """ Get the last n triggered inputs. """
         last_inputs = []
         threshold = time.time() - self._seconds
-        for input_nr, current_state in self._inputs_status.iteritems():
+        for current_state in self._sorted_inputs():
             last_status_change = current_state.get('last_status_change')
             if last_status_change > threshold:
                 last_inputs.append(current_state['id'])
@@ -76,6 +84,7 @@ class InputStatus(object):
             self._inputs_status[input_id] = current_state
 
     def get_inputs(self):
+        # type: () -> List[Dict[str,Any]]
         """ Get the inputs status. """
         inputs = []
         for input_nr, current_state in self._inputs_status.iteritems():
