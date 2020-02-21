@@ -22,6 +22,9 @@ import inspect
 import logging
 import threading
 
+if False:  # MYPY
+    from typing import Any
+
 _IN_TEST_MODE = False
 _TEST_SCOPE = None
 
@@ -408,10 +411,13 @@ def _CheckAlreadyInjected(name):
                          (name, curr_scope.name))
 
 
-def Injectable(f):
+def _Injectable(f):
     """Decorates a callable and creates an injectable in the current Scope."""
     _CheckAlreadyInjected(f.__name__)
     return _CurrentScope().Injectable(f)
+
+
+Injectable = _Injectable  # type: Any
 
 
 def _InjectableNamed(name):
@@ -451,7 +457,7 @@ def _InjectableValue(**kwargs):
 Injectable.value = _InjectableValue
 
 
-def Singleton(f):
+def _Singleton(f):
     """Decorates a callable and sets it as a singleton.
 
     Must be used in conjunction with a call to Injectable.
@@ -463,6 +469,9 @@ def Singleton(f):
     """
     f.ioc_singleton = True
     return f
+
+
+Singleton = _Singleton  # type: Any
 
 
 def _EagerSingleton(f):
