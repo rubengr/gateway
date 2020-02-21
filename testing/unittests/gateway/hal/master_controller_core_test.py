@@ -84,21 +84,16 @@ class MasterCoreControllerTest(unittest.TestCase):
     def test_inputs_with_status(self):
         controller = get_core_controller_dummy()
         from gateway.hal.master_controller_core import MasterInputState
-        controller._input_states = {1: MasterInputState(1, 0),
-                                    2: MasterInputState(2, 1)}
-        states = controller.get_inputs_with_status()
-        self.assertIn({'id': 1, 'status': 0}, states)
-        self.assertIn({'id': 2, 'status': 1}, states)
+        with mock.patch.object(MasterInputState, 'get_inputs', return_value=[]) as get:
+            controller.get_inputs_with_status()
+            get.assert_called_with()
 
     def test_recent_inputs(self):
         controller = get_core_controller_dummy()
         from gateway.hal.master_controller_core import MasterInputState
-        controller._input_states = {1: MasterInputState(1, 0, changed_at=10),  # old
-                                    2: MasterInputState(2, 1, changed_at=30)}
-        with mock.patch.object(time, 'time', return_value=30):
-            states = controller.get_recent_inputs()
-            self.assertIn(2, states)
-            self.assertNotIn(1, states)
+        with mock.patch.object(MasterInputState, 'get_recent', return_value=[]) as get:
+            controller.get_recent_inputs()
+            get.assert_called_with()
 
     def test_event_consumer(self):
         with mock.patch.object(gateway.hal.master_controller_core, 'BackgroundConsumer',
@@ -147,6 +142,77 @@ class MasterCoreControllerCompatibilityTest(unittest.TestCase):
         classic = get_classic_controller_dummy([input_module])
         classic_data = classic.load_input(1)
         self.assertEqual(classic_data, core_data)
+
+
+class MasterInputState(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        SetTestMode()
+
+    def test_handle_event(self):
+        from gateway.hal.master_controller_core import MasterCoreEvent, MasterInputState
+        state = MasterInputState()
+        core_event = MasterCoreEvent({'type': 1, 'action': 1, 'device_nr': 2, 'data': {}})
+        with mock.patch.object(time, 'time', return_value=30):
+            event = state.handle_event(core_event)
+            expected_data = {'type': 'INPUT_CHANGE',
+                             'data': {'id': 2,
+                                      'status': True,
+                                      'location': {'room_id': 255}}}
+            self.assertEqual(expected_data, event.serialize())
+            self.assertIn({'id': 2, 'status': 1}, state.get_inputs())
+
+    def test_refresh(self):
+        from gateway.hal.master_controller_core import MasterCoreEvent, MasterInputState
+        state = MasterInputState(interval=10)
+        core_events = [
+            MasterCoreEvent({'type': 1, 'action': 1, 'device_nr': 1, 'data': {}}),
+            MasterCoreEvent({'type': 1, 'action': 0, 'device_nr': 2, 'data': {}}),
+        ]
+        with mock.patch.object(time, 'time', return_value=30):
+            for core_event in core_events:
+                state.handle_event(core_event)
+            self.assertTrue(state.should_refresh())
+            events = state.refresh([0b00000110])
+            self.assertEqual(1, len(events))
+            expected_event = MasterEvent(event_type=MasterEvent.Types.INPUT_CHANGE,
+                                         data={'id': 2,
+                                               'status': True,
+                                               'location': {'room_id': 255}})
+            self.assertIn(expected_event, events)
+            self.assertFalse(state.should_refresh())
+
+            events = state.refresh([0b00000110])
+            self.assertEqual([], events)
+
+        with mock.patch.object(time, 'time', return_value=60):
+            self.assertTrue(state.should_refresh())
+
+    def test_recent(self):
+        from gateway.hal.master_controller_core import MasterCoreEvent, MasterInputState, MasterInputValue
+        state = MasterInputState()
+        with mock.patch.object(time, 'time', return_value=0):
+            core_event = MasterCoreEvent({'type': 1, 'action': 1, 'device_nr': 1, 'data': {}})
+            state.handle_event(core_event)
+            self.assertEqual([1], state.get_recent())
+
+        with mock.patch.object(time, 'time', return_value=30):
+            for i in xrange(2, 10):
+                core_event = MasterCoreEvent({'type': 1, 'action': 1, 'device_nr': i, 'data': {}})
+                state.handle_event(core_event)
+            devices = state.get_recent()
+            self.assertEqual(5, len(devices))
+            self.assertNotIn(1, devices)
+
+        with mock.patch.object(time, 'time', return_value=60):
+            self.assertEqual(0, len(state.get_recent()))
+
+        with mock.patch.object(time, 'time', return_value=60):
+            state.handle_event(MasterCoreEvent({'type': 1, 'action': 0, 'device_nr': 1, 'data': {}}))
+            state.handle_event(MasterCoreEvent({'type': 1, 'action': 1, 'device_nr': 2, 'data': {}}))
+            devices = state.get_recent()
+            self.assertIn(1, devices)
+            self.assertNotIn(2, devices)
 
 
 @Scope
