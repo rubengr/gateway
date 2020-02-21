@@ -64,15 +64,24 @@ class MemoryTypesTest(unittest.TestCase):
         self._test_field(MemoryByteField, [[[], -1, ValueError],
                                            [[], 0, [0]],
                                            [[], 20, [20]],
-                                           [[], 255, [255]],
-                                           [[], 256, ValueError]])
+                                           [[], 2 ** 8 - 1, [255]],
+                                           [[], 2 ** 8, ValueError]])
 
     def test_word_field(self):
         self._test_field(MemoryWordField, [[[], -1, ValueError],
                                            [[], 0, [0, 0]],
-                                           [[], 256, [1, 0]],
-                                           [[], 65535, [255, 255]],
-                                           [[], 65536, ValueError]])
+                                           [[], 2 ** 8, [1, 0]],
+                                           [[], 2 ** 16 - 1, [255, 255]],
+                                           [[], 2 ** 16, ValueError]])
+
+    def test_3bytes_field(self):
+        self._test_field(Memory3BytesField, [[[], -1, ValueError],
+                                             [[], 0, [0, 0, 0]],
+                                             [[], 2 ** 8, [0, 1, 0]],
+                                             [[], 2 ** 16 - 1, [0, 255, 255]],
+                                             [[], 2 ** 16, [1, 0, 0]],
+                                             [[], 2 ** 24 - 1, [255, 255, 255]],
+                                             [[], 2 ** 24, ValueError]])
 
     def test_bytearray_field(self):
         self._test_field(MemoryByteArrayField, [[[1], [-1], ValueError],

@@ -19,6 +19,7 @@ from master_core.memory_file import MemoryTypes
 from master_core.memory_types import (MemoryModelDefinition, GlobalMemoryModelDefinition,
                                       MemoryRelation,
                                       MemoryByteField, MemoryWordField, MemoryAddressField, MemoryStringField, MemoryVersionField, MemoryBasicActionField,
+                                      MemoryByteArrayField, Memory3BytesField,
                                       CompositeMemoryModelDefinition, CompositeNumberField, CompositeBitField)
 
 
@@ -38,6 +39,9 @@ class GlobalConfiguration(GlobalMemoryModelDefinition):
     groupaction_minutes_changed = MemoryWordField(MemoryTypes.EEPROM, address_spec=(0, 54))  # 0, 54-55
     groupaction_hours_changed = MemoryWordField(MemoryTypes.EEPROM, address_spec=(0, 56))  # 0, 56-57
     groupaction_day_changed = MemoryWordField(MemoryTypes.EEPROM, address_spec=(0, 58))  # 0, 58-59
+    startup_time = MemoryByteArrayField(MemoryTypes.FRAM, address_spec=(0, 64), length=3)  # 0, 64-66
+    startup_date = MemoryByteArrayField(MemoryTypes.FRAM, address_spec=(0, 67), length=3)  # 0, 67-69
+    uptime_hours = Memory3BytesField(MemoryTypes.FRAM, address_spec=(0, 70))  # 0, 70-72
 
 
 class OutputModuleConfiguration(MemoryModelDefinition):
