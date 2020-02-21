@@ -16,10 +16,11 @@
 Tests for InputStatus.
 """
 
-import unittest
-import xmlrunner
 import time
+import unittest
 
+import mock
+import xmlrunner
 from master.inputs import InputStatus
 
 
@@ -28,27 +29,47 @@ class InputStatusTest(unittest.TestCase):
 
     def test_add(self):
         """ Test adding data to the InputStatus. """
-        inps = InputStatus(5, 300)
+        inps = InputStatus()
         inps.set_input({'input': 1, 'status': 1})
-        self.assertEquals([1], inps.get_recent())
+        states = [{k: v for k, v in x.items() if k in ('id', 'status')}
+                  for x in inps.get_inputs()]
+        self.assertEqual(len(states), 1)
+        self.assertIn({'id': 1, 'status': True}, states)
 
         inps.set_input({'input': 2, 'status': 1})
-        self.assertEquals([1, 2], inps.get_recent())
+        states = [{k: v for k, v in x.items() if k in ('id', 'status')}
+                  for x in inps.get_inputs()]
+        self.assertEqual(len(states), 2)
+        self.assertIn({'id': 2, 'status': True}, states)
+        self.assertIn({'id': 1, 'status': True}, states)
 
-        inps.set_input({'input': 3, 'status': 1})
-        self.assertEquals([1, 2, 3], inps.get_recent())
+        inps.set_input({'input': 3, 'status': 0})
+        states = [{k: v for k, v in x.items() if k in ('id', 'status')}
+                  for x in inps.get_inputs()]
+        self.assertEqual(len(states), 3)
+        self.assertIn({'id': 3, 'status': False}, states)
+        self.assertIn({'id': 1, 'status': True}, states)
 
-        inps.set_input({'input': 4, 'status': 1})
-        self.assertEquals([1, 2, 3, 4], inps.get_recent())
+    def test_get_recent(self):
+        """ Test adding data to the InputStatus. """
+        inps = InputStatus()
+        with mock.patch.object(time, 'time', return_value=10):
+            inps.set_input({'input': 1, 'status': 1})
+            self.assertEqual([1], inps.get_recent())
 
-        inps.set_input({'input': 5, 'status': 1})
-        self.assertEquals([1, 2, 3, 4, 5], inps.get_recent())
+        with mock.patch.object(time, 'time', return_value=30):
+            for i in xrange(2, 10):
+                inps.set_input({'input': i, 'status': 1})
+            self.assertEqual(5, len(inps.get_recent()))
 
-        inps.set_input({'input': 6, 'status': 1})
-        self.assertEquals([2, 3, 4, 5, 6], inps.get_recent())
+        with mock.patch.object(time, 'time', return_value=60):
+            self.assertEqual(0, len(inps.get_recent()))
 
-        inps.set_input({'input': 7, 'status': 1})
-        self.assertEquals([3, 4, 5, 6, 7], inps.get_recent())
+        with mock.patch.object(time, 'time', return_value=35):
+            inps.set_input({'input': 1, 'status': 0})
+            inps.set_input({'input': 2, 'status': 1})
+            self.assertIn(1, inps.get_recent())
+            self.assertNotIn(2, inps.get_recent())
 
     def test_on_changed(self):
         changed = []
