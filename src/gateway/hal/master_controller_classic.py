@@ -697,7 +697,7 @@ class MasterClassicController(MasterController):
         """ Gets module information """
 
         def get_master_version(eeprom_address, _is_can=False):
-            _module_address = self.__eeprom_controller.read_address(eeprom_address)
+            _module_address = self._eeprom_controller.read_address(eeprom_address)
             formatted_address = '{0:03}.{1:03}.{2:03}.{3:03}'.format(ord(_module_address.bytes[0]),
                                                                      ord(_module_address.bytes[1]),
                                                                      ord(_module_address.bytes[2]),
@@ -719,10 +719,10 @@ class MasterClassicController(MasterController):
         # Master slave modules
         no_modules = self._master_communicator.do_command(master_api.number_of_io_modules())
         for i in range(no_modules['in']):
-            is_can = self.__eeprom_controller.read_address(EepromAddress(2 + i, 252, 1)).bytes == 'C'
+            is_can = self._eeprom_controller.read_address(EepromAddress(2 + i, 252, 1)).bytes == 'C'
             version_info = get_master_version(EepromAddress(2 + i, 0, 4), is_can)
             module_address, hardware_version, firmware_version = version_info
-            module_type = self.__eeprom_controller.read_address(EepromAddress(2 + i, 0, 1)).bytes
+            module_type = self._eeprom_controller.read_address(EepromAddress(2 + i, 0, 1)).bytes
             information[module_address] = {'type': module_type,
                                            'hardware': hardware_version,
                                            'firmware': firmware_version,
@@ -731,7 +731,7 @@ class MasterClassicController(MasterController):
         for i in range(no_modules['out']):
             version_info = get_master_version(EepromAddress(33 + i, 0, 4))
             module_address, hardware_version, firmware_version = version_info
-            module_type = self.__eeprom_controller.read_address(EepromAddress(33 + i, 0, 1)).bytes
+            module_type = self._eeprom_controller.read_address(EepromAddress(33 + i, 0, 1)).bytes
             information[module_address] = {'type': module_type,
                                            'hardware': hardware_version,
                                            'firmware': firmware_version,
@@ -739,7 +739,7 @@ class MasterClassicController(MasterController):
         for i in range(no_modules['shutter']):
             version_info = get_master_version(EepromAddress(33 + i, 173, 4))
             module_address, hardware_version, firmware_version = version_info
-            module_type = self.__eeprom_controller.read_address(EepromAddress(33 + i, 173, 1)).bytes
+            module_type = self._eeprom_controller.read_address(EepromAddress(33 + i, 173, 1)).bytes
             information[module_address] = {'type': module_type,
                                            'hardware': hardware_version,
                                            'firmware': firmware_version,
