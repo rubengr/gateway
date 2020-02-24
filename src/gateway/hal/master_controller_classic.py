@@ -17,7 +17,7 @@ Module for communicating with the Master
 """
 import logging
 import time
-from threading import Thread
+from threading import Thread, Timer
 from ioc import Injectable, Inject, INJECTED, Singleton
 from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
@@ -30,7 +30,7 @@ from master.master_communicator import BackgroundConsumer
 from serial_utils import CommunicationTimedOutException
 
 if False:  # MYPY
-    from typing import Any, Dict, List
+    from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("openmotics")
 
@@ -60,12 +60,18 @@ class MasterClassicController(MasterController):
         self._output_last_updated = 0
         self._output_config = {}
 
+        self._discover_mode_timer = None  # type: Optional[Timer]
+        self._module_log = []  # type: List[Tuple[str,str]]
+
         self._master_communicator.register_consumer(
             BackgroundConsumer(master_api.input_list(self._master_version), 0,
                                self._on_master_input_change)
         )
         self._master_communicator.register_consumer(
             BackgroundConsumer(master_api.output_list(), 0, self._on_master_output_change, True)
+        )
+        self.__master_communicator.register_consumer(
+            BackgroundConsumer(master_api.module_initialize(), 0, self._update_modules)
         )
 
     #################
@@ -472,7 +478,7 @@ class MasterClassicController(MasterController):
             try:
                 if _is_can or _module_address.bytes[0].lower() == _module_address.bytes[0]:
                     return formatted_address, None, None
-                _module_version = self.__master_communicator.do_command(master_api.get_module_version(),
+                _module_version = self._master_communicator.do_command(master_api.get_module_version(),
                                                                         {'addr': _module_address.bytes},
                                                                         extended_crc=True,
                                                                         timeout=1)
@@ -484,7 +490,7 @@ class MasterClassicController(MasterController):
         information = {}
 
         # Master slave modules
-        no_modules = self.__master_communicator.do_command(master_api.number_of_io_modules())
+        no_modules = self._master_communicator.do_command(master_api.number_of_io_modules())
         for i in range(no_modules['in']):
             is_can = self.__eeprom_controller.read_address(EepromAddress(2 + i, 252, 1)).bytes == 'C'
             version_info = get_master_version(EepromAddress(2 + i, 0, 4), is_can)
@@ -617,6 +623,62 @@ class MasterClassicController(MasterController):
         self._eeprom_controller.invalidate_cache()
 
         return {'output': ret}
+
+    # Module functions
+
+    def _update_modules(self, api_data):
+        # type: (Dict[str,Any]) -> None
+        """ Create a log entry when the MI message is received. """
+        module_map = {'O': 'output', 'I': 'input', 'T': 'temperature', 'D': 'dimmer'}
+        message_map = {'N': 'New %s module found.',
+                       'E': 'Existing %s module found.',
+                       'D': 'The %s module tried to register but the registration failed, '
+                            'please presse the init button again.'}
+        default_message = 'Unknown module type %s discovered.'
+        log_level_map = {'N': 'INFO', 'E': 'WARN', 'D': 'ERROR'}
+        default_level = log_level_map['D']
+
+        module_type = module_map.get(api_data['id'][0])
+        message = message_map.get(api_data['instr'], default_message) % module_type
+        log_level = log_level_map.get(api_data['instr'], default_level)
+
+        self._module_log.append((log_level, message))
+
+    def module_discover_start(self, timeout):
+        # type: (int) -> Dict[str,Any]
+        def _stop(): self.module_discover_stop()
+
+        ret = self._master_communicator.do_command(master_api.module_discover_start())
+
+        if self._discover_mode_timer is not None:
+            self._discover_mode_timer.cancel()
+        self._discover_mode_timer = Timer(timeout, _stop)
+        self._discover_mode_timer.start()
+
+        self._module_log = []
+
+        return {'status': ret['resp']}
+
+    def module_discover_stop(self):
+        # type: () -> Dict[str,Any]
+        if self._discover_mode_timer is not None:
+            self._discover_mode_timer.cancel()
+            self._discover_mode_timer = None
+
+        self._eeprom_controller.invalidate_cache()
+        self._eeprom_controller.dirty = True
+        ret = self._master_communicator.do_command(master_api.module_discover_stop())
+        self._module_log = []
+        return {'status': ret['resp']}
+
+    def module_discover_status(self):
+        # type: () -> Dict[str,bool]
+        return {'running': self._discover_mode_timer is not None}
+
+    def get_module_log(self):
+        # type: () -> Dict[str,Any]
+        (log, self._module_log) = (self._module_log, [])
+        return {'log': log}
 
     # Error functions
 

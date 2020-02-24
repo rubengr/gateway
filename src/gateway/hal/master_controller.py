@@ -241,6 +241,24 @@ class MasterController(object):
     def factory_reset(self):
         raise NotImplementedError()
 
+    # Module functions
+
+    def module_discover_start(self, timeout):
+        # type: (int) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def module_discover_stop(self):
+        # type: () -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def module_discover_status(self):
+        # type: () -> Dict[str,bool]
+        raise NotImplementedError()
+
+    def get_module_log(self):
+        # type: () -> Dict[str,Any]
+        raise NotImplementedError()
+
     # Error functions
 
     def error_list(self):

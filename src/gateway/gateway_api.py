@@ -36,8 +36,9 @@ from subprocess import check_output
 from threading import Timer, Thread
 from platform_utils import Platform
 from serial_utils import CommunicationTimedOutException
-from gateway.observer import Observer
+from gateway.hal.master_controller import MasterController
 from gateway.maintenance_communicator import InMaintenanceModeException
+from gateway.observer import Observer
 from master import master_api
 from power import power_api
 from master.eeprom_controller import EepromAddress
@@ -46,6 +47,9 @@ from master.eeprom_models import SensorConfiguration, GroupActionConfiguration, 
     ShutterConfiguration, ShutterGroupConfiguration, DimmerConfiguration, \
     CanLedConfiguration, RoomConfiguration
 from bus.om_bus_events import OMBusEvents
+
+if False:  # MYPY:
+    from typing import Any, Dict
 
 logger = logging.getLogger('openmotics')
 
@@ -96,7 +100,7 @@ class GatewayApi(object):
         :type shutter_controller: gateway.shutters.ShutterController
         """
         self.__master_communicator = master_communicator
-        self.__master_controller = master_controller
+        self.__master_controller = master_controller  # type: MasterController
         self.__config_controller = configuration_controller
         self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
@@ -108,16 +112,12 @@ class GatewayApi(object):
         self.__shutter_controller = shutter_controller
 
         self.__discover_mode_timer = None
-
         self.__module_log = []
 
         self.__previous_on_outputs = set()
 
         if Platform.get_platform() == Platform.Type.CLASSIC:
             from master.master_communicator import BackgroundConsumer
-            self.__master_communicator.register_consumer(
-                BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
-            )
             self.__master_communicator.register_consumer(
                 BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
             )
@@ -419,72 +419,43 @@ class GatewayApi(object):
 
     # Master module functions
 
-    def __update_modules(self, api_data):
-        """ Create a log entry when the MI message is received. """
-        module_map = {'O': 'output', 'I': 'input', 'T': 'temperature', 'D': 'dimmer'}
-        message_map = {'N': 'New %s module found.',
-                       'E': 'Existing %s module found.',
-                       'D': 'The %s module tried to register but the registration failed, '
-                            'please presse the init button again.'}
-        log_level_map = {'N': 'INFO', 'E': 'WARN', 'D': 'ERROR'}
-
-        module_type = module_map.get(api_data['id'][0])
-        message = message_map.get(api_data['instr']) % module_type
-        log_level = log_level_map.get(api_data['instr'])
-
-        self.__module_log.append((log_level, message))
-
     def module_discover_start(self, timeout=900):
+        # type: (int) -> Dict[str,Any]
         """ Start the module discover mode on the master.
 
         :returns: dict with 'status' ('OK').
         """
-        ret = self.__master_communicator.do_command(master_api.module_discover_start())
-
-        if self.__discover_mode_timer is not None:
-            self.__discover_mode_timer.cancel()
-
-        self.__discover_mode_timer = Timer(timeout, self.module_discover_stop)
-        self.__discover_mode_timer.start()
-
-        self.__module_log = []
-
-        return {'status': ret['resp']}
+        return self.__master_controller.module_discover_start(timeout)
 
     def module_discover_stop(self):
+        # type: () -> Dict[str,Any]
         """ Stop the module discover mode on the master.
 
         :returns: dict with 'status' ('OK').
         """
-        if self.__discover_mode_timer is not None:
-            self.__discover_mode_timer.cancel()
-            self.__discover_mode_timer = None
+        status = self.__master_controller.module_discover_stop()
 
-        ret = self.__master_communicator.do_command(master_api.module_discover_stop())
-
-        self.__module_log = []
-        self.__eeprom_controller.invalidate_cache()
-        self.__eeprom_controller.dirty = True
         self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
         self.__observer.invalidate_cache()
 
-        return {'status': ret['resp']}
+        return status
 
     def module_discover_status(self):
+        # type: () -> Dict[str,bool]
         """ Gets the status of the module discover mode on the master.
 
         :returns dict with 'running': True|False
         """
-        return {'running': self.__discover_mode_timer is not None}
+        return self.__master_controller.module_discover_status()
 
     def get_module_log(self):
+        # type: () -> Dict[str,Any]
         """ Get the log messages from the module discovery mode. This returns the current log
         messages and clear the log messages.
 
         :returns: dict with 'log' (list of tuples (log_level, message)).
         """
-        (module_log, self.__module_log) = (self.__module_log, [])
-        return {'log': module_log}
+        return self.__master_controller.get_module_log()
 
     def get_modules(self):
         # TODO: do we want to include non-master managed "modules" ? e.g. plugin outputs
