@@ -15,8 +15,9 @@
 """
 Module for communicating with the Master
 """
-import ujson as json
 from exceptions import NotImplementedError
+
+import ujson as json
 
 if False:  # MYPY
     from typing import Any, Callable, Dict, List
@@ -79,6 +80,9 @@ class MasterController(object):
 
     def stop(self):
         self._master_communicator.stop()
+
+    def set_plugin_controller(self, plugin_controller):
+        raise NotImplementedError()
 
     #################
     # Subscriptions #
@@ -295,4 +299,3 @@ class MasterController(object):
 
     def set_all_lights_floor_on(self, floor):
         raise NotImplementedError()
-

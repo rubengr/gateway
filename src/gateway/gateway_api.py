@@ -17,36 +17,30 @@ The GatewayApi defines high level functions, these are used by the interface
 and call the master_api to complete the actions.
 """
 
-import os
-import time
-import threading
-import datetime
-import math
-import sqlite3
-import constants
-import logging
+import ConfigParser
 import glob
+import logging
+import math
+import os
 import shutil
+import sqlite3
 import subprocess
 import tempfile
-import ConfigParser
-import ujson as json
-from ioc import Injectable, Inject, INJECTED, Singleton
-from subprocess import check_output
-from threading import Timer, Thread
-from platform_utils import Platform
-from serial_utils import CommunicationTimedOutException
-from gateway.hal.master_controller import MasterController
-from gateway.maintenance_communicator import InMaintenanceModeException
-from gateway.observer import Observer
-from master import master_api
-from power import power_api
-from master.eeprom_controller import EepromAddress
-from master.eeprom_models import SensorConfiguration, GroupActionConfiguration, \
-    ScheduledActionConfiguration, StartupActionConfiguration, \
-    ShutterConfiguration, ShutterGroupConfiguration, DimmerConfiguration, \
-    CanLedConfiguration, RoomConfiguration
+import threading
+
+import constants
 from bus.om_bus_events import OMBusEvents
+from gateway.hal.master_controller import MasterController
+from gateway.observer import Observer
+from ioc import INJECTED, Inject, Injectable, Singleton
+from master import master_api
+from master.eeprom_models import CanLedConfiguration, DimmerConfiguration, \
+    GroupActionConfiguration, RoomConfiguration, \
+    ScheduledActionConfiguration, ShutterConfiguration, \
+    ShutterGroupConfiguration, StartupActionConfiguration
+from platform_utils import Platform
+from power import power_api
+from serial_utils import CommunicationTimedOutException
 
 if False:  # MYPY:
     from typing import Any, Dict
@@ -74,7 +68,7 @@ class GatewayApi(object):
 
     @Inject
     def __init__(self,
-                 master_communicator=INJECTED, master_controller=INJECTED, power_communicator=INJECTED,
+                 master_controller=INJECTED, power_communicator=INJECTED,
                  power_controller=INJECTED, eeprom_controller=INJECTED, pulse_controller=INJECTED,
                  message_client=INJECTED, observer=INJECTED, configuration_controller=INJECTED, shutter_controller=INJECTED):
         """
@@ -99,39 +93,24 @@ class GatewayApi(object):
         :param shutter_controller: Shutter Controller
         :type shutter_controller: gateway.shutters.ShutterController
         """
-        self.__master_communicator = master_communicator
         self.__master_controller = master_controller  # type: MasterController
         self.__config_controller = configuration_controller
         self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
         self.__power_controller = power_controller
         self.__pulse_controller = pulse_controller
-        self.__plugin_controller = None
         self.__message_client = message_client
         self.__observer = observer
         self.__shutter_controller = shutter_controller
 
-        self.__discover_mode_timer = None
-        self.__module_log = []
-
         self.__previous_on_outputs = set()
-
-        if Platform.get_platform() == Platform.Type.CLASSIC:
-            from master.master_communicator import BackgroundConsumer
-            self.__master_communicator.register_consumer(
-                BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
-            )
 
     def start(self):
         pass
 
     def set_plugin_controller(self, plugin_controller):
-        """
-        Set the plugin controller.
-        :param plugin_controller: Plugin controller
-        :type plugin_controller: plugins.base.PluginController
-        """
-        self.__plugin_controller = plugin_controller
+        """ Set the plugin controller. """
+        self.__master_controller.set_plugin_controller(plugin_controller)
 
     def master_online_event(self, online):
         if online:
@@ -161,14 +140,6 @@ class GatewayApi(object):
             return path[20:]
         except Exception:
             return 'UTC'
-
-    def __event_triggered(self, ev_output):
-        # type: (Dict[str,Any]) -> None
-        """ Handle an event triggered by the master. """
-        code = ev_output['code']
-
-        if self.__plugin_controller is not None:
-            self.__plugin_controller.process_event(code)
 
     def maintenance_mode_stopped(self):
         """ Called when maintenance mode is stopped """

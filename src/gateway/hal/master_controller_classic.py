@@ -28,7 +28,6 @@ from gateway.maintenance_communicator import InMaintenanceModeException
 from ioc import INJECTED, Inject, Injectable, Singleton
 from master import eeprom_models, master_api
 from master.eeprom_controller import EepromAddress
-from master.eeprom_models import SensorConfiguration
 from master.inputs import InputStatus
 from master.master_communicator import BackgroundConsumer
 from master.outputs import OutputStatus
@@ -45,7 +44,10 @@ logger = logging.getLogger("openmotics")
 class MasterClassicController(MasterController):
 
     @Inject
-    def __init__(self, master_communicator=INJECTED, configuration_controller=INJECTED, eeprom_controller=INJECTED):
+    def __init__(self,
+                 master_communicator=INJECTED,
+                 configuration_controller=INJECTED,
+                 eeprom_controller=INJECTED):
         """
         :type master_communicator: master.master_communicator.MasterCommunicator
         :type eeprom_controller: master.eeprom_controller.EepromController
@@ -53,6 +55,7 @@ class MasterClassicController(MasterController):
         super(MasterClassicController, self).__init__(master_communicator)
         self._config_controller = configuration_controller
         self._eeprom_controller = eeprom_controller
+        self._plugin_controller = None  # type: Optional[Any]
 
         self._input_status = InputStatus(on_input_change=self._input_changed)
         self._output_status = OutputStatus(on_output_change=self._output_changed)
@@ -78,6 +81,9 @@ class MasterClassicController(MasterController):
         )
         self._master_communicator.register_consumer(
             BackgroundConsumer(master_api.output_list(), 0, self._on_master_output_change, True)
+        )
+        self._master_communicator.register_consumer(
+            BackgroundConsumer(master_api.event_triggered(), 0, self._on_master_event, True)
         )
         self._master_communicator.register_consumer(
             BackgroundConsumer(master_api.module_initialize(), 0, self._update_modules)
@@ -318,6 +324,13 @@ class MasterClassicController(MasterController):
             self._master_communicator.do_command(master_api.activate_eeprom(), {'eep': 0})
         self.set_status_leds(True)
 
+    def _on_master_event(self, event_data):
+        # type: (Dict[str,Any]) -> None
+        """ Handle an event triggered by the master. """
+        code = event_data['code']
+        if self._plugin_controller is not None:
+            self._plugin_controller.process_event(code)
+
     #######################
     # Internal management #
     #######################
@@ -325,6 +338,14 @@ class MasterClassicController(MasterController):
     def start(self):
         super(MasterClassicController, self).start()
         self._synchronization_thread.start()
+
+    def set_plugin_controller(self, plugin_controller):
+        """
+        Set the plugin controller.
+        :param plugin_controller: Plugin controller
+        :type plugin_controller: plugins.base.PluginController
+        """
+        self._plugin_controller = plugin_controller
 
     ##############
     # Public API #
