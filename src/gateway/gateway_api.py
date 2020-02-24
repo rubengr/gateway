@@ -816,7 +816,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
         """
-        return self.__pulse_controller.get_configurations(fields)
+        if Platform.get_platform() == Platform.Type.CLASSIC:
+            return self.__pulse_controller.get_configurations(fields)
+        else:
+            return []  # TODO: implement
 
     def set_pulse_counter_configuration(self, config):
         """
@@ -1108,7 +1111,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(CanLedConfiguration, fields)]
+        if Platform.get_platform() == Platform.Type.CLASSIC:
+            return [o.serialize() for o in self.__eeprom_controller.read_all(CanLedConfiguration, fields)]
+        else:
+            return [] # TODO: implement
 
     def set_can_led_configuration(self, config):
         """

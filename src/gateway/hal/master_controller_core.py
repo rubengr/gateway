@@ -440,7 +440,12 @@ class MasterCoreController(MasterController):
         raise NotImplementedError()
 
     def get_status(self):
-        raise NotImplementedError()
+        # TODO: implement
+        return {'time': '%02d:%02d' % (0, 0),
+                'date': '%02d/%02d/%d' % (0, 0, 0),
+                'mode': 42,
+                'version': '%d.%d.%d' % (0, 0, 1),
+                'hw_version': 1}
 
     def reset(self):
         raise NotImplementedError()
@@ -449,7 +454,8 @@ class MasterCoreController(MasterController):
         raise NotImplementedError()
 
     def get_modules(self):
-        raise NotImplementedError()
+        # TODO: implement
+        return {'outputs': [], 'inputs': [], 'shutters': [], 'can_inputs': []}
 
     def get_modules_information(self):
         raise NotImplementedError()
