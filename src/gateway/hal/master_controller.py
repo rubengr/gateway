@@ -241,6 +241,10 @@ class MasterController(object):
     def factory_reset(self):
         raise NotImplementedError()
 
+    def sync_time(self):
+        # type: () -> None
+        raise NotImplementedError()
+
     # Module functions
 
     def module_discover_start(self, timeout):

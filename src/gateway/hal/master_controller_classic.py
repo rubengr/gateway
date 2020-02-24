@@ -16,17 +16,22 @@
 Module for communicating with the Master
 """
 import logging
+import os
 import time
+from datetime import datetime
+from subprocess import check_output
 from threading import Thread, Timer
-from ioc import Injectable, Inject, INJECTED, Singleton
+
+import ujson as json
 from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
-from master import master_api, eeprom_models
+from ioc import INJECTED, Inject, Injectable, Singleton
+from master import eeprom_models, master_api
 from master.eeprom_controller import EepromAddress
 from master.eeprom_models import SensorConfiguration
 from master.inputs import InputStatus
-from master.outputs import OutputStatus
 from master.master_communicator import BackgroundConsumer
+from master.outputs import OutputStatus
 from serial_utils import CommunicationTimedOutException
 
 if False:  # MYPY
@@ -40,16 +45,20 @@ logger = logging.getLogger("openmotics")
 class MasterClassicController(MasterController):
 
     @Inject
-    def __init__(self, master_communicator=INJECTED, eeprom_controller=INJECTED):
+    def __init__(self, master_communicator=INJECTED, configuration_controller=INJECTED, eeprom_controller=INJECTED):
         """
         :type master_communicator: master.master_communicator.MasterCommunicator
         :type eeprom_controller: master.eeprom_controller.EepromController
         """
         super(MasterClassicController, self).__init__(master_communicator)
+        self._config_controller = configuration_controller
         self._eeprom_controller = eeprom_controller
 
         self._input_status = InputStatus(on_input_change=self._input_changed)
         self._output_status = OutputStatus(on_output_change=self._output_changed)
+        self._communications_last_updated = 0.0
+        self._settings_last_updated = 0.0
+        self._time_last_updated = 0.0
         self._synchronization_thread = Thread(target=self._synchronize, name='ClassicMasterSynchronization')
         self._master_version = None
         self._master_online = False
@@ -70,7 +79,7 @@ class MasterClassicController(MasterController):
         self._master_communicator.register_consumer(
             BackgroundConsumer(master_api.output_list(), 0, self._on_master_output_change, True)
         )
-        self.__master_communicator.register_consumer(
+        self._master_communicator.register_consumer(
             BackgroundConsumer(master_api.module_initialize(), 0, self._update_modules)
         )
 
@@ -82,12 +91,23 @@ class MasterClassicController(MasterController):
         # type: () -> None
         while True:
             try:
+                now = time.time()
                 self._get_master_version()
+                # Validate communicator checks
+                if self._time_last_updated < now - 300:
+                    self._check_master_time()
+                    self._time_last_updated
+                if self._communications_last_updated < now - 60:
+                    self._check_master_communications()
+                    self._communications_last_updated = now
+                if self._settings_last_updated < now - 900:
+                    self._check_master_settings()
+                    self._settings_last_updated = now
                 # Refresh if required
-                if self._output_last_updated + self._output_interval < time.time():
+                if self._output_last_updated + self._output_interval < time:
                     self._refresh_outputs()
                     self._set_master_state(True)
-                if self._input_last_updated + self._input_interval < time.time():
+                if self._input_last_updated + self._input_interval < time:
                     self._refresh_inputs()
                     self._set_master_state(True)
                 time.sleep(1)
@@ -111,6 +131,192 @@ class MasterClassicController(MasterController):
     def _set_master_state(self, online):
         if online != self._master_online:
             self._master_online = online
+
+    def _check_master_time(self):
+        # type: () -> None
+        """
+        Validates the master's time with the Gateway time
+        """
+        status = self._master_communicator.do_command(master_api.status())
+        master_time = datetime(1, 1, 1, status['hours'], status['minutes'], status['seconds'])
+
+        now = datetime.now()
+        expected_weekday = now.weekday() + 1
+        expected_time = now.replace(year=1, month=1, day=1, microsecond=0)
+
+        sync = False
+        if abs((master_time - expected_time).total_seconds()) > 180:  # Allow 3 minutes difference
+            sync = True
+        if status['weekday'] != expected_weekday:
+            sync = True
+
+        if sync is True:
+            logger.info('Time - master: {0} ({1}) - gateway: {2} ({3})'.format(
+                master_time, status['weekday'], expected_time, expected_weekday)
+            )
+            if expected_time.hour == 0 and expected_time.minute < 15:
+                logger.info('Skip setting time between 00:00 and 00:15')
+            else:
+                self.sync_time()
+
+    def _check_master_communications(self):
+        # type: () -> None
+        communication_recovery = self._config_controller.get_setting('communication_recovery', {})
+        calls_timedout = self._master_communicator.get_communication_statistics()['calls_timedout']
+        calls_succeeded = self._master_communicator.get_communication_statistics()['calls_succeeded']
+        all_calls = sorted(calls_timedout + calls_succeeded)
+
+        if len(calls_timedout) == 0:
+            # If there are no timeouts at all
+            if len(calls_succeeded) > 30:
+                self._config_controller.remove_setting('communication_recovery')
+            return
+        if len(all_calls) <= 10:
+            # Not enough calls made to have a decent view on what's going on
+            return
+        if not any(t in calls_timedout for t in all_calls[-10:]):
+            # The last X calls are successfull
+            return
+        calls_last_x_minutes = [t for t in all_calls if t > time.time() - 180]
+        ratio = len([t for t in calls_last_x_minutes if t in calls_timedout]) / float(len(calls_last_x_minutes))
+        if ratio < 0.25:
+            # Less than 25% of the calls fail, let's assume everything is just "fine"
+            logger.warning('Noticed communication timeouts with the master, but there\'s only a failure ratio of {0:.2f}%.'.format(ratio * 100))
+            return
+
+        service_restart = None
+        master_reset = None
+        backoff = 300
+        # There's no successful communication.
+        if len(communication_recovery) == 0:
+            service_restart = 'communication_errors'
+        else:
+            last_service_restart = communication_recovery.get('service_restart')
+            if last_service_restart is None:
+                service_restart = 'communication_errors'
+            else:
+                backoff = last_service_restart['backoff']
+                if last_service_restart['time'] < time.time() - backoff:
+                    service_restart = 'communication_errors'
+                    backoff = min(1200, backoff * 2)
+                else:
+                    last_master_reset = communication_recovery.get('master_reset')
+                    if last_master_reset is None or last_master_reset['time'] < last_service_restart['time']:
+                        master_reset = 'communication_errors'
+
+        if service_restart is not None or master_reset is not None:
+            # Log debug information
+            try:
+                debug_buffer = self._master_communicator.get_debug_buffer()
+                debug_data = {'type': 'communication_recovery',
+                              'data': {'buffer': debug_buffer,
+                                       'calls': {'timedout': calls_timedout,
+                                                 'succeeded': calls_succeeded},
+                                       'action': 'service_restart' if service_restart is not None else 'master_reset'}}
+                with open('/tmp/debug_{0}.json'.format(int(time.time())), 'w') as recovery_file:
+                    json.dump(debug_data, fp=recovery_file, indent=4, sort_keys=True)
+                check_output("ls -tp /tmp/ | grep 'debug_.*json' | tail -n +10 | while read file; do rm -r /tmp/$file; done", shell=True)
+            except Exception as ex:
+                logger.error('Could not store debug file: {0}'.format(ex))
+
+        if service_restart is not None:
+            logger.fatal('Major issues in communication with master. Restarting service...')
+            communication_recovery['service_restart'] = {'reason': service_restart,
+                                                         'time': time.time(),
+                                                         'backoff': backoff}
+            self._config_controller.set_setting('communication_recovery', communication_recovery)
+            time.sleep(15)  # Wait a tad for the I/O to complete (both for DB changes as log flushing)
+            os._exit(1)
+        if master_reset is not None:
+            logger.fatal('Major issues in communication with master. Resetting master & service')
+            communication_recovery['master_reset'] = {'reason': master_reset,
+                                                      'time': time.time()}
+            self._config_controller.set_setting('communication_recovery', communication_recovery)
+            self.cold_reset()
+            time.sleep(5)  # Waiting for the master to come back online before restarting the service
+            os._exit(1)  # TODO: This can be removed once the master communicator can recover "alignment issues"
+
+    def _check_master_settings(self):
+        # type: () -> None
+        """
+        Checks master settings such as:
+        * Enable async messages
+        * Enable multi-tenancy
+        * Enable 32 thermostats
+        * Turn on all leds
+        """
+        eeprom_data = self._master_communicator.do_command(master_api.eeprom_list(),
+                                                           {'bank': 0})['data']
+        write = False
+
+        if eeprom_data[11] != chr(255):
+            logger.info('Disabling async RO messages.')
+            self._master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 11, 'data': chr(255)}
+            )
+            write = True
+
+        if eeprom_data[18] != chr(0):
+            logger.info('Enabling async OL messages.')
+            self._master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 18, 'data': chr(0)}
+            )
+            write = True
+
+        if eeprom_data[20] != chr(0):
+            logger.info('Enabling async IL messages.')
+            self._master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 20, 'data': chr(0)}
+            )
+            write = True
+
+        if eeprom_data[28] != chr(0):
+            logger.info('Enabling async SO messages.')
+            self._master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 28, 'data': chr(0)}
+            )
+            write = True
+
+        thermostat_mode = ord(eeprom_data[14])
+        if thermostat_mode & 64 == 0:
+            logger.info('Enabling multi-tenant thermostats.')
+            self._master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 14, 'data': chr(thermostat_mode | 64)}
+            )
+            write = True
+
+        if eeprom_data[59] != chr(32):
+            logger.info('Enabling 32 thermostats.')
+            self._master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 59, 'data': chr(32)}
+            )
+            write = True
+
+        if eeprom_data[24] != chr(0):
+            logger.info('Disable auto-reset thermostat setpoint')
+            self._master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 24, 'data': chr(0)}
+            )
+            write = True
+
+        if eeprom_data[13] != chr(0):
+            logger.info('Configure master startup mode to: API')
+            self._master_communicator.do_command(
+                master_api.write_eeprom(),
+                {'bank': 0, 'address': 13, 'data': chr(0)}
+            )
+            write = True
+
+        if write:
+            self._master_communicator.do_command(master_api.activate_eeprom(), {'eep': 0})
+        self.set_status_leds(True)
 
     #######################
     # Internal management #
@@ -623,6 +829,18 @@ class MasterClassicController(MasterController):
         self._eeprom_controller.invalidate_cache()
 
         return {'output': ret}
+
+    def sync_time(self):
+        # type: () -> None
+        logger.info('Setting the time on the master.')
+        now = datetime.now()
+        self._master_communicator.do_command(
+            master_api.set_time(),
+            {'sec': now.second, 'min': now.minute, 'hours': now.hour,
+             'weekday': now.isoweekday(), 'day': now.day, 'month': now.month,
+             'year': now.year % 100}
+        )
+
 
     # Module functions
 

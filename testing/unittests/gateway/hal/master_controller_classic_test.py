@@ -124,12 +124,12 @@ class MasterClassicControllerTest(unittest.TestCase):
 @Scope
 def get_classic_controller_dummy(inputs=None):
     from gateway.hal.master_controller_classic import MasterClassicController
-    from master.master_communicator import MasterCommunicator
-    master_mock = mock.Mock(MasterCommunicator)
     eeprom_mock = mock.Mock(EepromController)
     eeprom_mock.read.return_value = inputs[0] if inputs else []
     eeprom_mock.read_all.return_value = inputs
-    SetUpTestInjections(master_communicator=master_mock, eeprom_controller=eeprom_mock)
+    SetUpTestInjections(configuration_controller=mock.Mock(),
+                        master_communicator=mock.Mock(),
+                        eeprom_controller=eeprom_mock)
     return MasterClassicController()
 
 
