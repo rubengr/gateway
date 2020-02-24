@@ -78,7 +78,7 @@ class InputConfiguration(MemoryModelDefinition):
 
     class _DALIInputComposition(CompositeMemoryModelDefinition):
         lunatone_input_id = CompositeNumberField(start_bit=0, width=8, max_value=63)
-        elvar_input_id = CompositeNumberField(start_bit=0, width=8, max_value=63, value_offset=64)
+        helvar_input_id = CompositeNumberField(start_bit=0, width=8, max_value=63, value_offset=64)
 
     class _InputLink(CompositeMemoryModelDefinition):
         output_id = CompositeNumberField(start_bit=0, width=10)
