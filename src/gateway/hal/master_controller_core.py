@@ -18,15 +18,17 @@ Module for communicating with the Master
 import logging
 import time
 from threading import Thread
-from ioc import Injectable, Inject, INJECTED, Singleton
+
 from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
+from ioc import INJECTED, Inject, Injectable, Singleton
 from master_core.core_api import CoreAPI
 from master_core.core_communicator import BackgroundConsumer
-from master_core.events import Event as MasterCoreEvent
 from master_core.errors import Error
+from master_core.events import Event as MasterCoreEvent
 from master_core.memory_file import MemoryTypes
-from master_core.memory_models import GlobalConfiguration, InputConfiguration, OutputConfiguration, SensorConfiguration
+from master_core.memory_models import GlobalConfiguration, \
+    InputConfiguration, OutputConfiguration, SensorConfiguration
 from serial_utils import CommunicationTimedOutException
 
 if False:  # MYPY
@@ -152,6 +154,10 @@ class MasterCoreController(MasterController):
         super(MasterCoreController, self).start()
         self._synchronization_thread.start()
         self._log_stats()
+
+    def set_plugin_controller(self, plugin_controller):
+        """ Set the plugin controller. """
+        pass  # TODO: implement
 
     def _log_stats(self):
         def _default_if_255(value, default):
@@ -434,7 +440,12 @@ class MasterCoreController(MasterController):
         raise NotImplementedError()
 
     def get_status(self):
-        raise NotImplementedError()
+        # TODO: implement
+        return {'time': '%02d:%02d' % (0, 0),
+                'date': '%02d/%02d/%d' % (0, 0, 0),
+                'mode': 42,
+                'version': '%d.%d.%d' % (0, 0, 1),
+                'hw_version': 1}
 
     def reset(self):
         raise NotImplementedError()
@@ -443,7 +454,8 @@ class MasterCoreController(MasterController):
         raise NotImplementedError()
 
     def get_modules(self):
-        raise NotImplementedError()
+        # TODO: implement
+        return {'outputs': [], 'inputs': [], 'shutters': [], 'can_inputs': []}
 
     def get_modules_information(self):
         raise NotImplementedError()

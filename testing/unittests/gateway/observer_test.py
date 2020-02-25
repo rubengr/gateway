@@ -53,7 +53,8 @@ class ObserverTest(unittest.TestCase):
 
 @Scope
 def get_observer():
-    SetUpTestInjections(eeprom_controller=mock.Mock(),
+    SetUpTestInjections(configuration_controller=mock.Mock(),
+                        eeprom_controller=mock.Mock(),
                         master_communicator=mock.Mock())
     from gateway.hal.master_controller_classic import MasterClassicController
     master = MasterClassicController()

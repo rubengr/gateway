@@ -189,7 +189,7 @@ class MasterInputState(unittest.TestCase):
             self.assertTrue(state.should_refresh())
 
     def test_recent(self):
-        from gateway.hal.master_controller_core import MasterCoreEvent, MasterInputState, MasterInputValue
+        from gateway.hal.master_controller_core import MasterCoreEvent, MasterInputState
         state = MasterInputState()
         with mock.patch.object(time, 'time', return_value=0):
             core_event = MasterCoreEvent({'type': 1, 'action': 1, 'device_nr': 1, 'data': {}})
@@ -221,7 +221,8 @@ def get_core_controller_dummy(command_data=None):
     from master.master_communicator import MasterCommunicator
     communicator_mock = mock.Mock(MasterCommunicator)
     communicator_mock.do_command.return_value = command_data or {}
-    SetUpTestInjections(master_communicator=communicator_mock)
+    SetUpTestInjections(configuration_controller=mock.Mock(),
+                        master_communicator=communicator_mock)
     ucan_mock = UCANCommunicator()
     SetUpTestInjections(ucan_communicator=ucan_mock)
     return MasterCoreController()
@@ -229,13 +230,13 @@ def get_core_controller_dummy(command_data=None):
 
 @Scope
 def get_classic_controller_dummy(inputs):
-    from master.master_communicator import MasterCommunicator
     from gateway.hal.master_controller_classic import MasterClassicController
-    master_mock = mock.Mock(MasterCommunicator)
     eeprom_mock = mock.Mock(EepromController)
     eeprom_mock.read.return_value = inputs[0]
     eeprom_mock.read_all.return_value = inputs
-    SetUpTestInjections(master_communicator=master_mock, eeprom_controller=eeprom_mock)
+    SetUpTestInjections(configuration_controller=mock.Mock(),
+                        master_communicator=mock.Mock(),
+                        eeprom_controller=eeprom_mock)
     return MasterClassicController()
 
 

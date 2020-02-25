@@ -15,8 +15,9 @@
 """
 Module for communicating with the Master
 """
-import ujson as json
 from exceptions import NotImplementedError
+
+import ujson as json
 
 if False:  # MYPY
     from typing import Any, Callable, Dict, List
@@ -79,6 +80,9 @@ class MasterController(object):
 
     def stop(self):
         self._master_communicator.stop()
+
+    def set_plugin_controller(self, plugin_controller):
+        raise NotImplementedError()
 
     #################
     # Subscriptions #
@@ -241,6 +245,28 @@ class MasterController(object):
     def factory_reset(self):
         raise NotImplementedError()
 
+    def sync_time(self):
+        # type: () -> None
+        raise NotImplementedError()
+
+    # Module functions
+
+    def module_discover_start(self, timeout):
+        # type: (int) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def module_discover_stop(self):
+        # type: () -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def module_discover_status(self):
+        # type: () -> Dict[str,bool]
+        raise NotImplementedError()
+
+    def get_module_log(self):
+        # type: () -> Dict[str,Any]
+        raise NotImplementedError()
+
     # Error functions
 
     def error_list(self):
@@ -273,4 +299,3 @@ class MasterController(object):
 
     def set_all_lights_floor_on(self, floor):
         raise NotImplementedError()
-

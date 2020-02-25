@@ -17,35 +17,33 @@ The GatewayApi defines high level functions, these are used by the interface
 and call the master_api to complete the actions.
 """
 
-import os
-import time
-import threading
-import datetime
-import math
-import sqlite3
-import constants
-import logging
+import ConfigParser
 import glob
+import logging
+import math
+import os
 import shutil
+import sqlite3
 import subprocess
 import tempfile
-import ConfigParser
-import ujson as json
-from ioc import Injectable, Inject, INJECTED, Singleton
-from subprocess import check_output
-from threading import Timer, Thread
-from platform_utils import Platform
-from serial_utils import CommunicationTimedOutException
-from gateway.observer import Observer
-from gateway.maintenance_communicator import InMaintenanceModeException
-from master import master_api
-from power import power_api
-from master.eeprom_controller import EepromAddress
-from master.eeprom_models import SensorConfiguration, GroupActionConfiguration, \
-    ScheduledActionConfiguration, StartupActionConfiguration, \
-    ShutterConfiguration, ShutterGroupConfiguration, DimmerConfiguration, \
-    CanLedConfiguration, RoomConfiguration
+import threading
+
+import constants
 from bus.om_bus_events import OMBusEvents
+from gateway.hal.master_controller import MasterController
+from gateway.observer import Observer
+from ioc import INJECTED, Inject, Injectable, Singleton
+from master import master_api
+from master.eeprom_models import CanLedConfiguration, DimmerConfiguration, \
+    GroupActionConfiguration, RoomConfiguration, \
+    ScheduledActionConfiguration, ShutterConfiguration, \
+    ShutterGroupConfiguration, StartupActionConfiguration
+from platform_utils import Platform
+from power import power_api
+from serial_utils import CommunicationTimedOutException
+
+if False:  # MYPY:
+    from typing import Any, Dict
 
 logger = logging.getLogger('openmotics')
 
@@ -70,7 +68,7 @@ class GatewayApi(object):
 
     @Inject
     def __init__(self,
-                 master_communicator=INJECTED, master_controller=INJECTED, power_communicator=INJECTED,
+                 master_controller=INJECTED, power_communicator=INJECTED,
                  power_controller=INJECTED, eeprom_controller=INJECTED, pulse_controller=INJECTED,
                  message_client=INJECTED, observer=INJECTED, configuration_controller=INJECTED, shutter_controller=INJECTED):
         """
@@ -95,276 +93,30 @@ class GatewayApi(object):
         :param shutter_controller: Shutter Controller
         :type shutter_controller: gateway.shutters.ShutterController
         """
-        self.__master_communicator = master_communicator
-        self.__master_controller = master_controller
+        self.__master_controller = master_controller  # type: MasterController
         self.__config_controller = configuration_controller
         self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
         self.__power_controller = power_controller
         self.__pulse_controller = pulse_controller
-        self.__plugin_controller = None
         self.__message_client = message_client
         self.__observer = observer
         self.__shutter_controller = shutter_controller
 
-        self.__discover_mode_timer = None
-
-        self.__module_log = []
-
         self.__previous_on_outputs = set()
 
-        if Platform.get_platform() == Platform.Type.CLASSIC:
-            from master.master_communicator import BackgroundConsumer
-            self.__master_communicator.register_consumer(
-                BackgroundConsumer(master_api.module_initialize(), 0, self.__update_modules)
-            )
-            self.__master_communicator.register_consumer(
-                BackgroundConsumer(master_api.event_triggered(), 0, self.__event_triggered, True)
-            )
-
-        self.__master_checker_thread = Thread(target=self.__master_checker)
-        self.__master_checker_thread.daemon = True
-
-    def start(self):
-        if Platform.get_platform() == Platform.Type.CLASSIC:
-            self.__master_checker_thread.start()
-
     def set_plugin_controller(self, plugin_controller):
-        """
-        Set the plugin controller.
-        :param plugin_controller: Plugin controller
-        :type plugin_controller: plugins.base.PluginController
-        """
-        self.__plugin_controller = plugin_controller
+        """ Set the plugin controller. """
+        self.__master_controller.set_plugin_controller(plugin_controller)
 
     def master_online_event(self, online):
         if online:
             self.__shutter_controller.update_config(self.get_shutter_configurations())
 
-    def __master_checker(self):
-        """
-        Validates certain master settings such as time and whether e.g. events are enabled. It will try to correct all
-        unexpected values
-        """
-        last_communication_check = 0
-        last_master_time_check = 0
-        last_master_settings_check = 0
-        while True:
-            try:
-                now = time.time()
-                if last_communication_check < now - 60:
-                    self.__check_master_communications()
-                    last_communication_check = now
-                if last_master_time_check < now - 300:
-                    self.__validate_master_time()
-                    last_master_time_check = now
-                if last_master_settings_check < now - 900:
-                    self.__check_master_settings()
-                    last_master_settings_check = now
-                time.sleep(5)
-            except CommunicationTimedOutException:
-                logger.error('Got communication timeout while checking the master.')
-                time.sleep(60)
-            except InMaintenanceModeException:
-                # This is an expected situation
-                time.sleep(10)
-            except Exception as ex:
-                logger.exception('Got unexpected exception while checking the master: {0}'.format(ex))
-                time.sleep(60)
-
-    def __check_master_communications(self):
-        communication_recovery = self.__config_controller.get_setting('communication_recovery', {})
-        calls_timedout = self.__master_communicator.get_communication_statistics()['calls_timedout']
-        calls_succeeded = self.__master_communicator.get_communication_statistics()['calls_succeeded']
-        all_calls = sorted(calls_timedout + calls_succeeded)
-
-        if len(calls_timedout) == 0:
-            # If there are no timeouts at all
-            if len(calls_succeeded) > 30:
-                self.__config_controller.remove_setting('communication_recovery')
-            return
-        if len(all_calls) <= 10:
-            # Not enough calls made to have a decent view on what's going on
-            return
-        if not any(t in calls_timedout for t in all_calls[-10:]):
-            # The last X calls are successfull
-            return
-        calls_last_x_minutes = [t for t in all_calls if t > time.time() - 180]
-        ratio = len([t for t in calls_last_x_minutes if t in calls_timedout]) / float(len(calls_last_x_minutes))
-        if ratio < 0.25:
-            # Less than 25% of the calls fail, let's assume everything is just "fine"
-            logger.warning('Noticed communication timeouts with the master, but there\'s only a failure ratio of {0:.2f}%.'.format(ratio * 100))
-            return
-
-        service_restart = None
-        master_reset = None
-        backoff = 300
-        # There's no successful communication.
-        if len(communication_recovery) == 0:
-            service_restart = 'communication_errors'
-        else:
-            last_service_restart = communication_recovery.get('service_restart')
-            if last_service_restart is None:
-                service_restart = 'communication_errors'
-            else:
-                backoff = last_service_restart['backoff']
-                if last_service_restart['time'] < time.time() - backoff:
-                    service_restart = 'communication_errors'
-                    backoff = min(1200, backoff * 2)
-                else:
-                    last_master_reset = communication_recovery.get('master_reset')
-                    if last_master_reset is None or last_master_reset['time'] < last_service_restart['time']:
-                        master_reset = 'communication_errors'
-
-        if service_restart is not None or master_reset is not None:
-            # Log debug information
-            try:
-                debug_buffer = self.__master_communicator.get_debug_buffer()
-                debug_data = {'type': 'communication_recovery',
-                              'data': {'buffer': debug_buffer,
-                                       'calls': {'timedout': calls_timedout,
-                                                 'succeeded': calls_succeeded},
-                                       'action': 'service_restart' if service_restart is not None else 'master_reset'}}
-                with open('/tmp/debug_{0}.json'.format(int(time.time())), 'w') as recovery_file:
-                    json.dump(debug_data, fp=recovery_file, indent=4, sort_keys=True)
-                check_output("ls -tp /tmp/ | grep 'debug_.*json' | tail -n +10 | while read file; do rm -r /tmp/$file; done", shell=True)
-            except Exception as ex:
-                logger.error('Could not store debug file: {0}'.format(ex))
-
-        if service_restart is not None:
-            logger.fatal('Major issues in communication with master. Restarting service...')
-            communication_recovery['service_restart'] = {'reason': service_restart,
-                                                         'time': time.time(),
-                                                         'backoff': backoff}
-            self.__config_controller.set_setting('communication_recovery', communication_recovery)
-            time.sleep(15)  # Wait a tad for the I/O to complete (both for DB changes as log flushing)
-            os._exit(1)
-        if master_reset is not None:
-            logger.fatal('Major issues in communication with master. Resetting master & service')
-            communication_recovery['master_reset'] = {'reason': master_reset,
-                                                      'time': time.time()}
-            self.__config_controller.set_setting('communication_recovery', communication_recovery)
-            self.reset_master()
-            time.sleep(5)  # Waiting for the master to come back online before restarting the service
-            os._exit(1)  # TODO: This can be removed once the master communicator can recover "alignment issues"
-
-    def __check_master_settings(self):
-        """
-        Checks master settings such as:
-        * Enable async messages
-        * Enable multi-tenancy
-        * Enable 32 thermostats
-        * Turn on all leds
-        """
-        eeprom_data = self.__master_communicator.do_command(master_api.eeprom_list(),
-                                                            {'bank': 0})['data']
-        write = False
-
-        if eeprom_data[11] != chr(255):
-            logger.info('Disabling async RO messages.')
-            self.__master_communicator.do_command(
-                master_api.write_eeprom(),
-                {'bank': 0, 'address': 11, 'data': chr(255)}
-            )
-            write = True
-
-        if eeprom_data[18] != chr(0):
-            logger.info('Enabling async OL messages.')
-            self.__master_communicator.do_command(
-                master_api.write_eeprom(),
-                {'bank': 0, 'address': 18, 'data': chr(0)}
-            )
-            write = True
-
-        if eeprom_data[20] != chr(0):
-            logger.info('Enabling async IL messages.')
-            self.__master_communicator.do_command(
-                master_api.write_eeprom(),
-                {'bank': 0, 'address': 20, 'data': chr(0)}
-            )
-            write = True
-
-        if eeprom_data[28] != chr(0):
-            logger.info('Enabling async SO messages.')
-            self.__master_communicator.do_command(
-                master_api.write_eeprom(),
-                {'bank': 0, 'address': 28, 'data': chr(0)}
-            )
-            write = True
-
-        thermostat_mode = ord(eeprom_data[14])
-        if thermostat_mode & 64 == 0:
-            logger.info('Enabling multi-tenant thermostats.')
-            self.__master_communicator.do_command(
-                master_api.write_eeprom(),
-                {'bank': 0, 'address': 14, 'data': chr(thermostat_mode | 64)}
-            )
-            write = True
-
-        if eeprom_data[59] != chr(32):
-            logger.info('Enabling 32 thermostats.')
-            self.__master_communicator.do_command(
-                master_api.write_eeprom(),
-                {'bank': 0, 'address': 59, 'data': chr(32)}
-            )
-            write = True
-
-        if eeprom_data[24] != chr(0):
-            logger.info('Disable auto-reset thermostat setpoint')
-            self.__master_communicator.do_command(
-                master_api.write_eeprom(),
-                {'bank': 0, 'address': 24, 'data': chr(0)}
-            )
-            write = True
-
-        if eeprom_data[13] != chr(0):
-            logger.info('Configure master startup mode to: API')
-            self.__master_communicator.do_command(
-                master_api.write_eeprom(),
-                {'bank': 0, 'address': 13, 'data': chr(0)}
-            )
-            write = True
-
-        if write:
-            self.__master_communicator.do_command(master_api.activate_eeprom(), {'eep': 0})
-        self.set_master_status_leds(True)
-
-    def __validate_master_time(self):
-        """
-        Validates the master's time with the Gateway time
-        """
-        status = self.__master_communicator.do_command(master_api.status())
-        master_time = datetime.datetime(1, 1, 1, status['hours'], status['minutes'], status['seconds'])
-
-        now = datetime.datetime.now()
-        expected_weekday = now.weekday() + 1
-        expected_time = now.replace(year=1, month=1, day=1, microsecond=0)
-
-        sync = False
-        if abs((master_time - expected_time).total_seconds()) > 180:  # Allow 3 minutes difference
-            sync = True
-        if status['weekday'] != expected_weekday:
-            sync = True
-
-        if sync is True:
-            logger.info('Time - master: {0} ({1}) - gateway: {2} ({3})'.format(
-                master_time, status['weekday'], expected_time, expected_weekday)
-            )
-            if expected_time.hour == 0 and expected_time.minute < 15:
-                logger.info('Skip setting time between 00:00 and 00:15')
-            else:
-                self.sync_master_time()
-
     def sync_master_time(self):
+        # type: () -> None
         """ Set the time on the master. """
-        logger.info('Setting the time on the master.')
-        now = datetime.datetime.now()
-        self.__master_communicator.do_command(
-            master_api.set_time(),
-            {'sec': now.second, 'min': now.minute, 'hours': now.hour,
-             'weekday': now.isoweekday(), 'day': now.day, 'month': now.month,
-             'year': now.year % 100}
-        )
+        self.__master_controller.sync_time()
 
     def set_timezone(self, timezone):
         _ = self  # Not static for consistency
@@ -385,13 +137,6 @@ class GatewayApi(object):
             return path[20:]
         except Exception:
             return 'UTC'
-
-    def __event_triggered(self, ev_output):
-        """ Handle an event triggered by the master. """
-        code = ev_output['code']
-
-        if self.__plugin_controller is not None:
-            self.__plugin_controller.process_event(code)
 
     def maintenance_mode_stopped(self):
         """ Called when maintenance mode is stopped """
@@ -419,72 +164,43 @@ class GatewayApi(object):
 
     # Master module functions
 
-    def __update_modules(self, api_data):
-        """ Create a log entry when the MI message is received. """
-        module_map = {'O': 'output', 'I': 'input', 'T': 'temperature', 'D': 'dimmer'}
-        message_map = {'N': 'New %s module found.',
-                       'E': 'Existing %s module found.',
-                       'D': 'The %s module tried to register but the registration failed, '
-                            'please presse the init button again.'}
-        log_level_map = {'N': 'INFO', 'E': 'WARN', 'D': 'ERROR'}
-
-        module_type = module_map.get(api_data['id'][0])
-        message = message_map.get(api_data['instr']) % module_type
-        log_level = log_level_map.get(api_data['instr'])
-
-        self.__module_log.append((log_level, message))
-
     def module_discover_start(self, timeout=900):
+        # type: (int) -> Dict[str,Any]
         """ Start the module discover mode on the master.
 
         :returns: dict with 'status' ('OK').
         """
-        ret = self.__master_communicator.do_command(master_api.module_discover_start())
-
-        if self.__discover_mode_timer is not None:
-            self.__discover_mode_timer.cancel()
-
-        self.__discover_mode_timer = Timer(timeout, self.module_discover_stop)
-        self.__discover_mode_timer.start()
-
-        self.__module_log = []
-
-        return {'status': ret['resp']}
+        return self.__master_controller.module_discover_start(timeout)
 
     def module_discover_stop(self):
+        # type: () -> Dict[str,Any]
         """ Stop the module discover mode on the master.
 
         :returns: dict with 'status' ('OK').
         """
-        if self.__discover_mode_timer is not None:
-            self.__discover_mode_timer.cancel()
-            self.__discover_mode_timer = None
+        status = self.__master_controller.module_discover_stop()
 
-        ret = self.__master_communicator.do_command(master_api.module_discover_stop())
-
-        self.__module_log = []
-        self.__eeprom_controller.invalidate_cache()
-        self.__eeprom_controller.dirty = True
         self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
         self.__observer.invalidate_cache()
 
-        return {'status': ret['resp']}
+        return status
 
     def module_discover_status(self):
+        # type: () -> Dict[str,bool]
         """ Gets the status of the module discover mode on the master.
 
         :returns dict with 'running': True|False
         """
-        return {'running': self.__discover_mode_timer is not None}
+        return self.__master_controller.module_discover_status()
 
     def get_module_log(self):
+        # type: () -> Dict[str,Any]
         """ Get the log messages from the module discovery mode. This returns the current log
         messages and clear the log messages.
 
         :returns: dict with 'log' (list of tuples (log_level, message)).
         """
-        (module_log, self.__module_log) = (self.__module_log, [])
-        return {'log': module_log}
+        return self.__master_controller.get_module_log()
 
     def get_modules(self):
         # TODO: do we want to include non-master managed "modules" ? e.g. plugin outputs
@@ -1097,7 +813,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of pulse_counter_configuration dict: contains 'id' (Id), 'input' (Byte), 'name' (String[16]), 'room' (Byte)
         """
-        return self.__pulse_controller.get_configurations(fields)
+        if Platform.get_platform() == Platform.Type.CLASSIC:
+            return self.__pulse_controller.get_configurations(fields)
+        else:
+            return []  # TODO: implement
 
     def set_pulse_counter_configuration(self, config):
         """
@@ -1389,7 +1108,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(CanLedConfiguration, fields)]
+        if Platform.get_platform() == Platform.Type.CLASSIC:
+            return [o.serialize() for o in self.__eeprom_controller.read_all(CanLedConfiguration, fields)]
+        else:
+            return [] # TODO: implement
 
     def set_can_led_configuration(self, config):
         """
