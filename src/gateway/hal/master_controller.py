@@ -173,6 +173,38 @@ class MasterController(object):
     def shutter_group_up(self, group_id):
         raise NotImplementedError()
 
+    def get_shutter_configuration(self, shutter_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def get_shutter_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def set_shutter_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def set_shutter_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
+    def get_shutter_group_configuration(self, group_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def get_shutter_group_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def set_shutter_group_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def set_shutter_group_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
     # Sensors
 
     def get_sensor_temperature(self, sensor_id):

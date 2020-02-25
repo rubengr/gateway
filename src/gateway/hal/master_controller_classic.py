@@ -23,11 +23,13 @@ from subprocess import check_output
 from threading import Thread, Timer
 
 import ujson as json
+
 from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
 from ioc import INJECTED, Inject, Injectable, Singleton
 from master import eeprom_models, master_api
-from master.eeprom_controller import EepromAddress
+from master.eeprom_models import EepromAddress, ShutterConfiguration, \
+    ShutterGroupConfiguration
 from master.inputs import InputStatus
 from master.master_communicator import BackgroundConsumer
 from master.outputs import OutputStatus
@@ -613,6 +615,46 @@ class MasterClassicController(MasterController):
         )
 
         return {'status': 'OK'}
+
+    def get_shutter_configuration(self, shutter_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        # TODO: work with shutter controller
+        return self._eeprom_controller.read(ShutterConfiguration, shutter_id, fields).serialize()
+
+    def get_shutter_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        # TODO: work with shutter controller
+        return [o.serialize() for o in self._eeprom_controller.read_all(ShutterConfiguration, fields)]
+
+    def set_shutter_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        # TODO: work with shutter controller
+        self._eeprom_controller.write(ShutterConfiguration.deserialize(config))
+
+    def set_shutter_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        # TODO: work with shutter controller
+        self._eeprom_controller.write_batch([ShutterConfiguration.deserialize(o) for o in config])
+
+    def get_shutter_group_configuration(self, group_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        # TODO: work with shutter controller
+        return self._eeprom_controller.read(ShutterGroupConfiguration, group_id, fields).serialize()
+
+    def get_shutter_group_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        # TODO: work with shutter controller
+        return [o.serialize() for o in self._eeprom_controller.read_all(ShutterGroupConfiguration, fields)]
+
+    def set_shutter_group_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        # TODO: work with shutter controller
+        self._eeprom_controller.write(ShutterGroupConfiguration.deserialize(config))
+
+    def set_shutter_group_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        # TODO: work with shutter controller
+        self._eeprom_controller.write_batch([ShutterGroupConfiguration.deserialize(o) for o in config])
 
     # Virtual modules
 

@@ -33,17 +33,15 @@ from bus.om_bus_events import OMBusEvents
 from gateway.hal.master_controller import MasterController
 from gateway.observer import Observer
 from ioc import INJECTED, Inject, Injectable, Singleton
-from master import master_api
 from master.eeprom_models import CanLedConfiguration, DimmerConfiguration, \
     GroupActionConfiguration, RoomConfiguration, \
-    ScheduledActionConfiguration, ShutterConfiguration, \
-    ShutterGroupConfiguration, StartupActionConfiguration
+    ScheduledActionConfiguration, StartupActionConfiguration
 from platform_utils import Platform
 from power import power_api
 from serial_utils import CommunicationTimedOutException
 
 if False:  # MYPY:
-    from typing import Any, Dict
+    from typing import Any, Dict, List
 
 logger = logging.getLogger('openmotics')
 
@@ -859,6 +857,7 @@ class GatewayApi(object):
         self.__master_controller.save_outputs(config)
 
     def get_shutter_configuration(self, shutter_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific shutter_configuration defined by its id.
 
@@ -868,10 +867,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        # TODO: work with shutter controller
-        return self.__eeprom_controller.read(ShutterConfiguration, shutter_id, fields).serialize()
+        return self.__master_controller.get_shutter_configuration(shutter_id, fields=fields)
 
     def get_shutter_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all shutter_configurations.
 
@@ -879,34 +878,34 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        # TODO: work with shutter controller
-        return [o.serialize() for o in self.__eeprom_controller.read_all(ShutterConfiguration, fields)]
+        return self.__master_controller.get_shutter_configurations(fields=fields)
 
     def set_shutter_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one shutter_configuration.
 
         :param config: The shutter_configuration to set
         :type config: shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        # TODO: work with shutter controller
-        self.__eeprom_controller.write(ShutterConfiguration.deserialize(config))
+        self.__master_controller.set_shutter_configuration(config)
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
         self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def set_shutter_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple shutter_configurations.
 
         :param config: The list of shutter_configurations to set
         :type config: list of shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        # TODO: work with shutter controller
-        self.__eeprom_controller.write_batch([ShutterConfiguration.deserialize(o) for o in config])
+        self.__master_controller.set_shutter_configurations(config)
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
         self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def get_shutter_group_configuration(self, group_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific shutter_group_configuration defined by its id.
 
@@ -916,10 +915,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        # TODO: work with shutter controller
-        return self.__eeprom_controller.read(ShutterGroupConfiguration, group_id, fields).serialize()
+        return self.__master_controller.get_shutter_group_configuration(group_id, fields=fields)
 
     def get_shutter_group_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all shutter_group_configurations.
 
@@ -927,28 +926,27 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        # TODO: work with shutter controller
-        return [o.serialize() for o in self.__eeprom_controller.read_all(ShutterGroupConfiguration, fields)]
+        return self.__master_controller.get_shutter_group_configurations(fields=fields)
 
     def set_shutter_group_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one shutter_group_configuration.
 
         :param config: The shutter_group_configuration to set
         :type config: shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        # TODO: work with shutter controller
-        self.__eeprom_controller.write(ShutterGroupConfiguration.deserialize(config))
+        self.__master_controller.set_shutter_group_configuration(config)
 
     def set_shutter_group_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple shutter_group_configurations.
 
         :param config: The list of shutter_group_configurations to set
         :type config: list of shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        # TODO: work with shutter controller
-        self.__eeprom_controller.write_batch([ShutterGroupConfiguration.deserialize(o) for o in config])
+        self.__master_controller.set_shutter_group_configurations(config)
 
     def get_input_configuration(self, input_id, fields=None):
         """ Get a specific input_configuration defined by its id. """
