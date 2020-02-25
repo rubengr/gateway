@@ -313,12 +313,52 @@ class MasterController(object):
     def set_status_leds(self, status):
         raise NotImplementedError()
 
-    # Actions
+    # Actions functions
 
     def do_basic_action(self, action_type, action_number):
         raise NotImplementedError()
 
     def do_group_action(self, group_action_id):
+        raise NotImplementedError()
+
+    def get_group_action_configuration(self, group_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def get_group_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def set_group_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def set_group_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
+    def get_scheduled_action_configuration(self, scheduled_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def get_scheduled_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def set_scheduled_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def set_scheduled_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
+    def get_startup_action_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def set_startup_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         raise NotImplementedError()
 
     # All lights off

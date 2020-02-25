@@ -34,8 +34,7 @@ from gateway.hal.master_controller import MasterController
 from gateway.observer import Observer
 from ioc import INJECTED, Inject, Injectable, Singleton
 from master.eeprom_models import CanLedConfiguration, DimmerConfiguration, \
-    GroupActionConfiguration, RoomConfiguration, \
-    ScheduledActionConfiguration, StartupActionConfiguration
+    RoomConfiguration
 from platform_utils import Platform
 from power import power_api
 from serial_utils import CommunicationTimedOutException
@@ -969,6 +968,7 @@ class GatewayApi(object):
         self.__master_controller.save_inputs(config)
 
     def get_group_action_configuration(self, group_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific group_action_configuration defined by its id.
 
@@ -978,9 +978,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        return self.__eeprom_controller.read(GroupActionConfiguration, group_action_id, fields).serialize()
+        return self.__master_controller.get_group_action_configuration(group_action_id, fields=fields)
 
     def get_group_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all group_action_configurations.
 
@@ -988,27 +989,30 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(GroupActionConfiguration, fields)]
+        return self.__master_controller.get_group_action_configurations(fields=fields)
 
     def set_group_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one group_action_configuration.
 
         :param config: The group_action_configuration to set
         :type config: group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        self.__eeprom_controller.write(GroupActionConfiguration.deserialize(config))
+        self.__master_controller.set_group_action_configuration(config)
 
     def set_group_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple group_action_configurations.
 
         :param config: The list of group_action_configurations to set
         :type config: list of group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        self.__eeprom_controller.write_batch([GroupActionConfiguration.deserialize(o) for o in config])
+        self.__master_controller.set_group_action_configurations(config)
 
     def get_scheduled_action_configuration(self, scheduled_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific scheduled_action_configuration defined by its id.
 
@@ -1018,9 +1022,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        return self.__eeprom_controller.read(ScheduledActionConfiguration, scheduled_action_id, fields).serialize()
+        return self.__master_controller.get_scheduled_action_configuration(scheduled_action_id, fields=fields)
 
     def get_scheduled_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all scheduled_action_configurations.
 
@@ -1028,27 +1033,30 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(ScheduledActionConfiguration, fields)]
+        return self.__master_controller.get_scheduled_action_configurations(fields=fields)
 
     def set_scheduled_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one scheduled_action_configuration.
 
         :param config: The scheduled_action_configuration to set
         :type config: scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        self.__eeprom_controller.write(ScheduledActionConfiguration.deserialize(config))
+        self.__master_controller.set_scheduled_action_configuration(config)
 
     def set_scheduled_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple scheduled_action_configurations.
 
         :param config: The list of scheduled_action_configurations to set
         :type config: list of scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        self.__eeprom_controller.write_batch([ScheduledActionConfiguration.deserialize(o) for o in config])
+        self.__master_controller.set_scheduled_action_configurations(config)
 
     def get_startup_action_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
         """
         Get the startup_action_configuration.
 
@@ -1056,16 +1064,17 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: startup_action_configuration dict: contains 'actions' (Actions[100])
         """
-        return self.__eeprom_controller.read(StartupActionConfiguration, fields).serialize()
+        return self.__master_controller.get_startup_action_configuration(fields=fields)
 
     def set_startup_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set the startup_action_configuration.
 
         :param config: The startup_action_configuration to set
         :type config: startup_action_configuration dict: contains 'actions' (Actions[100])
         """
-        self.__eeprom_controller.write(StartupActionConfiguration.deserialize(config))
+        self.__master_controller.set_startup_action_configuration(config)
 
     def get_dimmer_configuration(self, fields=None):
         """

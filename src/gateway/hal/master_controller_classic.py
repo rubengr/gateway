@@ -28,8 +28,9 @@ from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
 from ioc import INJECTED, Inject, Injectable, Singleton
 from master import eeprom_models, master_api
-from master.eeprom_models import EepromAddress, ShutterConfiguration, \
-    ShutterGroupConfiguration
+from master.eeprom_models import EepromAddress, GroupActionConfiguration, \
+    ScheduledActionConfiguration, ShutterConfiguration, \
+    ShutterGroupConfiguration, StartupActionConfiguration
 from master.inputs import InputStatus
 from master.master_communicator import BackgroundConsumer
 from master.outputs import OutputStatus
@@ -1045,6 +1046,48 @@ class MasterClassicController(MasterController):
         )
 
         return dict()
+
+    # Actions functions
+
+    def get_group_action_configuration(self, group_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(GroupActionConfiguration, group_action_id, fields).serialize()
+
+    def get_group_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        return [o.serialize() for o in self._eeprom_controller.read_all(GroupActionConfiguration, fields)]
+
+    def set_group_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(GroupActionConfiguration.deserialize(config))
+
+    def set_group_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        self._eeprom_controller.write_batch([GroupActionConfiguration.deserialize(o) for o in config])
+
+    def get_scheduled_action_configuration(self, scheduled_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(ScheduledActionConfiguration, scheduled_action_id, fields).serialize()
+
+    def get_scheduled_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        return [o.serialize() for o in self._eeprom_controller.read_all(ScheduledActionConfiguration, fields)]
+
+    def set_scheduled_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(ScheduledActionConfiguration.deserialize(config))
+
+    def set_scheduled_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        self._eeprom_controller.write_batch([ScheduledActionConfiguration.deserialize(o) for o in config])
+
+    def get_startup_action_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(StartupActionConfiguration, fields).serialize()
+
+    def set_startup_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(StartupActionConfiguration.deserialize(config))
 
     # All lights off functions
 
