@@ -33,8 +33,7 @@ from bus.om_bus_events import OMBusEvents
 from gateway.hal.master_controller import MasterController
 from gateway.observer import Observer
 from ioc import INJECTED, Inject, Injectable, Singleton
-from master.eeprom_models import CanLedConfiguration, DimmerConfiguration, \
-    RoomConfiguration
+from master.eeprom_models import CanLedConfiguration, RoomConfiguration
 from platform_utils import Platform
 from power import power_api
 from serial_utils import CommunicationTimedOutException
@@ -1077,6 +1076,7 @@ class GatewayApi(object):
         self.__master_controller.set_startup_action_configuration(config)
 
     def get_dimmer_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
         """
         Get the dimmer_configuration.
 
@@ -1084,16 +1084,17 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: dimmer_configuration dict: contains 'dim_memory' (Byte), 'dim_step' (Byte), 'dim_wait_cycle' (Byte), 'min_dim_level' (Byte)
         """
-        return self.__eeprom_controller.read(DimmerConfiguration, fields).serialize()
+        return self.__master_controller.get_dimmer_configuration(fields=fields)
 
     def set_dimmer_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set the dimmer_configuration.
 
         :param config: The dimmer_configuration to set
         :type config: dimmer_configuration dict: contains 'dim_memory' (Byte), 'dim_step' (Byte), 'dim_wait_cycle' (Byte), 'min_dim_level' (Byte)
         """
-        self.__eeprom_controller.write(DimmerConfiguration.deserialize(config))
+        self.__master_controller.set_dimmer_configuration(config)
 
     def get_can_led_configuration(self, can_led_id, fields=None):
         """

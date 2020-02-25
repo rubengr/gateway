@@ -361,6 +361,16 @@ class MasterController(object):
         # type: (Dict[str,Any]) -> None
         raise NotImplementedError()
 
+    # Dimmer functions
+
+    def get_dimmer_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def set_dimmer_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
     # All lights off
 
     def set_all_lights_off(self):

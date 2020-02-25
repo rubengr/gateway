@@ -30,7 +30,7 @@ from ioc import INJECTED, Inject, Injectable, Singleton
 from master import eeprom_models, master_api
 from master.eeprom_models import EepromAddress, GroupActionConfiguration, \
     ScheduledActionConfiguration, ShutterConfiguration, \
-    ShutterGroupConfiguration, StartupActionConfiguration
+    ShutterGroupConfiguration, StartupActionConfiguration, DimmerConfiguration
 from master.inputs import InputStatus
 from master.master_communicator import BackgroundConsumer
 from master.outputs import OutputStatus
@@ -1088,6 +1088,16 @@ class MasterClassicController(MasterController):
     def set_startup_action_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         self._eeprom_controller.write(StartupActionConfiguration.deserialize(config))
+
+    # Dimmer functions
+
+    def get_dimmer_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(DimmerConfiguration, fields).serialize()
+
+    def set_dimmer_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(DimmerConfiguration.deserialize(config))
 
     # All lights off functions
 
