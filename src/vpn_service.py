@@ -420,8 +420,8 @@ class VPNService(object):
                 with open(filename, 'r') as debug_file:
                     try:
                         self._debug_data[timestamp] = json.load(debug_file)
-                    except ValueError:
-                        pass  # Ignore this dump for now
+                    except ValueError as ex:
+                        logger.warning('Error parsing crash dump: {0}'.format(ex))
             found_timestamps.append(timestamp)
         for timestamp in self._debug_data:
             if timestamp not in found_timestamps:
