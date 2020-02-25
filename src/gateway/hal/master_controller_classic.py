@@ -352,6 +352,10 @@ class MasterClassicController(MasterController):
     ##############
 
     def invalidate_caches(self):
+        # type: () -> None
+        self._eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
+        self._eeprom_controller.dirty = True
+        self._input_last_updated = 0
         self._output_last_updated = 0
 
     def get_firmware_version(self):

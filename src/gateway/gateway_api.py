@@ -139,10 +139,10 @@ class GatewayApi(object):
             return 'UTC'
 
     def maintenance_mode_stopped(self):
+        # type: () -> None
         """ Called when maintenance mode is stopped """
+        self.__master_controller.invalidate_caches()
         self.__observer.invalidate_cache()
-        self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
-        self.__eeprom_controller.dirty = True
         self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
 
     def get_status(self):
