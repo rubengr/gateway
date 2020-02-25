@@ -33,7 +33,7 @@ from bus.om_bus_events import OMBusEvents
 from gateway.hal.master_controller import MasterController
 from gateway.observer import Observer
 from ioc import INJECTED, Inject, Injectable, Singleton
-from master.eeprom_models import CanLedConfiguration, RoomConfiguration
+from master.eeprom_models import RoomConfiguration
 from platform_utils import Platform
 from power import power_api
 from serial_utils import CommunicationTimedOutException
@@ -1097,6 +1097,7 @@ class GatewayApi(object):
         self.__master_controller.set_dimmer_configuration(config)
 
     def get_can_led_configuration(self, can_led_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific can_led_configuration defined by its id.
 
@@ -1106,9 +1107,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        return self.__eeprom_controller.read(CanLedConfiguration, can_led_id, fields).serialize()
+        return self.__master_controller.get_can_led_configuration(can_led_id, fields=fields)
 
     def get_can_led_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all can_led_configurations.
 
@@ -1116,28 +1118,27 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        if Platform.get_platform() == Platform.Type.CLASSIC:
-            return [o.serialize() for o in self.__eeprom_controller.read_all(CanLedConfiguration, fields)]
-        else:
-            return [] # TODO: implement
+        return self.__master_controller.get_can_led_configurations(fields=fields)
 
     def set_can_led_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one can_led_configuration.
 
         :param config: The can_led_configuration to set
         :type config: can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        self.__eeprom_controller.write(CanLedConfiguration.deserialize(config))
+        self.__master_controller.set_can_led_configuration(config)
 
     def set_can_led_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple can_led_configurations.
 
         :param config: The list of can_led_configurations to set
         :type config: list of can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        self.__eeprom_controller.write_batch([CanLedConfiguration.deserialize(o) for o in config])
+        self.__master_controller.set_can_led_configurations(config)
 
     def get_room_configuration(self, room_id, fields=None):
         """

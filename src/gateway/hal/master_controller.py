@@ -371,6 +371,24 @@ class MasterController(object):
         # type: (Dict[str,Any]) -> None
         raise NotImplementedError()
 
+    # Can Led functions
+
+    def get_can_led_configuration(self, can_led_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def get_can_led_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def set_can_led_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def set_can_led_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
     # All lights off
 
     def set_all_lights_off(self):

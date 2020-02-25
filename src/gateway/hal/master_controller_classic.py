@@ -28,9 +28,10 @@ from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
 from ioc import INJECTED, Inject, Injectable, Singleton
 from master import eeprom_models, master_api
-from master.eeprom_models import EepromAddress, GroupActionConfiguration, \
-    ScheduledActionConfiguration, ShutterConfiguration, \
-    ShutterGroupConfiguration, StartupActionConfiguration, DimmerConfiguration
+from master.eeprom_models import CanLedConfiguration, DimmerConfiguration, \
+    EepromAddress, GroupActionConfiguration, ScheduledActionConfiguration, \
+    ShutterConfiguration, ShutterGroupConfiguration, \
+    StartupActionConfiguration
 from master.inputs import InputStatus
 from master.master_communicator import BackgroundConsumer
 from master.outputs import OutputStatus
@@ -1098,6 +1099,24 @@ class MasterClassicController(MasterController):
     def set_dimmer_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         self._eeprom_controller.write(DimmerConfiguration.deserialize(config))
+
+    # Can Led functions
+
+    def get_can_led_configuration(self, can_led_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(CanLedConfiguration, can_led_id, fields).serialize()
+
+    def get_can_led_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        return [o.serialize() for o in self._eeprom_controller.read_all(CanLedConfiguration, fields)]
+
+    def set_can_led_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(CanLedConfiguration.deserialize(config))
+
+    def set_can_led_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        self._eeprom_controller.write_batch([CanLedConfiguration.deserialize(o) for o in config])
 
     # All lights off functions
 
