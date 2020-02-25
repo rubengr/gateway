@@ -863,7 +863,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        return self.__master_controller.get_shutter_configuration(shutter_id, fields=fields)
+        return self.__master_controller.load_shutter_configuration(shutter_id, fields=fields)
 
     def get_shutter_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
@@ -874,7 +874,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        return self.__master_controller.get_shutter_configurations(fields=fields)
+        return self.__master_controller.load_shutter_configurations(fields=fields)
 
     def set_shutter_configuration(self, config):
         # type: (Dict[str,Any]) -> None
@@ -884,7 +884,7 @@ class GatewayApi(object):
         :param config: The shutter_configuration to set
         :type config: shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        self.__master_controller.set_shutter_configuration(config)
+        self.__master_controller.save_shutter_configuration(config)
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
         self.__shutter_controller.update_config(self.get_shutter_configurations())
 
@@ -896,7 +896,7 @@ class GatewayApi(object):
         :param config: The list of shutter_configurations to set
         :type config: list of shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        self.__master_controller.set_shutter_configurations(config)
+        self.__master_controller.save_shutter_configurations(config)
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
         self.__shutter_controller.update_config(self.get_shutter_configurations())
 
@@ -911,7 +911,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        return self.__master_controller.get_shutter_group_configuration(group_id, fields=fields)
+        return self.__master_controller.load_shutter_group_configuration(group_id, fields=fields)
 
     def get_shutter_group_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
@@ -922,7 +922,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        return self.__master_controller.get_shutter_group_configurations(fields=fields)
+        return self.__master_controller.load_shutter_group_configurations(fields=fields)
 
     def set_shutter_group_configuration(self, config):
         # type: (Dict[str,Any]) -> None
@@ -932,7 +932,7 @@ class GatewayApi(object):
         :param config: The shutter_group_configuration to set
         :type config: shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        self.__master_controller.set_shutter_group_configuration(config)
+        self.__master_controller.save_shutter_group_configuration(config)
 
     def set_shutter_group_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
@@ -942,7 +942,7 @@ class GatewayApi(object):
         :param config: The list of shutter_group_configurations to set
         :type config: list of shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        self.__master_controller.set_shutter_group_configurations(config)
+        self.__master_controller.save_shutter_group_configurations(config)
 
     def get_input_configuration(self, input_id, fields=None):
         """ Get a specific input_configuration defined by its id. """
@@ -975,7 +975,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        return self.__master_controller.get_group_action_configuration(group_action_id, fields=fields)
+        return self.__master_controller.load_group_action_configuration(group_action_id, fields=fields)
 
     def get_group_action_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
@@ -986,7 +986,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        return self.__master_controller.get_group_action_configurations(fields=fields)
+        return self.__master_controller.load_group_action_configurations(fields=fields)
 
     def set_group_action_configuration(self, config):
         # type: (Dict[str,Any]) -> None
@@ -996,7 +996,7 @@ class GatewayApi(object):
         :param config: The group_action_configuration to set
         :type config: group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        self.__master_controller.set_group_action_configuration(config)
+        self.__master_controller.save_group_action_configuration(config)
 
     def set_group_action_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
@@ -1006,7 +1006,7 @@ class GatewayApi(object):
         :param config: The list of group_action_configurations to set
         :type config: list of group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        self.__master_controller.set_group_action_configurations(config)
+        self.__master_controller.save_group_action_configurations(config)
 
     def get_scheduled_action_configuration(self, scheduled_action_id, fields=None):
         # type: (int, Any) -> Dict[str,Any]
@@ -1019,7 +1019,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        return self.__master_controller.get_scheduled_action_configuration(scheduled_action_id, fields=fields)
+        return self.__master_controller.load_scheduled_action_configuration(scheduled_action_id, fields=fields)
 
     def get_scheduled_action_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
@@ -1030,7 +1030,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        return self.__master_controller.get_scheduled_action_configurations(fields=fields)
+        return self.__master_controller.load_scheduled_action_configurations(fields=fields)
 
     def set_scheduled_action_configuration(self, config):
         # type: (Dict[str,Any]) -> None
@@ -1040,7 +1040,7 @@ class GatewayApi(object):
         :param config: The scheduled_action_configuration to set
         :type config: scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        self.__master_controller.set_scheduled_action_configuration(config)
+        self.__master_controller.save_scheduled_action_configuration(config)
 
     def set_scheduled_action_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
@@ -1050,7 +1050,7 @@ class GatewayApi(object):
         :param config: The list of scheduled_action_configurations to set
         :type config: list of scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        self.__master_controller.set_scheduled_action_configurations(config)
+        self.__master_controller.save_scheduled_action_configurations(config)
 
     def get_startup_action_configuration(self, fields=None):
         # type: (Any) -> Dict[str,Any]
@@ -1061,7 +1061,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: startup_action_configuration dict: contains 'actions' (Actions[100])
         """
-        return self.__master_controller.get_startup_action_configuration(fields=fields)
+        return self.__master_controller.load_startup_action_configuration(fields=fields)
 
     def set_startup_action_configuration(self, config):
         # type: (Dict[str,Any]) -> None
@@ -1071,7 +1071,7 @@ class GatewayApi(object):
         :param config: The startup_action_configuration to set
         :type config: startup_action_configuration dict: contains 'actions' (Actions[100])
         """
-        self.__master_controller.set_startup_action_configuration(config)
+        self.__master_controller.save_startup_action_configuration(config)
 
     def get_dimmer_configuration(self, fields=None):
         # type: (Any) -> Dict[str,Any]
@@ -1082,7 +1082,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: dimmer_configuration dict: contains 'dim_memory' (Byte), 'dim_step' (Byte), 'dim_wait_cycle' (Byte), 'min_dim_level' (Byte)
         """
-        return self.__master_controller.get_dimmer_configuration(fields=fields)
+        return self.__master_controller.load_dimmer_configuration(fields=fields)
 
     def set_dimmer_configuration(self, config):
         # type: (Dict[str,Any]) -> None
@@ -1092,7 +1092,7 @@ class GatewayApi(object):
         :param config: The dimmer_configuration to set
         :type config: dimmer_configuration dict: contains 'dim_memory' (Byte), 'dim_step' (Byte), 'dim_wait_cycle' (Byte), 'min_dim_level' (Byte)
         """
-        self.__master_controller.set_dimmer_configuration(config)
+        self.__master_controller.save_dimmer_configuration(config)
 
     def get_can_led_configuration(self, can_led_id, fields=None):
         # type: (int, Any) -> Dict[str,Any]
@@ -1105,7 +1105,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        return self.__master_controller.get_can_led_configuration(can_led_id, fields=fields)
+        return self.__master_controller.load_can_led_configuration(can_led_id, fields=fields)
 
     def get_can_led_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
@@ -1116,7 +1116,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        return self.__master_controller.get_can_led_configurations(fields=fields)
+        return self.__master_controller.load_can_led_configurations(fields=fields)
 
     def set_can_led_configuration(self, config):
         # type: (Dict[str,Any]) -> None
@@ -1126,7 +1126,7 @@ class GatewayApi(object):
         :param config: The can_led_configuration to set
         :type config: can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        self.__master_controller.set_can_led_configuration(config)
+        self.__master_controller.save_can_led_configuration(config)
 
     def set_can_led_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
@@ -1136,7 +1136,7 @@ class GatewayApi(object):
         :param config: The list of can_led_configurations to set
         :type config: list of can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        self.__master_controller.set_can_led_configurations(config)
+        self.__master_controller.save_can_led_configurations(config)
 
     def get_room_configuration(self, room_id, fields=None):
         # type: (int, Any) -> Dict[str,Any]
@@ -1149,7 +1149,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        return self.__master_controller.get_room_configuration(room_id, fields=fields)
+        return self.__master_controller.load_room_configuration(room_id, fields=fields)
 
     def get_room_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
@@ -1160,7 +1160,7 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        return self.__master_controller.get_room_configurations(fields=fields)
+        return self.__master_controller.load_room_configurations(fields=fields)
 
     def set_room_configuration(self, config):
         # type: (Dict[str,Any]) -> None
@@ -1170,7 +1170,7 @@ class GatewayApi(object):
         :param config: The room_configuration to set
         :type config: room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        return self.__master_controller.set_room_configuration(config)
+        return self.__master_controller.save_room_configuration(config)
 
     def set_room_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
@@ -1180,7 +1180,7 @@ class GatewayApi(object):
         :param config: The list of room_configurations to set
         :type config: list of room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        return self.__master_controller.set_room_configurations(config)
+        return self.__master_controller.save_room_configurations(config)
 
     # End of auto generated functions
 

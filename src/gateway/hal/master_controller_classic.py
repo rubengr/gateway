@@ -618,42 +618,42 @@ class MasterClassicController(MasterController):
 
         return {'status': 'OK'}
 
-    def get_shutter_configuration(self, shutter_id, fields=None):
+    def load_shutter_configuration(self, shutter_id, fields=None):
         # type: (int, Any) -> Dict[str,Any]
         # TODO: work with shutter controller
         return self._eeprom_controller.read(ShutterConfiguration, shutter_id, fields).serialize()
 
-    def get_shutter_configurations(self, fields=None):
+    def load_shutter_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
         # TODO: work with shutter controller
         return [o.serialize() for o in self._eeprom_controller.read_all(ShutterConfiguration, fields)]
 
-    def set_shutter_configuration(self, config):
+    def save_shutter_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         # TODO: work with shutter controller
         self._eeprom_controller.write(ShutterConfiguration.deserialize(config))
 
-    def set_shutter_configurations(self, config):
+    def save_shutter_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
         # TODO: work with shutter controller
         self._eeprom_controller.write_batch([ShutterConfiguration.deserialize(o) for o in config])
 
-    def get_shutter_group_configuration(self, group_id, fields=None):
+    def load_shutter_group_configuration(self, group_id, fields=None):
         # type: (int, Any) -> Dict[str,Any]
         # TODO: work with shutter controller
         return self._eeprom_controller.read(ShutterGroupConfiguration, group_id, fields).serialize()
 
-    def get_shutter_group_configurations(self, fields=None):
+    def load_shutter_group_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
         # TODO: work with shutter controller
         return [o.serialize() for o in self._eeprom_controller.read_all(ShutterGroupConfiguration, fields)]
 
-    def set_shutter_group_configuration(self, config):
+    def save_shutter_group_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         # TODO: work with shutter controller
         self._eeprom_controller.write(ShutterGroupConfiguration.deserialize(config))
 
-    def set_shutter_group_configurations(self, config):
+    def save_shutter_group_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
         # TODO: work with shutter controller
         self._eeprom_controller.write_batch([ShutterGroupConfiguration.deserialize(o) for o in config])
@@ -1058,89 +1058,89 @@ class MasterClassicController(MasterController):
 
     # Actions functions
 
-    def get_group_action_configuration(self, group_action_id, fields=None):
+    def load_group_action_configuration(self, group_action_id, fields=None):
         # type: (int, Any) -> Dict[str,Any]
         return self._eeprom_controller.read(GroupActionConfiguration, group_action_id, fields).serialize()
 
-    def get_group_action_configurations(self, fields=None):
+    def load_group_action_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
         return [o.serialize() for o in self._eeprom_controller.read_all(GroupActionConfiguration, fields)]
 
-    def set_group_action_configuration(self, config):
+    def save_group_action_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         self._eeprom_controller.write(GroupActionConfiguration.deserialize(config))
 
-    def set_group_action_configurations(self, config):
+    def save_group_action_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
         self._eeprom_controller.write_batch([GroupActionConfiguration.deserialize(o) for o in config])
 
-    def get_scheduled_action_configuration(self, scheduled_action_id, fields=None):
+    def load_scheduled_action_configuration(self, scheduled_action_id, fields=None):
         # type: (int, Any) -> Dict[str,Any]
         return self._eeprom_controller.read(ScheduledActionConfiguration, scheduled_action_id, fields).serialize()
 
-    def get_scheduled_action_configurations(self, fields=None):
+    def load_scheduled_action_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
         return [o.serialize() for o in self._eeprom_controller.read_all(ScheduledActionConfiguration, fields)]
 
-    def set_scheduled_action_configuration(self, config):
+    def save_scheduled_action_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         self._eeprom_controller.write(ScheduledActionConfiguration.deserialize(config))
 
-    def set_scheduled_action_configurations(self, config):
+    def save_scheduled_action_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
         self._eeprom_controller.write_batch([ScheduledActionConfiguration.deserialize(o) for o in config])
 
-    def get_startup_action_configuration(self, fields=None):
+    def load_startup_action_configuration(self, fields=None):
         # type: (Any) -> Dict[str,Any]
         return self._eeprom_controller.read(StartupActionConfiguration, fields).serialize()
 
-    def set_startup_action_configuration(self, config):
+    def save_startup_action_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         self._eeprom_controller.write(StartupActionConfiguration.deserialize(config))
 
     # Dimmer functions
 
-    def get_dimmer_configuration(self, fields=None):
+    def load_dimmer_configuration(self, fields=None):
         # type: (Any) -> Dict[str,Any]
         return self._eeprom_controller.read(DimmerConfiguration, fields).serialize()
 
-    def set_dimmer_configuration(self, config):
+    def save_dimmer_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         self._eeprom_controller.write(DimmerConfiguration.deserialize(config))
 
     # Can Led functions
 
-    def get_can_led_configuration(self, can_led_id, fields=None):
+    def load_can_led_configuration(self, can_led_id, fields=None):
         # type: (int, Any) -> Dict[str,Any]
         return self._eeprom_controller.read(CanLedConfiguration, can_led_id, fields).serialize()
 
-    def get_can_led_configurations(self, fields=None):
+    def load_can_led_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
         return [o.serialize() for o in self._eeprom_controller.read_all(CanLedConfiguration, fields)]
 
-    def set_can_led_configuration(self, config):
+    def save_can_led_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         self._eeprom_controller.write(CanLedConfiguration.deserialize(config))
 
-    def set_can_led_configurations(self, config):
+    def save_can_led_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
         self._eeprom_controller.write_batch([CanLedConfiguration.deserialize(o) for o in config])
 
     # Room functions
 
-    def get_room_configuration(self, room_id, fields=None):
+    def load_room_configuration(self, room_id, fields=None):
         # type: (int, Any) -> Dict[str,Any]
         return self._eeprom_controller.read(RoomConfiguration, room_id, fields).serialize()
 
-    def get_room_configurations(self, fields=None):
+    def load_room_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
         return [o.serialize() for o in self._eeprom_controller.read_all(RoomConfiguration, fields)]
 
-    def set_room_configuration(self, config):
+    def save_room_configuration(self, config):
         # type: (Dict[str,Any]) -> None
         self._eeprom_controller.write(RoomConfiguration.deserialize(config))
 
-    def set_room_configurations(self, config):
+    def save_room_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
         self._eeprom_controller.write_batch([RoomConfiguration.deserialize(o) for o in config])
 

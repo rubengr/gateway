@@ -349,7 +349,7 @@ class MasterCoreController(MasterController):
 
     # Can Led functions
 
-    def get_can_led_configurations(self, fields=None):
+    def load_can_led_configurations(self, fields=None):
         # type: (Any) -> List[Dict[str,Any]]
         return [] # TODO: implement
 
