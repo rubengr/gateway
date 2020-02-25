@@ -910,6 +910,14 @@ class MasterClassicController(MasterController):
              'year': now.year % 100}
         )
 
+    def get_configuration_dirty_flag(self):
+        # type: () -> bool
+        dirty = self._eeprom_controller.dirty
+        # FIXME: this assumes a full sync will finish after this is called eg.
+        # a response timeout clears the dirty state while no sync would started
+        # on the remote side.
+        self._eeprom_controller.dirty = False
+        return dirty
 
     # Module functions
 

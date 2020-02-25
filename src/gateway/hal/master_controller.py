@@ -281,6 +281,10 @@ class MasterController(object):
         # type: () -> None
         raise NotImplementedError()
 
+    def get_configuration_dirty_flag(self):
+        # type: () -> bool
+        raise NotImplementedError()
+
     # Module functions
 
     def module_discover_start(self, timeout):

@@ -64,7 +64,7 @@ class GatewayApi(object):
     @Inject
     def __init__(self,
                  master_controller=INJECTED, power_communicator=INJECTED,
-                 power_controller=INJECTED, eeprom_controller=INJECTED, pulse_controller=INJECTED,
+                 power_controller=INJECTED, pulse_controller=INJECTED,
                  message_client=INJECTED, observer=INJECTED, configuration_controller=INJECTED, shutter_controller=INJECTED):
         """
         :param master_communicator: Master communicator
@@ -90,7 +90,6 @@ class GatewayApi(object):
         """
         self.__master_controller = master_controller  # type: MasterController
         self.__config_controller = configuration_controller
-        self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
         self.__power_controller = power_controller
         self.__pulse_controller = pulse_controller
@@ -1185,10 +1184,9 @@ class GatewayApi(object):
 
     # End of auto generated functions
 
-    def get_reset_eeprom_dirty_flag(self):
-        dirty = self.__eeprom_controller.dirty
-        self.__eeprom_controller.dirty = False
-        return dirty
+    def get_configuration_dirty_flag(self):
+        # type: () -> bool
+        return self.__master_controller.get_configuration_dirty_flag()
 
     # Power functions
 
