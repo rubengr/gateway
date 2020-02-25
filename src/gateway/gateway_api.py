@@ -33,7 +33,6 @@ from bus.om_bus_events import OMBusEvents
 from gateway.hal.master_controller import MasterController
 from gateway.observer import Observer
 from ioc import INJECTED, Inject, Injectable, Singleton
-from master.eeprom_models import RoomConfiguration
 from platform_utils import Platform
 from power import power_api
 from serial_utils import CommunicationTimedOutException
@@ -1141,6 +1140,7 @@ class GatewayApi(object):
         self.__master_controller.set_can_led_configurations(config)
 
     def get_room_configuration(self, room_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific room_configuration defined by its id.
 
@@ -1150,9 +1150,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        return self.__eeprom_controller.read(RoomConfiguration, room_id, fields).serialize()
+        return self.__master_controller.get_room_configuration(room_id, fields=fields)
 
     def get_room_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all room_configurations.
 
@@ -1160,25 +1161,27 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(RoomConfiguration, fields)]
+        return self.__master_controller.get_room_configurations(fields=fields)
 
     def set_room_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one room_configuration.
 
         :param config: The room_configuration to set
         :type config: room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        self.__eeprom_controller.write(RoomConfiguration.deserialize(config))
+        return self.__master_controller.set_room_configuration(config)
 
     def set_room_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple room_configurations.
 
         :param config: The list of room_configurations to set
         :type config: list of room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        self.__eeprom_controller.write_batch([RoomConfiguration.deserialize(o) for o in config])
+        return self.__master_controller.set_room_configurations(config)
 
     # End of auto generated functions
 

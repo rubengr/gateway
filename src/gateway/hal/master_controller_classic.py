@@ -29,9 +29,9 @@ from gateway.maintenance_communicator import InMaintenanceModeException
 from ioc import INJECTED, Inject, Injectable, Singleton
 from master import eeprom_models, master_api
 from master.eeprom_models import CanLedConfiguration, DimmerConfiguration, \
-    EepromAddress, GroupActionConfiguration, ScheduledActionConfiguration, \
-    ShutterConfiguration, ShutterGroupConfiguration, \
-    StartupActionConfiguration
+    EepromAddress, GroupActionConfiguration, RoomConfiguration, \
+    ScheduledActionConfiguration, ShutterConfiguration, \
+    ShutterGroupConfiguration, StartupActionConfiguration
 from master.inputs import InputStatus
 from master.master_communicator import BackgroundConsumer
 from master.outputs import OutputStatus
@@ -1117,6 +1117,24 @@ class MasterClassicController(MasterController):
     def set_can_led_configurations(self, config):
         # type: (List[Dict[str,Any]]) -> None
         self._eeprom_controller.write_batch([CanLedConfiguration.deserialize(o) for o in config])
+
+    # Room functions
+
+    def get_room_configuration(self, room_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(RoomConfiguration, room_id, fields).serialize()
+
+    def get_room_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        return [o.serialize() for o in self._eeprom_controller.read_all(RoomConfiguration, fields)]
+
+    def set_room_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(RoomConfiguration.deserialize(config))
+
+    def set_room_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        self._eeprom_controller.write_batch([RoomConfiguration.deserialize(o) for o in config])
 
     # All lights off functions
 
