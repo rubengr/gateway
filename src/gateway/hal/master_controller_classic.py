@@ -23,11 +23,15 @@ from subprocess import check_output
 from threading import Thread, Timer
 
 import ujson as json
+
 from gateway.hal.master_controller import MasterController, MasterEvent
 from gateway.maintenance_communicator import InMaintenanceModeException
 from ioc import INJECTED, Inject, Injectable, Singleton
 from master import eeprom_models, master_api
-from master.eeprom_controller import EepromAddress
+from master.eeprom_models import CanLedConfiguration, DimmerConfiguration, \
+    EepromAddress, GroupActionConfiguration, RoomConfiguration, \
+    ScheduledActionConfiguration, ShutterConfiguration, \
+    ShutterGroupConfiguration, StartupActionConfiguration
 from master.inputs import InputStatus
 from master.master_communicator import BackgroundConsumer
 from master.outputs import OutputStatus
@@ -352,6 +356,10 @@ class MasterClassicController(MasterController):
     ##############
 
     def invalidate_caches(self):
+        # type: () -> None
+        self._eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
+        self._eeprom_controller.dirty = True
+        self._input_last_updated = 0
         self._output_last_updated = 0
 
     def get_firmware_version(self):
@@ -610,6 +618,46 @@ class MasterClassicController(MasterController):
 
         return {'status': 'OK'}
 
+    def load_shutter_configuration(self, shutter_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        # TODO: work with shutter controller
+        return self._eeprom_controller.read(ShutterConfiguration, shutter_id, fields).serialize()
+
+    def load_shutter_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        # TODO: work with shutter controller
+        return [o.serialize() for o in self._eeprom_controller.read_all(ShutterConfiguration, fields)]
+
+    def save_shutter_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        # TODO: work with shutter controller
+        self._eeprom_controller.write(ShutterConfiguration.deserialize(config))
+
+    def save_shutter_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        # TODO: work with shutter controller
+        self._eeprom_controller.write_batch([ShutterConfiguration.deserialize(o) for o in config])
+
+    def load_shutter_group_configuration(self, group_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        # TODO: work with shutter controller
+        return self._eeprom_controller.read(ShutterGroupConfiguration, group_id, fields).serialize()
+
+    def load_shutter_group_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        # TODO: work with shutter controller
+        return [o.serialize() for o in self._eeprom_controller.read_all(ShutterGroupConfiguration, fields)]
+
+    def save_shutter_group_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        # TODO: work with shutter controller
+        self._eeprom_controller.write(ShutterGroupConfiguration.deserialize(config))
+
+    def save_shutter_group_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        # TODO: work with shutter controller
+        self._eeprom_controller.write_batch([ShutterGroupConfiguration.deserialize(o) for o in config])
+
     # Virtual modules
 
     def add_virtual_output_module(self):
@@ -862,6 +910,14 @@ class MasterClassicController(MasterController):
              'year': now.year % 100}
         )
 
+    def get_configuration_dirty_flag(self):
+        # type: () -> bool
+        dirty = self._eeprom_controller.dirty
+        # FIXME: this assumes a full sync will finish after this is called eg.
+        # a response timeout clears the dirty state while no sync would started
+        # on the remote side.
+        self._eeprom_controller.dirty = False
+        return dirty
 
     # Module functions
 
@@ -999,6 +1055,94 @@ class MasterClassicController(MasterController):
         )
 
         return dict()
+
+    # Actions functions
+
+    def load_group_action_configuration(self, group_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(GroupActionConfiguration, group_action_id, fields).serialize()
+
+    def load_group_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        return [o.serialize() for o in self._eeprom_controller.read_all(GroupActionConfiguration, fields)]
+
+    def save_group_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(GroupActionConfiguration.deserialize(config))
+
+    def save_group_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        self._eeprom_controller.write_batch([GroupActionConfiguration.deserialize(o) for o in config])
+
+    def load_scheduled_action_configuration(self, scheduled_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(ScheduledActionConfiguration, scheduled_action_id, fields).serialize()
+
+    def load_scheduled_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        return [o.serialize() for o in self._eeprom_controller.read_all(ScheduledActionConfiguration, fields)]
+
+    def save_scheduled_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(ScheduledActionConfiguration.deserialize(config))
+
+    def save_scheduled_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        self._eeprom_controller.write_batch([ScheduledActionConfiguration.deserialize(o) for o in config])
+
+    def load_startup_action_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(StartupActionConfiguration, fields).serialize()
+
+    def save_startup_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(StartupActionConfiguration.deserialize(config))
+
+    # Dimmer functions
+
+    def load_dimmer_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(DimmerConfiguration, fields).serialize()
+
+    def save_dimmer_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(DimmerConfiguration.deserialize(config))
+
+    # Can Led functions
+
+    def load_can_led_configuration(self, can_led_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(CanLedConfiguration, can_led_id, fields).serialize()
+
+    def load_can_led_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        return [o.serialize() for o in self._eeprom_controller.read_all(CanLedConfiguration, fields)]
+
+    def save_can_led_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(CanLedConfiguration.deserialize(config))
+
+    def save_can_led_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        self._eeprom_controller.write_batch([CanLedConfiguration.deserialize(o) for o in config])
+
+    # Room functions
+
+    def load_room_configuration(self, room_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        return self._eeprom_controller.read(RoomConfiguration, room_id, fields).serialize()
+
+    def load_room_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        return [o.serialize() for o in self._eeprom_controller.read_all(RoomConfiguration, fields)]
+
+    def save_room_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        self._eeprom_controller.write(RoomConfiguration.deserialize(config))
+
+    def save_room_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        self._eeprom_controller.write_batch([RoomConfiguration.deserialize(o) for o in config])
 
     # All lights off functions
 

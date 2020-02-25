@@ -347,6 +347,12 @@ class MasterCoreController(MasterController):
                                                                       'device_nr': shutter_id,
                                                                       'extra_parameter': 0})
 
+    # Can Led functions
+
+    def load_can_led_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        return [] # TODO: implement
+
     # Sensors
 
     def get_sensor_temperature(self, sensor_id):

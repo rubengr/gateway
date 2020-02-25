@@ -173,6 +173,38 @@ class MasterController(object):
     def shutter_group_up(self, group_id):
         raise NotImplementedError()
 
+    def load_shutter_configuration(self, shutter_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def load_shutter_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def save_shutter_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def save_shutter_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
+    def load_shutter_group_configuration(self, group_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def load_shutter_group_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def save_shutter_group_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def save_shutter_group_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
     # Sensors
 
     def get_sensor_temperature(self, sensor_id):
@@ -249,6 +281,10 @@ class MasterController(object):
         # type: () -> None
         raise NotImplementedError()
 
+    def get_configuration_dirty_flag(self):
+        # type: () -> bool
+        raise NotImplementedError()
+
     # Module functions
 
     def module_discover_start(self, timeout):
@@ -281,12 +317,98 @@ class MasterController(object):
     def set_status_leds(self, status):
         raise NotImplementedError()
 
-    # Actions
+    # Actions functions
 
     def do_basic_action(self, action_type, action_number):
         raise NotImplementedError()
 
     def do_group_action(self, group_action_id):
+        raise NotImplementedError()
+
+    def load_group_action_configuration(self, group_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def load_group_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def save_group_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def save_group_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
+    def load_scheduled_action_configuration(self, scheduled_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def load_scheduled_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def save_scheduled_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def save_scheduled_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
+    def load_startup_action_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def save_startup_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    # Dimmer functions
+
+    def load_dimmer_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def save_dimmer_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    # Can Led functions
+
+    def load_can_led_configuration(self, can_led_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def load_can_led_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def save_can_led_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def save_can_led_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
+        raise NotImplementedError()
+
+    # Room functions
+
+    def load_room_configuration(self, room_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
+        raise NotImplementedError()
+
+    def load_room_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
+        raise NotImplementedError()
+
+    def save_room_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
+        raise NotImplementedError()
+
+    def save_room_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         raise NotImplementedError()
 
     # All lights off

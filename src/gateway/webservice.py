@@ -1875,7 +1875,8 @@ class WebInterface(object):
         """
         power_dirty = self._power_dirty
         self._power_dirty = False
-        return {'eeprom': self._gateway_api.get_reset_eeprom_dirty_flag(),
+        # eeprom key used here for compatibility
+        return {'eeprom': self._gateway_api.get_configuration_dirty_flag(),
                 'power': power_dirty}
 
     @openmotics_api(auth=True)

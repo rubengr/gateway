@@ -33,17 +33,12 @@ from bus.om_bus_events import OMBusEvents
 from gateway.hal.master_controller import MasterController
 from gateway.observer import Observer
 from ioc import INJECTED, Inject, Injectable, Singleton
-from master import master_api
-from master.eeprom_models import CanLedConfiguration, DimmerConfiguration, \
-    GroupActionConfiguration, RoomConfiguration, \
-    ScheduledActionConfiguration, ShutterConfiguration, \
-    ShutterGroupConfiguration, StartupActionConfiguration
 from platform_utils import Platform
 from power import power_api
 from serial_utils import CommunicationTimedOutException
 
 if False:  # MYPY:
-    from typing import Any, Dict
+    from typing import Any, Dict, List
 
 logger = logging.getLogger('openmotics')
 
@@ -69,7 +64,7 @@ class GatewayApi(object):
     @Inject
     def __init__(self,
                  master_controller=INJECTED, power_communicator=INJECTED,
-                 power_controller=INJECTED, eeprom_controller=INJECTED, pulse_controller=INJECTED,
+                 power_controller=INJECTED, pulse_controller=INJECTED,
                  message_client=INJECTED, observer=INJECTED, configuration_controller=INJECTED, shutter_controller=INJECTED):
         """
         :param master_communicator: Master communicator
@@ -95,7 +90,6 @@ class GatewayApi(object):
         """
         self.__master_controller = master_controller  # type: MasterController
         self.__config_controller = configuration_controller
-        self.__eeprom_controller = eeprom_controller
         self.__power_communicator = power_communicator
         self.__power_controller = power_controller
         self.__pulse_controller = pulse_controller
@@ -139,10 +133,10 @@ class GatewayApi(object):
             return 'UTC'
 
     def maintenance_mode_stopped(self):
+        # type: () -> None
         """ Called when maintenance mode is stopped """
+        self.__master_controller.invalidate_caches()
         self.__observer.invalidate_cache()
-        self.__eeprom_controller.invalidate_cache()  # Eeprom can be changed in maintenance mode.
-        self.__eeprom_controller.dirty = True
         self.__message_client.send_event(OMBusEvents.DIRTY_EEPROM, None)
 
     def get_status(self):
@@ -859,6 +853,7 @@ class GatewayApi(object):
         self.__master_controller.save_outputs(config)
 
     def get_shutter_configuration(self, shutter_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific shutter_configuration defined by its id.
 
@@ -868,10 +863,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        # TODO: work with shutter controller
-        return self.__eeprom_controller.read(ShutterConfiguration, shutter_id, fields).serialize()
+        return self.__master_controller.load_shutter_configuration(shutter_id, fields=fields)
 
     def get_shutter_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all shutter_configurations.
 
@@ -879,34 +874,34 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        # TODO: work with shutter controller
-        return [o.serialize() for o in self.__eeprom_controller.read_all(ShutterConfiguration, fields)]
+        return self.__master_controller.load_shutter_configurations(fields=fields)
 
     def set_shutter_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one shutter_configuration.
 
         :param config: The shutter_configuration to set
         :type config: shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        # TODO: work with shutter controller
-        self.__eeprom_controller.write(ShutterConfiguration.deserialize(config))
+        self.__master_controller.save_shutter_configuration(config)
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
         self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def set_shutter_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple shutter_configurations.
 
         :param config: The list of shutter_configurations to set
         :type config: list of shutter_configuration dict: contains 'id' (Id), 'group_1' (Byte), 'group_2' (Byte), 'name' (String[16]), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte), 'up_down_config' (Byte)
         """
-        # TODO: work with shutter controller
-        self.__eeprom_controller.write_batch([ShutterConfiguration.deserialize(o) for o in config])
+        self.__master_controller.save_shutter_configurations(config)
         self.__observer.invalidate_cache(Observer.Types.SHUTTERS)
         self.__shutter_controller.update_config(self.get_shutter_configurations())
 
     def get_shutter_group_configuration(self, group_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific shutter_group_configuration defined by its id.
 
@@ -916,10 +911,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        # TODO: work with shutter controller
-        return self.__eeprom_controller.read(ShutterGroupConfiguration, group_id, fields).serialize()
+        return self.__master_controller.load_shutter_group_configuration(group_id, fields=fields)
 
     def get_shutter_group_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all shutter_group_configurations.
 
@@ -927,28 +922,27 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        # TODO: work with shutter controller
-        return [o.serialize() for o in self.__eeprom_controller.read_all(ShutterGroupConfiguration, fields)]
+        return self.__master_controller.load_shutter_group_configurations(fields=fields)
 
     def set_shutter_group_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one shutter_group_configuration.
 
         :param config: The shutter_group_configuration to set
         :type config: shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        # TODO: work with shutter controller
-        self.__eeprom_controller.write(ShutterGroupConfiguration.deserialize(config))
+        self.__master_controller.save_shutter_group_configuration(config)
 
     def set_shutter_group_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple shutter_group_configurations.
 
         :param config: The list of shutter_group_configurations to set
         :type config: list of shutter_group_configuration dict: contains 'id' (Id), 'room' (Byte), 'timer_down' (Byte), 'timer_up' (Byte)
         """
-        # TODO: work with shutter controller
-        self.__eeprom_controller.write_batch([ShutterGroupConfiguration.deserialize(o) for o in config])
+        self.__master_controller.save_shutter_group_configurations(config)
 
     def get_input_configuration(self, input_id, fields=None):
         """ Get a specific input_configuration defined by its id. """
@@ -971,6 +965,7 @@ class GatewayApi(object):
         self.__master_controller.save_inputs(config)
 
     def get_group_action_configuration(self, group_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific group_action_configuration defined by its id.
 
@@ -980,9 +975,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        return self.__eeprom_controller.read(GroupActionConfiguration, group_action_id, fields).serialize()
+        return self.__master_controller.load_group_action_configuration(group_action_id, fields=fields)
 
     def get_group_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all group_action_configurations.
 
@@ -990,27 +986,30 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(GroupActionConfiguration, fields)]
+        return self.__master_controller.load_group_action_configurations(fields=fields)
 
     def set_group_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one group_action_configuration.
 
         :param config: The group_action_configuration to set
         :type config: group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        self.__eeprom_controller.write(GroupActionConfiguration.deserialize(config))
+        self.__master_controller.save_group_action_configuration(config)
 
     def set_group_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple group_action_configurations.
 
         :param config: The list of group_action_configurations to set
         :type config: list of group_action_configuration dict: contains 'id' (Id), 'actions' (Actions[16]), 'name' (String[16])
         """
-        self.__eeprom_controller.write_batch([GroupActionConfiguration.deserialize(o) for o in config])
+        self.__master_controller.save_group_action_configurations(config)
 
     def get_scheduled_action_configuration(self, scheduled_action_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific scheduled_action_configuration defined by its id.
 
@@ -1020,9 +1019,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        return self.__eeprom_controller.read(ScheduledActionConfiguration, scheduled_action_id, fields).serialize()
+        return self.__master_controller.load_scheduled_action_configuration(scheduled_action_id, fields=fields)
 
     def get_scheduled_action_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all scheduled_action_configurations.
 
@@ -1030,27 +1030,30 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(ScheduledActionConfiguration, fields)]
+        return self.__master_controller.load_scheduled_action_configurations(fields=fields)
 
     def set_scheduled_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one scheduled_action_configuration.
 
         :param config: The scheduled_action_configuration to set
         :type config: scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        self.__eeprom_controller.write(ScheduledActionConfiguration.deserialize(config))
+        self.__master_controller.save_scheduled_action_configuration(config)
 
     def set_scheduled_action_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple scheduled_action_configurations.
 
         :param config: The list of scheduled_action_configurations to set
         :type config: list of scheduled_action_configuration dict: contains 'id' (Id), 'action' (Actions[1]), 'day' (Byte), 'hour' (Byte), 'minute' (Byte)
         """
-        self.__eeprom_controller.write_batch([ScheduledActionConfiguration.deserialize(o) for o in config])
+        self.__master_controller.save_scheduled_action_configurations(config)
 
     def get_startup_action_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
         """
         Get the startup_action_configuration.
 
@@ -1058,18 +1061,20 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: startup_action_configuration dict: contains 'actions' (Actions[100])
         """
-        return self.__eeprom_controller.read(StartupActionConfiguration, fields).serialize()
+        return self.__master_controller.load_startup_action_configuration(fields=fields)
 
     def set_startup_action_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set the startup_action_configuration.
 
         :param config: The startup_action_configuration to set
         :type config: startup_action_configuration dict: contains 'actions' (Actions[100])
         """
-        self.__eeprom_controller.write(StartupActionConfiguration.deserialize(config))
+        self.__master_controller.save_startup_action_configuration(config)
 
     def get_dimmer_configuration(self, fields=None):
+        # type: (Any) -> Dict[str,Any]
         """
         Get the dimmer_configuration.
 
@@ -1077,18 +1082,20 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: dimmer_configuration dict: contains 'dim_memory' (Byte), 'dim_step' (Byte), 'dim_wait_cycle' (Byte), 'min_dim_level' (Byte)
         """
-        return self.__eeprom_controller.read(DimmerConfiguration, fields).serialize()
+        return self.__master_controller.load_dimmer_configuration(fields=fields)
 
     def set_dimmer_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set the dimmer_configuration.
 
         :param config: The dimmer_configuration to set
         :type config: dimmer_configuration dict: contains 'dim_memory' (Byte), 'dim_step' (Byte), 'dim_wait_cycle' (Byte), 'min_dim_level' (Byte)
         """
-        self.__eeprom_controller.write(DimmerConfiguration.deserialize(config))
+        self.__master_controller.save_dimmer_configuration(config)
 
     def get_can_led_configuration(self, can_led_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific can_led_configuration defined by its id.
 
@@ -1098,9 +1105,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        return self.__eeprom_controller.read(CanLedConfiguration, can_led_id, fields).serialize()
+        return self.__master_controller.load_can_led_configuration(can_led_id, fields=fields)
 
     def get_can_led_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all can_led_configurations.
 
@@ -1108,30 +1116,30 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        if Platform.get_platform() == Platform.Type.CLASSIC:
-            return [o.serialize() for o in self.__eeprom_controller.read_all(CanLedConfiguration, fields)]
-        else:
-            return [] # TODO: implement
+        return self.__master_controller.load_can_led_configurations(fields=fields)
 
     def set_can_led_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one can_led_configuration.
 
         :param config: The can_led_configuration to set
         :type config: can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        self.__eeprom_controller.write(CanLedConfiguration.deserialize(config))
+        self.__master_controller.save_can_led_configuration(config)
 
     def set_can_led_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple can_led_configurations.
 
         :param config: The list of can_led_configurations to set
         :type config: list of can_led_configuration dict: contains 'id' (Id), 'can_led_1_function' (Enum), 'can_led_1_id' (Byte), 'can_led_2_function' (Enum), 'can_led_2_id' (Byte), 'can_led_3_function' (Enum), 'can_led_3_id' (Byte), 'can_led_4_function' (Enum), 'can_led_4_id' (Byte), 'room' (Byte)
         """
-        self.__eeprom_controller.write_batch([CanLedConfiguration.deserialize(o) for o in config])
+        self.__master_controller.save_can_led_configurations(config)
 
     def get_room_configuration(self, room_id, fields=None):
+        # type: (int, Any) -> Dict[str,Any]
         """
         Get a specific room_configuration defined by its id.
 
@@ -1141,9 +1149,10 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        return self.__eeprom_controller.read(RoomConfiguration, room_id, fields).serialize()
+        return self.__master_controller.load_room_configuration(room_id, fields=fields)
 
     def get_room_configurations(self, fields=None):
+        # type: (Any) -> List[Dict[str,Any]]
         """
         Get all room_configurations.
 
@@ -1151,32 +1160,33 @@ class GatewayApi(object):
         :type fields: List of strings
         :returns: list of room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        return [o.serialize() for o in self.__eeprom_controller.read_all(RoomConfiguration, fields)]
+        return self.__master_controller.load_room_configurations(fields=fields)
 
     def set_room_configuration(self, config):
+        # type: (Dict[str,Any]) -> None
         """
         Set one room_configuration.
 
         :param config: The room_configuration to set
         :type config: room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        self.__eeprom_controller.write(RoomConfiguration.deserialize(config))
+        return self.__master_controller.save_room_configuration(config)
 
     def set_room_configurations(self, config):
+        # type: (List[Dict[str,Any]]) -> None
         """
         Set multiple room_configurations.
 
         :param config: The list of room_configurations to set
         :type config: list of room_configuration dict: contains 'id' (Id), 'floor' (Byte), 'name' (String)
         """
-        self.__eeprom_controller.write_batch([RoomConfiguration.deserialize(o) for o in config])
+        return self.__master_controller.save_room_configurations(config)
 
     # End of auto generated functions
 
-    def get_reset_eeprom_dirty_flag(self):
-        dirty = self.__eeprom_controller.dirty
-        self.__eeprom_controller.dirty = False
-        return dirty
+    def get_configuration_dirty_flag(self):
+        # type: () -> bool
+        return self.__master_controller.get_configuration_dirty_flag()
 
     # Power functions
 
