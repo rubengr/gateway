@@ -221,7 +221,6 @@ class OpenmoticsService(object):
         thermostat_controller.start()
         metrics_collector.start()
         web_service.start()
-        gateway_api.start()
         plugin_controller.start()
         communication_led_controller.start()
         event_sender.start()

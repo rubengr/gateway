@@ -105,9 +105,6 @@ class GatewayApi(object):
 
         self.__previous_on_outputs = set()
 
-    def start(self):
-        pass
-
     def set_plugin_controller(self, plugin_controller):
         """ Set the plugin controller. """
         self.__master_controller.set_plugin_controller(plugin_controller)
