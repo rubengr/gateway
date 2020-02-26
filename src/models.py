@@ -46,7 +46,7 @@ class Database(object):
 @post_save()
 def db_metrics_handler(sender, instance, created):
     _, _ = instance, created
-    Database.incr_metrics(sender.__name__.lowercase())
+    Database.incr_metrics(sender.__name__.lower())
 
 
 class BaseModel(Model):
