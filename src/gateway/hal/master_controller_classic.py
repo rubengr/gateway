@@ -80,10 +80,6 @@ class MasterClassicController(MasterController):
         self._module_log = []  # type: List[Tuple[str,str]]
 
         self._master_communicator.register_consumer(
-            BackgroundConsumer(master_api.input_list(self._master_version), 0,
-                               self._on_master_input_change)
-        )
-        self._master_communicator.register_consumer(
             BackgroundConsumer(master_api.output_list(), 0, self._on_master_output_change, True)
         )
         self._master_communicator.register_consumer(
@@ -106,7 +102,7 @@ class MasterClassicController(MasterController):
                 # Validate communicator checks
                 if self._time_last_updated < now - 300:
                     self._check_master_time()
-                    self._time_last_updated
+                    self._time_last_updated = now
                 if self._communications_last_updated < now - 60:
                     self._check_master_communications()
                     self._communications_last_updated = now
@@ -114,10 +110,10 @@ class MasterClassicController(MasterController):
                     self._check_master_settings()
                     self._settings_last_updated = now
                 # Refresh if required
-                if self._output_last_updated + self._output_interval < time:
+                if self._output_last_updated + self._output_interval < now:
                     self._refresh_outputs()
                     self._set_master_state(True)
-                if self._input_last_updated + self._input_interval < time:
+                if self._input_last_updated + self._input_interval < now:
                     self._refresh_inputs()
                     self._set_master_state(True)
                 time.sleep(1)
@@ -132,15 +128,21 @@ class MasterClassicController(MasterController):
                 logger.exception('Unexpected error during synchronization: {0}'.format(ex))
                 time.sleep(10)
 
-
     def _get_master_version(self):
         if self._master_version is None:
             self._master_version = self.get_firmware_version()
             self._set_master_state(True)
+            self._register_version_depending_background_consumers()
 
     def _set_master_state(self, online):
         if online != self._master_online:
             self._master_online = online
+
+    def _register_version_depending_background_consumers(self):
+        self._master_communicator.register_consumer(
+            BackgroundConsumer(master_api.input_list(self._master_version), 0,
+                               self._on_master_input_change)
+        )
 
     def _check_master_time(self):
         # type: () -> None
@@ -754,9 +756,9 @@ class MasterClassicController(MasterController):
                 if _is_can or _module_address.bytes[0].lower() == _module_address.bytes[0]:
                     return formatted_address, None, None
                 _module_version = self._master_communicator.do_command(master_api.get_module_version(),
-                                                                        {'addr': _module_address.bytes},
-                                                                        extended_crc=True,
-                                                                        timeout=1)
+                                                                       {'addr': _module_address.bytes},
+                                                                       extended_crc=True,
+                                                                       timeout=1)
                 _firmware_version = '{0}.{1}.{2}'.format(_module_version['f1'], _module_version['f2'], _module_version['f3'])
                 return formatted_address, _module_version['hw_version'], _firmware_version
             except CommunicationTimedOutException:
@@ -881,7 +883,7 @@ class MasterClassicController(MasterController):
 
         for bank in range(0, num_banks):
             read = self._master_communicator.do_command(master_api.eeprom_list(),
-                                                         {'bank': bank})['data']
+                                                        {'bank': bank})['data']
             for addr in range(0, bank_size, write_size):
                 orig = read[addr:addr + write_size]
                 new = data[bank * bank_size + addr: bank * bank_size + addr + len(orig)]
