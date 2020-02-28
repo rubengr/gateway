@@ -418,7 +418,10 @@ class VPNService(object):
             timestamp = int(filename.replace('/tmp/debug_', '').replace('.json', ''))
             if timestamp not in self._debug_data:
                 with open(filename, 'r') as debug_file:
-                    self._debug_data[timestamp] = json.load(debug_file)
+                    try:
+                        self._debug_data[timestamp] = json.load(debug_file)
+                    except ValueError as ex:
+                        logger.warning('Error parsing crash dump: {0}'.format(ex))
             found_timestamps.append(timestamp)
         for timestamp in self._debug_data:
             if timestamp not in found_timestamps:
