@@ -81,7 +81,8 @@ class MasterClassicControllerTest(unittest.TestCase):
     def test_input_event_consumer(self):
         with mock.patch.object(gateway.hal.master_controller_classic, 'BackgroundConsumer',
                                return_value=None) as consumer:
-            get_classic_controller_dummy()
+            controller = get_classic_controller_dummy()
+            controller._register_version_depending_background_consumers()
             expected_call = mock.call(master.master_api.input_list(None), 0, mock.ANY)
             self.assertIn(expected_call, consumer.call_args_list)
 
@@ -97,10 +98,11 @@ class MasterClassicControllerTest(unittest.TestCase):
         with mock.patch.object(gateway.hal.master_controller_classic, 'BackgroundConsumer',
                                side_effect=new_consumer) as new_consumer:
             controller = get_classic_controller_dummy()
+            controller._register_version_depending_background_consumers()
             controller._input_config = {1: {}}  # TODO: cleanup
             controller.subscribe_event(subscriber.callback)
             new_consumer.assert_called()
-            consumer_list[0].deliver({'input': 1})
+            consumer_list[-1].deliver({'input': 1})
             from gateway.hal.master_controller_classic import MasterEvent
             expected_event = MasterEvent.deserialize({'type': 'INPUT_CHANGE',
                                                       'data': {'id': 1,
