@@ -611,4 +611,5 @@ class ThermostatControllerMaster(ThermostatController):
 
     def v0_get_thermostat_status(self):
         """ Returns thermostat information """
+        self._refresh_thermostats()  # Always return the latest information
         return self._thermostat_status.get_thermostats()
