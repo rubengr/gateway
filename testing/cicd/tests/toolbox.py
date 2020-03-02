@@ -19,6 +19,7 @@ from datetime import datetime
 
 import requests
 import ujson as json
+from requests.exceptions import ConnectionError, RequestException
 
 logger = logging.getLogger('openmotics')
 
@@ -46,19 +47,28 @@ class Client(object):
         else:
             return None
 
-    def get(self, path, params=None, headers=None, use_token=True):
-        # type: (str, Dict[str,Any], Dict[str,Any], bool) -> Any
+    def get(self, path, params=None, headers=None, use_token=True, timeout=30):
+        # type: (str, Dict[str,Any], Dict[str,Any], bool, float) -> Any
         params = params or {}
         headers = headers or {}
         uri = 'https://{}{}'.format(self._host, path)
         if use_token and self._token:
             headers['Authorization'] = 'Bearer {}'.format(self._token)
             logger.debug('GET {} {}'.format(path, params))
-        response = requests.get(uri, params=params, headers=headers, **self._default_kwargs)
-        data = response.json()
-        if isinstance(data, dict) and 'status' in data:
-            assert data['status'], 'content={}'.format(response.content)
-        return data
+
+        since = time.time()
+        while since > time.time() - timeout:
+            try:
+                response = requests.get(uri, params=params, headers=headers, **self._default_kwargs)
+                data = response.json()
+                if isinstance(data, dict) and 'success' in data:
+                    assert data['success'], 'content={}'.format(response.content)
+                return data
+            except (AssertionError, ConnectionError, RequestException) as exc:
+                logger.error('request {} failed {}, retrying...'.format(path, exc))
+                time.sleep(2)
+                pass
+        raise AssertionError('request {} failed after {:.2}s'.format(path, time.time() - since))
 
 
 class Observer(object):
@@ -112,12 +122,12 @@ class Observer(object):
         since = time.time()
         while since > time.time() - timeout:
             if output_id in self._outputs and output_status == self._outputs[output_id]:
-                logger.debug('received event o#{} -> {} after {:.2}s'.format(output_id, self._outputs[output_id], time.time() - since))
+                logger.info('received event o#{} status={} after {:.2}s'.format(output_id, self._outputs[output_id], time.time() - since))
                 return True
             if self.update_events():
                 continue
             time.sleep(0.2)
-        logger.error('receive event o#{} -> {}, timeout after {}'.format(output_id, output_status, time.time() - since))
+        logger.error('receive event o#{} status={}, timeout after {}'.format(output_id, output_status, time.time() - since))
         self.log_events()
         return False
 
@@ -137,6 +147,7 @@ class Toolbox(object):
         # type: (int, Dict[str,Any]) -> None
         config_data = {'id': output_id}
         config_data.update(**config)
+        logger.info('configure output o#{} with {}'.format(output_id, config))
         self.target.get('/set_output_configuration', {'config': json.dumps(config_data)})
 
     def ensure_output(self, output_id, status, config=None):
@@ -144,12 +155,14 @@ class Toolbox(object):
         if config:
             self.configure_output(output_id, config)
         state = ' '.join(self.observer.get_last_outputs())
-        logger.debug('ensure output o#{} is {}    outputs={}'.format(output_id, status, state))
+        logger.info('ensure output o#{} is {}    outputs={}'.format(output_id, status, state))
+        time.sleep(2)
         self.set_output(output_id, status)
         self.observer.reset()
 
     def set_output(self, output_id, status):
         # type: (int, int) -> None
+        logger.info('set output o#{} -> {}'.format(output_id, status))
         self.target.get('/set_output', {'id': output_id, 'is_on': status})
 
     def toggle_input(self, input_id):
@@ -159,24 +172,25 @@ class Toolbox(object):
         self.observer.get('/set_output', {'id': input_id, 'is_on': True})
         time.sleep(0.2)
         self.observer.get('/set_output', {'id': input_id, 'is_on': False})
-        logger.debug('toggled i#{} -> True -> False'.format(input_id))
+        logger.info('toggled i#{} -> True -> False'.format(input_id))
 
-    def assert_output_event(self, output_id, status, timeout=5):
+    def assert_output_event(self, output_id, status, timeout=120):
         # type: (int, bool, **Any) -> None
         if self.observer.receive_output_event(output_id, status, timeout=timeout):
             return
-        raise AssertionError('expected event o#{} -> {}'.format(output_id, status))
+        raise AssertionError('expected event o#{} status={}'.format(output_id, status))
 
-    def assert_output_status(self, output_id, status, timeout=5):
+    def assert_output_status(self, output_id, status, timeout=120):
         # type: (int, bool, **Any) -> None
         since = time.time()
         while since > time.time() - timeout:
             data = self.target.get('/get_output_status')
             current_status = data['status'][output_id]['status']
             if bool(status) == bool(current_status):
+                logger.info('get output status o#{} status={}, after {:.2}s'.format(output_id, status, time.time() - since))
                 return
             time.sleep(0.2)
         state = ' '.join(self.observer.get_last_outputs())
-        logger.error('expected status o#{} {} == {}    outputs={}'.format(output_id, status, bool(current_status), state))
+        logger.error('get status o#{} status={} != expected {}, timeout after {:.2}s    outputs={}'.format(output_id, bool(current_status), status, time.time() - since, state))
         self.observer.log_events()
-        raise AssertionError('expected status o#{} {} == {}'.format(output_id, status, bool(current_status)))
+        raise AssertionError('get status o#{} status={} != expected {}, timeout after {:.2}s'.format(output_id, bool(current_status), status, time.time() - since))

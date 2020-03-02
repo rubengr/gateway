@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import json
+import os
 import time
 
 from hypothesis import assume, given, reproduce_failure, settings
@@ -39,8 +40,9 @@ class IOComparison(RuleBasedStateMachine):
     def __init__(self):
         super(IOComparison, self).__init__()
         self.changed = False
-        self.inputs = xrange(0,1)
-        self.outputs = xrange(0,1)
+        modules = list(xrange(6, 8))
+        self.inputs = modules
+        self.outputs = modules
         self.toolbox = Toolbox()
 
     inputs = Bundle('inputs')
@@ -75,10 +77,9 @@ class IOComparison(RuleBasedStateMachine):
         input_config = {'id': input_id, 'action': o.output_id}
         self.toolbox.target.get('/set_input_configuration', {'config': json.dumps(input_config)})
 
-        # FIXME: workaround for input state bug?
-        time.sleep(0.2)
-        self.toolbox.ensure_output(o.output_id, False)
-        o.status = False
+        # FIXME: workaround
+        time.sleep(1)
+        self.toolbox.ensure_output(o.output_id, o.status)
 
         i = Input(input_id, o)
         return i
@@ -94,7 +95,7 @@ class IOComparison(RuleBasedStateMachine):
     def swap_output(self, o):
         self.changed = True
         o.status = not o.status
-        time.sleep(0.2)
+        time.sleep(1)
         self.toolbox.observer.reset()
         self.toolbox.set_output(o.output_id, o.status)
         self.toolbox.assert_output_event(o.output_id, o.status)
