@@ -47,7 +47,7 @@ class Client(object):
         else:
             return None
 
-    def get(self, path, params=None, headers=None, use_token=True, timeout=30):
+    def get(self, path, params=None, headers=None, use_token=True, timeout=120):
         # type: (str, Dict[str,Any], Dict[str,Any], bool, float) -> Any
         params = params or {}
         headers = headers or {}
@@ -66,7 +66,7 @@ class Client(object):
                 return data
             except (AssertionError, ConnectionError, RequestException) as exc:
                 logger.error('request {} failed {}, retrying...'.format(path, exc))
-                time.sleep(2)
+                time.sleep(16)
                 pass
         raise AssertionError('request {} failed after {:.2}s'.format(path, time.time() - since))
 
@@ -134,6 +134,8 @@ class Observer(object):
 
 
 class Toolbox(object):
+    DEBIAN_POWER_OUTPUT = 8
+
     def __init__(self):
         # type: () -> None
         observer_auth = os.environ['OPENMOTICS_OBSERVER_AUTH'].split(':')
@@ -142,6 +144,28 @@ class Toolbox(object):
         target_host = os.environ['OPENMOTICS_TARGET_HOST']
         self.observer = Observer(Client(observer_host, auth=observer_auth))
         self.target = Client(target_host, auth=target_auth)
+
+    def power_cycle(self):
+        # type: () -> None
+        logger.info('start power cycle')
+        self.observer.get('/set_output', {'id': self.DEBIAN_POWER_OUTPUT, 'is_on': False})
+        time.sleep(30)
+        self.ensure_power_on()
+        self.target.login()
+        time.sleep(30)
+
+    def ensure_power_on(self, timeout=120):
+        # type: (float) -> None
+        self.observer.get('/set_output', {'id': self.DEBIAN_POWER_OUTPUT, 'is_on': True})
+        since = time.time()
+        while since > time.time() - timeout:
+            data = self.target.get('/health_check')
+            pending = [k for k, v in data['health'].items() if not v['state']]
+            if pending == []:
+                return
+            logger.info('wait for health check, {}'.format(pending))
+            time.sleep(2)
+        raise AssertionError('health check failed {}'.format(pending))
 
     def configure_output(self, output_id, config):
         # type: (int, Dict[str,Any]) -> None

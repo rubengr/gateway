@@ -81,6 +81,18 @@ def test_timezone_change(toolbox, set_timezone):
 
 
 @pytest.fixture
+def power_on(request, toolbox):
+    yield
+    toolbox.ensure_power_on()
+
+
+@pytest.mark.power
+@pytest.mark.skip(reason='makes other tests unreliable')
+def test_power_cycle(toolbox, power_on):
+    toolbox.power_cycle()
+
+
+@pytest.fixture
 def discover_mode(request, toolbox):
     yield
     toolbox.target.get('/module_discover_stop')
