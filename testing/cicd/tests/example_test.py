@@ -14,19 +14,70 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 import time
+from datetime import datetime
 
 import hypothesis
 import pytest
 import ujson as json
 from hypothesis.strategies import booleans, integers, just, one_of
+from pytz import timezone
 from requests.packages import urllib3
 
 logger = logging.getLogger('openmotics')
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-def example_io(**kwargs):
-    return integers(min_value=0, max_value=5, **kwargs)
+def test_health_check(toolbox):
+    data = toolbox.target.get('/health_check')
+    assert 'health' in data
+    assert data['health']['led_service']['state']
+    assert data['health']['vpn_service']['state']
+    assert data['health']['openmotics']['state']
+
+
+def test_features(toolbox):
+    data = toolbox.target.get('/get_features')
+    assert 'features' in data
+    assert 'input_states' in data['features']
+
+
+def test_version(toolbox):
+    data = toolbox.target.get('/get_version')
+    assert 'version' in data
+    assert 'gateway' in data
+
+
+@pytest.fixture
+def set_timezone(request, toolbox):
+    yield
+    toolbox.target.get('/set_timezone', params={'timezone': 'UTC'})
+
+
+@pytest.mark.time
+def test_status_timezone(toolbox, set_timezone):
+    data = toolbox.target.get('/get_timezone')
+    assert 'timezone' in data
+    assert data['timezone'] == 'UTC'
+
+    now = datetime.utcnow()
+    data = toolbox.target.get('/get_status')
+    assert 'time' in data
+    assert data['time'] == now.strftime('%H:%M')
+
+
+@pytest.mark.time
+def test_timezone_change(toolbox, set_timezone):
+    toolbox.target.get('/set_timezone', params={'timezone': 'America/Bahia'})
+
+    data = toolbox.target.get('/get_timezone')
+    assert 'timezone' in data
+    assert data['timezone'] == 'America/Bahia'
+
+    bahia_timezone = timezone('America/Bahia')
+    now = datetime.now(bahia_timezone)
+    data = toolbox.target.get('/get_status')
+    assert 'time' in data
+    assert data['time'] == now.strftime('%H:%M')
 
 
 @pytest.fixture
@@ -49,6 +100,10 @@ def test_module_discover(toolbox, discover_mode):
     assert 'I' in data['inputs']
     assert 'outputs' in data
     assert 'O' in data['outputs']
+
+
+def example_io(**kwargs):
+    return integers(min_value=0, max_value=5, **kwargs)
 
 
 @pytest.mark.output
