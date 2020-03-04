@@ -209,8 +209,7 @@ class System(object):
     @staticmethod
     def import_libs():
         operating_system = System._get_operating_system()['ID']
-        current_file_path = os.path.dirname(os.path.abspath(__file__))
-        sys.path.insert(0, '{0}/../dist-packages/'.format(current_file_path))
+        sys.path.insert(0, '/opt/openmotics/dist-packages/')
 
         # Patching where/if required
         if operating_system == System.OS.ANGSTROM:
