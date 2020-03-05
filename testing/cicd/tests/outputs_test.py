@@ -23,19 +23,23 @@ logger = logging.getLogger('openmotics')
 
 
 @composite
-def build_output(draw, min_modules=0):
+def next_output(draw, min_modules=0):
+    used_values = []
     def f(toolbox):
         modules = toolbox.list_modules('O', min_modules=min_modules)
-        return draw(integers(min_value=0, max_value=len(modules) * 8 - 1))
+        value = draw(integers(min_value=0, max_value=len(modules) * 8 - 1).filter(lambda x: x not in used_values))
+        used_values.append(value)
+        hypothesis.note('module o#{}'.format(value))
+        return value
     return f
 
 
 @pytest.mark.smoke
-@hypothesis.given(build_output(), booleans())
-def test_events(toolbox, build_output, output_status):
-    output_id = build_output(toolbox)
+@hypothesis.given(next_output(), booleans())
+def test_events(toolbox, next_output, output_status):
+    output_id = next_output(toolbox)
     logger.info('output status o#{}, expect event {} -> {}'.format(output_id, not output_status, output_status))
-    output_config = {'timer': 2**16 - 1}
+    output_config = {'type': 0, 'timer': 2**16 - 1}
     toolbox.ensure_output(output_id, not output_status, output_config)
 
     toolbox.set_output(output_id, output_status)
@@ -43,11 +47,11 @@ def test_events(toolbox, build_output, output_status):
 
 
 @pytest.mark.smoke
-@hypothesis.given(build_output(), booleans(), booleans())
-def test_status(toolbox, build_output, previous_output_status, output_status):
-    output_id = build_output(toolbox)
+@hypothesis.given(next_output(), booleans(), booleans())
+def test_status(toolbox, next_output, previous_output_status, output_status):
+    output_id = next_output(toolbox)
     logger.info('output status o#{}, expect status {} -> {}'.format(output_id, previous_output_status, output_status))
-    output_config = {'timer': 2**16 - 1}
+    output_config = {'type': 0, 'timer': 2**16 - 1}
     toolbox.configure_output(output_id, output_config)
 
     toolbox.set_output(output_id, previous_output_status)
@@ -57,13 +61,40 @@ def test_status(toolbox, build_output, previous_output_status, output_status):
 
 
 @pytest.mark.smoke
-@hypothesis.given(build_output(), just(True))
-def test_timers(toolbox, build_output, output_status):
-    output_id = build_output(toolbox)
+@hypothesis.given(next_output(), just(True))
+def test_timers(toolbox, next_output, output_status):
+    output_id = next_output(toolbox)
     logger.info('output timer o#{}, expect event {} -> {}'.format(output_id, output_status, not output_status))
-    output_config = {'timer': 3}  # FIXME: event reordering with timer of <2s
+    output_config = {'type': 0, 'timer': 10}  # FIXME: event reordering with timer of <2s
     toolbox.ensure_output(output_id, False, output_config)
 
     toolbox.set_output(output_id, output_status)
-    # toolbox.assert_output_event(output_id, output_status)
+    toolbox.assert_output_event(output_id, output_status)
     toolbox.assert_output_event(output_id, not output_status)
+
+
+@pytest.mark.smoke
+@hypothesis.given(next_output(), integers(min_value=0, max_value=254), just(True))
+def test_floor_lights(toolbox, next_output, floor_id, output_status):
+    light_id, other_light_id, other_output_id = (next_output(toolbox), next_output(toolbox), next_output(toolbox))
+    logger.info('light o#{} on floor {}, expect event {} -> {}'.format(light_id, floor_id, not output_status, output_status))
+
+    output_config = {'type': 255, 'floor': floor_id, 'timer': 2**16 - 1}
+    toolbox.ensure_output(light_id, not output_status, output_config)
+    output_config = {'type': 255, 'floor': 255, 'timer': 2**16 - 1}  # no floor
+    toolbox.ensure_output(other_light_id, not output_status, output_config)
+    output_config = {'type': 0, 'floor': floor_id, 'timer': 2**16 - 1}  # not a light
+    toolbox.ensure_output(other_output_id, not output_status, output_config)
+    time.sleep(2)
+
+    logger.info('enable all lights on floor {}'.format(floor_id))
+    toolbox.target.get('/set_all_lights_floor_on', params={'floor': floor_id})
+    toolbox.assert_output_event(light_id, output_status)
+    toolbox.assert_output_status(other_light_id, not output_status)
+    toolbox.assert_output_status(other_output_id, not output_status)
+
+    logger.info('disable all lights on floor {}'.format(floor_id))
+    toolbox.target.get('/set_all_lights_floor_off', params={'floor': floor_id})
+    toolbox.assert_output_event(light_id, not output_status)
+    toolbox.assert_output_status(other_light_id, not output_status)
+    toolbox.assert_output_status(other_output_id, not output_status)

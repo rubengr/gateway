@@ -24,25 +24,33 @@ logger = logging.getLogger('openmotics')
 
 
 @composite
-def build_input(draw, min_modules=0):
+def next_input(draw, min_modules=0):
+    used_values = []
     def f(toolbox):
         modules = toolbox.list_modules('I', min_modules=min_modules)
-        return draw(integers(min_value=0, max_value=len(modules) * 8 - 1))
+        value = draw(integers(min_value=0, max_value=len(modules) * 8 - 1))
+        used_values.append(value)
+        hypothesis.note('module i#{}'.format(value))
+        return value
     return f
 
 
 @composite
-def build_output(draw, min_modules=0):
+def next_output(draw, min_modules=0):
+    used_values = []
     def f(toolbox):
         modules = toolbox.list_modules('O', min_modules=min_modules)
-        return draw(integers(min_value=0, max_value=len(modules) * 8 - 1))
+        value = draw(integers(min_value=0, max_value=len(modules) * 8 - 1).filter(lambda x: x not in used_values))
+        used_values.append(value)
+        hypothesis.note('module o#{}'.format(value))
+        return value
     return f
 
 
 @pytest.mark.smoke
-@hypothesis.given(build_input(), build_output(), booleans())
-def test_actions(toolbox, build_input, build_output, output_status):
-    input_id, output_id = (build_input(toolbox), build_output(toolbox))
+@hypothesis.given(next_input(), next_output(), booleans())
+def test_actions(toolbox, next_input, next_output, output_status):
+    input_id, output_id = (next_input(toolbox), next_output(toolbox))
     logger.info('input action i#{} to o#{}, expect event {} -> {}'.format(input_id, output_id, not output_status, output_status))
 
     input_config = json.dumps({'id': input_id, 'action': output_id, 'invert': 255})
@@ -55,3 +63,25 @@ def test_actions(toolbox, build_input, build_output, output_status):
 
     toolbox.toggle_input(input_id)
     toolbox.assert_output_event(output_id, output_status)
+
+
+@pytest.mark.slow
+@hypothesis.given(next_input(), next_output(), just(True))
+def test_motion_sensor(toolbox, next_input, next_output, output_status):
+    input_id, output_id = (next_input(toolbox), next_output(toolbox))
+
+    logger.info('motion sensor i#{} to o#{}, expect event {} -> {} after 2m30s'.format(input_id, output_id, output_status, not output_status))
+    actions = ['195', str(output_id)]  # output timeout of 2m30s
+    input_config = json.dumps({'id': input_id, 'basic_actions': ','.join(actions), 'action': 240, 'invert': 255})
+    toolbox.target.get('/set_input_configuration', {'config': input_config})
+
+    # NOTE ensure output status _after_ input configuration, changing
+    # inputs can impact the output status for some reason.
+    output_config = {'timer': 2**16 - 1}
+    toolbox.ensure_output(output_id, not output_status, output_config)
+
+    toolbox.toggle_input(input_id)
+    toolbox.assert_output_event(output_id, output_status)
+    logger.warning('should use a shorter timeout, waiting for 2m30s')
+    time.sleep(180)
+    toolbox.assert_output_event(output_id, not output_status)

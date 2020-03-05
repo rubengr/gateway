@@ -68,7 +68,7 @@ class Client(object):
                 logger.error('request {} failed {}, retrying...'.format(path, exc))
                 time.sleep(16)
                 pass
-        raise AssertionError('request {} failed after {:.2}s'.format(path, time.time() - since))
+        raise AssertionError('request {} failed after {:.2f}s'.format(path, time.time() - since))
 
 
 class Observer(object):
@@ -122,12 +122,12 @@ class Observer(object):
         since = time.time()
         while since > time.time() - timeout:
             if output_id in self._outputs and output_status == self._outputs[output_id]:
-                logger.info('received event o#{} status={} after {:.2}s'.format(output_id, self._outputs[output_id], time.time() - since))
+                logger.info('received event o#{} status={} after {:.2f}s'.format(output_id, self._outputs[output_id], time.time() - since))
                 return True
             if self.update_events():
                 continue
             time.sleep(0.2)
-        logger.error('receive event o#{} status={}, timeout after {}'.format(output_id, output_status, time.time() - since))
+        logger.error('receive event o#{} status={}, timeout after {:.2f}s'.format(output_id, output_status, time.time() - since))
         self.log_events()
         return False
 
@@ -217,10 +217,10 @@ class Toolbox(object):
             data = self.target.get('/get_output_status')
             current_status = data['status'][output_id]['status']
             if bool(status) == bool(current_status):
-                logger.info('get output status o#{} status={}, after {:.2}s'.format(output_id, status, time.time() - since))
+                logger.info('get output status o#{} status={}, after {:.2f}s'.format(output_id, status, time.time() - since))
                 return
             time.sleep(0.2)
         state = ' '.join(self.observer.get_last_outputs())
-        logger.error('get status o#{} status={} != expected {}, timeout after {:.2}s    outputs={}'.format(output_id, bool(current_status), status, time.time() - since, state))
+        logger.error('get status o#{} status={} != expected {}, timeout after {:.2f}s    outputs={}'.format(output_id, bool(current_status), status, time.time() - since, state))
         self.observer.log_events()
-        raise AssertionError('get status o#{} status={} != expected {}, timeout after {:.2}s'.format(output_id, bool(current_status), status, time.time() - since))
+        raise AssertionError('get status o#{} status={} != expected {}, timeout after {:.2f}s'.format(output_id, bool(current_status), status, time.time() - since))
