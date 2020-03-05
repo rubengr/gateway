@@ -201,6 +201,7 @@ def bootload_energy_module(module_address, hex_file, power_communicator):
 
     logger.info('E{0} - Going to bootloader'.format(module_address))
     power_communicator.do_command(module_address, power_api.bootloader_goto(power_api.ENERGY_MODULE), 10)
+    logger.info('E{0} - Bootloader version: {1}'.format(module_address, get_module_firmware_version(module_address, power_api.ENERGY_MODULE, power_communicator)))
 
     try:
         logger.info('E{0} - Erasing code...'.format(module_address))
@@ -214,6 +215,18 @@ def bootload_energy_module(module_address, hex_file, power_communicator):
     finally:
         logger.info('E{0} - Jumping to application'.format(module_address))
         power_communicator.do_command(module_address, power_api.bootloader_jump_application())
+
+    tries = 0
+    while True:
+        try:
+            tries += 1
+            logger.info('E{0} - Waiting for application...'.format(module_address))
+            logger.info('E{0} - Version: {1}'.format(module_address, get_module_firmware_version(module_address, power_api.ENERGY_MODULE, power_communicator)))
+            break
+        except Exception:
+            if tries >= 3:
+                raise
+            time.sleep(1)
 
     if calibration_data is not None:
         time.sleep(1)
