@@ -17,6 +17,7 @@ import time
 
 import hypothesis
 import pytest
+import ujson as json
 from hypothesis.strategies import booleans, composite, integers, just, one_of
 
 logger = logging.getLogger('openmotics')
@@ -98,3 +99,23 @@ def test_floor_lights(toolbox, next_output, floor_id, output_status):
     toolbox.assert_output_event(light_id, not output_status)
     toolbox.assert_output_status(other_light_id, not output_status)
     toolbox.assert_output_status(other_output_id, not output_status)
+
+
+@pytest.mark.smoke
+@hypothesis.given(next_output(), integers(min_value=0, max_value=159), booleans())
+def test_group_action_toggle(toolbox, next_output, group_action_id, output_status):
+    (output_id, other_output_id) = (next_output(toolbox), next_output(toolbox))
+    logger.info('group action a#{} for o#{} o#{}, expect event {} -> {}'.format(group_action_id, output_id, other_output_id, not output_status, output_status))
+
+    actions = ['162', str(output_id), '162', str(other_output_id)]  # toggle both outputs
+    config = {'id': group_action_id, 'actions': ','.join(actions)}
+    toolbox.target.get('/set_group_action_configuration', params={'config': json.dumps(config)})
+    time.sleep(2)
+
+    output_config = {'type': 0, 'timer': 2**16 - 1}
+    toolbox.ensure_output(output_id, not output_status, output_config)
+    toolbox.ensure_output(other_output_id, not output_status, output_config)
+
+    toolbox.target.get('/do_group_action', {'group_action_id': group_action_id})
+    toolbox.assert_output_event(output_id, output_status)
+    toolbox.assert_output_event(other_output_id, output_status)
