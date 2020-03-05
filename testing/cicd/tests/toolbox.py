@@ -132,7 +132,6 @@ class Observer(object):
         return False
 
 
-
 class Toolbox(object):
     DEBIAN_POWER_OUTPUT = 8
 
@@ -144,6 +143,13 @@ class Toolbox(object):
         target_host = os.environ['OPENMOTICS_TARGET_HOST']
         self.observer = Observer(Client(observer_host, auth=observer_auth))
         self.target = Client(target_host, auth=target_auth)
+
+    def list_modules(self, module_type, min_modules=1):
+        # type: (str, int) -> List[Dict[str,Any]]
+        data = self.target.get('/get_modules_information')
+        modules = [x for x in data['modules']['master'].values() if x['type'] == module_type and x['firmware']]
+        assert len(modules) >= min_modules, 'Not enough modules of type {} available'.format(module_type)
+        return modules
 
     def power_cycle(self):
         # type: () -> None

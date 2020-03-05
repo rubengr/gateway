@@ -40,10 +40,12 @@ class IOComparison(RuleBasedStateMachine):
     def __init__(self):
         super(IOComparison, self).__init__()
         self.changed = False
-        modules = list(xrange(6, 8))
-        self.inputs = modules
-        self.outputs = modules
         self.toolbox = Toolbox()
+
+        modules = self.toolbox.list_modules('I')
+        self.inputs = range(0, len(modules) * 8)
+        modules = self.toolbox.list_modules('O')
+        self.outputs = range(0, len(modules) * 8)
 
     inputs = Bundle('inputs')
     outputs = Bundle('outputs')
