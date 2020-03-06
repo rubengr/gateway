@@ -57,8 +57,13 @@ def test_module_discover(toolbox, discover_mode):
     logger.info('start module discovery')
     toolbox.target.get('/module_discover_start')
     time.sleep(2)
+
     data = toolbox.target.get('/module_discover_status')
     assert data['running'] == True
+    toolbox.discover_input_module()
+    toolbox.discover_output_module()
+    time.sleep(2)
+
     toolbox.target.get('/module_discover_stop')
 
     data = toolbox.target.get('/get_modules')
@@ -108,7 +113,6 @@ def test_authorized_mode(toolbox, authorized_mode):
     data = toolbox.target.get('/get_usernames', success=False)
     assert not data['success'] and data['msg'] == 'unauthorized'
 
-    logger.info('start authorized mode')
     toolbox.start_authorized_mode()
     data = toolbox.target.get('/get_usernames')
     assert 'openmotics' in data['usernames']
@@ -118,10 +122,11 @@ def test_authorized_mode(toolbox, authorized_mode):
 def test_factory_reset(toolbox, authorized_mode, discover_mode):
     logger.info('factory reset')
     toolbox.target.get('/factory_reset')
+    time.sleep(2)
 
     toolbox.start_authorized_mode()
     data = toolbox.target.get('/get_usernames', use_token=False)
-    assert 'openmotics' not in data['usernames']
+    logger.info('users after reset {}'.format(data['usernames']))
 
     toolbox.create_or_update_user()
     time.sleep(2)
@@ -131,6 +136,7 @@ def test_factory_reset(toolbox, authorized_mode, discover_mode):
 
     logger.info('start module discover')
     toolbox.target.get('/module_discover_start')
+    time.sleep(2)
     data = toolbox.target.get('/get_modules')
     assert 'inputs' in data
     assert data['inputs'] == []

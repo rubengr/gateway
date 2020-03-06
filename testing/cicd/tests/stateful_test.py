@@ -16,6 +16,7 @@ import json
 import os
 import time
 
+import pytest
 from hypothesis import assume, given, reproduce_failure, settings
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, consumes, \
     initialize, invariant, precondition, rule
@@ -36,16 +37,15 @@ class Input(object):
         self.linked_output = linked_output
 
 
+@pytest.mark.stateful
 class IOComparison(RuleBasedStateMachine):
     def __init__(self):
         super(IOComparison, self).__init__()
         self.changed = False
         self.toolbox = Toolbox()
 
-        modules = self.toolbox.list_modules('I')
-        self.inputs = range(0, len(modules) * 8)
-        modules = self.toolbox.list_modules('O')
-        self.outputs = range(0, len(modules) * 8)
+        self.inputs = self.toolbox.target_inputs
+        self.outputs = self.toolbox.target_outputs
 
     inputs = Bundle('inputs')
     outputs = Bundle('outputs')
@@ -109,4 +109,7 @@ class IOComparison(RuleBasedStateMachine):
         self.toolbox.assert_output_status(o.output_id, o.status)
 
 
-TestIOComparison = IOComparison.TestCase
+class TestIOComparison(IOComparison.TestCase):  # type: ignore
+    @pytest.mark.stateful
+    def runTest(self):
+        super(TestIOComparison, self).runTest()

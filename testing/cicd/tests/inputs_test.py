@@ -24,10 +24,10 @@ logger = logging.getLogger('openmotics')
 
 
 @composite
-def next_input(draw, min_modules=0):
+def next_input(draw):
     used_values = []
     def f(toolbox):
-        value = draw(one_of(map(just, toolbox.target_inputs)))
+        value = draw(one_of(map(just, toolbox.target_inputs)).filter(lambda x: x not in used_values))
         used_values.append(value)
         hypothesis.note('module i#{}'.format(value))
         return value
@@ -35,10 +35,10 @@ def next_input(draw, min_modules=0):
 
 
 @composite
-def next_output(draw, min_modules=0):
+def next_output(draw):
     used_values = []
     def f(toolbox):
-        value = draw(one_of(map(just, toolbox.target_outputs)))
+        value = draw(one_of(map(just, toolbox.target_outputs)).filter(lambda x: x not in used_values))
         used_values.append(value)
         hypothesis.note('module o#{}'.format(value))
         return value
@@ -64,6 +64,7 @@ def test_actions(toolbox, next_input, next_output, output_status):
 
 
 @pytest.mark.slow
+@hypothesis.settings(max_examples=2)
 @hypothesis.given(next_input(), next_output(), just(True))
 def test_motion_sensor(toolbox, next_input, next_output, output_status):
     input_id, output_id = (next_input(toolbox), next_output(toolbox))

@@ -42,12 +42,12 @@ class Client(object):
             self._token = self.login()
         return self._token
 
-    def login(self):
-        # type: () -> Optional[str]
+    def login(self, timeout=30):
+        # type: (float) -> Optional[str]
         if self._auth:
             self._token = None
             params = {'username': self._auth[0], 'password': self._auth[1], 'accept_terms': True}
-            data = self.get('/login', params=params, use_token=False)
+            data = self.get('/login', params=params, use_token=False, timeout=timeout)
             if 'token' in data:
                 return data['token']
             else:
@@ -55,7 +55,7 @@ class Client(object):
         else:
             return None
 
-    def get(self, path, params=None, headers=None, success=True, use_token=True, timeout=120):
+    def get(self, path, params=None, headers=None, success=True, use_token=True, timeout=30):
         # type: (str, Dict[str,Any], Dict[str,Any], bool, bool, float) -> Any
         params = params or {}
         headers = headers or {}
@@ -212,12 +212,12 @@ class Toolbox(object):
             time.sleep(10)
         raise AssertionError('authorized mode still activate after {:.2f}s'.format(time.time() - since))
 
-    def create_or_update_user(self):
-        # type: () -> None
+    def create_or_update_user(self, success=True):
+        # type: (bool) -> None
         logger.info('create or update test user')
         assert self.target._auth
         user_data = {'username': self.target._auth[0], 'password': self.target._auth[1]}
-        self.target.get('/create_user', params=user_data, use_token=False)
+        self.target.get('/create_user', params=user_data, use_token=False, success=success)
 
     def discover_input_module(self):
         # type: () -> None
@@ -233,20 +233,22 @@ class Toolbox(object):
         self.observer.get('/set_output', {'id': self.DEBIAN_POWER_OUTPUT, 'is_on': False})
         time.sleep(30)
         self.ensure_power_on()
+        logger.info('waiting 5m for system to stabilize')
+        time.sleep(300)
         self.target.login()
-        time.sleep(120)
 
     def ensure_power_on(self, timeout=120):
         # type: (float) -> None
         self.observer.get('/set_output', {'id': self.DEBIAN_POWER_OUTPUT, 'is_on': True})
+        self.target.login(timeout=timeout)
         since = time.time()
         while since > time.time() - timeout:
-            data = self.target.get('/health_check')
+            data = self.target.get('/health_check', timeout=timeout)
             pending = [k for k, v in data['health'].items() if not v['state']]
             if pending == []:
                 return
             logger.info('wait for health check, {}'.format(pending))
-            time.sleep(2)
+            time.sleep(10)
         raise AssertionError('health check failed {}'.format(pending))
 
     def configure_output(self, output_id, config):
@@ -280,13 +282,13 @@ class Toolbox(object):
         self.observer.get('/set_output', {'id': input_id, 'is_on': False})
         logger.info('toggled i#{} -> True -> False'.format(input_id))
 
-    def assert_output_event(self, output_id, status, timeout=120):
+    def assert_output_event(self, output_id, status, timeout=30):
         # type: (int, bool, **Any) -> None
         if self.observer.receive_output_event(output_id, status, timeout=timeout):
             return
         raise AssertionError('expected event o#{} status={}'.format(output_id, status))
 
-    def assert_output_status(self, output_id, status, timeout=120):
+    def assert_output_status(self, output_id, status, timeout=30):
         # type: (int, bool, **Any) -> None
         since = time.time()
         while since > time.time() - timeout:
