@@ -33,12 +33,20 @@ class Client(object):
         self._host = host
         self._auth = auth
         self._default_kwargs = {'verify': False}
-        self._token = self.login()
+        self._token = None  # type: Optional[str]
+
+    @property
+    def token(self):
+        # type: () -> Optional[str]
+        if self._token is None:
+            self._token = self.login()
+        return self._token
 
     def login(self):
         # type: () -> Optional[str]
         if self._auth:
-            params = {'username': self._auth[0], 'password': self._auth[1]}
+            self._token = None
+            params = {'username': self._auth[0], 'password': self._auth[1], 'accept_terms': True}
             data = self.get('/login', params=params, use_token=False)
             if 'token' in data:
                 return data['token']
@@ -47,13 +55,13 @@ class Client(object):
         else:
             return None
 
-    def get(self, path, params=None, headers=None, use_token=True, timeout=120):
-        # type: (str, Dict[str,Any], Dict[str,Any], bool, float) -> Any
+    def get(self, path, params=None, headers=None, success=True, use_token=True, timeout=120):
+        # type: (str, Dict[str,Any], Dict[str,Any], bool, bool, float) -> Any
         params = params or {}
         headers = headers or {}
         uri = 'https://{}{}'.format(self._host, path)
-        if use_token and self._token:
-            headers['Authorization'] = 'Bearer {}'.format(self._token)
+        if use_token:
+            headers['Authorization'] = 'Bearer {}'.format(self.token)
             logger.debug('GET {} {}'.format(path, params))
 
         since = time.time()
@@ -61,7 +69,7 @@ class Client(object):
             try:
                 response = requests.get(uri, params=params, headers=headers, **self._default_kwargs)
                 data = response.json()
-                if isinstance(data, dict) and 'success' in data:
+                if success and 'success' in data:
                     assert data['success'], 'content={}'.format(response.content)
                 return data
             except (AssertionError, ConnectionError, RequestException) as exc:
@@ -133,16 +141,50 @@ class Observer(object):
 
 
 class Toolbox(object):
+    DEBIAN_AUTHORIZED_MODE = 13
+    DEBIAN_DISCOVER_INPUT = 14
+    DEBIAN_DISCOVER_OUTPUT = 15
     DEBIAN_POWER_OUTPUT = 8
 
     def __init__(self):
         # type: () -> None
-        observer_auth = os.environ['OPENMOTICS_OBSERVER_AUTH'].split(':')
-        observer_host = os.environ['OPENMOTICS_OBSERVER_HOST']
-        target_auth = os.environ['OPENMOTICS_TARGET_AUTH'].split(':')
-        target_host = os.environ['OPENMOTICS_TARGET_HOST']
-        self.observer = Observer(Client(observer_host, auth=observer_auth))
-        self.target = Client(target_host, auth=target_auth)
+        self._observer = None  # type: Optional[Observer]
+        self._target = None  # type: Optional[Client]
+        self._target_inputs = None  # type: Optional[List[int]]
+        self._target_outputs = None  # type: Optional[List[int]]
+
+    @property
+    def observer(self):
+        # type: () -> Observer
+        if self._observer is None:
+            observer_auth = os.environ['OPENMOTICS_OBSERVER_AUTH'].split(':')
+            observer_host = os.environ['OPENMOTICS_OBSERVER_HOST']
+            self._observer = Observer(Client(observer_host, auth=observer_auth))
+        return self._observer
+
+    @property
+    def target(self):
+        # type: () -> Client
+        if self._target is None:
+            target_auth = os.environ['OPENMOTICS_TARGET_AUTH'].split(':')
+            target_host = os.environ['OPENMOTICS_TARGET_HOST']
+            self._target = Client(target_host, auth=target_auth)
+        return self._target
+
+    @property
+    def target_inputs(self):
+        # type: () -> List[int]
+        if self._target_inputs is None:
+            input_modules = self.list_modules('I')
+            self._target_inputs = range(0, len(input_modules) * 8 - 1)
+        return self._target_inputs
+
+    @property
+    def target_outputs(self):
+        if self._target_outputs is None:
+            output_modules = self.list_modules('O')
+            self._target_outputs = range(0, len(output_modules) * 8 - 1)
+        return self._target_outputs
 
     def list_modules(self, module_type, min_modules=1):
         # type: (str, int) -> List[Dict[str,Any]]
@@ -151,6 +193,40 @@ class Toolbox(object):
         assert len(modules) >= min_modules, 'Not enough modules of type {} available'.format(module_type)
         return modules
 
+    def start_authorized_mode(self):
+        # type: () -> None
+        logger.info('start authorized mode')
+        self.observer.get('/set_output', {'id': self.DEBIAN_AUTHORIZED_MODE, 'is_on': True})
+        time.sleep(15)
+        self.observer.get('/set_output', {'id': self.DEBIAN_AUTHORIZED_MODE, 'is_on': False})
+
+    def wait_authorized_mode(self, timeout=240):
+        # type: (float) -> None
+        logger.debug('wait for authorized mode timeout')
+        since = time.time()
+        while since > time.time() - timeout:
+            data = self.target.get('/get_usernames', success=False)
+            if not data['success'] and data.get('msg') == 'unauthorized':
+                return
+            logger.debug('authorized mode still active, waiting {}'.format(data))
+            time.sleep(10)
+        raise AssertionError('authorized mode still activate after {:.2f}s'.format(time.time() - since))
+
+    def create_or_update_user(self):
+        # type: () -> None
+        logger.info('create or update test user')
+        assert self.target._auth
+        user_data = {'username': self.target._auth[0], 'password': self.target._auth[1]}
+        self.target.get('/create_user', params=user_data, use_token=False)
+
+    def discover_input_module(self):
+        # type: () -> None
+        self.toggle_input(self.DEBIAN_DISCOVER_INPUT)
+
+    def discover_output_module(self):
+        # type: () -> None
+        self.toggle_input(self.DEBIAN_DISCOVER_OUTPUT)
+
     def power_cycle(self):
         # type: () -> None
         logger.info('start power cycle')
@@ -158,7 +234,7 @@ class Toolbox(object):
         time.sleep(30)
         self.ensure_power_on()
         self.target.login()
-        time.sleep(30)
+        time.sleep(120)
 
     def ensure_power_on(self, timeout=120):
         # type: (float) -> None

@@ -41,15 +41,20 @@ def discover_mode(request, toolbox):
     toolbox.target.get('/module_discover_stop')
 
 
+@pytest.fixture
+def authorized_mode(request, toolbox):
+    yield
+    toolbox.wait_authorized_mode()
+
+
 @pytest.mark.slow
-@pytest.mark.skip(reason='makes other tests unreliable')
 def test_power_cycle(toolbox, power_on):
     toolbox.power_cycle()
 
 
 @pytest.mark.smoke
 def test_module_discover(toolbox, discover_mode):
-    logger.info('starting module discovery')
+    logger.info('start module discovery')
     toolbox.target.get('/module_discover_start')
     time.sleep(2)
     data = toolbox.target.get('/module_discover_status')
@@ -70,7 +75,7 @@ def test_maintenance(toolbox):
     data = toolbox.target.get('/get_status')
     expected_version = 'F{} H{}'.format(data['version'], data['hw_version'])
 
-    logger.info('starting maintenance')
+    logger.info('start maintenance')
     data = toolbox.target.get('/open_maintenance')
     assert 'port' in data
 
@@ -96,3 +101,53 @@ def test_maintenance(toolbox):
     assert ssl_sock.recv(1024).strip() == expected_version
     ssl_sock.send('exit\r\n')
     ssl_sock.close()
+
+
+@pytest.mark.slow
+def test_authorized_mode(toolbox, authorized_mode):
+    data = toolbox.target.get('/get_usernames', success=False)
+    assert not data['success'] and data['msg'] == 'unauthorized'
+
+    logger.info('start authorized mode')
+    toolbox.start_authorized_mode()
+    data = toolbox.target.get('/get_usernames')
+    assert 'openmotics' in data['usernames']
+
+
+@pytest.mark.slow
+def test_factory_reset(toolbox, authorized_mode, discover_mode):
+    logger.info('factory reset')
+    toolbox.target.get('/factory_reset')
+
+    toolbox.start_authorized_mode()
+    data = toolbox.target.get('/get_usernames', use_token=False)
+    assert 'openmotics' not in data['usernames']
+
+    toolbox.create_or_update_user()
+    time.sleep(2)
+    data = toolbox.target.get('/get_usernames', use_token=False)
+    assert 'openmotics' in data['usernames']
+    toolbox.target.login()
+
+    logger.info('start module discover')
+    toolbox.target.get('/module_discover_start')
+    data = toolbox.target.get('/get_modules')
+    assert 'inputs' in data
+    assert data['inputs'] == []
+    assert 'outputs' in data
+    assert data['outputs'] == []
+
+    toolbox.discover_input_module()
+    toolbox.discover_output_module()
+    time.sleep(2)
+    data = toolbox.target.get('/get_modules')
+    assert 'inputs' in data
+    assert 'I' in data['inputs']
+    assert 'outputs' in data
+    assert 'O' in data['outputs']
+
+    toolbox.target.get('/module_discover_stop')
+    data = toolbox.target.get('/get_modules_information')
+    modules = data['modules']['master'].values()
+    assert set(['I', 'O']) == set(x['type'] for x in modules)
+    assert None not in [x['firmware'] for x in modules]

@@ -27,8 +27,7 @@ logger = logging.getLogger('openmotics')
 def next_output(draw, min_modules=0):
     used_values = []
     def f(toolbox):
-        modules = toolbox.list_modules('O', min_modules=min_modules)
-        value = draw(integers(min_value=0, max_value=len(modules) * 8 - 1).filter(lambda x: x not in used_values))
+        value = draw(one_of(map(just, toolbox.target_outputs)))
         used_values.append(value)
         hypothesis.note('module o#{}'.format(value))
         return value
