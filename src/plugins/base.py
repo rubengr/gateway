@@ -92,7 +92,7 @@ class PluginController(object):
         for package_name in package_names:
             runner = self.__runners.get(package_name)
             if runner is not None:
-                self.__start_plugin_runner(runner, package_name)
+                self.__start_plugin_runner(runner, package_name, False)
 
     def __init_plugin_runner(self, plugin_name):
         """ Initializes a single plugin runner """
@@ -100,19 +100,21 @@ class PluginController(object):
             if plugin_name in self.__runners.keys():
                 self.log(plugin_name, '[Runner] Could not init plugin', 'Multiple plugins with the same name found')
                 return
-            logger = self.get_logger(plugin_name)
+            _logger = self.get_logger(plugin_name)
             plugin_path = os.path.join(self.__plugins_path, plugin_name)
-            runner = PluginRunner(plugin_name, self.__runtime_path, plugin_path, logger)
+            runner = PluginRunner(plugin_name, self.__runtime_path, plugin_path, _logger)
             self.__runners[runner.name] = runner
             return runner
         except Exception as exception:
             self.log(plugin_name, '[Runner] Could not initialize plugin', exception)
 
-    def __start_plugin_runner(self, runner, runner_name):
+    def __start_plugin_runner(self, runner, runner_name, update_dependencies):
         """ Starts a single plugin runner """
         try:
             logger.info('Plugin {0}: {1}'.format(runner_name, 'Starting...'))
             runner.start()
+            if update_dependencies:
+                self.__update_dependencies()
             logger.info('Plugin {0}: {1}'.format(runner_name, 'Starting... Done'))
         except Exception as exception:
             try:
@@ -127,10 +129,10 @@ class PluginController(object):
         if runner is None:
             return False
         if not runner.is_running():
-            self.__start_plugin_runner(runner, plugin_name)
+            self.__start_plugin_runner(runner, plugin_name, True)
         return runner.is_running()
 
-    def __stop_plugin_runner(self, runner_name):
+    def __stop_plugin_runner(self, runner_name, update_dependencies):
         """ Stops a single plugin runner """
         runner = self.__runners.get(runner_name)
         if runner is None:
@@ -138,6 +140,8 @@ class PluginController(object):
         try:
             logger.info('Plugin {0}: {1}'.format(runner.name, 'Stopping...'))
             runner.stop()
+            if update_dependencies:
+                self.__update_dependencies()
             logger.info('Plugin {0}: {1}'.format(runner.name, 'Stopping... Done'))
         except Exception as exception:
             self.log(runner.name, '[Runner] Could not stop plugin', exception)
@@ -147,12 +151,12 @@ class PluginController(object):
         runner = self.__runners.get(plugin_name)
         if runner is None:
             return False
-        self.__stop_plugin_runner(runner.name)
+        self.__stop_plugin_runner(runner.name, True)
         return runner.is_running()
 
     def __destroy_plugin_runner(self, runner_name):
         """ Removes a runner """
-        self.__stop_plugin_runner(runner_name)
+        self.__stop_plugin_runner(runner_name, False)
         self.__logs.pop(runner_name, None)
         self.__runners.pop(runner_name, None)
 
@@ -215,8 +219,8 @@ class PluginController(object):
                     pass
 
             # Check if the package contains a valid plugin
-            logger = self.get_logger('new_package')
-            runner = PluginRunner(None, self.__runtime_path, '{0}/new_package'.format(tmp_dir), logger)
+            _logger = self.get_logger('new_package')
+            runner = PluginRunner(None, self.__runtime_path, '{0}/new_package'.format(tmp_dir), _logger)
             runner.start()
             runner.stop()
             name, version = runner.name, runner.version
@@ -253,7 +257,7 @@ class PluginController(object):
             runner = self.__init_plugin_runner(name)
             if runner is None:
                 raise Exception('Could not initialize plugin.')
-            self.__start_plugin_runner(runner, name)
+            self.__start_plugin_runner(runner, name, True)
             self.__update_dependencies()
 
             return 'Plugin successfully installed'
