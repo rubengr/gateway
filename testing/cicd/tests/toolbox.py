@@ -96,9 +96,9 @@ class Observer(object):
         else:
             return []
 
-    def get(self, path, params=None, headers=None, use_token=True):
-        # type: (str, Dict[str,Any], Dict[str,Any], bool) -> Any
-        return self._client.get(path, params=params, headers=headers, use_token=use_token)
+    def get(self, path, params=None, headers=None, success=True, use_token=True):
+        # type: (str, Dict[str,Any], Dict[str,Any], bool, bool) -> Any
+        return self._client.get(path, params=params, headers=headers, success=True, use_token=use_token)
 
     def log_events(self):
         # type: () -> None

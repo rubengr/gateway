@@ -55,6 +55,13 @@ class SyslogReceiver(OMPluginBase):
                 self.logger('error: {}'.format(e))
 
     @om_expose
+    def reset(self):
+        # type: () -> str
+        with self._lock:
+            self._logs.clear()
+            return json.dumps({'logs': list(self._logs)})
+
+    @om_expose
     def logs(self):
         # type: () -> str
         with self._lock:
