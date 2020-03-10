@@ -32,7 +32,7 @@ import master.master_api as master_api
 from ioc import Injectable, Inject, INJECTED
 from ConfigParser import ConfigParser
 from serial import Serial
-from master.master_communicator import MasterCommunicator
+from master.master_communicator import MasterCommunicator, CommunicationTimedOutException
 from master.eeprom_controller import EepromFile, EepromAddress
 
 
@@ -191,14 +191,16 @@ def do_command(logger, master_communicator, action, retry=True, success_code=0):
         error_message = str(exception)
         if error_message == '':
             error_message = exception.__class__.__name__
-        logger('Got exception while executing command: {0}'.format(error_message))
+        if isinstance(exception, CommunicationTimedOutException):
+            logger('Got timeout while executing command')
+        else:
+            logger('Got exception while executing command: {0}'.format(error_message))
         if retry:
             logger('Retrying...')
             result = master_communicator.do_command(*action)
             check_result(cmd, result, success_code)
             return result
-        else:
-            raise exception
+        raise
 
 
 def bootload(master_communicator, address, ihex, crc, blocks, logger):
@@ -283,15 +285,21 @@ def bootload(master_communicator, address, ihex, crc, blocks, logger):
                create_bl_action(master_api.modules_goto_application(),
                                 {'addr': address}))
 
-    time.sleep(2)
-
-    logger('Checking the version')
-    result = do_command(logger,
-                        master_communicator,
-                        create_bl_action(master_api.modules_get_version(),
-                                         {'addr': address}),
-                        success_code=255)
-    logger('New version: v{0}.{1}.{2}'.format(result['f1'], result['f2'], result['f3']))
+    tries = 0
+    while True:
+        try:
+            tries += 1
+            logger('Waiting for application...')
+            result = do_command(logger,
+                                master_communicator,
+                                create_bl_action(master_api.modules_get_version(), {'addr': address}),
+                                success_code=255)
+            logger('New version: v{0}.{1}.{2}'.format(result['f1'], result['f2'], result['f3']))
+            break
+        except Exception:
+            if tries >= 5:
+                raise
+            time.sleep(1)
 
     logger('Resetting error list')
     master_communicator.do_command(master_api.clear_error_list())
