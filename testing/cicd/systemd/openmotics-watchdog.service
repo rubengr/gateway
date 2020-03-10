@@ -1,0 +1,13 @@
+[Unit]
+Description=OpenMotics Watchdog
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/bin/python2 watchdog.py
+WorkingDirectory=/opt/openmotics/python
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

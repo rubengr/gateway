@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenMotics Gateway Service
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/bin/python2 openmotics_service.py
+WorkingDirectory=/opt/openmotics/python
+SyslogIdentifier=openmotics
+StandardOutput=syslog
+StandardError=syslog
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

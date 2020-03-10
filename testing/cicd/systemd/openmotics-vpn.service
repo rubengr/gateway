@@ -1,0 +1,13 @@
+[Unit]
+Description=OpenMotics VPN
+After=network.target
+
+[Service]
+User=root
+ExecStart=/usr/bin/python2 vpn_service.py
+WorkingDirectory=/opt/openmotics/python
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
