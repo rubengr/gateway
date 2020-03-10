@@ -16,29 +16,33 @@
 
 
 import base64
-import cherrypy
-import constants
 import logging
-import msgpack
 import os
-import requests
 import subprocess
 import sys
 import threading
 import time
 import uuid
+
+import cherrypy
+import msgpack
+import requests
 import ujson as json
-from ioc import Injectable, Inject, INJECTED, Singleton
 from cherrypy.lib.static import serve_file
 from decorator import decorator
+
+import constants
+import gateway
 from bus.om_bus_events import OMBusEvents
-from gateway.shutters import ShutterController
 from gateway.maintenance_communicator import InMaintenanceModeException
-from power.power_communicator import InAddressModeException
-from platform_utils import System
-from serial_utils import CommunicationTimedOutException
-from gateway.websockets import OMPlugin, OMSocketTool, MetricsSocket, EventsSocket, MaintenanceSocket
+from gateway.shutters import ShutterController
+from gateway.websockets import EventsSocket, MaintenanceSocket, \
+    MetricsSocket, OMPlugin, OMSocketTool
+from ioc import INJECTED, Inject, Injectable, Singleton
 from models import Feature
+from platform_utils import System
+from power.power_communicator import InAddressModeException
+from serial_utils import CommunicationTimedOutException
 
 logger = logging.getLogger("openmotics")
 
@@ -2072,7 +2076,7 @@ class WebInterface(object):
         :rtype: dict
         """
         return {'version': self._gateway_api.get_main_version(),
-                'gateway': '2.14.1'}
+                'gateway': gateway.__version__}
 
     @openmotics_api(auth=True, plugin_exposed=False)
     def update(self, version, md5, update_data):

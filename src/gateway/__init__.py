@@ -13,3 +13,5 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """ Module containing the functionality provided by the gateway. """
+
+__version__ = '2.14.1'
