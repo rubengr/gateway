@@ -46,7 +46,6 @@ def test_version(toolbox):
 
 @pytest.fixture
 def set_timezone(request, toolbox):
-    yield
     toolbox.target.get('/set_timezone', params={'timezone': 'UTC'})
 
 
