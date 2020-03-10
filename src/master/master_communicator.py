@@ -538,4 +538,7 @@ class BackgroundConsumer(object):
 
     def deliver(self, output):
         """ Deliver output to the thread waiting on get(). """
-        self.callback(output)
+        try:
+            self.callback(output)
+        except Exception:
+            logger.exception('Unexpected exception delivering BackgroundConsumer payload')
