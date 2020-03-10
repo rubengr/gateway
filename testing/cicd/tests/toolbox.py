@@ -221,11 +221,11 @@ class Toolbox(object):
 
     def discover_input_module(self):
         # type: () -> None
-        self.toggle_input(self.DEBIAN_DISCOVER_INPUT)
+        self.press_input(self.DEBIAN_DISCOVER_INPUT)
 
     def discover_output_module(self):
         # type: () -> None
-        self.toggle_input(self.DEBIAN_DISCOVER_OUTPUT)
+        self.press_input(self.DEBIAN_DISCOVER_OUTPUT)
 
     def power_cycle(self):
         # type: () -> None
@@ -273,7 +273,7 @@ class Toolbox(object):
         logger.info('set output o#{} -> {}'.format(output_id, status))
         self.target.get('/set_output', {'id': output_id, 'is_on': status})
 
-    def toggle_input(self, input_id):
+    def press_input(self, input_id):
         # type: (int) -> None
         self.observer.get('/set_output', {'id': input_id, 'is_on': False})  # ensure start status
         self.observer.reset()

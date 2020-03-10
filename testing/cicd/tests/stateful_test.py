@@ -87,11 +87,11 @@ class IOComparison(RuleBasedStateMachine):
         return i
 
     @rule(i=inputs)
-    def toggle_input(self, i):
+    def press_input(self, i):
         self.changed = True
         o = i.linked_output
         o.status = not o.status
-        self.toolbox.toggle_input(i.input_id)
+        self.toolbox.press_input(i.input_id)
 
     @rule(o=outputs)
     def swap_output(self, o):

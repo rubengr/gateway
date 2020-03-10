@@ -59,7 +59,7 @@ def test_actions(toolbox, next_input, next_output, output_status):
     output_config = {'timer': 2**16 - 1}
     toolbox.ensure_output(output_id, not output_status, output_config)
 
-    toolbox.toggle_input(input_id)
+    toolbox.press_input(input_id)
     toolbox.assert_output_event(output_id, output_status)
 
 
@@ -79,7 +79,7 @@ def test_motion_sensor(toolbox, next_input, next_output, output_status):
     output_config = {'timer': 2**16 - 1}
     toolbox.ensure_output(output_id, not output_status, output_config)
 
-    toolbox.toggle_input(input_id)
+    toolbox.press_input(input_id)
     toolbox.assert_output_event(output_id, output_status)
     logger.warning('should use a shorter timeout, waiting for 2m30s')
     time.sleep(180)
@@ -106,6 +106,6 @@ def test_group_action_toggle(toolbox, next_input, next_output, group_action_id, 
     toolbox.ensure_output(output_id, not output_status, output_config)
     toolbox.ensure_output(other_output_id, not output_status, output_config)
 
-    toolbox.toggle_input(input_id)
+    toolbox.press_input(input_id)
     toolbox.assert_output_event(output_id, output_status)
     toolbox.assert_output_event(other_output_id, output_status)
