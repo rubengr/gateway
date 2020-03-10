@@ -27,7 +27,7 @@ from threading import Thread
 from ioc import Injectable, Inject, INJECTED, Singleton
 from platform_utils import Platform
 from gateway.webservice import params_parser
-import ujson as json
+import json as json
 
 if Platform.get_platform() == Platform.Type.CLASSIC:
     from master.master_communicator import CommunicationTimedOutException
@@ -59,8 +59,6 @@ class Schedule(object):
 
     @property
     def is_due(self):
-        if self.status != 'ACTIVE':
-            return False
         if self.repeat is None:
             # Single-run schedules should start on their set starting time if not yet executed
             if self.last_executed is not None:
@@ -68,9 +66,9 @@ class Schedule(object):
             return self.start <= time.time()
         # Repeating
         timezone = pytz.timezone(Schedule.timezone)
-        now = datetime.now(timezone)
-        cron = croniter(self.repeat, now)
-        next_execution = cron.get_next(ret_type=float)
+        start_date = datetime.fromtimestamp(self.start, timezone)
+        cron = croniter(self.repeat, start_date)
+        next_execution = self.get_next_execution(self.start, cron)
         if self.next_execution is None:
             self.next_execution = next_execution
             return False
@@ -78,6 +76,13 @@ class Schedule(object):
             self.next_execution = next_execution
             return True
         return False
+
+    @staticmethod
+    def get_next_execution(start, cron):
+        next_execution = start
+        while next_execution <= time.time():
+            next_execution = cron.get_next(ret_type=float)
+        return next_execution
 
     @property
     def has_ended(self):
